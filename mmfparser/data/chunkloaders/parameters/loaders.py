@@ -203,9 +203,16 @@ class ExpressionParameter(ParameterCommon):
         return OPERATOR_LIST[self.comparison]
 
 POSITION_FLAGS = BitDict(
+    # Located flag
+    # True: transform position according to the direction of parent
+    # False: use position without transformation
     'Direction',
+    # Origin flag flag
     'Action',
+    # 2 orientation flags (both are set appropriately)
+    # True: use direction of parent
     'InitialDirection',
+    # True: use default movement direction
     'DefaultDirection'
 )
 
@@ -455,7 +462,7 @@ class Click(ParameterCommon):
         reader.writeByte(int(self.double))
         
     def getButton(self):
-        return CLICK_NAMES(self.click)
+        return CLICK_NAMES[self.click]
 
 class Bug(ParameterCommon):
     def read(self, reader):

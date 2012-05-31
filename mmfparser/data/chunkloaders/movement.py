@@ -127,7 +127,7 @@ class Ball(DataLoader):
         reader.writeShort(self.speed)
         reader.writeShort(self.randomizer)
         reader.writeShort(self.angles)
-        reader.writeShort(self.angles)
+        reader.writeShort(self.security)
         reader.writeShort(self.deceleration)
 
 class Path(DataLoader):

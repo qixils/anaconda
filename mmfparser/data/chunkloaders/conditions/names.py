@@ -90,11 +90,11 @@ systemDict = {
         -1 : 'NoAllObjectsInZone' # NoAllObjectsInZone_Old
     },
     -4 : {
-    -2 : 'TimerLess',
-    -5 : 'CompareAwayTime',
-    -4 : 'Every',
-    -3 : 'TimerEquals',
-    -1 : 'TimerGreater'
+        -2 : 'TimerLess',
+        -5 : 'CompareAwayTime',
+        -4 : 'Every',
+        -3 : 'TimerEquals',
+        -1 : 'TimerGreater'
     },
     -3 : {
         -1 : 'StartOfFrame',

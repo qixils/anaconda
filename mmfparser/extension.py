@@ -221,18 +221,25 @@ def copyMenu(dst, src):
                 user32.AppendMenuA(dst, MF_POPUP | MF_STRING, newmenu, strBuf)
                 copyMenu(newmenu, user32.GetSubMenu(src, n))
 
-def loadMenu(handle, resource):
+def loadMenu(handle, resource, verbose = True):
     user32 = windll.user32
     menu = user32.LoadMenuA(handle, resource)
     if not menu:
+        if verbose:
+            print 'could not load menu', handle, resource, menu
         return 0
     submenu = user32.GetSubMenu(menu, 0)
     if not submenu:
+        if verbose:
+            print 'could not load submenu'
         return 0
     popup = user32.CreatePopupMenu()
     if not popup:
+        if verbose:
+            print 'could not load popup'
         return 0
     copyMenu(popup, submenu)
+    user32.DestroyMenu(menu)
     return popup
 
 def getItems(hmenu, codeFunction):
@@ -424,9 +431,9 @@ class LoadedExtension(object):
     description = None
     runInfos = None
 
-    def __init__(self, library):
+    def __init__(self, library, descriptions = True):
         self.library = library
-        
+
         self.pluginVersion = library.GetInfos(KGI_PLUGIN)
         self.version = library.GetInfos(KGI_VERSION)
         
@@ -436,11 +443,14 @@ class LoadedExtension(object):
         
         if self.version == EXT_VERSION1:
             state.mv = _mv0
+            mv_name = 'mv0'
         elif self.version == EXT_VERSION2:
             if self.pluginVersion == EXT_VERSION1:
                 state.mv = _mv15
+                mv_name = 'mv15'
             else:
                 state.mv = _mv
+                mv_name = 'mv'
         
         try:
             library.Initialize(state.mv, 0)
@@ -448,21 +458,24 @@ class LoadedExtension(object):
             pass
             
         handle = library._handle
-        action_hmenu = loadMenu(handle, MN_ACTIONS)
-        condition_hmenu = loadMenu(handle, MN_CONDITIONS)
-        expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
+        self.action_hmenu = loadMenu(handle, MN_ACTIONS)
+        self.condition_hmenu = loadMenu(handle, MN_CONDITIONS)
+        self.expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
 
-        self.actionMenu = getActionMenu(self, action_hmenu)
-        self.actions = [Action(self, num)
-            for num in self.actionMenu.keys()]
+        self.actionMenu = getActionMenu(self, self.action_hmenu)
+        if descriptions:
+            self.actions = [Action(self, num)
+                for num in self.actionMenu.keys()]
             
-        self.conditionMenu = getConditionMenu(self, condition_hmenu)
-        self.conditions = [Condition(self, num) 
-            for num in self.conditionMenu.keys()]
+        self.conditionMenu = getConditionMenu(self, self.condition_hmenu)
+        if descriptions:
+            self.conditions = [Condition(self, num) 
+                for num in self.conditionMenu.keys()]
             
-        self.expressionMenu = getExpressionMenu(self, expression_hmenu)
-        self.expressions = [Expression(self, num) 
-            for num in self.expressionMenu.keys()]
+        self.expressionMenu = getExpressionMenu(self, self.expression_hmenu)
+        if descriptions:
+            self.expressions = [Expression(self, num) 
+                for num in self.expressionMenu.keys()]
         
         self.description = getDescription(self)
         self.runInfos = getRunInfos(self)

@@ -1800,8 +1800,11 @@ class ini_dict(OrderedDict):
         OrderedDict.__init__(self, *arg, **kw)
     
     def __setitem__(self, key, value):
-        if isinstance(value, str) and value[0] == value[-1] == '"':
-            value = value[1:-1]
+        try:
+            if type(value) == str and value[0] == value[-1] == '"':
+                value = value[1:-1]
+        except IndexError:
+            pass
         if key == '<empty>':
             key = ''
         transform = key.lower()
@@ -1849,6 +1852,8 @@ class DefaultObject(HiddenObject):
     key = None
     def created(self, data):
         self.results = []
+        data.skipBytes(2)
+        filename = data.readString()
         data.seek(3269)
         self.autoSave = data.readByte() == 1
         data.seek(3429)
@@ -1861,7 +1866,10 @@ class DefaultObject(HiddenObject):
                 return
             except KeyError:
                 pass
-        self.clear()
+        if filename:
+            self.load(filename)
+        else:
+            self.clear()
     
     def close(self):
         self.clear()

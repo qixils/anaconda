@@ -516,6 +516,9 @@ cdef class Instance(PlayerChild):
             self.set_effect(SUBTRACT_EFFECT)
         elif name == 'Add':
             self.set_effect(ADD_EFFECT)
+        elif name == 'Blend':
+            print parameters
+            self.set_effect(SEMITRANSPARENT_EFFECT, 0)
         elif name == '':
             self.set_effect(NONE_EFFECT)
         else:

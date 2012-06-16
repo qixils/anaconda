@@ -17,7 +17,6 @@
 
 DEF PROFILE = 0
 DEF PROFILE_LOAD = 0
-DEF COMMERCIAL = 1
 
 import time
 import os
@@ -43,7 +42,6 @@ from mmfparser.player.fbo import FBO
 import pyglet
 from pyglet.window import key
 from pyglet.window.key import user_key
-from pyglet.window.key import KeyStateHandler
 from pyglet.text import Label
 from mmfparser.player.win32.winkey import keymap
 from pyglet.gl import (GLint, glGetIntegerv, glClearColor, 
@@ -81,12 +79,6 @@ cdef bint SHOW_FPS = os.getenv('ANACONDA_SHOW_FPS', None) is not None or DEBUG
 
 cdef int SLEEP_XBORDER = 64
 cdef int SLEEP_YBORDER = 16
-
-IF not COMMERCIAL:
-    # oh-so-silly way of obfuscating
-    cdef object commercial_text = ('x\x9cs\xccKL\xce\xcfKIT(*\xcd+\xc9\xcc'
-        'M\xe5\xf2\xcb\xcf\xd3M\xce\xcf\xcdM-J\xceL\xccQ(K-*\xce\xcc\xcf'
-        '\x03\x00$\x15\x0e\xde').decode('zlib')
 
 class Keyboard(dict):
     def attach(self, window):
@@ -215,16 +207,6 @@ cdef class GamePlayer:
             font = pyglet.font.load('', 36, bold = True)
             self.fps_display = pyglet.font.Text(font, '', 
                 color=(0.5, 0.5, 0.5, 0.5), x = 10, y = 10)
-        
-        IF not COMMERCIAL:
-            # non-commercial note
-            if SHOW_FPS:
-                x = 73
-            else:
-                x = 12
-            self.commercial_label = Label(commercial_text, x = x, y = 31,
-                bold = True, font_size = 12, color = (121, 132, 209, 255),
-                multiline = True, width = 500)
         
         # players
         self.players = self.new(Players)
@@ -711,11 +693,8 @@ cdef class GamePlayer:
             glLoadIdentity()
             if self.fps_display is not None:
                 self.fps_display.draw()
-            IF not COMMERCIAL:
-                self.commercial_label.draw()
     
     def on_key_press(self, symbol, modifiers):
-        # I just kinda like this button <3
         if DEBUG and self.parent is None and symbol == user_key(0xDC):
             self.open_debug()
         elif self.paused and not self.resumeKey == -2:

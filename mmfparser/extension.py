@@ -431,6 +431,8 @@ class LoadedExtension(object):
     description = None
     runInfos = None
 
+    action_hmenu = condition_hmenu = expression_hmenu = None
+
     def __init__(self, library, descriptions = True):
         self.library = library
 
@@ -451,16 +453,17 @@ class LoadedExtension(object):
             else:
                 state.mv = _mv
                 mv_name = 'mv'
-        
+
         try:
             library.Initialize(state.mv, 0)
         except AttributeError:
             pass
             
-        handle = library._handle
-        self.action_hmenu = loadMenu(handle, MN_ACTIONS)
-        self.condition_hmenu = loadMenu(handle, MN_CONDITIONS)
-        self.expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
+        if False:
+            handle = library._handle
+            self.action_hmenu = loadMenu(handle, MN_ACTIONS)
+            self.condition_hmenu = loadMenu(handle, MN_CONDITIONS)
+            self.expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
 
         self.actionMenu = getActionMenu(self, self.action_hmenu)
         if descriptions:

@@ -108,8 +108,6 @@ if __name__ == '__main__':
                 print 'Exiting.'
                 raise SystemExit()
     
-            newPlayer = GamePlayer(gameData)
-            
             if not frozen:
                 path = sys.argv[1]
                 if extension != 'exe' and os.path.isfile(gameData.editorFilename):
@@ -122,6 +120,8 @@ if __name__ == '__main__':
                             os.chdir(newDirectory)
                         except OSError:
                             pass
+    
+            newPlayer = GamePlayer(gameData)
             
             if PROFILE:
                 import cProfile

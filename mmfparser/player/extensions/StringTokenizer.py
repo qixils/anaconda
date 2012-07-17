@@ -43,8 +43,8 @@ class Action0(Action):
 
     def execute(self, instance):
         instance.objectPlayer.set_string(
-            self.evaluate_expression(self.get_parameter(0)),
-            self.evaluate_expression(self.get_parameter(1)))
+            self.evaluate_index(0),
+            self.evaluate_index(1))
 
 class Action1(Action):
     """
@@ -58,9 +58,9 @@ class Action1(Action):
 
     def execute(self, instance):
         instance.objectPlayer.set_string_2d(
-            self.evaluate_expression(self.get_parameter(0)),
-            self.evaluate_expression(self.get_parameter(1)),
-            self.evaluate_expression(self.get_parameter(2)))
+            self.evaluate_index(0),
+            self.evaluate_index(1),
+            self.evaluate_index(2))
 
 # Expressions
 

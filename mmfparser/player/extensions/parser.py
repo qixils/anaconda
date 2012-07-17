@@ -56,7 +56,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             open_file(filename, 'wb').write(instance.objectPlayer.value)
         except IOError:
@@ -71,7 +71,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             instance.objectPlayer.value = open_file(filename, 'rb').read()
         except IOError:
@@ -86,7 +86,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             open_file(filename, 'a').write(instance.objectPlayer.value)
         except IOError:
@@ -101,7 +101,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             instance.objectPlayer.value += open_file(filename, 'rb').read()
         except IOError:
@@ -124,7 +124,7 @@ class Action6(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.delimiters.append(value)
         instance.objectPlayer.defaultDelimiter = value
 
@@ -138,8 +138,8 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        index = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        index = self.evaluate_index(1)
         try:
             instance.objectPlayer.delimiters[index] = value
         except IndexError:
@@ -155,7 +155,7 @@ class Action8(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(1)
         try:
             del instance.objectPlayer.delimiters[index]
         except IndexError:
@@ -170,7 +170,7 @@ class Action9(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         try:
             instance.objectPlayer.delimiters.remove(value)
         except ValueError:
@@ -185,7 +185,7 @@ class Action10(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         try:
             value = instance.objectPlayer.delimiters[index]
         except IndexError:
@@ -201,7 +201,7 @@ class Action11(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         if value not in instance.objectPlayer.delimiters:
             return
         instance.objectPlayer.defaultDelimiter = value
@@ -215,7 +215,7 @@ class Action12(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             f = open_file(filename, 'wb')
         except IOError:
@@ -232,7 +232,7 @@ class Action13(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             data = open_file(filename, 'rb').read().splitlines()
         except IOError:
@@ -252,7 +252,7 @@ class Action14(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             file = open_file(filename, 'wb')
         except IOError:
@@ -274,7 +274,7 @@ class Action15(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             data = open_file(filename, 'rb').read()
         except IOError:
@@ -354,7 +354,7 @@ class Action22(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             file = open_file(filename, 'wb')
         except IOError:
@@ -378,7 +378,7 @@ class Action23(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             file = open_file(filename, 'rb')
         except IOError:

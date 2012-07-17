@@ -22,8 +22,8 @@ from mmfparser.player.event.conditions.common import Condition
 
 class IsObstacle(Condition):
     def check(self):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         collision = Point(x, y)
         for layer in self.player.frame.layers:
             for instance in layer.obstacles:
@@ -33,8 +33,8 @@ class IsObstacle(Condition):
 
 class IsLadder(Condition):
     def check(self):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         for layer in self.player.frame.layers:
             if layer.ladder_at(x, y):
                 return not self.negated

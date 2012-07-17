@@ -18,7 +18,7 @@
 from mmfparser.player.instance cimport Instance
 from mmfparser.player.event.common cimport ACBase, ACEBase, ExpressionList
 
-DEF DEBUG = 1
+DEF DEBUG = 0
 
 cdef class Action(ACBase):
     cdef void initialize(self, loader):

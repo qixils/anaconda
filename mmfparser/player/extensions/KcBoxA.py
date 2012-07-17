@@ -42,8 +42,8 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        width = self.evaluate_expression(self.get_parameter(0))
-        height = self.evaluate_expression(self.get_parameter(1))
+        width = self.evaluate_index(0)
+        height = self.evaluate_index(1)
         instance.objectPlayer.set_size(width, height)
 
 class Action1(Action):
@@ -56,8 +56,8 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         instance.set_position(x, y)
 
 class Action2(Action):

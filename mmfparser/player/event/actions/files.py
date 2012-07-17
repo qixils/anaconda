@@ -19,10 +19,10 @@ from mmfparser.player.event.actions.common import Action
 
 class ExtractBinaryFile(Action):
     def execute(self):
-        path = self.evaluate_expression(self.get_parameter(0))
+        path = self.evaluate_index(0)
         self.player.files.get_binary_file(path, True)
 
 class ReleaseBinaryFile(Action):
     def execute(self):
-        path = self.evaluate_expression(self.get_parameter(0))
+        path = self.evaluate_index(0)
         self.player.files.release_binary_file(path)

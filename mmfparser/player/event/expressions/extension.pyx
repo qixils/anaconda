@@ -18,6 +18,7 @@
 from mmfparser.player.event.expressions.common cimport Expression
 from mmfparser.player.instance cimport Instance
 from mmfparser.player.common cimport make_color_number
+cimport cython
 
 cdef class ActionX(Expression):
     cdef object evaluate_instance(self, Instance instance):
@@ -106,6 +107,7 @@ cdef class GetFlag(Expression):
         except KeyError:
             return 0
 
+@cython.final
 cdef class AlterableValue(Expression):
     cdef object index
 
@@ -117,6 +119,7 @@ cdef class AlterableValue(Expression):
             return 0
         return instance.alterables.get_value(self.index)
 
+@cython.final
 cdef class AlterableString(Expression):
     cdef object index
 
@@ -128,6 +131,7 @@ cdef class AlterableString(Expression):
             return 0
         return instance.alterables.get_string(self.index)
 
+@cython.final
 cdef class AlterableStringIndex(Expression):
     cdef object evaluate_instance(self, Instance instance):
         index = self.next_argument()
@@ -135,6 +139,7 @@ cdef class AlterableStringIndex(Expression):
             return 0
         return instance.alterables.get_string(index)
 
+@cython.final
 cdef class AlterableValueIndex(Expression):
     cdef object evaluate_instance(self, Instance instance):
         index = self.next_argument()

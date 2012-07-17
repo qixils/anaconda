@@ -30,7 +30,7 @@ class SubApplicationAction(Action):
 
 class JumpSubApplicationFrame(SubApplicationAction):
     def execute_player(self, player):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         player.set_frame(value)
 
 class RestartSubApplication(Action):
@@ -51,14 +51,14 @@ class RestartSubApplicationFrame(SubApplicationAction):
 
 class SetSubApplicationGlobalValue(SubApplicationAction):
     def execute_player(self, player):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         player.globals.set_value(index - 1, value)
 
 class SetSubApplicationGlobalString(SubApplicationAction):
     def execute_player(self, player):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         player.globals.set_string(index - 1, value)
 
 class PauseSubApplication(SubApplicationAction):

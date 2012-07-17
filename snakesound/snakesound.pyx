@@ -93,14 +93,17 @@ cdef class Sound:
             raise AudioError('audio device not initialized')
         cdef SnakeSound * sound
         cdef size_t length
+        cdef char * c_data
         if data is not None:
             self.data = data
             length = len(data)
+            c_data = data
             with nogil:
-                sound = snake_load_data(data, length)
+                sound = snake_load_data(c_data, length)
         elif filename is not None:
+            c_data = filename
             with nogil:
-                sound = snake_load_file(filename)
+                sound = snake_load_file(c_data)
         else:
             raise AudioError('No input specified')
         if sound == NULL:
@@ -120,7 +123,7 @@ cdef class Sound:
                 volume = snake_get_volume(self.sound)
             return volume
             
-        def __set__(self, value):
+        def __set__(self, float value):
             with nogil:
                 snake_set_volume(self.sound, value)
     
@@ -131,7 +134,7 @@ cdef class Sound:
                 value = snake_get_pitch(self.sound)
             return value
             
-        def __set__(self, value):
+        def __set__(self, float value):
             with nogil:
                 snake_set_pitch(self.sound, value)
     
@@ -142,7 +145,7 @@ cdef class Sound:
                 value = snake_get_pan(self.sound)
             return value
         
-        def __set__(self, value):
+        def __set__(self, float value):
             with nogil:
                 snake_set_pan(self.sound, value)
     
@@ -189,7 +192,7 @@ cdef class Sound:
                 value = snake_get_frequency(self.sound)
             return value
         
-        def __set__(self, value):
+        def __set__(self, int value):
             with nogil:
                 snake_set_frequency(self.sound, value)
     
@@ -222,11 +225,12 @@ cdef class Sound:
         if self.closed:
             return
         self.closed = True
+        self.callback = None
         sounds.remove(self)
         with nogil:
             snake_close_sound(self.sound)
     
-    def set_soundfont(self, value):
+    def set_soundfont(self, char * value):
         with nogil:
             snake_set_soundfont(self.sound, value)
     
@@ -249,7 +253,7 @@ cdef class Listener:
                 value = snake_get_main_volume()
             return value
         
-        def __set__(self, value):
+        def __set__(self, float value):
             with nogil:
                 snake_set_main_volume(value)
 

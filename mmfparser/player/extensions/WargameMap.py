@@ -41,7 +41,7 @@ class Action0(Action):
 
     def execute(self, instance):
         instance.objectPlayer.create_array(
-            width = self.evaluate_expression(self.get_parameter(0)),
+            width = self.evaluate_index(0),
             initial = 0)
 
 class Action1(Action):
@@ -54,7 +54,7 @@ class Action1(Action):
 
     def execute(self, instance):
         instance.objectPlayer.create_array(
-            height = self.evaluate_expression(self.get_parameter(0)),
+            height = self.evaluate_index(0),
             initial = 0)
 
 class Action2(Action):
@@ -68,9 +68,9 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0)) - 1
-        y = self.evaluate_expression(self.get_parameter(1)) - 1
-        cost = self.evaluate_expression(self.get_parameter(2))
+        x = self.evaluate_index(0) - 1
+        y = self.evaluate_index(1) - 1
+        cost = self.evaluate_index(2)
         instance.objectPlayer.set_cost(x, y, cost)
 
 class Action3(Action):
@@ -85,10 +85,10 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        x1 = self.evaluate_expression(self.get_parameter(0)) - 1
-        y1 = self.evaluate_expression(self.get_parameter(1)) - 1
-        x2 = self.evaluate_expression(self.get_parameter(2)) - 1
-        y2 = self.evaluate_expression(self.get_parameter(3)) - 1
+        x1 = self.evaluate_index(0) - 1
+        y1 = self.evaluate_index(1) - 1
+        x2 = self.evaluate_index(2) - 1
+        y2 = self.evaluate_index(3) - 1
         instance.objectPlayer.find_path(x1, y1, x2, y2)
 
 class Action4(Action):
@@ -127,10 +127,10 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        x1 = self.evaluate_expression(self.get_parameter(0)) - 1
-        y1 = self.evaluate_expression(self.get_parameter(1)) - 1
-        x2 = self.evaluate_expression(self.get_parameter(2)) - 1
-        y2 = self.evaluate_expression(self.get_parameter(3)) - 1
+        x1 = self.evaluate_index(0) - 1
+        y1 = self.evaluate_index(1) - 1
+        x2 = self.evaluate_index(2) - 1
+        y2 = self.evaluate_index(3) - 1
         instance.objectPlayer.find_los_path(x1, y1, x2, y2)
 
 # Conditions
@@ -146,9 +146,9 @@ class Condition0(Condition):
     """
 
     def check(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0)) - 1
-        y = self.evaluate_expression(self.get_parameter(1)) - 1
-        cost = self.evaluate_expression(self.get_parameter(2))
+        x = self.evaluate_index(0) - 1
+        y = self.evaluate_index(1) - 1
+        cost = self.evaluate_index(2)
         self.compare(instance.objectPlayer.get_cost(x, y), cost)
 
 class Condition1(Condition):
@@ -161,8 +161,8 @@ class Condition1(Condition):
     """
 
     def check(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0)) - 1
-        y = self.evaluate_expression(self.get_parameter(1)) - 1
+        x = self.evaluate_index(0) - 1
+        y = self.evaluate_index(1) - 1
         return instance.objecctPlayer.get_cost(x, y) >= INF_TILE_COST
 
 class Condition2(Condition):
@@ -182,7 +182,7 @@ class Condition3(Condition):
     """
 
     def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(instance.objectPlayer.get_total_cost(-1), value)
 
 class Condition4(Condition):
@@ -194,7 +194,7 @@ class Condition4(Condition):
     """
 
     def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(len(instance.objectPlayer.path), value)
 
 class Condition5(Condition):
@@ -207,8 +207,8 @@ class Condition5(Condition):
     """
 
     def check(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         return self.compare(instance.objectPlayer.get_total_cost(index), value)
 
 class Condition6(Condition):
@@ -221,8 +221,8 @@ class Condition6(Condition):
     """
 
     def check(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         return self.compare(instance.objectPlayer.get_direction(index), value)
 
 class Condition7(Condition):
@@ -234,7 +234,7 @@ class Condition7(Condition):
     """
 
     def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(instance.objectPlayer.get_total_cost(
             instance.objectPlayer.currentIndex), value)
 
@@ -247,7 +247,7 @@ class Condition8(Condition):
     """
 
     def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(instance.objectPlayer.get_direction(
             instance.objectPlayer.currentIndex), value)
 

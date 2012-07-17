@@ -40,7 +40,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.get(value)
 
 # Conditions

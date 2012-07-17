@@ -41,13 +41,13 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         newTime = int(instance.objectPlayer.currentTime) + value / 100.0
         instance.objectPlayer.currentTime = newTime
         
 class SetTimeAction(Action):
     def execute(self, instance):
-        new = self.evaluate_expression(self.get_parameter(0))
+        new = self.evaluate_index(0)
         value = instance.objectPlayer.get_struct_time()
         self.action(value, new)
         instance.objectPlayer.set_struct_time(value)
@@ -222,7 +222,7 @@ class Action17(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
+        x = self.evaluate_index(0)
         instance.set_position(x, instance.y, True)
 
 class Action18(Action):
@@ -234,7 +234,7 @@ class Action18(Action):
     """
 
     def execute(self, instance):
-        y = self.evaluate_expression(self.get_parameter(0))
+        y = self.evaluate_index(0)
         instance.set_position(instance.x, y, True)
 
 class Action19(Action):
@@ -246,7 +246,7 @@ class Action19(Action):
     """
 
     def execute(self, instance):
-        width = self.evaluate_expression(self.get_parameter(0))
+        width = self.evaluate_index(0)
         instance.objectPlayer.resize(width = width)
 
 class Action20(Action):
@@ -258,7 +258,7 @@ class Action20(Action):
     """
 
     def execute(self, instance):
-        height = self.evaluate_expression(self.get_parameter(0))
+        height = self.evaluate_index(0)
         instance.objectPlayer.resize(height = height)
 
 # Conditions

@@ -17,21 +17,12 @@
 
 from cpython cimport PyObject
 
-cdef class Stack
 cdef class Value
 cdef class Evaluater
 
 from mmfparser.player.event.expressions.common cimport Expression
 from mmfparser.player.event.common cimport ExpressionList
 from mmfparser.player.common cimport PlayerChild
-
-cdef class Stack(PlayerChild):
-    cdef:
-        PyObject ** items
-        int position
-
-    cdef Expression next(self)
-    cdef void reset(self, ExpressionList loader)
 
 cdef class Value:
     cdef object value
@@ -41,7 +32,6 @@ cdef class Value:
 
 cdef class Evaluater(PlayerChild):
     cdef public:
-        Stack stack
         bint finished
         int pilePosition
         Value currentValue
@@ -50,6 +40,8 @@ cdef class Evaluater(PlayerChild):
     cdef:
         PyObject ** operators
         PyObject ** results
+        PyObject ** items
+        int stackPosition
 
     cdef void reset(self, ExpressionList loader)
     cdef object evaluate(self)

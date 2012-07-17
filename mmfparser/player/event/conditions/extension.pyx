@@ -27,6 +27,11 @@ from mmfparser.data.chunkloaders.objects import (NONE_OBSTACLE as _NO,
 from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP as _QB, 
     BACKDROP as _BD)
 
+cdef extern from "Python.h":
+    object PyLong_FromVoidPtr(void*)
+
+cimport cython
+
 cdef int QUICKBACKDROP, BACKDROP, NONE_OBSTACLE, SOLID_OBSTACLE, PLATFORM_OBSTACLE, LADDER_OBSTACLE
 QUICKBACKDROP = _QB
 BACKDROP = _BD
@@ -54,6 +59,7 @@ class AllDestroyed(Condition):
     def check(self):
         return len(self.get_all_instances()) == 0
 
+@cython.final
 cdef class OnCollision(Condition):
     cdef public:
         bint iterateObjects
@@ -143,6 +149,7 @@ cdef inline tuple check_overlap(list instances, list otherInstances):
                 selectedInstances.add(instance)
     return list(selectedInstances), list(otherSelectedInstances)
 
+@cython.final
 cdef class OnBackgroundCollision(Condition):
     cdef public:
         bint iterateObjects
@@ -185,6 +192,7 @@ cdef class OnBackgroundCollision(Condition):
             self.select_instances(selectedInstances)
             return len(selectedInstances) > 0
 
+@cython.final
 cdef class IsOverlapping(Condition):
     cdef public:
         object otherInfo
@@ -218,15 +226,15 @@ cdef class IsOverlappingBackground(Condition):
         return check_backdrop_overlap(instance)
 
 cdef class AnimationPlaying(Condition):
-    def check(self, instance):
+    cpdef bint check_instance(self, Instance instance):
         value = self.get_parameter_value(self.get_parameter(0))
         return instance.objectPlayer.currentAnimation.getIndex() == value
 
-class AnimationFinished(Condition):
+cdef class AnimationFinished(Condition):
     iterateObjects = False
     instances = None
     instance = None
-    def created(self):
+    cdef void created(self):
         self.instances = []
         self.player.frame.add_handlers(self.loader.objectInfo,
             animation_finished = self.animation_finished
@@ -240,7 +248,7 @@ class AnimationFinished(Condition):
             else:
                 self.instances.append(instance)
     
-    def check(self):
+    cpdef bint check(self):
         if self.isTriggered:
             if not self.instance:
                 return False
@@ -259,15 +267,16 @@ class AnimationFinished(Condition):
             self.select_instances(selectedInstances)
             return len(selectedInstances) > 0
 
+@cython.final
 cdef class AnimationFrame(Condition):
-    def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+    cdef bint check_instance(self, Instance instance):
+        value = self.evaluate_index(0)
         return self.compare(instance.objectPlayer.frameIndex, value)
 
 class NumberOfObjects(Condition):
     iterateObjects = False
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(len(self.get_all_instances()), value)
 
 class ObjectsInZone(Condition):
@@ -284,11 +293,12 @@ class ObjectsInZone(Condition):
         self.y2 = zone.y2
         
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         count = len([instance for instance in self.get_all_instances()
             if instance.in_zone(self.x1, self.y1, self.x2, self.y2)])
         return self.compare(count, value)
 
+@cython.final
 cdef class NoObjectsInZone(Condition):
     iterateObjects = False
     cdef public:
@@ -313,61 +323,69 @@ cdef class MovementStopped(Condition):
     cdef bint check_instance(self, Instance instance):
         return instance.currentMovement.stopped
 
+@cython.final
 cdef class CompareDeceleration(Condition):
     cdef bint check_instance(self, Instance instance):
         try:
             value1 = instance.currentMovement.decelerationValue
         except AttributeError:
             value1 = 0
-        value2 = self.evaluate_expression(self.get_parameter(0))
+        value2 = self.evaluate_index(0)
         return self.compare(value1, value2)
-        
+
+@cython.final
 cdef class CompareAcceleration(Condition):
     cdef bint check_instance(self, Instance instance):
         try:
             value1 = instance.currentMovement.accelerationValue
         except AttributeError:
             value1 = 0
-        value2 = self.evaluate_expression(self.get_parameter(0))
+        value2 = self.evaluate_index(0)
         return self.compare(value1, value2)
 
+@cython.final
 cdef class CompareY(Condition):
     cdef bint check_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(<int>instance.y, value)
 
+@cython.final
 cdef class CompareX(Condition):
     cdef bint check_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(<int>instance.x, value)
 
+@cython.final
 cdef class CompareAlterableValue(Condition):
     cdef bint check_instance(self, Instance instance):
         index = self.get_parameter_value(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         return self.compare(instance.alterables.get_value(index), value)
 
+@cython.final
 cdef class CompareAlterableString(Condition):
     cdef bint check_instance(self, Instance instance):
         index = self.get_alterable_index(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         return self.compare(instance.alterables.get_string(index), value)
 
+@cython.final
 cdef class FlagOn(Condition):
     cdef bint check_instance(self, Instance instance):
-        index = self.evaluate_expression(self.get_parameter(0)) % 32
+        index = self.evaluate_index(0) % 32
         try:
             return instance.alterables.flags[index]
         except IndexError:
             return False
 
+@cython.final
 cdef class FlagOff(Condition):
     iterateObjects = False
     cdef bint check(self):
         cdef list instances = self.get_instances()
         cdef Instance instance
         cdef list newInstances = []
-        index = self.evaluate_expression(self.get_parameter(0)) % 32
+        index = self.evaluate_index(0) % 32
         for instance in instances:
             try:
                 if not instance.alterables.flags[index]:
@@ -382,7 +400,7 @@ cdef class OutsidePlayfield(Condition):
         for handle in self.resolve_objects(self.objectInfo):
             self.player.frame.add_border_collision_instance(handle)
         
-    def check(self, instance):
+    cpdef bint check_instance(self, Instance instance):
         return instance.outside_playfield()
 
 cdef class InsidePlayfield(Condition):
@@ -390,7 +408,7 @@ cdef class InsidePlayfield(Condition):
         for handle in self.resolve_objects(self.objectInfo):
             self.player.frame.add_border_collision_instance(handle)
 
-    def check(self, instance):
+    cpdef bint check_instance(self, Instance instance):
         return (not instance.outside_playfield())
 
 PLAYFIELD_FLAGS = BitDict('Left', 'Right', 'Up', 'Down')
@@ -513,21 +531,22 @@ cdef class ObjectVisible(Condition):
     cdef bint check_instance(self, Instance instance):
         return instance.visible and instance.layer.visible
 
+@cython.final
 cdef class ObjectInvisible(Condition):
     cdef bint check_instance(self, Instance instance):
         return not (instance.visible and instance.layer.visible)
 
+@cython.final
 cdef class NearWindowBorder(Condition):
-    def check(self, instance):
-        value = self.evaluate_expression(
-            self.get_parameter(0))
+    cpdef bint check_instance(self, Instance instance):
+        value = self.evaluate_index(0)
         result = instance.inside_window(value, value)
         return not result
 
-class PathFinished(Condition):
+cdef class PathFinished(Condition):
     iterateObjects = False
     instance = None
-    def created(self):
+    cdef void created(self):
         self.player.frame.add_handlers(self.loader.objectInfo,
             path_finished = self.path_finished
         )
@@ -536,7 +555,7 @@ class PathFinished(Condition):
         self.instance = instance
         self.generate()
     
-    def check(self):
+    cpdef bint check(self):
         if self.instance and self.instance in self.get_instances():
             self.select_instances([self.instance])
             self.instance = None
@@ -573,7 +592,7 @@ class NamedNodeReached(Condition):
         )
     
     def named_node_reached(self, instance, name):
-        if name != self.evaluate_expression(self.get_parameter(0)):
+        if name != self.evaluate_index(0):
             return
         self.instance = instance
         self.generate()
@@ -585,25 +604,37 @@ class NamedNodeReached(Condition):
             return True
         return False
 
+@cython.final
 cdef class CompareSpeed(Condition):
-    def check(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+    cdef bint check_instance(self, Instance instance):
+        value = self.evaluate_index(0)
         return self.compare(instance.currentMovement.speed, value)
 
+@cython.final
 cdef class Bouncing(Condition):
-    def check(self, instance):
+    cdef bint check_instance(self, Instance instance):
         try:
             return instance.currentMovement.bouncing
         except AttributeError:
             return False
 
+@cython.final
 cdef class FacingInDirection(Condition):
     cdef bint check_instance(self, Instance instance):
         return instance.direction in self.get_directions(self.get_parameter(0))
 
+@cython.final
 cdef class CompareFixedValue(Condition):
-    cdef bint check_instance(self, Instance instance):
-        cdef object fixed = self.evaluate_expression(self.get_parameter(0))
-        return id(instance) == fixed
+    iterateObjects = False
+    cdef bint check(self):
+        cdef void * fixed = <void*>(<long>self.evaluate_index(0))
+        cdef Instance instance
+        for instance in self.get_instances():
+            if fixed == <void*>instance:
+                break
+        else:
+            return False
+        self.select_instances([instance])
+        return True
 
 from mmfparser.player.event.actions.extension import Wrap, Bounce

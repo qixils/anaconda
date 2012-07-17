@@ -78,8 +78,8 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        name = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        name = self.evaluate_index(1)
         objectPlayer = instance.objectPlayer
         objectPlayer.scores[index] = (name, objectPlayer.scores[index][1])
         objectPlayer.scores_changed()
@@ -94,8 +94,8 @@ class Action5(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        score = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        score = self.evaluate_index(1)
         objectPlayer = instance.objectPlayer
         objectPlayer.scores[index] = (objectPlayer.scores[index][0], score)
         objectPlayer.scores_changed()
@@ -124,7 +124,7 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        instance.set_position(self.evaluate_expression(self.get_parameter(0)),
+        instance.set_position(self.evaluate_index(0),
             instance.y)
 
 class Action8(Action):
@@ -137,7 +137,7 @@ class Action8(Action):
 
     def execute(self, instance):
         instance.set_position(instance.x,
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class Action9(Action):
     """
@@ -149,8 +149,8 @@ class Action9(Action):
     """
 
     def execute(self, instance):
-        score = self.evaluate_expression(self.get_parameter(0))
-        name = self.evaluate_expression(self.get_parameter(1))
+        score = self.evaluate_index(0)
+        name = self.evaluate_index(1)
         instance.objectPlayer.add_score(name, score)
 
 class Action10(Action):
@@ -163,7 +163,7 @@ class Action10(Action):
 
     def execute(self, instance):
         instance.objectPlayer.set_file(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 # Conditions
 

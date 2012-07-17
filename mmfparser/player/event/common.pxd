@@ -32,6 +32,8 @@ from mmfparser.player.event.expressions.common cimport Expression
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 
+cimport cython
+
 cdef class ACEBase(PlayerChild):
     cdef public:
         object loader
@@ -52,7 +54,8 @@ cdef class ACEBase(PlayerChild):
     cpdef select_instances(self, list instanceList, objectInfo = ?)
     cpdef get_frame_instances(self)
     cpdef select_frame_instances(self, list instanceList, list allInstances = ?)
-    cpdef evaluate_expression(self, loader)
+    cpdef evaluate_expression(self, object loader)
+    cpdef evaluate_index(self, int index)
     
     # parameter stuff
     cpdef direction_from(self, x1, y1, x2, y2, f = ?)

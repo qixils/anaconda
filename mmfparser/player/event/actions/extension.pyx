@@ -27,7 +27,7 @@ from mmfparser.player.frame cimport Frame
 cdef class SubtractFromAlterable(Action):
     cdef void execute_instance(self, Instance instance):
         index = self.get_alterable_index(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         currentValue = instance.alterables.get_value(index)
         instance.alterables.set_value(index, currentValue - value)
 
@@ -47,7 +47,7 @@ cdef class SetAlterableValue(Action):
 cdef class SetAlterableString(Action):
     cdef void execute_instance(self, Instance instance):
         index = self.get_alterable_index(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         instance.alterables.set_string(index, str(value))
 
 cdef class SpreadValue(Action):
@@ -55,7 +55,7 @@ cdef class SpreadValue(Action):
 
     cdef void execute(self):
         index = self.get_alterable_index(self.get_parameter(0))
-        start = self.evaluate_expression(self.get_parameter(1))
+        start = self.evaluate_index(1)
         instances = self.get_instances()
         cdef int n
         cdef Instance item
@@ -64,7 +64,7 @@ cdef class SpreadValue(Action):
 
 cdef class EnableFlag(Action):
     cdef void execute_instance(self, Instance instance):
-        index = self.evaluate_expression(self.get_parameter(0)) % 32
+        index = self.evaluate_index(0) % 32
         try:
             instance.alterables.flags[index] = True
         except IndexError:
@@ -72,7 +72,7 @@ cdef class EnableFlag(Action):
 
 cdef class DisableFlag(Action):
     cdef void execute_instance(self, Instance instance):
-        index = self.evaluate_expression(self.get_parameter(0)) % 32
+        index = self.evaluate_index(0) % 32
         try:
             instance.alterables.flags[index] = False
         except IndexError:
@@ -81,7 +81,7 @@ cdef class DisableFlag(Action):
 cdef class ToggleFlag(Action):
     cdef void execute_instance(self, Instance instance):
         cdef bint value
-        index = self.evaluate_expression(self.get_parameter(0)) % 32
+        index = self.evaluate_index(0) % 32
         try:
             value = instance.alterables.flags[index]
             instance.alterables.flags[index] = not value
@@ -133,7 +133,7 @@ cdef class SetX(Action):
             
 cdef class SetY(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.set_position(instance.x, value, True)
 
 cdef class SwapPosition(Action):
@@ -157,37 +157,37 @@ cdef class PreviousMovement(Action):
 
 cdef class SetSpeed(Action):
     cdef void execute_instance(self, Instance instance):
-        speed = self.evaluate_expression(self.get_parameter(0))
+        speed = self.evaluate_index(0)
         instance.currentMovement.set_speed(speed)
 
 cdef class SetMaximumSpeed(Action):
     cdef void execute_instance(self, Instance instance):
-        speed = self.evaluate_expression(self.get_parameter(0))
+        speed = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.maxSpeed = speed
         movement.set_speed(movement.speed)
 
 cdef class SetRotatingSpeed(Action):
     cdef void execute_instance(self, Instance instance):
-        speed = self.evaluate_expression(self.get_parameter(0))
+        speed = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.rotationSpeed = speed
 
 cdef class SetAcceleration(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.set_acceleration(value)
 
 cdef class SetDeceleration(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.set_deceleration(value)
 
 cdef class SetGravity(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         movement = instance.currentMovement
         try:
             movement.set_gravity(value)
@@ -210,13 +210,13 @@ cdef class SetDirections(Action):
 
 cdef class BranchNode(Action):
     cdef void execute_instance(self, Instance instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.branch_node(name)
 
 cdef class GoToNode(Action):
     cdef void execute_instance(self, Instance instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         movement = instance.currentMovement
         movement.goto_node(name)
 
@@ -466,7 +466,7 @@ cdef class MoveInFront(Action):
 
 cdef class MoveToLayer(Action):
     cdef void execute_instance(self, Instance instance):
-        index = int(self.evaluate_expression(self.get_parameter(0))) - 1
+        index = int(self.evaluate_index(0)) - 1
         instance.set_layer(index)
 
 cdef class SetInkEffect(Action):
@@ -515,8 +515,8 @@ cdef class SetEffectParameter(Action):
     cdef void execute_instance(self, Instance instance):
         if instance.inkEffect is None or instance.inkEffect.parameters is None:
             return
-        name = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        name = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         try:
             instance.inkEffect.parameters[name].value = value
         except KeyError:

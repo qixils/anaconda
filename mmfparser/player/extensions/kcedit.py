@@ -100,7 +100,7 @@ class SetText(Action):
     """
 
     def execute(self, instance):
-        data = self.evaluate_expression(self.get_parameter(0))
+        data = self.evaluate_index(0)
         instance.objectPlayer.set_text(data)
 
 class ReplaceSelection(Action):
@@ -112,7 +112,7 @@ class ReplaceSelection(Action):
     """
 
     def execute(self, instance):
-        data = self.evaluate_expression(self.get_parameter(0))
+        data = self.evaluate_index(0)
         widget = instance.objectPlayer.widget
         if widget.caret.mark is None:
             return
@@ -263,7 +263,7 @@ class LimitSize(Action):
     """
 
     def execute(self, instance):
-        size = self.evaluate_expression(self.get_parameter(0))
+        size = self.evaluate_index(0)
         instance.objectPlayer.widget.size_limit = size
 
 class SetXSize(Action):
@@ -276,7 +276,7 @@ class SetXSize(Action):
 
     def execute(self, instance):
         instance.objectPlayer.resize(
-            width = self.evaluate_expression(self.get_parameter(0)))
+            width = self.evaluate_index(0))
 
 class SetYSize(Action):
     """
@@ -288,7 +288,7 @@ class SetYSize(Action):
 
     def execute(self, instance):
         instance.objectPlayer.resize(
-            height = self.evaluate_expression(self.get_parameter(0)))
+            height = self.evaluate_index(0))
 
 class DisableFocus(Action):
     """
@@ -315,7 +315,7 @@ class ScrollToLine(Action):
     """
 
     def execute(self, instance):
-        line = self.evaluate_expression(self.get_parameter(0))
+        line = self.evaluate_index(0)
         length = len(instance.objectPlayer.get_text())
         instance.objectPlayer.widget.caret.position = length
         instance.objectPlayer.widget.caret.line = line

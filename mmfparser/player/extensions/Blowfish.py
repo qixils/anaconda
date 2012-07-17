@@ -44,7 +44,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        key = self.evaluate_expression(self.get_parameter(0))
+        key = self.evaluate_index(0)
         instance.objectPlayer.add_key(key)
         print 'key added:', key
 
@@ -135,8 +135,8 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        key = self.evaluate_expression(self.get_parameter(0))
-        filename = self.evaluate_expression(self.get_parameter(1))
+        key = self.evaluate_index(0)
+        filename = self.evaluate_index(1)
         
         try:
             data = open(filename, 'rb').read()
@@ -156,8 +156,8 @@ class Action8(Action):
     """
 
     def execute(self, instance):
-        key = self.evaluate_expression(self.get_parameter(0))
-        filename = self.evaluate_expression(self.get_parameter(1))
+        key = self.evaluate_index(0)
+        filename = self.evaluate_index(1)
         
         try:
             data = open(filename, 'rb').read()

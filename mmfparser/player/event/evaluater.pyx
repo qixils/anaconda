@@ -37,14 +37,7 @@ cdef void initialize_expressions():
         global EXPRESSIONS
         from mmfparser.player.event.expressions.all import EXPRESSIONS
 
-cdef class Stack(PlayerChild):
-    cdef Expression next(self):
-        return <Expression>self.items[self.position]
-    
-    cdef void reset(self, ExpressionList loader):
-        self.position = 0
-        self.items = loader.items
-
+@cython.final
 cdef class Value:
     cdef void set(self, value):
         self.value = value
@@ -52,11 +45,11 @@ cdef class Value:
     cdef object get(self):
         return self.value
 
+@cython.final
 cdef class Evaluater(PlayerChild):
     def initialize(self):
         initialize_expressions()
 
-        self.stack = self.new(Stack)
         cdef int i
         self.operators = <PyObject **>malloc(128 * sizeof(PyObject *))
         self.results = <PyObject **>malloc(128 * sizeof(PyObject *))
@@ -69,8 +62,9 @@ cdef class Evaluater(PlayerChild):
         self.endOperator = self.new(EXPRESSIONS['End'])
         self.endOperator.initialize(None)
     
-    cdef void reset(self, ExpressionList loader):
-        self.stack.reset(loader)
+    cdef inline void reset(self, ExpressionList loader):
+        self.stackPosition = 0
+        self.items = loader.items
         self.pilePosition = 0
     
     @cython.wraparound(False)
@@ -81,24 +75,24 @@ cdef class Evaluater(PlayerChild):
         cdef int pileEnd = self.pilePosition
         self.operators[self.pilePosition] = <PyObject *>self.endOperator
         
-        while 1:
+        while True:
             self.pilePosition += 1
             self.isFirst = True
             self.get_next().execute(<Value>self.results[self.pilePosition])
             self.isFirst = False
-            self.stack.position += 1
-            while 1:
+            self.stackPosition += 1
+            while True:
                 next = self.get_next()
                 if next.isOperator and not next.precedence == 0:
                     if next.precedence > (<Expression>self.operators[self.pilePosition-1]).precedence:
                         self.operators[self.pilePosition] = <PyObject *>next
                         self.pilePosition += 1
-                        self.stack.position += 1
+                        self.stackPosition += 1
                         self.isFirst = True
                         self.get_next().execute(
                             <Value>self.results[self.pilePosition])
                         self.isFirst = False
-                        self.stack.position += 1
+                        self.stackPosition += 1
                     else:
                         self.pilePosition -= 1
                         (<Expression>self.operators[self.pilePosition]).execute(
@@ -115,14 +109,14 @@ cdef class Evaluater(PlayerChild):
 
         return (<Value>self.results[pileEnd + 1]).get()
     
-    cdef object evaluate_next(self):
+    cdef inline object evaluate_next(self):
         return (<Value>self.results[self.pilePosition + 1]).get()
     
-    cdef void go_forward(self):
-        self.stack.position += 1
+    cdef inline void go_forward(self):
+        self.stackPosition += 1
         
-    cdef Expression get_next(self):
-        return self.stack.next()
+    cdef inline Expression get_next(self):
+        return <Expression>self.items[self.stackPosition]
     
     cpdef on_detach(self):
         cdef int i

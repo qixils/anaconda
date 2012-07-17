@@ -54,8 +54,8 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        ip = self.evaluate_expression(self.get_parameter(0))
-        port = self.evaluate_expression(self.get_parameter(1))
+        ip = self.evaluate_index(0)
+        port = self.evaluate_index(1)
         instance.objectPlayer.connect(ip, port)
 
 class Action2(Action):
@@ -85,7 +85,7 @@ class Action3(ProtocolAction):
     """
 
     def action(self, protocol):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         protocol.joinChannel(name)
 
 class Action4(Action):
@@ -167,8 +167,8 @@ class Action10(ProtocolAction):
     """
 
     def action(self, protocol):
-        value = self.evaluate_expression(self.get_parameter(0))
-        subchannel = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        subchannel = self.evaluate_index(1)
         send_message(protocol, value, subchannel, STRING)
 
 class Action11(ProtocolAction):
@@ -181,8 +181,8 @@ class Action11(ProtocolAction):
     """
 
     def action(self, protocol):
-        value = self.evaluate_expression(self.get_parameter(0))
-        subchannel = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        subchannel = self.evaluate_index(1)
         send_message(protocol, value, subchannel, NUMBER)
 
 class Action12(Action):
@@ -195,12 +195,12 @@ class Action12(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             value = open(filename, 'rb').read()
         except IOError:
             return
-        subchannel = self.evaluate_expression(self.get_parameter(1))
+        subchannel = self.evaluate_index(1)
         send_message(protocol, value, subchannel, BINARY)
 
 class Action13(Action):

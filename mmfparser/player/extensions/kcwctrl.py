@@ -40,7 +40,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         window = self.player.window
         x, y = window.get_location()
         window.set_location(value, y)
@@ -54,7 +54,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         window = self.player.window
         x, y = window.get_location()
         window.set_location(x, value)
@@ -68,7 +68,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         
 
 class Action3(Action):
@@ -80,7 +80,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         window = self.player.window
         width, height = window.get_size()
         window.set_size(value, height)
@@ -94,7 +94,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         window = self.player.window
         width, height = window.get_size()
         window.set_size(width, value)
@@ -181,8 +181,8 @@ class Action14(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         self.player.window.set_location(x, y)
 
 class Action15(Action):
@@ -194,7 +194,7 @@ class Action15(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.window.set_caption(value)
 
 class Action16(Action):

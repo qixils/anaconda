@@ -71,8 +71,6 @@ cdef class GamePlayer:
         object fbo
         bint focus
         tuple borderColor
-        
-    cdef object commercial_label
     
     cdef void get_window_coordinates(self, double x, double y, double * glX,
                                      double * glY)

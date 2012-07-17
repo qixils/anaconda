@@ -39,33 +39,33 @@ class SetTextColor(Action):
 
 class SetFontName(Action):
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.set_font(name = name)
 
 class SetFontSize(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        resize = bool(self.evaluate_expression(self.get_parameter(1)))
+        value = self.evaluate_index(0)
+        resize = bool(self.evaluate_index(1))
         instance.objectPlayer.set_font(size = value)
 
 class SetUnderline(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_font(underline = bool(value))
 
 class SetStrikeOut(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_font(strikeOut = bool(value))
 
 class SetBold(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_font(bold = bool(value))
 
 class SetItalic(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_font(italic = bool(value))
 
 class EraseText(Action):
@@ -74,7 +74,7 @@ class EraseText(Action):
 
 class SetString(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_text(value)
 
 class DisplayText(Action):

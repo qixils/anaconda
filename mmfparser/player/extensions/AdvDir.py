@@ -128,7 +128,7 @@ class Condition0(Condition):
             x2, y2, _ = self.get_positions(self.get_parameter(1))[0]
         except IndexError:
             return
-        v = self.evaluate_expression(self.get_parameter(2))
+        v = self.evaluate_index(2)
         if distance_from(x1, y1, x2, y2) <= v:
             return True
         return False
@@ -149,8 +149,8 @@ class Condition1(Condition):
         except IndexError:
             return
         directionCount = instance.objectPlayer.directionCount
-        dir = self.evaluate_expression(self.get_parameter(2))
-        offset = self.evaluate_expression(self.get_parameter(3))
+        dir = self.evaluate_index(2)
+        offset = self.evaluate_index(3)
         dir = instance.objectPlayer.convert_direction(dir)
         dir2 = instance.objectPlayer.convert_direction(
             direction_from(x1, y1, x2, y2))

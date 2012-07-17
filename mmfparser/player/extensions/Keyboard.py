@@ -28,41 +28,31 @@ from pyglet.window import key
 
 # Conditions
 
-class Condition0(TrueCondition):
+class Condition0(Condition):
     """
     Upon key down
 
     Parameters:
     0: Key number (EXPRESSION, ExpressionParameter)
     """
-    key = None
 
-    def created(self):
-        if self.isTriggered:
-            self.add_handlers(on_key_press = self.on_key_press)
+    def check(self, instance):
+        key = self.evaluate_index(0)
+        return key in instance.objectPlayer.key_press
 
-    def on_key_press(self, instance, symbol):
-        if symbol == self.evaluate_expression(self.get_parameter(0)):
-            self.generate()
-
-class Condition1(TrueCondition):
+class Condition1(Condition):
     """
     Upon key up
 
     Parameters:
     0: Key number (EXPRESSION, ExpressionParameter)
     """
-    key = None
 
-    def created(self):
-        if self.isTriggered:
-            self.add_handlers(on_key_release = self.on_key_release)
+    def check(self, instance):
+        key = self.evaluate_index(0)
+        return key in instance.objectPlayer.key_release
 
-    def on_key_release(self, instance, symbol):
-        if symbol == self.evaluate_expression(self.get_parameter(0)):
-            self.generate()
-
-class Condition2(TrueCondition):
+class Condition2(Condition):
     """
     Repeat while key is pressed
 
@@ -71,7 +61,7 @@ class Condition2(TrueCondition):
     """
 
     def check(self, instance):
-        key = self.evaluate_expression(self.get_parameter(0))
+        key = self.evaluate_index(0)
         return self.player.keyboard[key]
 
 class Condition3(TrueCondition):
@@ -85,7 +75,7 @@ class Condition3(TrueCondition):
                 on_key_press = self.on_key_press
             )
 
-    def on_key_press(self, instance, symbol):
+    def on_key_press(self, instance):
         self.generate()
 
 class Condition4(TrueCondition):
@@ -99,7 +89,7 @@ class Condition4(TrueCondition):
                 on_key_release = self.on_key_release
             )
 
-    def on_key_release(self, instance, symbol):
+    def on_key_release(self, instance):
         self.generate()
 
 class Condition5(Condition):
@@ -163,6 +153,15 @@ class KeyboardObject(HiddenObject):
         self.player.window.push_handlers(
             on_key_press = self.on_key_press,
             on_key_release = self.on_key_release)
+        self.updateEnabled = True
+        self.new_key_press = self.key_press = set()
+        self.new_key_release = self.key_release = set()
+    
+    def update(self):
+        self.key_press = self.new_key_press
+        self.key_release = self.new_key_release
+        self.new_key_press = set()
+        self.new_key_release = set()
 
     def on_detach(self):
         self.player.window.remove_handlers(
@@ -171,11 +170,13 @@ class KeyboardObject(HiddenObject):
 
     def on_key_press(self, symbol, modifiers):
         self.last_key_press = symbol
-        self.fire_handler('on_key_press', symbol)
+        self.new_key_press.add(symbol)
+        self.fire_handler('on_key_press')
 
     def on_key_release(self, symbol, modifiers):
         self.last_key_release = symbol
-        self.fire_handler('on_key_release', symbol)
+        self.new_key_release.add(symbol)
+        self.fire_handler('on_key_release')
 
     def get_key_string(self, value):
         value = key.symbol_string(value)

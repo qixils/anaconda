@@ -26,27 +26,27 @@ class SetFrameBackgroundColor(Action):
 
 class SetFrameWidth(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.frame.set_size(width = value)
 
 class SetFrameHeight(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.frame.set_size(height = value)
 
 class SetVirtualWidth(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.frame.set_virtual_size(width = value)
 
 class SetVirtualHeight(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.frame.set_virtual_size(height = value)
 
 class DeleteAllCreatedBackdrops(Action):
     def execute(self):
-        layer = self.evaluate_expression(self.get_parameter(0)) - 1
+        layer = self.evaluate_index(0) - 1
         for instance in self.player.frame.pastedInstances[:]:
             if instance.layerIndex != layer:
                 continue
@@ -54,10 +54,10 @@ class DeleteAllCreatedBackdrops(Action):
 
 class DeleteCreatedBackdrops(Action):
     def execute(self):
-        layer = self.evaluate_expression(self.get_parameter(0)) - 1
-        x = self.evaluate_expression(self.get_parameter(1))
-        y = self.evaluate_expression(self.get_parameter(2))
-        fineDetection = bool(self.evaluate_expression(self.get_parameter(3)))
+        layer = self.evaluate_index(0) - 1
+        x = self.evaluate_index(1)
+        y = self.evaluate_index(2)
+        fineDetection = bool(self.evaluate_index(3))
         if fineDetection:
             collision = Point(x, y)
         for instance in self.player.frame.pastedInstances[:]:

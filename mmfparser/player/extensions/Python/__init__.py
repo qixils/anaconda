@@ -43,9 +43,9 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        data = self.evaluate_expression(self.get_parameter(0))
-        id = self.evaluate_expression(self.get_parameter(1))
-        block = self.evaluate_expression(self.get_parameter(2))
+        data = self.evaluate_index(0)
+        id = self.evaluate_index(1)
+        block = self.evaluate_index(2)
         instance.objectPlayer.execute_data(data, id, block)
 
 class Action1(Action):
@@ -60,8 +60,8 @@ class Action1(Action):
 
     def execute(self, instance):
         filename = self.get_filename(self.get_parameter(0))
-        id = self.evaluate_expression(self.get_parameter(1))
-        block = self.evaluate_expression(self.get_parameter(2))
+        id = self.evaluate_index(1)
+        block = self.evaluate_index(2)
         instance.objectPlayer.execute_file(filename, id, block)
 
 class Action2(Action):
@@ -73,7 +73,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         pointer.value = None
 
 class Action3(Action):
@@ -85,7 +85,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         instance.objectPlayer.outReturn.append(get_object(pointer))
 
 class Action4(Action):
@@ -108,7 +108,7 @@ class Action5(Action):
     """
 
     def execute(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         instance.objectPlayer.outArguments.append(get_object(pointer))
 
 class Action6(Action):
@@ -121,8 +121,8 @@ class Action6(Action):
     """
 
     def execute(self, instance):
-        key = self.evaluate_expression(self.get_parameter(0))
-        pointer = self.evaluate_expression(self.get_parameter(1))
+        key = self.evaluate_index(0)
+        pointer = self.evaluate_index(1)
         instance.objectPlayer.outKeywords[key] = get_object(pointer)
 
 class Action7(Action):
@@ -134,7 +134,7 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.call_registered(name)
 
 class Action8(Action):
@@ -146,7 +146,7 @@ class Action8(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.call_global(name)
 
 class Action9(Action):
@@ -160,9 +160,9 @@ class Action9(Action):
     """
 
     def execute(self, instance):
-        line = self.evaluate_expression(self.get_parameter(0))
-        id = self.evaluate_expression(self.get_parameter(1))
-        block = self.evaluate_expression(self.get_parameter(2))
+        line = self.evaluate_index(0)
+        id = self.evaluate_index(1)
+        block = self.evaluate_index(2)
         instance.objectPlayer.execute_single(data, id, block)
 
 # Conditions
@@ -207,8 +207,8 @@ class Condition2(Condition):
     """
     
     def created(self):
-        self.name = self.evaluate_expression(self.get_parameter(0))
-        self.arguments = self.evaluate_expression(self.get_parameter(1))
+        self.name = self.evaluate_index(0)
+        self.arguments = self.evaluate_index(1)
         if self.name not in functions:
             functions[self.name] = {}
         if self.arguments in functions[self.name]:
@@ -231,7 +231,7 @@ class Condition3(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         return name in instance.objectPlayer.inKeywords
 
 class Condition4(Condition):
@@ -243,7 +243,7 @@ class Condition4(Condition):
     """
 
     def check(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         return isinstance(get_object(pointer), str)
 
 class Condition5(Condition):
@@ -255,7 +255,7 @@ class Condition5(Condition):
     """
 
     def check(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         return isinstance(get_object(pointer), int)
 
 class Condition6(Condition):
@@ -267,7 +267,7 @@ class Condition6(Condition):
     """
 
     def check(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         value = get_object(pointer)
         try:
             iter(value)
@@ -284,7 +284,7 @@ class Condition7(Condition):
     """
 
     def check(self, instance):
-        pointer = self.evaluate_expression(self.get_parameter(0))
+        pointer = self.evaluate_index(0)
         return hasattr(pointer, 'value')
 
 class Condition8(Condition):
@@ -300,7 +300,7 @@ class Condition8(Condition):
             script_finished = self.script_finished)
     
     def script_finished(self, instance, id):
-        if self.evaluate_expression(self.get_parameter(0)) != id:
+        if self.evaluate_index(0) != id:
             return
         self.generate()
 

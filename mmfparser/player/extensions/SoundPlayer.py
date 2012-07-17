@@ -48,9 +48,11 @@ class Action0(Action):
     sound = None
     
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
-        channel = self.evaluate_expression(self.get_parameter(1))
-        repeat = self.evaluate_expression(self.get_parameter(2))
+        name = self.evaluate_index(0)
+        channel = self.evaluate_index(1) - 1
+        if channel == -1:
+            channel = None
+        repeat = self.evaluate_index(2)
         if not self.initialized:
             try:
                 filename = instance.objectPlayer.sounds[name]
@@ -58,7 +60,7 @@ class Action0(Action):
             except KeyError:
                 try:
                     item = self.player.gameData.sounds.names[name]
-                except KeyError:
+                except (KeyError, AttributeError):
                     print '(sound %r not found)' % name
                     return
                 self.player.media.play_sound(item, repeat, channel)
@@ -98,7 +100,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         filename = self.get_filename(self.get_parameter(1))
         instance.objectPlayer.sounds[name] = filename
 
@@ -439,7 +441,10 @@ class Expression10(Expression):
 
 class DefaultObject(HiddenObject):
     def created(self, data):
-        self.sounds = {}
+        storage = self.get_storage()
+        if 'sounds' not in storage:
+            storage['sounds'] = {}
+        self.sounds = storage['sounds']
 
 class SoundPlayer(UserExtension):
     objectPlayer = DefaultObject

@@ -87,7 +87,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        url = self.evaluate_expression(self.get_parameter(0))
+        url = self.evaluate_index(0)
         print 'opening %r' % url
         webbrowser.open_new(url)
 

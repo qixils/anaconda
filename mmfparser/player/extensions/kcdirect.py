@@ -53,7 +53,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        dir = self.evaluate_expression(self.get_parameter(0))
+        dir = self.evaluate_index(0)
         for newInstance in self.get_instances(self.get_parameter(1).objectInfo):
             direction = newInstance.direction
             goalAngle = dir
@@ -140,7 +140,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        speed = self.evaluate_expression(self.get_parameter(0))
+        speed = self.evaluate_index(0)
         for newInstance in self.get_instances(self.get_parameter(1).objectInfo):
             add_speed = speed
             object_speed = newInstance.currentMovement.speed

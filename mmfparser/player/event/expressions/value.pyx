@@ -17,6 +17,7 @@
 
 from mmfparser.player.event.expressions.common cimport Expression, Expression
 from mmfparser.player.event.evaluater cimport Value
+cimport cython
 
 cdef class SetExpression(Expression):
     cdef object value
@@ -27,17 +28,21 @@ cdef class SetExpression(Expression):
     cdef void execute(self, Value value):
         value.set(self.value)
 
+@cython.final
 cdef class Long(SetExpression):
     pass
 
+@cython.final
 cdef class Double(SetExpression):
     pass
 
+@cython.final
 cdef class String(SetExpression):
     pass
 
 # convert
 
+@cython.final
 cdef class ToString(Expression):
     cdef object evaluate(self):
         value = self.next_argument()
@@ -46,6 +51,7 @@ cdef class ToString(Expression):
             value = value_int
         return str(value)
 
+@cython.final
 cdef class ToNumber(Expression):
     cdef object evaluate(self):
         try:
@@ -53,6 +59,7 @@ cdef class ToNumber(Expression):
         except ValueError:
             return 0
 
+@cython.final
 cdef class ToInt(Expression):
     cdef object evaluate(self):
         try:
@@ -60,6 +67,7 @@ cdef class ToInt(Expression):
         except ValueError:
             return 0
 
+@cython.final
 cdef class FloatToString(Expression):
     cdef object evaluate(self):
         value = self.next_argument()

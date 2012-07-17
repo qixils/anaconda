@@ -60,7 +60,7 @@ class ChangeWorkingDirectory(FileAction):
     """
 
     def action(self, instance):
-        path = convert_path(self.evaluate_expression(self.get_parameter(0)))
+        path = convert_path(self.evaluate_index(0))
         os.chdir(path)
 
 class SetOriginalDirectory(FileAction):
@@ -81,7 +81,7 @@ class CreateDirectory(FileAction):
 
     def action(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         os.mkdir(path)
 
 class DeleteDirectory(FileAction):
@@ -94,7 +94,7 @@ class DeleteDirectory(FileAction):
 
     def action(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         os.rmdir(path)
 
 class CreateFile(FileAction):
@@ -107,7 +107,7 @@ class CreateFile(FileAction):
 
     def action(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         open(path, 'wb').close()
 
 class DeleteFile(FileAction):
@@ -120,7 +120,7 @@ class DeleteFile(FileAction):
 
     def action(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         os.remove(path)
 
 class RenameFile(FileAction):
@@ -134,9 +134,9 @@ class RenameFile(FileAction):
 
     def action(self, instance):
         src = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         dest = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         os.rename(src, dest)
 
 class AppendFile(FileAction):
@@ -150,9 +150,9 @@ class AppendFile(FileAction):
 
     def action(self, instance):
         src = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         dest = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         open(dest, 'ab').write(open(src, 'rb').read())
 
 class CopyFile(FileAction):
@@ -166,9 +166,9 @@ class CopyFile(FileAction):
 
     def action(self, instance):
         src = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         dest = convert_path(
-            self.evaluate_expression(self.get_parameter(1)))
+            self.evaluate_index(1))
         shutil.copyfile(src, dest)
 
 class MoveFile(FileAction):
@@ -182,9 +182,9 @@ class MoveFile(FileAction):
 
     def action(self, instance):
         src = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         dest = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         os.rename(src, dest)
 
 class AppendText(FileAction):
@@ -197,9 +197,9 @@ class AppendText(FileAction):
     """
 
     def action(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         filename = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         open(filename, 'ab').write(value)
 
 class ClearError(Action):
@@ -255,7 +255,7 @@ class SetSelectorFilter(Action):
     """
 
     def execute(self, instance):
-        splitted = self.evaluate_expression(self.get_parameter(0)).split('|')
+        splitted = self.evaluate_index(0).split('|')
         for i in xrange(0, len(splitted), 2):
             description = splitted[i]
             patterns = splitted[i+1].split(';')
@@ -283,7 +283,7 @@ class OpenLoadSelector(Action):
 
     def execute(self, instance):
         defaultPath = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         objectPlayer = instance.objectPlayer
         objectPlayer.path = open_file_selector(title = objectPlayer.title,
             filters = objectPlayer.filters,
@@ -299,7 +299,7 @@ class OpenSaveSelector(Action):
 
     def execute(self, instance):
         defaultPath = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         objectPlayer = instance.objectPlayer
         objectPlayer.path = open_save_selector(title = objectPlayer.title,
             filters = objectPlayer.filters,
@@ -353,7 +353,7 @@ class NameExists(Condition):
 
     def check(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         return os.path.exists(path)
 
 class FileReadable(Condition):
@@ -366,7 +366,7 @@ class FileReadable(Condition):
 
     def check(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         try:
             f = open(path, 'rb')
             f.close()
@@ -384,7 +384,7 @@ class FileWriteable(Condition):
 
     def check(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         try:
             f = open(path, 'r+')
             f.close()
@@ -402,7 +402,7 @@ class IsFile(Condition):
 
     def check(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         return os.path.isfile(path)
 
 class IsDirectory(Condition):
@@ -415,7 +415,7 @@ class IsDirectory(Condition):
 
     def check(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         return os.path.isdir(path)
 
 # Expressions

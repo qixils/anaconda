@@ -59,8 +59,8 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        new_group = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        new_group = self.evaluate_index(1)
         instance.objectPlayer.group = group
 
 class Action1(Action):
@@ -74,8 +74,8 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(2))
+        item = self.evaluate_index(0)
+        value = self.evaluate_index(2)
         instance.objectPlayer.set_value(value, item = item)
 
 class Action2(Action):
@@ -88,8 +88,8 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        item = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         instance.objectPlayer.set_value(value, item = item)
 
 class Action3(Action):
@@ -180,7 +180,7 @@ class Action10(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.remove_item(item = name)
 
 class Action11(Action):
@@ -236,10 +236,10 @@ class Action14(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
-        type = self.evaluate_expression(self.get_parameter(2))
-        value = self.evaluate_expression(self.get_parameter(3))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
+        type = self.evaluate_index(2)
+        value = self.evaluate_index(3)
         if type == 0:
             value = int(value)
         elif type == 1:
@@ -258,9 +258,9 @@ class Action15(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
-        value = self.evaluate_expression(self.get_parameter(2))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
+        value = self.evaluate_index(2)
         instance.objectPlayer.set_value(value, group = group, item = item)
 
 class Action16(Action):
@@ -441,7 +441,7 @@ class Action28(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
+        group = self.evaluate_index(0)
         instance.objectPlayer.remove_group(group)
 
 class Action29(Action):
@@ -454,8 +454,8 @@ class Action29(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
         instance.objectPlayer.remove_item(group, item)
 
 class Action30(Action):
@@ -482,8 +482,23 @@ class Action31(Action):
     """
 
     def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+        # leave this very hardcoded for now
+        group_pattern = self.evaluate_index(0)
+        if group_pattern != '*':
+            raise NotImplementedError
+        item_pattern = self.evaluate_index(1)
+        if item_pattern != '*':
+            raise NotImplementedError
+        value_pattern = self.evaluate_index(2)
+        if value_pattern != '0':
+            raise NotImplementedError
+        case_sens = self.evaluate_index(3)
+        if case_sens != 0:
+            raise NotImplementedError
+        for options in instance.objectPlayer.get_dict().itervalues():
+            for value_name, value in options.iteritems():
+                if value == value_pattern:
+                    del options[value_name]
 
 class Action32(Action):
     """
@@ -507,11 +522,11 @@ class Action33(Action):
     def execute(self, instance):
         # XXX does not support exotic features
         group_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         item_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(1)))
+            self.evaluate_index(1))
         value_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(2)))
+            self.evaluate_index(2))
         # options = self.get_parameter(3).data
         # print 'option len:', len(options)
         # mode = options.readByte(True)
@@ -593,7 +608,7 @@ class Action38(Action):
 
     def execute(self, instance):
         filename = self.get_filename(self.get_parameter(0))
-        overwrite = bool(self.evaluate_expression(self.get_parameter(1)))
+        overwrite = bool(self.evaluate_index(1))
         instance.objectPlayer.load(filename, True, overwrite)
 
 class Action39(Action):
@@ -611,7 +626,20 @@ class Action39(Action):
         raise NotImplementedError('%s not implemented' % (
             str(self)))
 
-class Action40(Action):
+class OtherINIAction(Action):
+    def execute(self, instance):
+        name = self.get_parameter(0).data.readString()
+        for other_instance in self.player.frame.instances:
+            if other_instance.objectInfo.name != name:
+                continue
+            if other_instance.objectPlayer.__class__ is not DefaultObject:
+                continue
+            break
+        else:
+            return
+        self.action(instance, instance)
+
+class Action40(OtherINIAction):
     """
     Merging->Merge (with other Ini++ object)
 
@@ -620,21 +648,12 @@ class Action40(Action):
     1: Allow overwrites ( 0 = No , 1 = Yes ) (EXPRESSION, ExpressionParameter)
     """
 
-    def execute(self, instance):
-        name = self.get_parameter(0).data.readString()
-        overwrite = self.evaluate_expression(self.get_parameter(1))
-        for instance in self.player.frame.instances:
-            if instance.objectInfo.name != name:
-                continue
-            if instance.objectPlayer.__class__ is not DefaultObject:
-                continue
-            break
-        else:
-            return
-        instance.objectPlayer.merge_dict(instance.objectPlayer.get_dict(),
+    def action(self, instance, other_instance):
+        overwrite = self.evaluate_index(1)
+        instance.objectPlayer.merge_dict(other_instance.objectPlayer.get_dict(),
             overwrite)
 
-class Action41(Action):
+class Action41(OtherINIAction):
     """
     Merging->Merge Group (with other Ini++ object)
 
@@ -645,9 +664,12 @@ class Action41(Action):
     3: Allow overwrites ( 0 = No , 1 = Yes ) (EXPRESSION, ExpressionParameter)
     """
 
-    def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+    def action(self, instance, other_instance):
+        source = self.evaluate_index(1)
+        dest = self.evaluate_index(2)
+        overwrite = self.evaluate_index(3)
+        instance.objectPlayer.merge_group(other_instance.objectPlayer.get_dict(),
+            source, dest, overwrite)
 
 class Action42(Action):
     """
@@ -659,8 +681,8 @@ class Action42(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        mode = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        mode = self.evaluate_index(1)
         instance.objectPlayer.load(value, mode)
 
 class Action43(Action):
@@ -674,7 +696,7 @@ class Action43(Action):
 
     def execute(self, instance):
         filename = self.get_filename(self.get_parameter(0))
-        readonly = self.evaluate_expression(self.get_parameter(1))
+        readonly = self.evaluate_index(1)
         try:
             instance.objectPlayer.load(filename)
         except:
@@ -697,7 +719,7 @@ class Action45(Action):
     """
 
     def execute(self, instance):
-        path = self.evaluate_expression(self.get_parameter(0))
+        path = self.evaluate_index(0)
         instance.objectPlayer.save(path)
 
 class Action46(Action):
@@ -732,8 +754,8 @@ class Action48(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        mode = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        mode = self.evaluate_index(1)
         instance.objectPlayer.load_string(value, mode)
 
 class Action49(Action):
@@ -1049,7 +1071,7 @@ class Action71(Action):
         self.parameter = reader.readByte(True)
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(1)
         if self.option == SORT_BY_NAME:
             orig = instance.objectPlayer.get_dict()
             value = ini_dict(sorted(orig.items(), key=lambda t: t[0]))
@@ -1077,7 +1099,7 @@ class Condition1(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         return instance.objectPlayer.has_item(item = name)
 
 class Condition2(Condition):
@@ -1104,7 +1126,7 @@ class Condition3(Condition):
 
     def check(self, instance):
         return instance.objectPlayer.has_group(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class Condition4(Condition):
     """
@@ -1116,8 +1138,8 @@ class Condition4(Condition):
     """
 
     def check(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
         return instance.objectPlayer.has_item(group, item)
 
 class Condition5(Condition):
@@ -1930,6 +1952,18 @@ class DefaultObject(HiddenObject):
                 if not overwrite and option in origin_section:
                     continue
                 origin_section[option] = value
+
+    def merge_group(self, value, source, dest, overwrite):
+        sections = self.get_dict()
+        if dest not in sections:
+            origin_section = {}
+            value[dest] = origin_section
+        else:
+            origin_section = sections[dest]
+        for option, value in value.get(source, {}).iteritems():
+            if not overwrite and option in origin_section:
+                continue
+            origin_section[option] = value
     
     def load_string(self, value, merge):
         if not merge:

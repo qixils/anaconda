@@ -45,8 +45,8 @@ class LoadPictureSelector(Action):
         
 class SetHotspot(Action):
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         instance.objectPlayer.set_hotspot(x, y)
 
 class SetSize(Action):
@@ -56,12 +56,12 @@ class SetSize(Action):
 
 class SetAngle(Action):
     def execute(self, instance):
-        angle = self.evaluate_expression(self.get_parameter(0))
+        angle = self.evaluate_index(0)
         instance.objectPlayer.set_angle(angle)
 
 class SetSemiTransparency(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.set_transparency((value / 100.0) * 128.0)
 
 class Action6(Action):
@@ -167,12 +167,12 @@ class Action25(Action):
         
 class Action26(Action):
     def execute(self, instance):
-        destX = self.evaluate_expression(self.get_parameter(0))
-        destY = self.evaluate_expression(self.get_parameter(1))
-        srcX = self.evaluate_expression(self.get_parameter(2))
-        srcY = self.evaluate_expression(self.get_parameter(3))
-        srcWidth = self.evaluate_expression(self.get_parameter(4))
-        srcHeight = self.evaluate_expression(self.get_parameter(5))
+        destX = self.evaluate_index(0)
+        destY = self.evaluate_index(1)
+        srcX = self.evaluate_index(2)
+        srcY = self.evaluate_index(3)
+        srcWidth = self.evaluate_index(4)
+        srcHeight = self.evaluate_index(5)
         collisionType = self.get_parameter(6).value
         instance.objectPlayer.paste(destX, destY, srcX, srcY, srcWidth, 
             srcHeight, collisionType)
@@ -195,7 +195,7 @@ class Action29(Action):
         image = objectPlayer.image
         if not image:
             return
-        percent = self.evaluate_expression(self.get_parameter(0))
+        percent = self.evaluate_index(0)
         image.scale = percent / 100.0
         
 class Action30(Action):

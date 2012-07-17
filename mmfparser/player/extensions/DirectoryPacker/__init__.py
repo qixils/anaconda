@@ -49,8 +49,8 @@ class PackDirectory(Action):
         self.conditions = self.get_conditions(PackingFinished)
     
     def execute(self, instance):
-        src = self.evaluate_expression(self.get_parameter(0))
-        dest = self.evaluate_expression(self.get_parameter(1))
+        src = self.evaluate_index(0)
+        dest = self.evaluate_index(1)
         instance.objectPlayer.pack(src, dest)
         for condition in self.conditions:
             condition.generate()
@@ -68,9 +68,9 @@ class UnpackFile(Action):
         self.conditions = self.get_conditions(UnpackingFinished)
 
     def execute(self, instance):
-        src = self.evaluate_expression(self.get_parameter(0))
-        dest = self.evaluate_expression(self.get_parameter(1))
-        force = self.evaluate_expression(self.get_parameter(2))
+        src = self.evaluate_index(0)
+        dest = self.evaluate_index(1)
+        force = self.evaluate_index(2)
         instance.objectPlayer.unpack(src, dest, force)
         for condition in self.conditions:
             condition.generate()
@@ -84,7 +84,7 @@ class DeleteDirectory(Action):
     """
 
     def execute(self, instance):
-        shutil.rmtree(self.evaluate_expression(self.get_parameter(0)), True)
+        shutil.rmtree(self.evaluate_index(0), True)
 
 class EnableExtensionFilter(Action):
     """
@@ -96,7 +96,7 @@ class EnableExtensionFilter(Action):
 
     def execute(self, instance):
         objectPlayer = instance.objectPlayer
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         if value:
             objectPlayer.include = True
             objectPlayer.exclude = False
@@ -123,7 +123,7 @@ class AddExtensionFilter(Action):
     """
 
     def execute(self, instance):
-        extension = self.evaluate_expression(self.get_parameter(0))
+        extension = self.evaluate_index(0)
         instance.objectPlayer.filters.append(extension)
 
 class RemoveExtensionFilter(Action):
@@ -135,7 +135,7 @@ class RemoveExtensionFilter(Action):
     """
 
     def execute(self, instance):
-        extension = self.evaluate_expression(self.get_parameter(0))
+        extension = self.evaluate_index(0)
         instance.objectPlayer.filters.remove(extension)
 
 class PackDirectoryBlocking(PackDirectory):#Action):

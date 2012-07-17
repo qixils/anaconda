@@ -174,7 +174,7 @@ class Action11(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         sys.stdout.write(value)
 
 class Action12(Action):
@@ -186,7 +186,7 @@ class Action12(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         sys.stdout.write(str(value))
 
 class Action13(Action):
@@ -198,7 +198,7 @@ class Action13(Action):
     """
 
     def execute(self, instance):
-        print self.evaluate_expression(self.get_parameter(0))
+        print self.evaluate_index(0)
 
 class Action14(Action):
     """
@@ -209,7 +209,7 @@ class Action14(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         sys.stdout.write(chr(value))
 
 class Action15(Action):

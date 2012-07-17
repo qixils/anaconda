@@ -47,14 +47,14 @@ cdef class CompareGlobalValue(Condition):
     cdef bint check(self):
         value = self.player.globals.get_value(self.get_global_index(
             self.get_parameter(0)))
-        evaluated = self.evaluate_expression(self.get_parameter(1))
+        evaluated = self.evaluate_index(1)
         return self.compare(value, evaluated)
 
 cdef class CompareGlobalString(Condition):
     cdef bint check(self):
         value = self.player.globals.get_string(self.get_global_index(
             self.get_parameter(0)))
-        evaluated = self.evaluate_expression(self.get_parameter(1))
+        evaluated = self.evaluate_index(1)
         return self.compare(value, evaluated)
 
 class Once(Condition):
@@ -67,8 +67,8 @@ class Once(Condition):
 
 cdef class Compare(Condition):
     cdef bint check(self):
-        value1 = self.evaluate_expression(self.get_parameter(0))
-        value2 = self.evaluate_expression(self.get_parameter(1))
+        value1 = self.evaluate_index(0)
+        value2 = self.evaluate_index(1)
         return self.compare(value1, value2)
 
 class GroupCondition(Condition):
@@ -122,8 +122,8 @@ cdef class PickRandom(Condition):
 
 cdef class Chance(Condition):
     cdef bint check(self):
-        value1 = self.evaluate_expression(self.get_parameter(0))
-        value2 = self.evaluate_expression(self.get_parameter(1))
+        value1 = self.evaluate_index(0)
+        value2 = self.evaluate_index(1)
         return random.randrange(value2) <= value1
 
 cdef class Repeat(Condition):
@@ -131,7 +131,7 @@ cdef class Repeat(Condition):
         int times
     
     cdef bint check(self):
-        if self.times >= self.evaluate_expression(self.get_parameter(0)):
+        if self.times >= self.evaluate_index(0):
             return False
         self.times += 1
         return True

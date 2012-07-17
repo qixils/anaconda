@@ -19,28 +19,28 @@ from mmfparser.player.event.actions.common import Action
 
 class SetCounterValue(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set(value)
 
 class AddCounterValue(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set(instance.objectPlayer.value + value)
 
 class SubtractCounterValue(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set(instance.objectPlayer.value - value)
 
 class SetMinimumValue(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.minimum = value
         instance.objectPlayer.set(instance.objectPlayer.value)
 
 class SetMaximumValue(Action):
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.maximum = value
         instance.objectPlayer.set(instance.objectPlayer.value)
 

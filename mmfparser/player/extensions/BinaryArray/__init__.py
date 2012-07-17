@@ -47,7 +47,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             data = open_file(filename, 'rb').read()
         except IOError:
@@ -63,7 +63,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             open_file(filename, 'wb').write(
                 str(instance.objectPlayer.workspace.data))
@@ -79,7 +79,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             array = WorkspaceArray(ByteReader(open_file(filename, 'rb')))
         except IOError:
@@ -96,7 +96,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             open_file(filename, 'wb').write(
                 str(instance.objectPlayer.array.generate()))
@@ -112,7 +112,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         array = instance.objectPlayer.array
         try:
             workspace = array.getWorkspace(name)
@@ -123,7 +123,7 @@ class Action4(Action):
 class WriteAction(Action):
     def execute(self, instance):
         reader = instance.objectPlayer.workspace.data
-        position = self.evaluate_expression(self.get_parameter(0))
+        position = self.evaluate_index(0)
         reader.seek(position)
         self.write(reader)
 
@@ -137,7 +137,7 @@ class Action5(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         if value < 0:
             reader.writeByte(value, False)
         else:
@@ -153,7 +153,7 @@ class Action6(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         if value < 0:
             reader.writeInt(value, False)
         else:
@@ -169,7 +169,7 @@ class Action7(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         reader.write(value)
 
 class Action8(WriteAction):
@@ -182,7 +182,7 @@ class Action8(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         reader.writeString(value)
 
 class Action9(WriteAction):
@@ -195,7 +195,7 @@ class Action9(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         reader.writeFloat(value)
 
 class Action10(Action):
@@ -208,7 +208,7 @@ class Action10(Action):
 
     def execute(self, instance):
         reader = instance.objectPlayer.workspace.data
-        size = self.evaluate_expression(self.get_parameter(0))
+        size = self.evaluate_index(0)
         reader.truncate(size)
 
 class Action11(Action):
@@ -221,8 +221,8 @@ class Action11(Action):
     """
 
     def execute(self, instance):
-        width = self.evaluate_expression(self.get_parameter(0))
-        height = self.evaluate_expression(self.get_parameter(1))
+        width = self.evaluate_index(0)
+        height = self.evaluate_index(1)
         instance.objectPlayer.virtualWidth = width
         instance.objectPlayer.virtualHeight = height
 
@@ -235,7 +235,7 @@ class Action12(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.array.createWorkspace(name,
             instance.objectPlayer.defaultSize)
 
@@ -248,7 +248,7 @@ class Action13(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         try:
             array = instance.objectPlayer.array.getWorkspace(name)
         except ValueError:
@@ -287,7 +287,7 @@ class Action16(Action):
         reader = instance.objectPlayer.workspace.data
         newReader = ByteReader(str(reader))
         workspace = instance.objectPlayer.array.createWorkspace(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         workspace.data = newReader
 
 class Action17(Action):
@@ -299,7 +299,7 @@ class Action17(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             data = gzip.GzipFile(convert_path(filename), 'rb').read()
         except IOError:
@@ -315,7 +315,7 @@ class Action18(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             gzip.GzipFile(convert_path(filename), 'wb').write(
                 str(instance.objectPlayer.workspace.data))
@@ -331,7 +331,7 @@ class Action19(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             array = WorkspaceArray(ByteReader(
                 gzip.GzipFile(convert_path(filename), 'rb').read()))
@@ -349,7 +349,7 @@ class Action20(Action):
     """
 
     def execute(self, instance):
-        filename = self.evaluate_expression(self.get_parameter(0))
+        filename = self.evaluate_index(0)
         try:
             gzip.GzipFile(convert_path(filename), 'wb').write(
                 str(instance.objectPlayer.array.generate()))
@@ -367,8 +367,8 @@ class Action21(WriteAction):
     """
 
     def write(self, reader):
-        size = self.evaluate_expression(self.get_parameter(1))
-        value = self.evaluate_expression(self.get_parameter(2))
+        size = self.evaluate_index(1)
+        value = self.evaluate_index(2)
         for _ in xrange(size):
             if value < 0:
                 reader.writeByte(value)
@@ -385,7 +385,7 @@ class Action22(WriteAction):
     """
 
     def write(self, reader):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         if value < 0:
             reader.writeShort(value)
         else:
@@ -431,7 +431,7 @@ class Condition0(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         try:
             instance.objectPlayer.array.getWorkspace(name)
             return True

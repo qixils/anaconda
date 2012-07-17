@@ -23,37 +23,37 @@ class PlayerAction(Action):
 
 class SubtractScore(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_score(self.playerHandler.score - value)
 
 class SetPlayerName(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.name = value
 
 class AddScore(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_score(self.playerHandler.score + value)
 
 class SetScore(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_score(value)
 
 class AddLives(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_lives(self.playerHandler.lives + value)
 
 class SubtractLives(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_lives(self.playerHandler.lives - value)
 
 class SetLives(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.playerHandler.set_lives(value)
 
 class IgnoreControls(PlayerAction):
@@ -66,7 +66,7 @@ class RestoreControls(PlayerAction):
 
 class ChangeControlType(PlayerAction):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         if value != 0:
             raise NotImplementedError('only the Keyboard control is supported')
 
@@ -76,5 +76,5 @@ class ChangeInputKey(PlayerAction):
         PlayerAction.created(self)
 
     def execute(self):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         self.playerHandler.set_key(index, self.key)

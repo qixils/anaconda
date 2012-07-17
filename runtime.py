@@ -120,7 +120,7 @@ if __name__ == '__main__':
                             os.chdir(newDirectory)
                         except OSError:
                             pass
-    
+
             newPlayer = GamePlayer(gameData)
             
             if PROFILE:

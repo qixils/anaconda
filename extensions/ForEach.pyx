@@ -56,7 +56,7 @@ cdef class Action0(Action):
             self.loop_object_info = self.get_parameter(1).objectInfo
             self.initialized = True
         objects = self.get_instances(self.loop_object_info)
-        instance.objectPlayer.start_loop(self.name, objects)
+        (<DefaultObject>instance.objectPlayer).start_loop(self.name, objects)
 
 cdef class Action1(Action):
     """
@@ -67,7 +67,7 @@ cdef class Action1(Action):
     """
 
     cdef void execute_instance(self, Instance instance):
-        instance.objectPlayer.pause_loop(self.evaluate_expression(
+        (<DefaultObject>instance.objectPlayer).pause_loop(self.evaluate_expression(
             self.get_parameter(0)))
 
 cdef class Action2(Action):
@@ -79,7 +79,7 @@ cdef class Action2(Action):
     """
 
     cdef void execute_instance(self, Instance instance):
-        instance.objectPlayer.resume_loop(self.evaluate_expression(
+        (<DefaultObject>instance.objectPlayer).resume_loop(self.evaluate_expression(
             self.get_parameter(0)))
 
 cdef class Action3(Action):
@@ -92,7 +92,7 @@ cdef class Action3(Action):
     """
 
     cdef void execute_instance(self, Instance instance):
-        instance.objectPlayer.set_loop_index(
+        (<DefaultObject>instance.objectPlayer).set_loop_index(
             self.evaluate_index(0),
             self.evaluate_index(1))
 
@@ -108,7 +108,7 @@ cdef class Action4(Action):
     cdef void execute_instance(self, Instance instance):
         name = self.evaluate_index(0)
         group = self.evaluate_index(1)
-        instance.objectPlayer.start_group_loop(name, group)
+        (<DefaultObject>instance.objectPlayer).start_group_loop(name, group)
 
 cdef class Action5(Action):
     """
@@ -122,7 +122,7 @@ cdef class Action5(Action):
     cdef void execute_instance(self, Instance instance):
         objects = self.get_instances(self.get_parameter(0).objectInfo)
         group = self.evaluate_index(1)
-        instance.objectPlayer.add_objects(objects, group)
+        (<DefaultObject>instance.objectPlayer).add_objects(objects, group)
 
 cdef class Action6(Action):
     """
@@ -139,7 +139,7 @@ cdef class Action6(Action):
         if fixed_object is None:
             return
         group = self.evaluate_index(1)
-        instance.objectPlayer.add_objects([fixed_object], group)
+        (<DefaultObject>instance.objectPlayer).add_objects([fixed_object], group)
 
 cdef class Action7(Action):
     """
@@ -153,7 +153,7 @@ cdef class Action7(Action):
     cdef void execute_instance(self, Instance instance):
         objects = self.get_instances(self.get_parameter(0).objectInfo)
         group = self.evaluate_index(1)
-        instance.objectPlayer.remove_objects(objects, group)
+        (<DefaultObject>instance.objectPlayer).remove_objects(objects, group)
 
 cdef class Action8(Action):
     """
@@ -170,7 +170,7 @@ cdef class Action8(Action):
         if fixed_object is None:
             return
         group = self.evaluate_index(1)
-        instance.objectPlayer.remove_objects([fixed_object], group)
+        (<DefaultObject>instance.objectPlayer).remove_objects([fixed_object], group)
 
 # Conditions
 
@@ -181,7 +181,8 @@ cdef class Condition0(TrueCondition):
     Parameters:
     0: Enter ForEach loop's name (EXPSTRING, ExpressionParameter)
     """
-    name = None
+    cdef:
+        str name
     
     cdef void created(self):
         self.add_handlers(object_loop = self.object_loop)
@@ -189,7 +190,7 @@ cdef class Condition0(TrueCondition):
     def object_loop(self, currentObject):
         self.generate()
     
-    def get_name(self):
+    cdef str get_name(self):
         if self.name is None:
             self.name = self.evaluate_index(0)
         return self.name
@@ -204,7 +205,7 @@ cdef class Condition1(Condition):
 
     cdef bint check_instance(self, Instance instance):
         try:
-            loop = instance.objectPlayer.loops[
+            loop = (<DefaultObject>instance.objectPlayer).loops[
                 self.evaluate_index(0)]
             return loop.paused
         except KeyError:
@@ -221,7 +222,7 @@ cdef class Condition2(Condition):
 
     cdef bint check_instance(self, Instance instance):
         try:
-            loop = instance.objectPlayer.loops[
+            loop = (<DefaultObject>instance.objectPlayer).loops[
                 self.evaluate_index(1)]
         except KeyError:
             return False
@@ -239,7 +240,7 @@ cdef class Condition3(Condition):
 
     cdef bint check_instance(self, Instance instance):
         try:
-            groupObjects = instance.objectPlayer.groups[
+            groupObjects = (<DefaultObject>instance.objectPlayer).groups[
                 self.evaluate_index(1)]
         except KeyError:
             return False
@@ -269,7 +270,7 @@ cdef class Condition4(Condition):
         self.currentObject = currentObject
         self.generate()
     
-    def get_name(self):
+    cdef str get_name(self):
         if self.name is None:
             self.name = self.evaluate_index(0)
         return self.name
@@ -296,7 +297,7 @@ cdef class Expression0(Expression):
 
     cdef object evaluate_instance(self, Instance instance):
         try:
-            loop = instance.objectPlayer.loops[self.next_argument()]
+            loop = (<DefaultObject>instance.objectPlayer).loops[self.next_argument()]
             return id(loop.objects[loop.index])
         except (KeyError, IndexError):
             return -1
@@ -312,7 +313,7 @@ cdef class Expression1(Expression):
 
     cdef object evaluate_instance(self, Instance instance):
         try:
-            loop = instance.objectPlayer.loops[self.next_argument()]
+            loop = (<DefaultObject>instance.objectPlayer).loops[self.next_argument()]
             return loop.index
         except KeyError:
             return -1
@@ -328,7 +329,7 @@ cdef class Expression2(Expression):
 
     cdef object evaluate_instance(self, Instance instance):
         try:
-            loop = instance.objectPlayer.loops[self.next_argument()]
+            loop = (<DefaultObject>instance.objectPlayer).loops[self.next_argument()]
             return len(loop.objects) - 1
         except KeyError:
             return -1
@@ -344,7 +345,7 @@ cdef class Expression3(Expression):
 
     cdef object evaluate_instance(self, Instance instance):
         try:
-            return len(instance.objectPlayer.groups[self.next_argument()])
+            return len((<DefaultObject>instance.objectPlayer).groups[self.next_argument()])
         except KeyError:
             return 0
 
@@ -372,10 +373,10 @@ cdef class DefaultObject(ObjectPlayer):
         self.loops = {}
         self.conditions = {}
         self.object_conditions = {}
-        self.objects = self.loops = None
+        self.objects = None
         self.initialized = False
     
-    def start_loop(self, name, objects):
+    cdef void start_loop(self, name, objects):
         # if name == 'Apply Modifiers':
         #     print len(objects)
         #     import code
@@ -394,20 +395,20 @@ cdef class DefaultObject(ObjectPlayer):
         # if dt > 0.005:
         # print name, dt, len(objects)
 
-    def start_group_loop(self, name, group):
+    cdef void start_group_loop(self, name, group):
         try:
             objects = self.groups[group]
         except KeyError:
             return
         self.start_loop(name, objects)
     
-    def add_objects(self, objects, group):
+    cdef void add_objects(self, objects, group):
         try:
             self.groups[group].extend(objects)
         except KeyError:
             self.groups[group] = objects
     
-    def remove_objects(self, objects, group):
+    cdef void remove_objects(self, objects, group):
         try:
             groupObjects = self.groups[group]
             for item in objects:
@@ -415,7 +416,7 @@ cdef class DefaultObject(ObjectPlayer):
         except KeyError:
             pass
         
-    def run(self, loop):
+    cdef void run(self, loop):
         if not self.initialized:
             self.initialized = True
             try:
@@ -430,13 +431,13 @@ cdef class DefaultObject(ObjectPlayer):
                 all_object_conditions = []
             
             for condition in all_conditions:
-                name = condition.get_name()
+                name = (<Condition0>condition).get_name()
                 if name not in self.conditions:
                     self.conditions[name] = [condition]
                 else:
                     self.conditions[name].append(condition)
             for condition in all_object_conditions:
-                name = condition.get_name()
+                name = (<Condition4>condition).get_name()
                 handles = condition.get_handles()
                 if name not in self.object_conditions:
                     self.object_conditions[name] = {}
@@ -469,19 +470,19 @@ cdef class DefaultObject(ObjectPlayer):
                     pass
             loop.index += 1
     
-    def set_loop_iteration(self, name, index):
+    cdef void set_loop_iteration(self, name, index):
         try:
             self.loops[name].index = index
         except KeyError:
             return
     
-    def pause_loop(self, name):
+    cdef void pause_loop(self, name):
         try:
             self.loops[name].paused = True
         except KeyError:
             return
 
-    def resume_loop(self, name):
+    cdef void resume_loop(self, name):
         try:
             self.loops[name].paused = False
         except KeyError:

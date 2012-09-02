@@ -16,6 +16,7 @@
 # along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+sys.path.append('..')
 import os
 import mmfparser.player.main
 import mmfparser.player.extensions

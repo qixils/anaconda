@@ -239,8 +239,10 @@ class Action13(Action):
             return
         instance.objectPlayer.value = instance.objectPlayer.join(data)
 
-
-from KcArray.mmfarray import MMFArray
+try:
+    from extensions.KcArray.mmfarray import MMFArray
+except ImportError:
+    pass
 from mmfparser.bytereader import ByteReader
 
 class Action14(Action):

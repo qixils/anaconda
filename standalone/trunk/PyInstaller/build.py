@@ -700,7 +700,7 @@ class PYZ(Target):
 
 def cacheDigest(fnm):
     data = open(fnm, "rb").read()
-    digest = hashlib.md5(data).digest()
+    digest = hashlib.md5(data).hexdigest()
     return digest
 
 
@@ -746,9 +746,9 @@ def checkCache(fnm, strip=0, upx=0, dist_nm=None):
     # Verify if the file we're looking for is present in the cache.
     basenm = os.path.normcase(os.path.basename(fnm))
     digest = cacheDigest(fnm)
-    cachedfile = os.path.join(cachedir, basenm)
+    cachedfile = os.path.join(cachedir, digest)
     cmd = None
-    if basenm in cache_index:
+    if False:#basenm in cache_index:
         if digest != cache_index[basenm]:
             os.remove(cachedfile)
         else:

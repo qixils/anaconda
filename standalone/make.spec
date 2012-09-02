@@ -1,5 +1,8 @@
 # -*- mode: python -*-
 
+import sys
+sys.path.append('..')
+
 a = Analysis([os.path.join(HOMEPATH,'support\\_mountzlib.py'), 
               os.path.join(CONFIGDIR,'support\\useUnicode.py'), 'make.py'],
               pathex=['F:\\MMF2\\File format\\Python\\tests\\build'],

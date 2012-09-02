@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#
-# Automatically build spec files containing a description of the project
 #
 # Copyright (C) 2005, Giovanni Bajo
 # Based on previous work under copyright (c) 2002 McMillan Enterprises, Inc.
@@ -19,18 +16,25 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
-import sys, os
 
-from PyInstaller import HOMEPATH, CONFIGDIR, DEFAULT_CONFIGFILE
-from PyInstaller import is_win, is_cygwin, is_darwin
+# Automatically build spec files containing a description of the project
 
 
-freezetmplt = """# -*- mode: python -*-
+import os
+import sys
+
+
+from PyInstaller import HOMEPATH
+from PyInstaller.compat import is_win, is_cygwin, is_darwin
+
+
+onefiletmplt = """# -*- mode: python -*-
 a = Analysis(%(scripts)s,
              pathex=%(pathex)s,
+             hiddenimports=%(hiddenimports)r,
              hookspath=%(hookspath)r)
 pyz = PYZ(a.pure)
-exe = EXE(%(tkpkg)s pyz,
+exe = EXE(pyz,
           a.scripts,
           a.binaries,
           a.zipfiles,
@@ -40,11 +44,12 @@ exe = EXE(%(tkpkg)s pyz,
           strip=%(strip)s,
           upx=%(upx)s,
           console=%(console)s %(exe_options)s)
-""" # pathex scripts exename tkpkg debug console distdir
+"""
 
-collecttmplt = """# -*- mode: python -*-
+onedirtmplt = """# -*- mode: python -*-
 a = Analysis(%(scripts)s,
              pathex=%(pathex)s,
+             hiddenimports=%(hiddenimports)r,
              hookspath=%(hookspath)r)
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
@@ -55,18 +60,19 @@ exe = EXE(pyz,
           strip=%(strip)s,
           upx=%(upx)s,
           console=%(console)s %(exe_options)s)
-coll = COLLECT(%(tktree)s exe,
+coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
                strip=%(strip)s,
                upx=%(upx)s,
                name=os.path.join(%(distdir)s, '%(name)s'))
-""" # scripts pathex, exename, debug, console tktree distdir name
+"""
 
 comsrvrtmplt = """# -*- mode: python -*-
 a = Analysis(%(scripts)s,
              pathex=%(pathex)s,
+             hiddenimports=%(hiddenimports)r,
              hookspath=%(hookspath)r)
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
@@ -89,20 +95,21 @@ coll = COLLECT(exe, dll,
                strip=%(strip)s,
                upx=%(upx)s,
                name=os.path.join(%(distdir)s, '%(name)s'))
-""" # scripts pathex, exename, debug, console tktree distdir name
+"""
 
 bundleexetmplt = """app = BUNDLE(exe,
              name=os.path.join(%(distdir)s, '%(exename)s.app'))
-""" # distdir exename
+"""
 
 bundletmplt = """app = BUNDLE(coll,
              name=os.path.join(%(distdir)s, '%(name)s.app'))
-""" # distdir name
+"""
 
 
-def quote_win_filepath( path ):
+def quote_win_filepath(path):
     # quote all \ with another \ after using normpath to clean up the path
     return os.path.normpath(path).replace('\\', '\\\\')
+
 
 # Support for trying to avoid hard-coded paths in the .spec files.
 # Eg, all files rooted in the Installer directory tree will be
@@ -111,14 +118,12 @@ def quote_win_filepath( path ):
 # Same thing could be done for other paths too.
 path_conversions = (
     (HOMEPATH, "HOMEPATH"),
-    # For useUnicode.py and useTk.py
-    (CONFIGDIR, "CONFIGDIR"),
-    # Add Tk etc?
     )
 
-def make_variable_path(filename, conversions = path_conversions):
+
+def make_variable_path(filename, conversions=path_conversions):
     for (from_path, to_name) in conversions:
-        assert os.path.abspath(from_path)==from_path, (
+        assert os.path.abspath(from_path) == from_path, (
             "path '%s' should already be absolute" % from_path)
         if filename[:len(from_path)] == from_path:
             rest = filename[len(from_path):]
@@ -127,12 +132,14 @@ def make_variable_path(filename, conversions = path_conversions):
             return to_name, rest
     return None, filename
 
+
 # An object used in place of a "path string" which knows how to repr()
 # itself using variable names instead of hard-coded paths.
 class Path:
     def __init__(self, *parts):
         self.path = apply(os.path.join, parts)
         self.variable_prefix = self.filename_suffix = None
+
     def __repr__(self):
         if self.filename_suffix is None:
             self.variable_prefix, self.filename_suffix = make_variable_path(self.path)
@@ -147,10 +154,10 @@ def __add_options(parser):
     option group.
     """
     g = parser.add_option_group('What to generate')
-    g.add_option("-F", "--onefile", dest="freeze",
+    g.add_option("-F", "--onefile", dest="onefile",
                  action="store_true", default=False,
                  help="create a single file deployment")
-    g.add_option("-D", "--onedir", dest="freeze",
+    g.add_option("-D", "--onedir", dest="onefile",
                  action="store_false",
                  help="create a single directory deployment (default)")
     g.add_option("-o", "--out",
@@ -168,14 +175,14 @@ def __add_options(parser):
                       "Multiple directories are allowed, separating them "
                       "with %s, or using this option multiple times"
                       % repr(os.pathsep))
+    g.add_option('--hidden-import',
+                 action='append',
+                 metavar="MODULENAME", dest='hiddenimports',
+                 help='import hidden in the script(s). This option can '
+                 'be used multiple times.')
     g.add_option("--additional-hooks-dir", action="append", dest="hookspath",
                  help="additional path to search for hooks "
-                      "(may be given several times)")    
-    g.add_option("-K", "--tk", action="store_true",
-                 help="include TCL/TK in the deployment")
-    g.add_option("-a", "--ascii", action="store_true",
-                 help="do NOT include unicode encodings "
-                      "(default: included if available)")
+                      "(may be given several times)")
 
     g = parser.add_option_group('How to generate')
     g.add_option("-d", "--debug", action="store_true", default=False,
@@ -199,7 +206,9 @@ def __add_options(parser):
                  action="store_false",
                  help="use a windowed subsystem executable, which on Windows "
                       "does not open the console when the program is launched."
-                      'Mandatory whe creating .app bundle on Mac OS X')
+                      'On Mac OS X it allows running gui applications and also'
+                      'creates an .app bundle.'
+                      'Mandatory for gui applications on Mac OS X')
     g.add_option("-i", "--icon", dest="icon_file",
                  metavar="FILE.ICO or FILE.EXE,ID or FILE.ICNS",
                  help="If FILE is an .ico file, add the icon to the final "
@@ -230,24 +239,11 @@ def __add_options(parser):
                       "multiple times.")
 
 
-def main(scripts, configfilename=None, name=None, tk=0, freeze=0,
+def main(scripts, name=None, onefile=0,
          console=True, debug=False, strip=0, noupx=0, comserver=0,
-         ascii=0, workdir=None, pathex=[], version_file=None,
+         workdir=None, pathex=[], version_file=None,
          icon_file=None, manifest=None, resources=[], crypt=None,
-         hookspath=None, **kwargs):
-
-    try:
-        config = eval(open(configfilename, 'r').read())
-    except IOError:
-        raise SystemExit("Configfile is missing or unreadable. Please run "
-                         "utils/Configure.py before building or use "
-                         "pyinstaller.py!")
-
-    if config['pythonVersion'] != sys.version:
-        raise SystemExit("The current version of Python is not the same "
-                         "with which PyInstaller was configured.\n"
-                         "Please re-run utils/Configure.py or use "
-                         "pyinstaller.py with this version.")
+         hiddenimports=None, hookspath=None, **kwargs):
 
     if not name:
         name = os.path.splitext(os.path.basename(scripts[0]))[0]
@@ -278,18 +274,15 @@ def main(scripts, configfilename=None, name=None, tk=0, freeze=0,
             # Assume filename
             exe_options = "%s, manifest='%s'" % (exe_options, quote_win_filepath(manifest))
     if resources:
-        for i in range(len(resources)):
-            resources[i] = quote_win_filepath(resources[i])
+        resources = map(quote_win_filepath, resources)
         exe_options = "%s, resources=%s" % (exe_options, repr(resources))
-    if not ascii and config['hasUnicode']:
-        scripts.insert(0, os.path.join(CONFIGDIR, 'support', 'useUnicode.py'))
-    for i in range(len(scripts)):
-        scripts[i] = Path(scripts[i]) # Use relative path in specfiles
 
-    d = {'tktree':'',
-         'tkpkg' :'',
-         'scripts':scripts,
-         'pathex' :pathex,
+    hiddenimports = hiddenimports or []
+    scripts = map(Path, scripts)
+
+    d = {'scripts': scripts,
+         'pathex': pathex,
+         'hiddenimports': hiddenimports,
          'hookspath': hookspath,
          #'exename': '',
          'name': name,
@@ -297,25 +290,15 @@ def main(scripts, configfilename=None, name=None, tk=0, freeze=0,
          'builddir': repr(builddir),
          'debug': debug,
          'strip': strip,
-         'upx' : not noupx,
-         'crypt' : repr(crypt),
+         'upx': not noupx,
+         'crypt': repr(crypt),
          'crypted': crypt is not None,
          'console': console or debug,
          'exe_options': exe_options}
-    if tk:
-        d['tktree'] = "TkTree(),"
-        if freeze:
-            scripts.insert(0, Path(CONFIGDIR, 'support', 'useTK.py'))
-            scripts.insert(0, Path(HOMEPATH, 'support', 'unpackTK.py'))
-            scripts.append(Path(HOMEPATH, 'support', 'removeTK.py'))
-            d['tkpkg'] = "TkPKG(),"
-        else:
-            scripts.insert(0, Path(CONFIGDIR, 'support', 'useTK.py'))
-    scripts.insert(0, Path(HOMEPATH, 'support', '_mountzlib.py'))
 
     if is_win or is_cygwin:
-        d['exename'] = name+'.exe'
-        d['dllname'] = name+'.dll'
+        d['exename'] = name + '.exe'
+        d['dllname'] = name + '.dll'
     else:
         d['exename'] = name
 
@@ -323,10 +306,10 @@ def main(scripts, configfilename=None, name=None, tk=0, freeze=0,
     if not is_win and not is_darwin:
         d['console'] = True
 
-    specfnm = os.path.join(workdir, name+'.spec')
+    specfnm = os.path.join(workdir, name + '.spec')
     specfile = open(specfnm, 'w')
-    if freeze:
-        specfile.write(freezetmplt % d)
+    if onefile:
+        specfile.write(onefiletmplt % d)
         if not console:
             specfile.write(bundleexetmplt % d)
     elif comserver:
@@ -334,9 +317,8 @@ def main(scripts, configfilename=None, name=None, tk=0, freeze=0,
         if not console:
             specfile.write(bundletmplt % d)
     else:
-        specfile.write(collecttmplt % d)
+        specfile.write(onedirtmplt % d)
         if not console:
             specfile.write(bundletmplt % d)
     specfile.close()
     return specfnm
-

@@ -2,14 +2,13 @@
 import sys
 from ctypes import *
 
+# Current working directory is set to dist directory for tests.
+
 def dummy(arg):
-    if sys.platform == "linux2" or sys.platform.startswith('sun') or \
-        sys.platform.startswith('aix'):
-        tct = CDLL("ctypes/testctypes.so")
-    elif sys.platform[:6] == "darwin":
-        tct = CDLL("ctypes/testctypes.dylib")
-    elif sys.platform == "win32":
-        tct = CDLL("ctypes\\testctypes.dll")
+    if sys.platform == "win32":
+        tct = CDLL("..\\..\\ctypes\\testctypes-win.dll")
+    elif sys.platform.startswith("darwin"):
+        tct = CDLL("../../ctypes/testctypes.dylib")
     else:
-        raise NotImplementedError
+        tct = CDLL("../../ctypes/testctypes.so")
     return tct.dummy(arg)

@@ -15,20 +15,30 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
-print "test_getfilesystemencoding"
 
 import sys
-if sys.version_info[:2] >= (2, 5):
-    import subprocess
-    import email
 
-    assert type(email.Header) == email.LazyImporter
 
-    pyexe = open("python_exe.build").readline().strip()
-    out = subprocess.Popen([pyexe, '-c', 'import sys; print sys.getfilesystemencoding()'],
-                           stdout=subprocess.PIPE).stdout.read().strip()
-    assert str(sys.getfilesystemencoding()) == out, (str(sys.getfilesystemencoding()), out)
+frozen_encoding = str(sys.getfilesystemencoding())
 
-    print "test_getfilesystemencoding DONE"
+
+# For various OS is encoding different.
+# On Windows it should be still mbcs.
+if sys.platform.startswith('win'):
+    encoding = 'mbcs'
+# On Mac OS X the value should be still the same.
+elif sys.platform.startswith('darwin'):
+    encoding = 'utf-8'
+# On Linux and other unixes it should be None.
+# Please note that on Linux the value differs from the value
+# in interactive shell.
 else:
-    print "Python < 2.5 test_getfilesystemencoding skipped"
+    encoding = 'None'
+
+
+print('Encoding expected: ' + encoding)
+print('Encoding current: ' + frozen_encoding)
+
+
+if not frozen_encoding == encoding:
+    raise SystemExit('Frozen encoding is not the same as unfrozen.')

@@ -1,16 +1,18 @@
 # -*- mode: python -*-
 
-print "TESTING MULTIPROCESS FEATURE: file A (onedir pack) depends on file B (onedir pack) and file C (onefile pack)"
+'''
+TESTING MULTIPROCESS FEATURE: file A (onedir pack) depends on file B (onedir pack) and file C (onefile pack)
+'''
 
 __testname__ = 'test_multipackage5'
 __testdep__ = 'multipackage5_B'
 __testdep2__ = 'multipackage5_C'
 
-a = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'), os.path.join(CONFIGDIR,'support', 'useUnicode.py'), __testname__ + '.py'],
+a = Analysis([__testname__ + '.py'],
              pathex=['.'])
-b = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'), os.path.join(CONFIGDIR,'support', 'useUnicode.py'), __testdep__ + '.py'],
+b = Analysis([__testdep__ + '.py'],
              pathex=['.'])
-c = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'), os.path.join(CONFIGDIR,'support', 'useUnicode.py'), __testdep2__ + '.py'],
+c = Analysis([__testdep2__ + '.py'],
              pathex=['.'])
 
 
@@ -23,7 +25,8 @@ exe = EXE(pyz,
           a.scripts,
           a.dependencies,
           exclude_binaries=1,
-          name=os.path.join('build', 'pyi.' + config['target_platform'], __testname__,__testname__ + '.exe'),
+          name=os.path.join('build', 'pyi.'+sys.platform, __testname__,
+                            __testname__ + '.exe'),
           debug=False,
           strip=False,
           upx=True,
@@ -42,7 +45,8 @@ exeB = EXE(pyzB,
           b.scripts,
           b.dependencies,
           exclude_binaries=1,
-          name=os.path.join('build', 'pyi.' + config['target_platform'], __testdep__,__testdep__ + '.exe'),
+          name=os.path.join('build', 'pyi.'+sys.platform, __testdep__,
+                            __testdep__ + '.exe'),
           debug=False,
           strip=False,
           upx=True,

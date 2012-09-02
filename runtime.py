@@ -133,7 +133,19 @@ if __name__ == '__main__':
                 import code
                 code.interact(local = locals())
             else:
+                if False:
+                    import sys
+                    f_trace = open('ftrace', 'wb')
+                    def trace(frame, event, arg):
+                        f_trace.write(
+                            "%s, %s:%d" % (event, frame.f_code.co_filename, 
+                                frame.f_lineno))
+                        f_trace.flush()
+                        return trace
+                    sys.settrace(trace)
+
                 newPlayer.start()
+
     except:
         import traceback
         traceback.print_exc()

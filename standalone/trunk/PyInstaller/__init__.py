@@ -16,45 +16,52 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA
 
-__all__ = ('HOMEPATH', 'CONFIGDIR', 'DEFAULT_CONFIGFILE', 'PLATFORM',
+__all__ = ('HOMEPATH', 'CONFIGDIR', 'PLATFORM',
            'VERSION', 'get_version',
-           'is_py23', 'is_py24', 'is_py25', 'is_py26', 'is_py27',
+           'is_py25', 'is_py26', 'is_py27',
            'is_win', 'is_cygwin', 'is_darwin', 'is_unix', 'is_linux',
            'is_solar', 'is_aix')
 
 import os
 import sys
 
+
+# Fail hard if Python does not have minimum required version
+if sys.version_info < (2, 4):
+    raise SystemExit('PyInstaller requires at least Python 2.4, sorry.')
+
+
+# Extend PYTHONPATH with 3rd party libraries bundled with PyInstaller.
+# (otherwise e.g. macholib won't work on Mac OS X)
+from PyInstaller import lib
+sys.path.insert(0, lib.__path__[0])
+
+
 from PyInstaller import compat
-from PyInstaller.utils import svn
+from PyInstaller.utils import git
 
-VERSION = (1, 6, 0, 'dev', svn.get_svn_revision())
+VERSION = (2, 1, 0, 'dev', git.get_repo_revision())
 
-is_py23 = sys.version_info >= (2,3)
-is_py24 = sys.version_info >= (2,4)
-is_py25 = sys.version_info >= (2,5)
-is_py26 = sys.version_info >= (2,6)
-is_py27 = sys.version_info >= (2,7)
 
-is_win = sys.platform.startswith('win')
-is_cygwin = sys.platform == 'cygwin'
-is_darwin = sys.platform == 'darwin'  # Mac OS X
+is_py25 = compat.is_py25
+is_py26 = compat.is_py26
+is_py27 = compat.is_py27
 
-# Unix platforms
-is_linux = sys.platform == 'linux2'
-is_solar = sys.platform.startswith('sun')  # Solaris
-is_aix = sys.platform.startswith('aix')
+is_win = compat.is_win
+is_cygwin = compat.is_cygwin
+is_darwin = compat.is_darwin
 
-# Some code parts are similar to several unix platforms
-# (e.g. Linux, Solaris, AIX)
-# Mac OS X is not considered as unix since there are many
-# platform specific details for Mac in PyInstaller.
-is_unix = is_linux or is_solar or is_aix
+is_linux = compat.is_linux
+is_solar = compat.is_solar
+is_aix = compat.is_aix
+
+is_unix = compat.is_unix
+
 
 HOMEPATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 if is_win:
-    CONFIGDIR = os.environ['APPDATA']
+    CONFIGDIR = compat.getenv('APPDATA')
     if not CONFIGDIR:
         CONFIGDIR = os.path.expanduser('~\\Application Data')
 elif is_darwin:
@@ -62,26 +69,31 @@ elif is_darwin:
 else:
     # According to XDG specification
     # http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
-    CONFIGDIR = os.environ.get('XDG_DATA_HOME', None)
-    if CONFIGDIR is None:
+    CONFIGDIR = compat.getenv('XDG_DATA_HOME')
+    if not CONFIGDIR:
         CONFIGDIR = os.path.expanduser('~/.local/share')
 CONFIGDIR = os.path.join(CONFIGDIR, 'pyinstaller')
 
-DEFAULT_CONFIGFILE = os.path.join(CONFIGDIR, 'config.dat')
 
 PLATFORM = compat.system() + '-' + compat.architecture()
+# Include machine name in path to bootloader for some machines.
+# e.g. 'arm'
+if compat.machine():
+    PLATFORM += '-' + compat.machine()
+
 
 # path extensions for module seach
 # :fixme: this should not be a global variable
 __pathex__ = []
 
+
 def get_version():
     version = '%s.%s' % (VERSION[0], VERSION[1])
     if VERSION[2]:
         version = '%s.%s' % (version, VERSION[2])
-    if VERSION[3]:
+    if len(VERSION) >= 4 and VERSION[3]:
         version = '%s%s' % (version, VERSION[3])
-    # include svn revision in version string
-    if VERSION[3] == 'dev' and VERSION[4] > 0:
-        version = '%s%s' % (version, VERSION[4])
+        # include git revision in version string
+        if VERSION[3] == 'dev' and VERSION[4] > 0:
+            version = '%s-%s' % (version, VERSION[4])
     return version

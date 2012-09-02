@@ -31,9 +31,10 @@ Options.docstrings = False
 if sys.argv[0].count('profile'):
     directive_defaults['profile'] = True
 
-directive_defaults['cdivision'] = True # WIN, PERFORMANCE! <3
-directive_defaults['infer_types'] = True # WIN, PERFORMANCE! <3
-directive_defaults['wraparound'] = False # WIN, PERFORMANCE! <3
+directive_defaults['cdivision'] = True 
+directive_defaults['infer_types'] = True
+directive_defaults['auto_cpdef'] = True
+directive_defaults['wraparound'] = False
 
 ext_modules = []
 libraries = []

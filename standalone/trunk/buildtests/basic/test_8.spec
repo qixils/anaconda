@@ -2,15 +2,13 @@
 
 __testname__ = 'test_8'
 
-a = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'),
-              os.path.join(CONFIGDIR,'support', 'useUnicode.py'),
-              __testname__ + '.py'],
+a = Analysis([__testname__ + '.py'],
              pathex=['.'])
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
           a.scripts,
           exclude_binaries=1,
-          name=os.path.join('build', 'pyi.' + config['target_platform'], __testname__ + '.exe'),
+          name=os.path.join('build', 'pyi.'+sys.platform, __testname__+'.exe'),
           debug=0,
           strip=0,
           upx=0,

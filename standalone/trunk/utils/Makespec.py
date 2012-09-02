@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 #
 # Automatically build spec files containing a description of the project
 #
@@ -19,30 +19,31 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA
 
+
+import optparse
+import os
+
+
 try:
     import PyInstaller
 except ImportError:
     # if importing PyInstaller fails, try to load from parent
-    # directory to support running without installation
-    import imp, os
-    if not hasattr(os, 'getuid') or os.getuid() != 0:
+    # directory to support running without installation.
+    import imp
+    # Prevent running as superuser (root).
+    if not hasattr(os, "getuid") or os.getuid() != 0:
         imp.load_module('PyInstaller', *imp.find_module('PyInstaller',
-            [os.path.dirname(os.path.dirname(__file__))]))
+            [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]))
+
 
 import PyInstaller.makespec
 import PyInstaller.compat
 import PyInstaller.log
-import optparse
 
-import os
 
 p = optparse.OptionParser(
     usage='python %prog [opts] <scriptname> [<scriptname> ...]'
 )
-p.add_option('-C', '--configfile',
-             default=PyInstaller.DEFAULT_CONFIGFILE,
-             dest='configfilename',
-             help='Name of configfile (default: %default)')
 PyInstaller.makespec.__add_options(p)
 PyInstaller.log.__add_options(p)
 PyInstaller.compat.__add_obsolete_options(p)

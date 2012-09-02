@@ -28,16 +28,6 @@ def getRaw(o):
     return str(buffer(o))
 
 
-##VS_VERSION_INFO {
-##    WORD  wLength;        // Specifies the length of the VS_VERSION_INFO structure
-##    WORD  wValueLength;   // Specifies the length of the Value member
-##    WORD  wType;          // 1 means text, 0 means binary
-##    WCHAR szKey[];        // Contains the Unicode string "VS_VERSION_INFO".
-##    WORD  Padding1[];
-##    VS_FIXEDFILEINFO Value;
-##    WORD  Padding2[];
-##    WORD  Children[];     // Specifies a list of zero or more StringFileInfo or VarFileInfo structures (or both) that are children of the current version structure.
-##};
 def decode(pathnm):
     h = win32api.LoadLibraryEx(pathnm, 0, LOAD_LIBRARY_AS_DATAFILE)
     nm = win32api.EnumResourceNames(h, RT_VERSION)[0]
@@ -48,16 +38,16 @@ def decode(pathnm):
         print vs
         if data[:j] != vs.toRaw():
             print "AAAAAGGHHHH"
-        txt = repr(vs)
-        glbls = {}
-        glbls['VSVersionInfo'] = VSVersionInfo
-        glbls['FixedFileInfo'] = FixedFileInfo
-        glbls['StringFileInfo'] = StringFileInfo
-        glbls['StringTable'] = StringTable
-        glbls['StringStruct'] = StringStruct
-        glbls['VarFileInfo'] = VarFileInfo
-        glbls['VarStruct'] = VarStruct
-        vs2 = eval(txt+'\n', glbls)
+        glbls = {
+            'VSVersionInfo': VSVersionInfo,
+            'FixedFileInfo': FixedFileInfo,
+            'StringFileInfo': StringFileInfo,
+            'StringTable': StringTable,
+            'StringStruct': StringStruct,
+            'VarFileInfo': VarFileInfo,
+            'VarStruct': VarStruct,
+            }
+        vs2 = eval(repr(vs), glbls)
         if vs.toRaw() != vs2.toRaw():
             print
             print 'reconstruction not the same!'
@@ -65,12 +55,25 @@ def decode(pathnm):
     win32api.FreeLibrary(h)
     return vs
 
+
 class VSVersionInfo:
+    """
+    WORD  wLength;        // length of the VS_VERSION_INFO structure
+    WORD  wValueLength;   // length of the Value member
+    WORD  wType;          // 1 means text, 0 means binary
+    WCHAR szKey[];        // Contains the Unicode string "VS_VERSION_INFO".
+    WORD  Padding1[];
+    VS_FIXEDFILEINFO Value;
+    WORD  Padding2[];
+    WORD  Children[];     // zero or more StringFileInfo or VarFileInfo
+                          // structures (or both) that are children of the
+                          // current version structure.
+    """
+
     def __init__(self, ffi=None, kids=None):
         self.ffi = ffi
-        self.kids = kids
-        if kids is None:
-            self.kids = []
+        self.kids = kids or []
+
     def fromRaw(self, data):
         i, (sublen, vallen, wType, nm) = parseCommon(data)
         #vallen is length of the ffi, typ is 0, nm is 'VS_VERSION_INFO'
@@ -79,10 +82,9 @@ class VSVersionInfo:
         self.ffi = FixedFileInfo()
         j = self.ffi.fromRaw(data, i)
         #print ffi
-        if TEST:
-            if data[i:j] != self.ffi.toRaw():
-                print "raw:", `data[i:j]`
-                print "ffi:", `self.ffi.toRaw()`
+        if TEST and data[i:j] != self.ffi.toRaw():
+            print "raw:", `data[i:j]`
+            print "ffi:", `self.ffi.toRaw()`
         i = j
         while i < sublen:
             j = i
@@ -90,33 +92,34 @@ class VSVersionInfo:
             if str(nm).strip() == "StringFileInfo":
                 sfi = StringFileInfo()
                 k = sfi.fromRaw(csublen, cvallen, nm, data, i, j+csublen)
-                if TEST:
-                    if data[j:k] != sfi.toRaw():
-                        rd = data[j:k]
-                        sd = sfi.toRaw()
-                        for x in range(0, len(rd), 16):
-                            rds = rd[x:x+16]
-                            sds = sd[x:x+16]
-                            if rds != sds:
-                                print "rd[%s:%s+16]: %s" % (x, x, `rds`)
-                                print "sd[%s:%s+16]: %s" % (x, x, `sds`)
-                                print
-                        print "raw: len %d, wLength %d" % (len(rd), struct.unpack('h', rd[:2])[0])
-                        print "sfi: len %d, wLength %d" % (len(sd), struct.unpack('h', sd[:2])[0])
+                if TEST and data[j:k] != sfi.toRaw():
+                    rd = data[j:k]
+                    sd = sfi.toRaw()
+                    for x in range(0, len(rd), 16):
+                        rds = rd[x:x+16]
+                        sds = sd[x:x+16]
+                        if rds != sds:
+                            print "rd[%s:%s+16]: %r" % (x, x, rds)
+                            print "sd[%s:%s+16]: %r" % (x, x, sds)
+                            print
+                    print ("raw: len %d, wLength %d"
+                           % (len(rd), struct.unpack('h', rd[:2])[0]))
+                    print ("sfi: len %d, wLength %d"
+                           % (len(sd), struct.unpack('h', sd[:2])[0]))
                 self.kids.append(sfi)
                 i = k
             else:
                 vfi = VarFileInfo()
                 k = vfi.fromRaw(csublen, cvallen, nm, data, i, j+csublen)
                 self.kids.append(vfi)
-                if TEST:
-                    if data[j:k] != vfi.toRaw():
-                        print "raw:", `data[j:k]`
-                        print "vfi:", `vfi.toRaw()`
+                if TEST and data[j:k] != vfi.toRaw():
+                    print "raw:", `data[j:k]`
+                    print "vfi:", `vfi.toRaw()`
                 i = k
             i = j + csublen
             i = ((i + 3) / 4) * 4
         return i
+
     def toRaw(self):
         nm = pywintypes.Unicode('VS_VERSION_INFO')
         rawffi = self.ffi.toRaw()
@@ -130,19 +133,20 @@ class VSVersionInfo:
         pad2 = ''
         if sublen % 4:
             pad2 = '\000\000'
-        tmp = []
-        for kid in self.kids:
-            tmp.append(kid.toRaw())
-        tmp = "".join(tmp)
+        tmp = "".join([kid.toRaw() for kid in self.kids ])
         sublen = sublen + len(pad2) + len(tmp)
-        return struct.pack('hhh', sublen, vallen, typ) + getRaw(nm) + '\000\000' + pad + rawffi + pad2 + tmp
+        return (struct.pack('hhh', sublen, vallen, typ)
+                + getRaw(nm) + '\000\000' + pad + rawffi + pad2 + tmp)
+
     def __repr__(self, indent=''):
-        tmp = []
-        newindent = indent + '  '
-        for kid in self.kids:
-            tmp.append(kid.__repr__(newindent+'  '))
+        indent = indent + '  '
+        tmp = [kid.__repr__(indent+'  ')
+               for kid in self.kids]
         tmp = ', \n'.join(tmp)
-        return "VSVersionInfo(\n%sffi=%s,\n%skids=[\n%s\n%s]\n)" % (newindent, self.ffi.__repr__(newindent), newindent, tmp, newindent)
+        return ("VSVersionInfo(\n%sffi=%s,\n%skids=[\n%s\n%s]\n)"
+                % (indent, self.ffi.__repr__(indent), indent,
+                   tmp, indent))
+
 
 def parseCommon(data, start=0):
     i = start + 6
@@ -158,30 +162,40 @@ def parseUString(data, start, limit):
     while i < limit:
         if data[i:i+2] == '\000\000':
             break
-        i = i + 2
+        i += 2
     szKey = pywintypes.UnicodeFromRaw(data[start:i])
-    i = i + 2
-    #print "szKey:", '"'+str(szKey)+'"', "(consumed", i-start, "bytes - to", i, ")"
+    i += 2
+    #print "szKey:", repr(szKey), "(consumed", i-start, "bytes - to", i, ")"
     return i, szKey
 
-##VS_FIXEDFILEINFO {  // vsffi
-##    DWORD dwSignature;        //Contains the value 0xFEEFO4BD
-##    DWORD dwStrucVersion;     //Specifies the binary version number of this structure. The high-order word of this member contains the major version number, and the low-order word contains the minor version number.
-##    DWORD dwFileVersionMS;    // Specifies the most significant 32 bits of the file's binary version number
-##    DWORD dwFileVersionLS;    //
-##    DWORD dwProductVersionMS; // Specifies the most significant 32 bits of the binary version number of the product with which this file was distributed
-##    DWORD dwProductVersionLS; //
-##    DWORD dwFileFlagsMask;    // Contains a bitmask that specifies the valid bits in dwFileFlags. A bit is valid only if it was defined when the file was created.
-##    DWORD dwFileFlags;        // VS_FF_DEBUG, VS_FF_PATCHED etc.
-##    DWORD dwFileOS;           // VOS_NT, VOS_WINDOWS32 etc.
-##    DWORD dwFileType;         // VFT_APP etc.
-##    DWORD dwFileSubtype;      // 0 unless VFT_DRV or VFT_FONT or VFT_VXD
-##    DWORD dwFileDateMS;
-##    DWORD dwFileDateLS;
-##};
 
 class FixedFileInfo:
-    def __init__(self, filevers=(0, 0, 0, 0), prodvers=(0, 0, 0, 0), mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)):
+    """
+    DWORD dwSignature;        //Contains the value 0xFEEFO4BD
+    DWORD dwStrucVersion;     // binary version number of this structure.
+                              // The high-order word of this member contains
+                              // the major version number, and the low-order
+                              // word contains the minor version number.
+    DWORD dwFileVersionMS;    // most significant 32 bits of the file's binary
+                              // version number
+    DWORD dwFileVersionLS;    //
+    DWORD dwProductVersionMS; // most significant 32 bits of the binary version
+                              // number of the product with which this file was
+                              // distributed
+    DWORD dwProductVersionLS; //
+    DWORD dwFileFlagsMask;    // bitmask that specifies the valid bits in
+                              // dwFileFlags. A bit is valid only if it was
+                              // defined when the file was created.
+    DWORD dwFileFlags;        // VS_FF_DEBUG, VS_FF_PATCHED etc.
+    DWORD dwFileOS;           // VOS_NT, VOS_WINDOWS32 etc.
+    DWORD dwFileType;         // VFT_APP etc.
+    DWORD dwFileSubtype;      // 0 unless VFT_DRV or VFT_FONT or VFT_VXD
+    DWORD dwFileDateMS;
+    DWORD dwFileDateLS;
+    """
+    def __init__(self, filevers=(0, 0, 0, 0), prodvers=(0, 0, 0, 0),
+                 mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1,
+                 subtype=0x0, date=(0, 0)):
         self.sig = 0xfeef04bdL
         self.strucVersion = 0x10000
         self.fileVersionMS = (filevers[0] << 16) | (filevers[1] & 0xffff)
@@ -195,6 +209,7 @@ class FixedFileInfo:
         self.fileSubtype = subtype
         self.fileDateMS = date[0]
         self.fileDateLS = date[1]
+
     def fromRaw(self, data, i):
         (self.sig,
          self.strucVersion,
@@ -210,6 +225,7 @@ class FixedFileInfo:
          self.fileDateMS,
          self.fileDateLS) = struct.unpack('13l', data[i:i+52])
         return i+52
+
     def toRaw(self):
         return struct.pack('L12l', self.sig,
                              self.strucVersion,
@@ -224,60 +240,67 @@ class FixedFileInfo:
                              self.fileSubtype,
                              self.fileDateMS,
                              self.fileDateLS)
+
     def __repr__(self, indent=''):
-        fv = (self.fileVersionMS >> 16, self.fileVersionMS & 0xffff, self.fileVersionLS >> 16, self.fileVersionLS & 0xFFFF)
-        pv = (self.productVersionMS >> 16, self.productVersionMS & 0xffff, self.productVersionLS >> 16, self.productVersionLS & 0xFFFF)
+        fv = (self.fileVersionMS >> 16, self.fileVersionMS & 0xffff,
+              self.fileVersionLS >> 16, self.fileVersionLS & 0xFFFF)
+        pv = (self.productVersionMS >> 16, self.productVersionMS & 0xffff,
+              self.productVersionLS >> 16, self.productVersionLS & 0xFFFF)
         fd = (self.fileDateMS, self.fileDateLS)
         tmp = ["FixedFileInfo(",
-               "filevers=%s," % (fv,),
-               "prodvers=%s," % (pv,),
+               "filevers=%s," % fv,
+               "prodvers=%s," % pv,
                "mask=%s," % hex(self.fileFlagsMask),
                "flags=%s," % hex(self.fileFlags),
                "OS=%s," % hex(self.fileOS),
                "fileType=%s," % hex(self.fileType),
                "subtype=%s," % hex(self.fileSubtype),
-               "date=%s" % (fd,),
+               "date=%s" % fd,
                ")"
               ]
         return ('\n'+indent+'  ').join(tmp)
 
+
 ##StringFileInfo {
-##    WORD        wLength;      // Specifies the length of the version resource
-##    WORD        wValueLength; // Specifies the length of the Value member in the current VS_VERSION_INFO structure
-##    WORD        wType;        // 1 means text, 0 means binary
-##    WCHAR       szKey[];      // Contains the Unicode string "StringFileInfo".
-##    WORD        Padding[];
-##    StringTable Children[];   // Specifies a list of zero or more String structures
 ##};
 
 class StringFileInfo:
+    """
+    WORD        wLength;      // length of the version resource
+    WORD        wValueLength; // length of the Value member in the current
+                              // VS_VERSION_INFO structure
+    WORD        wType;        // 1 means text, 0 means binary
+    WCHAR       szKey[];      // Contains the Unicode string 'StringFileInfo'.
+    WORD        Padding[];
+    StringTable Children[];   // list of zero or more String structures
+    """
     def __init__(self, kids=None):
         self.name = "StringFileInfo"
-        if kids is None:
-            self.kids = []
-        else:
-            self.kids = kids
+        self.kids = kids or []
+
     def fromRaw(self, sublen, vallen, name, data, i, limit):
         self.name = name
         while i < limit:
             st = StringTable()
             j = st.fromRaw(data, i, limit)
-            if TEST:
-                if data[i:j] != st.toRaw():
-                    rd = data[i:j]
-                    sd = st.toRaw()
-                    for x in range(0, len(rd), 16):
-                        rds = rd[x:x+16]
-                        sds = sd[x:x+16]
-                        if rds != sds:
-                            print "rd[%s:%s+16]: %s" % (x, x, `rds`)
-                            print "sd[%s:%s+16]: %s" % (x, x, `sds`)
-                            print
-                    print "raw: len %d, wLength %d" % (len(rd), struct.unpack('h', rd[:2])[0])
-                    print " st: len %d, wLength %d" % (len(sd), struct.unpack('h', sd[:2])[0])
+            if TEST and data[i:j] != st.toRaw():
+                rd = data[i:j]
+                sd = st.toRaw()
+                for x in range(0, len(rd), 16):
+                    rds = rd[x:x+16]
+                    sds = sd[x:x+16]
+                    if rds != sds:
+                        print "rd[%s:%s+16]: %r" % (x, x, rds)
+                        print "sd[%s:%s+16]: %r" % (x, x, sds)
+                        print
+                print ("raw: len %d, wLength %d"
+                       % (len(rd), struct.unpack('h', rd[:2])[0]))
+                print (" st: len %d, wLength %d"
+                       % (len(sd), struct.unpack('h', sd[:2])[0]))
             self.kids.append(st)
             i = j
         return i
+
     def toRaw(self):
         if type(self.name) is STRINGTYPE:
             self.name = pywintypes.Unicode(self.name)
@@ -287,38 +310,34 @@ class StringFileInfo:
         pad = ''
         if sublen % 4:
             pad = '\000\000'
-        tmp = []
-        for kid in self.kids:
-            tmp.append(kid.toRaw())
-        tmp = ''.join(tmp)
+        tmp = ''.join([kid.toRaw() for kid in self.kids])
         sublen = sublen + len(pad) + len(tmp)
         if tmp[-2:] == '\000\000':
             sublen = sublen - 2
-        return struct.pack('hhh', sublen, vallen, typ) + getRaw(self.name) + '\000\000' + pad + tmp
-    def __repr__(self, indent=''):
-        tmp = []
-        newindent = indent + '  '
-        for kid in self.kids:
-            tmp.append(kid.__repr__(newindent))
-        tmp = ', \n'.join(tmp)
-        return "%sStringFileInfo(\n%s[\n%s\n%s])" % (indent, newindent, tmp, newindent)
+        return (struct.pack('hhh', sublen, vallen, typ)
+                + getRaw(self.name) + '\000\000' + pad + tmp)
 
-##StringTable {
-##    WORD   wLength;
-##    WORD   wValueLength;
-##    WORD   wType;
-##    WCHAR  szKey[];
-##    String Children[];    // Specifies a list of zero or more String structures.
-##};
+    def __repr__(self, indent=''):
+        newindent = indent + '  '
+        tmp = [kid.__repr__(newindent)
+               for kid in self.kids]
+        tmp = ', \n'.join(tmp)
+        return ("%sStringFileInfo(\n%s[\n%s\n%s])"
+                % (indent, newindent, tmp, newindent))
+
 
 class StringTable:
+    """
+    WORD   wLength;
+    WORD   wValueLength;
+    WORD   wType;
+    WCHAR  szKey[];
+    String Children[];    // list of zero or more String structures.
+    """
     def __init__(self, name=None, kids=None):
-        self.name = name
-        self.kids = kids
-        if name is None:
-            self.name = ''
-        if kids is None:
-            self.kids = []
+        self.name = name or ''
+        self.kids = kids or []
+
     def fromRaw(self, data, i, limit):
         #print "Parsing StringTable"
         i, (cpsublen, cpwValueLength, cpwType, self.name) = parseCodePage(data, i, limit) # should be code page junk
@@ -326,14 +345,14 @@ class StringTable:
         while i < limit:
             ss = StringStruct()
             j = ss.fromRaw(data, i, limit)
-            if TEST:
-                if data[i:j] != ss.toRaw():
-                    print "raw:", `data[i:j]`
-                    print " ss:", `ss.toRaw()`
+            if TEST and data[i:j] != ss.toRaw():
+                print "raw:", `data[i:j]`
+                print " ss:", `ss.toRaw()`
             i = j
             self.kids.append(ss)
             i = ((i + 3) / 4) * 4
         return i
+
     def toRaw(self):
         if type(self.name) is STRINGTYPE:
             self.name = pywintypes.Unicode(self.name)
@@ -347,41 +366,40 @@ class StringTable:
                 raw = raw + '\000\000'
             tmp.append(raw)
         tmp = ''.join(tmp)
-        sublen = sublen + len(tmp)
+        sublen += len(tmp)
         if tmp[-2:] == '\000\000':
-            sublen = sublen - 2
-        return struct.pack('hhh', sublen, vallen, typ) + getRaw(self.name) + '\000\000' + tmp
-    def __repr__(self, indent=''):
-        tmp = []
-        newindent = indent + '  '
-        for kid in self.kids:
-            tmp.append(repr(kid))
-        tmp = (',\n%s' % newindent).join(tmp)
-        return "%sStringTable(\n%s'%s', \n%s[%s])" % (indent, newindent, str(self.name), newindent, tmp)
+            sublen -= 2
+        return (struct.pack('hhh', sublen, vallen, typ)
+                + getRaw(self.name) + '\000\000' + tmp)
 
-##String {
-##    WORD   wLength;
-##    WORD   wValueLength;
-##    WORD   wType;
-##    WCHAR  szKey[];
-##    WORD   Padding[];
-##    String Value[];
-##};
+    def __repr__(self, indent=''):
+        newindent = indent + '  '
+        tmp = map(repr, self.kids)
+        tmp = (',\n%s' % newindent).join(tmp)
+        return ("%sStringTable(\n%s%r,\n%s[%s])"
+                % (indent, newindent, self.name, newindent, tmp))
+
 
 class StringStruct:
+    """
+    WORD   wLength;
+    WORD   wValueLength;
+    WORD   wType;
+    WCHAR  szKey[];
+    WORD   Padding[];
+    String Value[];
+    """
     def __init__(self, name=None, val=None):
-        self.name = name
-        self.val = val
-        if name is None:
-            self.name = ''
-        if val is None:
-            self.val = ''
+        self.name = name or ''
+        self.val = val or ''
+
     def fromRaw(self, data, i, limit):
         i, (sublen, vallen, typ, self.name) = parseCommon(data, i)
         limit = i + sublen
         i = ((i + 3) / 4) * 4
         i, self.val = parseUString(data, i, limit)
         return i
+
     def toRaw(self):
         if type(self.name) is STRINGTYPE:
             self.name = pywintypes.Unicode(self.name)
@@ -394,9 +412,13 @@ class StringStruct:
         if sublen % 4:
             pad = '\000\000'
         sublen = sublen + len(pad) + 2*vallen
-        return struct.pack('hhh', sublen, vallen, typ) + getRaw(self.name) + '\000\000' + pad + getRaw(self.val) + '\000\000'
+        return (struct.pack('hhh', sublen, vallen, typ)
+                + getRaw(self.name) + '\000\000' + pad
+                + getRaw(self.val) + '\000\000')
+
     def __repr__(self, indent=''):
-        return "StringStruct('%s', '%s')" % (self.name, self.val)
+        return "StringStruct(%r, %r)" % (self.name, self.val)
+
 
 def parseCodePage(data, i, limit):
     #print "Parsing CodePage"
@@ -404,21 +426,20 @@ def parseCodePage(data, i, limit):
     #i = ((i + 3) / 4) * 4
     return i, (sublen, wValueLength, wType, nm)
 
-##VarFileInfo {
-##    WORD  wLength;        // Specifies the length of the version resource
-##    WORD  wValueLength;   // Specifies the length of the Value member in the current VS_VERSION_INFO structure
-##    WORD  wType;          // 1 means text, 0 means binary
-##    WCHAR szKey[];        // Contains the Unicode string "VarFileInfo".
-##    WORD  Padding[];
-##    Var   Children[];     // Specifies a list of zero or more Var structures
-##};
 
 class VarFileInfo:
+    """
+    WORD  wLength;        // length of the version resource
+    WORD  wValueLength;   // length of the Value member in the current
+                          // VS_VERSION_INFO structure
+    WORD  wType;          // 1 means text, 0 means binary
+    WCHAR szKey[];        // Contains the Unicode string 'VarFileInfo'.
+    WORD  Padding[];
+    Var   Children[];     // list of zero or more Var structures
+    """
     def __init__(self, kids=None):
-        if kids is None:
-            self.kids = []
-        else:
-            self.kids = kids
+        self.kids = kids or []
+
     def fromRaw(self, sublen, vallen, name, data, i, limit):
         self.sublen = sublen
         self.vallen = vallen
@@ -428,12 +449,12 @@ class VarFileInfo:
             vs = VarStruct()
             j = vs.fromRaw(data, i, limit)
             self.kids.append(vs)
-            if TEST:
-                if data[i:j] != vs.toRaw():
-                    print "raw:", `data[i:j]`
-                    print "cmp:", `vs.toRaw()`
+            if TEST and data[i:j] != vs.toRaw():
+                print "raw:", `data[i:j]`
+                print "cmp:", `vs.toRaw()`
             i = j
         return i
+
     def toRaw(self):
         self.vallen = 0
         self.wType = 1
@@ -442,43 +463,43 @@ class VarFileInfo:
         pad = ''
         if sublen % 4:
             pad = '\000\000'
-        tmp = []
-        for kid in self.kids:
-            tmp.append(kid.toRaw())
-        tmp = ''.join(tmp)
+        tmp = ''.join([kid.toRaw() for kid in self.kids])
         self.sublen = sublen + len(pad) + len(tmp)
-        return struct.pack('hhh', self.sublen, self.vallen, self.wType) + getRaw(self.name) + '\000\000' + pad + tmp
+        return (struct.pack('hhh', self.sublen, self.vallen, self.wType)
+                + getRaw(self.name) + '\000\000' + pad + tmp)
+
     def __repr__(self, indent=''):
         tmp = map(repr, self.kids)
         return "%sVarFileInfo([%s])" % (indent, ', '.join(tmp))
 
-##Var {
-##    WORD  wLength;        // Specifies the length of the version resource
-##    WORD  wValueLength;   // Specifies the length of the Value member in the current VS_VERSION_INFO structure
-##    WORD  wType;          // 1 means text, 0 means binary
-##    WCHAR szKey[];        // Contains the Unicode string "Translation" or a user-defined key string value
-##    WORD  Padding[];      //
-##    WORD  Value[];        // Specifies a list of one or more values that are language and code-page identifiers
-##};
 
 STRINGTYPE = type('')
 
 class VarStruct:
+    """
+    WORD  wLength;        // length of the version resource
+    WORD  wValueLength;   // length of the Value member in the current
+                          // VS_VERSION_INFO structure
+    WORD  wType;          // 1 means text, 0 means binary
+    WCHAR szKey[];        // Contains the Unicode string 'Translation'
+                          // or a user-defined key string value
+    WORD  Padding[];      //
+    WORD  Value[];        // list of one or more values that are language
+                          // and code-page identifiers
+    """
     def __init__(self, name=None, kids=None):
-        self.name = name
-        self.kids = kids
-        if name is None:
-            self.name = ''
-        if kids is None:
-            self.kids = []
+        self.name = name or ''
+        self.kids = kids or []
+
     def fromRaw(self, data, i, limit):
         i, (self.sublen, self.wValueLength, self.wType, self.name) = parseCommon(data, i)
         i = ((i + 3) / 4) * 4
         for j in range(self.wValueLength/2):
             kid = struct.unpack('h', data[i:i+2])[0]
             self.kids.append(kid)
-            i = i + 2
+            i += 2
         return i
+
     def toRaw(self):
         self.wValueLength = len(self.kids) * 2
         self.wType = 0
@@ -489,20 +510,21 @@ class VarStruct:
         if sublen % 4:
             pad = '\000\000'
         self.sublen = sublen + len(pad) + self.wValueLength
-        tmp = []
-        for kid in self.kids:
-            tmp.append(struct.pack('h', kid))
-        tmp = ''.join(tmp)
-        return struct.pack('hhh', self.sublen, self.wValueLength, self.wType) + getRaw(self.name) + '\000\000' + pad + tmp
+        tmp = ''.join([struct.pack('h', kid) for kid in self.kids])
+        return (struct.pack('hhh', self.sublen, self.wValueLength, self.wType)
+                + getRaw(self.name) + '\000\000' + pad + tmp)
+
     def __repr__(self, indent=''):
-        return "VarStruct('%s', %s)" % (str(self.name), repr(self.kids))
+        return "VarStruct(%r, %r)" % (self.name, self.kids)
+
 
 def SetVersion(exenm, versionfile):
-    txt = open(versionfile, 'r').read()
-    vs = eval(txt+'\n', globals())
+    txt = open(versionfile, 'rU').read()
+    vs = eval(txt)
     hdst = win32api.BeginUpdateResource(exenm, 0)
     win32api.UpdateResource(hdst, RT_VERSION, 1, vs.toRaw())
     win32api.EndUpdateResource (hdst, 0)
+
 
 if __name__ == '__main__':
     import sys

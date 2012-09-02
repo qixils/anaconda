@@ -2,9 +2,6 @@
 Utilities for reading and writing Mach-O headers
 """
 
-from pkg_resources import require
-require("altgraph")
-
 import os
 import sys
 
@@ -17,6 +14,11 @@ from macholib.MachO import MachO
 from macholib.itergraphreport import itergraphreport
 
 __all__ = ['MachOGraph']
+
+try:
+    unicode
+except NameError:
+    unicode = str
 
 class MissingMachO(object):
     def __init__(self, filename):

@@ -2,10 +2,7 @@
 
 __testname__ = 'test_relative_import3'
 
-a = Analysis([os.path.join(HOMEPATH,'support/_mountzlib.py'),
-              os.path.join(CONFIGDIR,'support/useUnicode.py'),
-              __testname__ + '.py'],
-             )
+a = Analysis([__testname__ + '.py'])
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
           a.scripts,

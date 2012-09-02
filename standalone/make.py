@@ -356,7 +356,7 @@ def main():
             root_path = data_path
             extensions_path = '/'.join((root_path, 'extensions'))
         else:
-            root_path = '/'.join((new_path, 'Contents', 'Resources'))
+            root_path = '/'.join((new_path, 'Contents', 'MacOS'))
         extensions_path = '/'.join((root_path, 'extensions'))
         zip.compile = True
         if extra_extensions:

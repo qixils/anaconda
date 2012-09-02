@@ -265,6 +265,7 @@ long long snake_tell(SnakeSound * sound)
 {
     long long pos = alureGetStreamPos(sound->stream);
     check_debug("Get stream position");
+    return pos;
 }
 
 void snake_seek(SnakeSound * sound, long long pos)

@@ -100,6 +100,7 @@ import xml
 from xml.dom import Node, minidom
 from xml.dom.minidom import Document, Element
 
+from PyInstaller import compat
 from PyInstaller.compat import hashlib, architecture
 from PyInstaller import log as logging
 logger = logging.getLogger('PyInstaller.build.winmanifest')
@@ -348,7 +349,7 @@ class Manifest(object):
                 languages.append("en")
         languages.append(self.getlanguage("*"))
         
-        winsxs = os.path.join(os.getenv("SystemRoot"), "WinSxS")
+        winsxs = os.path.join(compat.getenv("SystemRoot"), "WinSxS")
         if not os.path.isdir(winsxs):
             logger.warn("No such dir %s", winsxs)
         manifests = os.path.join(winsxs, "Manifests")
@@ -1026,7 +1027,10 @@ def processor_architecture():
     'x86' - 32bit Windows
     'amd64' - 64bit Windows
     """
-    return 'x86' if architecture() == '32bit' else 'amd64'
+    if architecture() == '32bit':
+        return 'x86'
+    else:
+        return 'amd64'
 
 
 if __name__ == "__main__":    

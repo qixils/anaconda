@@ -30,8 +30,9 @@ include_dirs = ['./alure/include', os.getcwd()]
 extra_link_args = []
 
 if sys.platform == 'win32':
-    libraries.extend(['ALURE32-static', 'OpenAL32'])
-    library_dirs.extend(['./openal-soft/lib'])
+    libraries.extend(['ALURE32-static', 'OpenAL32', 'libsndfile-1'])
+    library_dirs.extend(['./openal-soft/lib',
+                         'C:\Programs\Mega-Nerd\libsndfile\lib'])
     include_dirs.extend(['./openal-soft/include', './openal-soft/include/AL'])
 elif sys.platform in ('linux2', 'darwin'):
     libraries.extend(['openal'])

@@ -1,13 +1,15 @@
 # -*- mode: python -*-
 
-print "TESTING MULTIPROCESS FEATURE: file A (onefile pack) depends on file B (onedir pack)."
+'''
+MULTIPROCESS FEATURE: file A (onefile pack) depends on file B (onedir pack)
+'''
 
 __testname__ = 'test_multipackage2'
 __testdep__ = 'multipackage2_B'
 
-a = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'), os.path.join(CONFIGDIR,'support', 'useUnicode.py'), __testname__ + '.py'],
+a = Analysis([__testname__ + '.py'],
              pathex=['.'])
-b = Analysis([os.path.join(HOMEPATH,'support', '_mountzlib.py'), os.path.join(CONFIGDIR,'support', 'useUnicode.py'), __testdep__ + '.py'],
+b = Analysis([__testdep__ + '.py'],
              pathex=['.'])
 
 MERGE((b, __testdep__, os.path.join(__testdep__, __testdep__ + '.exe')),
@@ -31,7 +33,8 @@ exeB = EXE(pyzB,
           b.scripts,
           b.dependencies,
           exclude_binaries=1,
-          name=os.path.join('build', 'pyi.' + config['target_platform'], __testdep__,__testdep__ + '.exe'),
+          name=os.path.join('build', 'pyi.'+sys.platform, __testdep__,
+                            __testdep__ + '.exe'),
           debug=False,
           strip=False,
           upx=True,

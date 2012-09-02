@@ -1,5 +1,7 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+#
 # Viewer for archives packaged by archive.py
+#
 # Copyright (C) 2005-2011, Giovanni Bajo
 # Based on previous work under copyright (c) 2002 McMillan Enterprises, Inc.
 #
@@ -15,28 +17,31 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
+
+
+import optparse
+import os
+import pprint
+import tempfile
+import zlib
+
 
 try:
     import PyInstaller
 except ImportError:
     # if importing PyInstaller fails, try to load from parent
-    # directory to support running without installation
-    import imp, os
+    # directory to support running without installation.
+    import imp
+    # Prevent running as superuser (root).
     if not hasattr(os, "getuid") or os.getuid() != 0:
         imp.load_module('PyInstaller', *imp.find_module('PyInstaller',
-            [os.path.dirname(os.path.dirname(__file__))]))
+            [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]))
 
-from PyInstaller.loader import archive, carchive
+
+from PyInstaller.loader import pyi_archive, pyi_carchive
 import PyInstaller.log
 
-import tempfile, os
-try:
-    import zlib
-except ImportError:
-    zlib = archive.DummyZlib()
-import pprint
-import optparse
 
 stack = []
 cleanup = []
@@ -44,6 +49,7 @@ name = None
 debug = False
 rec_debug = False
 brief = False
+
 
 def main(opts, args):
     global stack
@@ -58,8 +64,8 @@ def main(opts, args):
     if not os.path.isfile(name):
         print "%s is an invalid file name!" % name
         return 1
-        
-    arch = getArchive(name)
+
+    arch = get_archive(name)
     stack.append((name, arch))
     if debug or brief:
         show_log(name, arch)
@@ -72,7 +78,7 @@ def main(opts, args):
             toks = raw_input('? ').split(None, 1)
         except EOFError:
             # Ctrl-D
-            print # clear line
+            print  # Clear line.
             break
         if not toks:
             usage()
@@ -94,7 +100,7 @@ def main(opts, args):
             if not arg:
                 arg = raw_input('open name? ')
             arg = arg.strip()
-            arch = getArchive(arg)
+            arch = get_archive(arg)
             if arch is None:
                 print arg, "not found"
                 continue
@@ -104,13 +110,13 @@ def main(opts, args):
             if not arg:
                 arg = raw_input('extract name? ')
             arg = arg.strip()
-            data = getData(arg, arch)
+            data = get_data(arg, arch)
             if data is None:
                 print "Not found"
                 continue
             fnm = raw_input('to filename? ')
             if not fnm:
-                print `data`
+                print repr(data)
             else:
                 open(fnm, 'wb').write(data)
         elif cmd == 'Q':
@@ -125,20 +131,24 @@ def main(opts, args):
             os.remove(fnm)
         except Exception, e:
             print "couldn't delete", fnm, e.args
+
+
 def usage():
     print "U: go Up one level"
     print "O <nm>: open embedded archive nm"
     print "X <nm>: extract nm"
     print "Q: quit"
-def getArchive(nm):
+
+
+def get_archive(nm):
     if not stack:
         if nm[-4:].lower() == '.pyz':
             return ZlibArchive(nm)
-        return carchive.CArchive(nm)
+        return pyi_carchive.CArchive(nm)
     parent = stack[-1][1]
     try:
         return parent.openEmbedded(nm)
-    except KeyError, e:
+    except KeyError:
         return None
     except (ValueError, RuntimeError):
         ndx = parent.toc.find(nm)
@@ -150,9 +160,10 @@ def getArchive(nm):
         if typcd == 'z':
             return ZlibArchive(tfnm)
         else:
-            return carchive.CArchive(tfnm)
+            return pyi_carchive.CArchive(tfnm)
 
-def getData(nm, arch):
+
+def get_data(nm, arch):
     if type(arch.toc) is type({}):
         (ispkg, pos, lngth) = arch.toc.get(nm, (0, None, 0))
         if pos is None:
@@ -164,6 +175,7 @@ def getData(nm, arch):
     x, data = arch.extract(ndx)
     return data
 
+
 def show(nm, arch):
     if type(arch.toc) == type({}):
         print " Name: (ispkg, pos, len)"
@@ -173,11 +185,12 @@ def show(nm, arch):
         toc = arch.toc.data
     pprint.pprint(toc)
 
+
 def show_log(nm, arch, output=[]):
     if type(arch.toc) == type({}):
         toc = arch.toc
         if brief:
-            for name,_ in toc.items():
+            for name, _ in toc.items():
                 output.append(name)
         else:
             pprint.pprint(toc)
@@ -190,23 +203,26 @@ def show_log(nm, arch, output=[]):
                 output.append(el)
             if rec_debug:
                 if el[4] in ('z', 'a'):
-                    show_log(el[5], getArchive(el[5]), output)
+                    show_log(el[5], get_archive(el[5]), output)
                     stack.pop()
         pprint.pprint(output)
 
-class ZlibArchive(archive.ZlibArchive):
+
+class ZlibArchive(pyi_archive.ZlibArchive):
+
     def checkmagic(self):
         """ Overridable.
             Check to see if the file object self.lib actually has a file
             we understand.
         """
-        self.lib.seek(self.start)       #default - magic is at start of file
+        self.lib.seek(self.start)  # default - magic is at start of file.
         if self.lib.read(len(self.MAGIC)) != self.MAGIC:
-            raise RuntimeError("%s is not a valid %s archive file" 
+            raise RuntimeError("%s is not a valid %s archive file"
                                % (self.path, self.__class__.__name__))
         if self.lib.read(len(self.pymagic)) != self.pymagic:
             print "Warning: pyz is from a different Python version"
         self.lib.read(4)
+
 
 parser = optparse.OptionParser('%prog [options] pyi_archive')
 parser.add_option('-l', '--log',
@@ -218,12 +234,14 @@ parser.add_option('-r', '--recursive',
                   default=False,
                   action='store_true',
                   dest='rec',
-                  help='Recusively print an archive log (default: %default). Can be combined with -r')
+                  help='Recusively print an archive log (default: %default). '
+                  'Can be combined with -r')
 parser.add_option('-b', '--brief',
                   default=False,
                   action='store_true',
                   dest='brief',
-                  help='Print only file name. (default: %default). Can be combined with -r')
+                  help='Print only file name. (default: %default). '
+                  'Can be combined with -r')
 PyInstaller.log.__add_options(parser)
 
 opts, args = parser.parse_args()

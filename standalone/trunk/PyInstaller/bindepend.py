@@ -1,6 +1,3 @@
-#! /usr/bin/env python
-#
-# Find external dependencies of binary libraries.
 #
 # Copyright (C) 2005, Giovanni Bajo
 # Based on previous work under copyright (c) 2002 McMillan Enterprises, Inc.
@@ -17,37 +14,49 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
+
+
+# Find external dependencies of binary libraries.
+
 
 import os
 import sys
 import re
 from glob import glob
-import subprocess
+
 # Required for extracting eggs.
 import zipfile
 
-from PyInstaller import is_win, is_unix, is_cygwin, is_darwin, is_py26
+
+from PyInstaller.compat import is_win, is_unix, is_aix, is_cygwin, is_darwin, is_py26
 from PyInstaller.depend import dylib
 from PyInstaller.utils import winutils
-from PyInstaller.compat import set
+import PyInstaller.compat as compat
 
 
 import PyInstaller.log as logging
-logger = logging.getLogger('PyInstaller.build.bindepend')
+logger = logging.getLogger(__file__)
 
 seen = {}
 
 if is_win:
     if is_py26:
         try:
-            import win32api
+            # For Portable Python it is required to import pywintypes before
+            # win32api module. See for details:
+            # http://www.voidspace.org.uk/python/movpy/reference/win32ext.html#problems-with-win32api
             import pywintypes
+            import win32api
         except ImportError:
-            raise SystemExit("Error: Python 2.6+ on Windows support needs "
-                             "pywin32.\r\nPlease install from http://sourceforge.net/projects/pywin32/")
+            raise SystemExit("Error: PyInstaller for Python 2.6+ on Windows "
+                 "needs pywin32.\r\nPlease install from "
+                 "http://sourceforge.net/projects/pywin32/")
 
-    from PyInstaller.utils.winmanifest import RT_MANIFEST, GetManifestResources, Manifest
+    from PyInstaller.utils.winmanifest import RT_MANIFEST
+    from PyInstaller.utils.winmanifest import GetManifestResources
+    from PyInstaller.utils.winmanifest import Manifest
+
     try:
         from PyInstaller.utils.winmanifest import winresource
     except ImportError, detail:
@@ -55,12 +64,14 @@ if is_win:
 
 
 def getfullnameof(mod, xtrapath=None):
-    """Return the full path name of MOD.
+    """
+    Return the full path name of MOD.
 
-        MOD is the basename of a dll or pyd.
-        XTRAPATH is a path or list of paths to search first.
-        Return the full path name of MOD.
-        Will search the full Windows search path, as well as sys.path"""
+    MOD is the basename of a dll or pyd.
+    XTRAPATH is a path or list of paths to search first.
+    Return the full path name of MOD.
+    Will search the full Windows search path, as well as sys.path
+    """
     # Search sys.path first!
     epath = sys.path + winutils.get_system_path()
     if xtrapath is not None:
@@ -81,34 +92,70 @@ def getfullnameof(mod, xtrapath=None):
 
 
 def _getImports_pe(pth):
-    """Find the binary dependencies of PTH.
+    """
+    Find the binary dependencies of PTH.
 
-        This implementation walks through the PE header
-        and uses library pefile for that and supports
-        32/64bit Windows"""
+    This implementation walks through the PE header
+    and uses library pefile for that and supports
+    32/64bit Windows
+    """
     import PyInstaller.lib.pefile as pefile
-    pe = pefile.PE(pth)
-    dlls = []
-    # Some libraries have no other binary dependencies.
+    dlls = set()
+    # By default library pefile parses all PE information.
+    # We are only interested in the list of dependent dlls.
+    # Performance is improved by reading only needed information.
+    # https://code.google.com/p/pefile/wiki/UsageExamples
+    pe = pefile.PE(pth, fast_load=True)
+    pe.parse_data_directories(directories=[
+        pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT']])
+    # Some libraries have no other binary dependencies. Use empty list
+    # in that case. Otherwise pefile would return None.
     # e.g. C:\windows\system32\kernel32.dll on Wine
     for entry in getattr(pe, 'DIRECTORY_ENTRY_IMPORT', []):
-        dlls.append(entry.dll)
+        dlls.add(entry.dll)
     return dlls
 
 
+def _extract_from_egg(toc):
+    """
+    Ensure all binary modules in zipped eggs get extracted and
+    included with the frozen executable.
+
+    The supplied toc is directly modified to make changes effective.
+
+    return  modified table of content
+    """
+    for item in toc:
+        # Item is a tupple
+        #  (mod_name, path, type)
+        modname, pth, typ = item
+        if not os.path.isfile(pth):
+            pth = check_extract_from_egg(pth)[0][0]
+            # Replace value in original data structure.
+            toc.remove(item)
+            toc.append((modname, pth, typ))
+    return toc
+
+
 def Dependencies(lTOC, xtrapath=None, manifest=None):
-    """Expand LTOC to include all the closure of binary dependencies.
+    """
+    Expand LTOC to include all the closure of binary dependencies.
 
-       LTOC is a logical table of contents, ie, a seq of tuples (name, path).
-       Return LTOC expanded by all the binary dependencies of the entries
-       in LTOC, except those listed in the module global EXCLUDES
+    LTOC is a logical table of contents, ie, a seq of tuples (name, path).
+    Return LTOC expanded by all the binary dependencies of the entries
+    in LTOC, except those listed in the module global EXCLUDES
 
-       manifest should be a winmanifest.Manifest instance on Windows, so
-       that all dependent assemblies can be added"""
+    manifest should be a winmanifest.Manifest instance on Windows, so
+    that all dependent assemblies can be added
+    """
+    # Extract all necessary binary modules from Python eggs to be included
+    # directly with PyInstaller.
+    lTOC = _extract_from_egg(lTOC)
+
     for nm, pth, typ in lTOC:
         if seen.get(nm.upper(), 0):
             continue
-        logger.info("Analyzing %s", pth)
+        logger.debug("Analyzing %s", pth)
         seen[nm.upper()] = 1
         if is_win:
             for ftocnm, fn in selectAssemblies(pth, manifest):
@@ -123,17 +170,17 @@ def Dependencies(lTOC, xtrapath=None, manifest=None):
 
 
 def pkg_resouces_get_default_cache():
-    """Determine the default cache location
+    """
+    Determine the default cache location
 
     This returns the ``PYTHON_EGG_CACHE`` environment variable, if set.
     Otherwise, on Windows, it returns a 'Python-Eggs' subdirectory of the
     'Application Data' directory.  On all other systems, it's '~/.python-eggs'.
     """
     # This function borrowed from setuptools/pkg_resources
-    try:
-        return os.environ['PYTHON_EGG_CACHE']
-    except KeyError:
-        pass
+    egg_cache = compat.getenv('PYTHON_EGG_CACHE')
+    if egg_cache is not None:
+        return egg_cache
 
     if os.name != 'nt':
         return os.path.expanduser('~/.python-eggs')
@@ -152,7 +199,7 @@ def pkg_resouces_get_default_cache():
         dirname = ''
         for key in keys:
             if key in os.environ:
-                dirname = os.path.join(dirname, os.environ[key])
+                dirname = os.path.join(dirname, compat.getenv(key))
             else:
                 break
         else:
@@ -166,19 +213,20 @@ def pkg_resouces_get_default_cache():
 
 
 def check_extract_from_egg(pth, todir=None):
-    r"""Check if path points to a file inside a python egg file, extract the
-       file from the egg to a cache directory (following pkg_resources
-       convention) and return [(extracted path, egg file path, relative path
-       inside egg file)].
-       Otherwise, just return [(original path, None, None)].
-       If path points to an egg file directly, return a list with all files
-       from the egg formatted like above.
+    r"""
+    Check if path points to a file inside a python egg file, extract the
+    file from the egg to a cache directory (following pkg_resources
+    convention) and return [(extracted path, egg file path, relative path
+    inside egg file)].
+    Otherwise, just return [(original path, None, None)].
+    If path points to an egg file directly, return a list with all files
+    from the egg formatted like above.
 
-       Example:
-       >>> check_extract_from_egg(r'C:\Python26\Lib\site-packages\my.egg\mymodule\my.pyd')
-       [(r'C:\Users\UserName\AppData\Roaming\Python-Eggs\my.egg-tmp\mymodule\my.pyd',
-         r'C:\Python26\Lib\site-packages\my.egg', r'mymodule/my.pyd')]
-       """
+    Example:
+    >>> check_extract_from_egg(r'C:\Python26\Lib\site-packages\my.egg\mymodule\my.pyd')
+    [(r'C:\Users\UserName\AppData\Roaming\Python-Eggs\my.egg-tmp\mymodule\my.pyd',
+    r'C:\Python26\Lib\site-packages\my.egg', r'mymodule/my.pyd')]
+    """
     rv = []
     if os.path.altsep:
         pth = pth.replace(os.path.altsep, os.path.sep)
@@ -218,9 +266,9 @@ def check_extract_from_egg(pth, todir=None):
 
 
 def getAssemblies(pth):
-    """Return the dependent assemblies of a binary."""
-    if not os.path.isfile(pth):
-        pth = check_extract_from_egg(pth)[0][0]
+    """
+    Return the dependent assemblies of a binary.
+    """
     if pth.lower().endswith(".manifest"):
         return []
     # check for manifest file
@@ -268,13 +316,12 @@ def getAssemblies(pth):
 
 
 def selectAssemblies(pth, manifest=None):
-    """Return a binary's dependent assemblies files that should be included.
+    """
+    Return a binary's dependent assemblies files that should be included.
 
     Return a list of pairs (name, fullpath)
     """
     rv = []
-    if not os.path.isfile(pth):
-        pth = check_extract_from_egg(pth)[0][0]
     if manifest:
         _depNames = set([dep.name for dep in manifest.dependentAssemblies])
     for assembly in getAssemblies(pth):
@@ -325,7 +372,8 @@ def selectAssemblies(pth, manifest=None):
 
 
 def selectImports(pth, xtrapath=None):
-    """Return the dependencies of a binary that should be included.
+    """
+    Return the dependencies of a binary that should be included.
 
     Return a list of pairs (name, fullpath)
     """
@@ -342,7 +390,7 @@ def selectImports(pth, xtrapath=None):
         if not is_win and not is_cygwin:
             # all other platforms
             npth = lib
-            dir, lib = os.path.split(lib)
+            lib = os.path.basename(lib)
         else:
             # plain win case
             npth = getfullnameof(lib, xtrapath)
@@ -376,26 +424,38 @@ def selectImports(pth, xtrapath=None):
     return rv
 
 
-def __popen(*cmd):
-    return subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
-
-
 def _getImports_ldd(pth):
-    """Find the binary dependencies of PTH.
+    """
+    Find the binary dependencies of PTH.
 
-        This implementation is for ldd platforms"""
-    rslt = []
-    for line in __popen('ldd', pth).strip().splitlines():
-        m = re.search(r"\s+(.*?)\s+=>\s+(.*?)\s+\(.*\)", line)
+    This implementation is for ldd platforms (mostly unix).
+    """
+    rslt = set()
+    if is_aix:
+        # Match libs of the form 'archive.a(sharedobject.so)'
+        # Will not match the fake lib '/unix'
+        lddPattern = re.compile(r"\s+(.*?)(\(.*\))")
+    else:
+        lddPattern = re.compile(r"\s+(.*?)\s+=>\s+(.*?)\s+\(.*\)")
+
+    for line in compat.exec_command('ldd', pth).strip().splitlines():
+        m = lddPattern.search(line)
         if m:
-            name, lib = m.group(1), m.group(2)
+            if is_aix:
+                lib = m.group(1)
+                name = os.path.basename(lib) + m.group(2)
+            else:
+                name, lib = m.group(1), m.group(2)
             if name[:10] in ('linux-gate', 'linux-vdso'):
                 # linux-gate is a fake library which does not exist and
                 # should be ignored. See also:
                 # http://www.trilithium.com/johan/2005/08/linux-gate/
                 continue
+
             if os.path.exists(lib):
-                rslt.append(lib)
+                # Add lib if it is not already found.
+                if lib not in rslt:
+                    rslt.add(lib)
             else:
                 logger.error('Can not find %s in path %s (needed by %s)',
                              name, lib, pth)
@@ -409,76 +469,95 @@ def _getImports_macholib(pth):
     This implementation is for Mac OS X and uses library macholib.
     """
     from PyInstaller.lib.macholib.MachO import MachO
+    from PyInstaller.lib.macholib.mach_o import LC_RPATH
     from PyInstaller.lib.macholib.dyld import dyld_find
-    rslt = []
+    rslt = set()
     seen = set()  # Libraries read from binary headers.
-    # Walk through mach binary headers.
+
+    ## Walk through mach binary headers.
+
     m = MachO(pth)
     for header in m.headers:
         for idx, name, lib in header.walkRelocatables():
             # Sometimes some libraries are present multiple times.
             if lib not in seen:
                 seen.add(lib)
-    # Try to find files in file system.
-    exec_path = os.path.abspath('.')
+
+    # Walk through mach binary headers and look for LC_RPATH.
+    # macholib can't handle @rpath. LC_RPATH has to be read
+    # from the MachO header.
+    # TODO Do we need to remove LC_RPATH from MachO load commands?
+    #      Will it cause any harm to leave them untouched?
+    #      Removing LC_RPATH should be implemented when getting
+    #      files from the bincache if it is necessary.
+    run_paths = set()
+    for header in m.headers:
+        for command in header.commands:
+            # A command is a tupple like:
+            #   (<macholib.mach_o.load_command object at 0x>,
+            #    <macholib.mach_o.rpath_command object at 0x>,
+            #    '../lib\x00\x00')
+            cmd_type = command[0].cmd
+            if cmd_type == LC_RPATH:
+                rpath = command[2]
+                # Remove trailing '\x00' characters.
+                # e.g. '../lib\x00\x00'
+                rpath = rpath.rstrip('\x00')
+                # Make rpath absolute. According to Apple doc LC_RPATH
+                # is always relative to the binary location.
+                rpath = os.path.normpath(os.path.join(os.path.dirname(pth), rpath))
+                run_paths.update([rpath])
+
+    ## Try to find files in file system.
+
+    # In cases with @loader_path or @executable_path
+    # try to look in the same directory as the checked binary is.
+    # This seems to work in most cases.
+    exec_path = os.path.abspath(os.path.dirname(pth))
+
     for lib in seen:
-        if lib.startswith('@loader_path'):
+
+        # Suppose that @rpath is not used for system libraries and
+        # using macholib can be avoided.
+        # macholib can't handle @rpath.
+        if lib.startswith('@rpath'):
+            lib = lib.replace('@rpath', '.')  # Make path relative.
+            final_lib = None  # Absolute path to existing lib on disk.
+            # Try multiple locations.
+            for run_path in run_paths:
+                # @rpath may contain relative value. Use exec_path as
+                # base path.
+                if not os.path.isabs(run_path):
+                    run_path = os.path.join(exec_path, run_path)
+                # Stop looking for lib when found in first location.
+                if os.path.exists(os.path.join(run_path, lib)):
+                    final_lib = os.path.abspath(os.path.join(run_path, lib))
+                    rslt.add(final_lib)
+                    break
+            # Log error if no existing file found.
+            if not final_lib:
+                logger.error('Can not find path %s (needed by %s)', lib, pth)
+
+        # Macholib has to be used to get absolute path to libraries.
+        else:
             # macholib can't handle @loader_path. It has to be
             # handled the same way as @executable_path.
             # It is also replaced by 'exec_path'.
-            lib = lib.replace('@loader_path', '@executable_path')
-        try:
-            lib = dyld_find(lib, executable_path=exec_path)
-            rslt.append(lib)
-        except ValueError:
-            logger.error('Can not find path %s (needed by %s)', lib, pth)
-
-    return rslt
-
-
-# TODO remove this function if no issues with macholib implementation
-def _getImports_otool(pth):
-    """Find the binary dependencies of PTH.
-
-        This implementation is for otool platforms"""
-    # dyld searches these paths for framework libs
-    # we ignore DYLD_FALLBACK_LIBRARY_PATH for now (man dyld)
-    fwpaths = filter(None, os.environ.get('DYLD_FRAMEWORK_PATH', '').split(':'))
-    fwpaths.extend(['/Library/Frameworks', '/Network/Library/Frameworks',
-                    '/System/Library/Frameworks'])
-    rslt = []
-    for line in __popen('otool', '-L', pth).strip().splitlines():
-        m = re.search(r"\s+(.*?)\s+\(.*\)", line)
-        if m:
-            lib = m.group(1)
-            if lib.startswith("@executable_path"):
-                rel_path = lib.replace("@executable_path", ".")
-                rel_path = os.path.join(os.path.dirname(pth), rel_path)
-                lib = os.path.abspath(rel_path)
-            elif lib.startswith("@loader_path"):
-                rel_path = lib.replace("@loader_path", ".")
-                rel_path = os.path.join(os.path.dirname(pth), rel_path)
-                lib = os.path.abspath(rel_path)
-            elif not os.path.isabs(lib):
-                # lookup matching framework path, if relative pathname
-                for p in fwpaths:
-                    fwlib = os.path.join(p, lib)
-                    if os.path.exists(fwlib):
-                        lib = fwlib
-                        break
-            if os.path.exists(lib):
-                rslt.append(lib)
-            else:
+            if lib.startswith('@loader_path'):
+                lib = lib.replace('@loader_path', '@executable_path')
+            try:
+                lib = dyld_find(lib, executable_path=exec_path)
+                rslt.add(lib)
+            except ValueError:
                 logger.error('Can not find path %s (needed by %s)', lib, pth)
 
     return rslt
 
 
 def getImports(pth):
-    """Forwards to the correct getImports implementation for the platform.
     """
-    if not os.path.isfile(pth):
-        pth = check_extract_from_egg(pth)[0][0]
+    Forwards to the correct getImports implementation for the platform.
+    """
     if is_win or is_cygwin:
         if pth.lower().endswith(".manifest"):
             return []
@@ -496,17 +575,16 @@ def getImports(pth):
                 logger.exception(exception)
             return []
     elif is_darwin:
-        #return _getImports_otool(pth)
         return _getImports_macholib(pth)
     else:
         return _getImports_ldd(pth)
 
 
 def findLibrary(name):
-    """Look for a library in the system.
+    """
+    Look for a library in the system.
 
     Emulate the algorithm used by dlopen.
-
     `name`must include the prefix, e.g. ``libpython2.4.so``
     """
     assert is_unix, "Current implementation for Unix only (Linux, Solaris, AIX)"
@@ -514,24 +592,29 @@ def findLibrary(name):
     lib = None
 
     # Look in the LD_LIBRARY_PATH
-    lp = os.environ.get('LD_LIBRARY_PATH')
-    if lp:
-        for path in lp.split(os.pathsep):
-            libs = glob(os.path.join(path, name + '*'))
-            if libs:
-                lib = libs[0]
-                break
+    if is_aix:
+        lp = compat.getenv('LIBPATH', '')
+    else:
+        lp = compat.getenv('LD_LIBRARY_PATH', '')
+    for path in lp.split(os.pathsep):
+        libs = glob(os.path.join(path, name + '*'))
+        if libs:
+            lib = libs[0]
+            break
 
     # Look in /etc/ld.so.cache
     if lib is None:
         expr = r'/[^\(\)\s]*%s\.[^\(\)\s]*' % re.escape(name)
-        m = re.search(expr, __popen('/sbin/ldconfig', '-p'))
+        m = re.search(expr, compat.exec_command('/sbin/ldconfig', '-p'))
         if m:
             lib = m.group(0)
 
     # Look in the known safe paths
     if lib is None:
-        for path in ['/lib', '/usr/lib']:
+        paths = ['/lib', '/usr/lib']
+        if is_aix:
+            paths.append('/opt/freeware/lib')
+        for path in paths:
             libs = glob(os.path.join(path, name + '*'))
             if libs:
                 lib = libs[0]
@@ -542,13 +625,15 @@ def findLibrary(name):
         return None
 
     # Resolve the file name into the soname
-    dir, file = os.path.split(lib)
+    dir = os.path.dirname(lib)
     return os.path.join(dir, getSoname(lib))
 
 
 def getSoname(filename):
-    """Return the soname of a library."""
+    """
+    Return the soname of a library.
+    """
     cmd = ["objdump", "-p", "-j", ".dynamic", filename]
-    m = re.search(r'\s+SONAME\s+([^\s]+)', __popen(*cmd))
+    m = re.search(r'\s+SONAME\s+([^\s]+)', compat.exec_command(*cmd))
     if m:
         return m.group(1)

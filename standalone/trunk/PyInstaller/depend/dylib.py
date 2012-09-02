@@ -14,28 +14,32 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 # Note also that you should check the results to make sure that the
 # dlls are redistributable. I've listed most of the common MS dlls
 # under "excludes" below; add to this list as necessary (or use the
 # "excludes" option in the INSTALL section of the config file).
 
-"""
-Manipulating with dynamic libraries.
-"""
+
+# Manipulating with dynamic libraries.
 
 
 __all__ = ['exclude_list', 'include_list', 'include_library']
 
+
 import os
 import re
 
-from PyInstaller import is_win, is_unix, is_darwin
+
+from PyInstaller.compat import is_win, is_unix, is_aix, is_darwin
 
 
 import PyInstaller.log as logging
-logger = logging.getLogger('PyInstaller.build.bindepend')
+logger = logging.getLogger(__name__)
+
+
+_BOOTLOADER_FNAMES = set(['run', 'run_d', 'runw', 'runw_d'])
 
 
 # Regex excludes
@@ -80,6 +84,19 @@ _unix_excludes = {
     r'/libGL\..*': 1,
 }
 
+_aix_excludes = {
+    r'/libbz2\.a': 1,
+    r'/libc\.a': 1,
+    r'/libC\.a': 1,
+    r'/libcrypt\.a': 1,
+    r'/libdl\.a': 1,
+    r'/libintl\.a': 1,
+    r'/libpthreads\.a': 1,
+    r'/librt\\.a': 1,
+    r'/librtl\.a': 1,
+    r'/libz\.a': 1,
+}
+
 
 if is_win:
     _excludes = _win_excludes
@@ -91,7 +108,11 @@ if is_win:
     # Allow pythonNN.dll, pythoncomNN.dll, pywintypesNN.dll
     _includes[r'%spy(?:thon(?:com(?:loader)?)?|wintypes)\d+\.dll$' % sep] = 1
 
+elif is_aix:
+    # The exclude list for AIX differs from other *nix platforms.
+    _excludes = _aix_excludes
 elif is_unix:
+    # Common excludes for *nix platforms -- except AIX.
     _excludes = _unix_excludes
 
 
@@ -135,7 +156,9 @@ if is_darwin:
 
 
 def include_library(libname):
-    """Check if a dynamic library should be included with application or not."""
+    """
+    Check if a dynamic library should be included with application or not.
+    """
     # For configuration phase we need to have exclude / include lists None
     # so these checking is skipped and library gets included.
     if exclude_list:
@@ -149,3 +172,71 @@ def include_library(libname):
     else:
         # By default include library.
         return True
+
+
+def mac_set_relative_dylib_deps(libname, distname):
+    """
+    On Mac OS X set relative paths to dynamic library dependencies
+    of `libname`.
+
+    Relative paths allow to avoid using environment variable DYLD_LIBRARY_PATH.
+    There are known some issues with DYLD_LIBRARY_PATH. Relative paths is
+    more flexible mechanism.
+
+    Current location of dependend libraries is derived from the location
+    of the library path (paths start with '@loader_path').
+
+    'distname'  path of the library relative to dist directory of frozen
+                executable. We need this to determine the level of directory
+                level for @loader_path of binaries not found in dist directory.
+
+                E.g. qt4 plugins are not in the same directory as Qt*.dylib
+                files. Without using '@loader_path/../..' for qt plugins
+                Mac OS X would not be able to resolve shared library
+                dependencies and qt plugins will not be loaded.
+    """
+
+    from PyInstaller.lib.macholib import util
+    from PyInstaller.lib.macholib.MachO import MachO
+
+    # Ignore bootloader otherwise PyInstaller fails with exception like
+    # 'ValueError: total_size > low_offset (288 > 0)'
+    if os.path.basename(libname) in _BOOTLOADER_FNAMES:
+        return
+
+    # Determine how many directories up is the directory with shared
+    # dynamic libraries. '../'
+    # E.g.  ./qt4_plugins/images/ -> ./../../
+    parent_dir = ''
+    # Check if distname is not only base filename.
+    if os.path.dirname(distname):
+        parent_level = len(os.path.dirname(distname).split(os.sep))
+        parent_dir = parent_level * (os.pardir + os.sep)
+
+    def match_func(pth):
+        """
+        For system libraries is still used absolute path. It is unchanged.
+        """
+        # Match non system dynamic libraries.
+        if not util.in_system_path(pth):
+            # Use relative path to dependend dynamic libraries bases on
+            # location of the executable.
+            return os.path.join('@loader_path', parent_dir,
+                os.path.basename(pth))
+
+    # Rewrite mach headers with @loader_path.
+    dll = MachO(libname)
+    dll.rewriteLoadCommands(match_func)
+
+    # Write changes into file.
+    # Write code is based on macholib example.
+    try:
+        f = open(dll.filename, 'rb+')
+        for header in dll.headers:
+            f.seek(0)
+            dll.write(f)
+        f.seek(0, 2)
+        f.flush()
+        f.close()
+    except Exception:
+        pass

@@ -18,21 +18,23 @@
 from mmfparser.player.event.conditions.common cimport Condition
 from mmfparser.player.instance cimport Instance
 from mmfparser.player.collision cimport CollisionBase, collide
-
 from mmfparser.bitdict import BitDict
-
 from mmfparser.data.chunkloaders.objects import (NONE_OBSTACLE as _NO, 
     SOLID_OBSTACLE as _SO, PLATFORM_OBSTACLE as _PO, LADDER_OBSTACLE as _LO)
-
 from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP as _QB, 
     BACKDROP as _BD)
+from mmfparser.data.chunkloaders.parameters.loaders import EQUAL, DIFFERENT
+
+cdef int EQUAL_INT = EQUAL
+cdef int DIFFERENT_INT = DIFFERENT_INT
 
 cdef extern from "Python.h":
     object PyLong_FromVoidPtr(void*)
 
 cimport cython
 
-cdef int QUICKBACKDROP, BACKDROP, NONE_OBSTACLE, SOLID_OBSTACLE, PLATFORM_OBSTACLE, LADDER_OBSTACLE
+cdef int QUICKBACKDROP, BACKDROP, NONE_OBSTACLE, SOLID_OBSTACLE, 
+cdef int PLATFORM_OBSTACLE, LADDER_OBSTACLE
 QUICKBACKDROP = _QB
 BACKDROP = _BD
 NONE_OBSTACLE = _NO
@@ -629,12 +631,22 @@ cdef class CompareFixedValue(Condition):
     cdef bint check(self):
         cdef void * fixed = <void*>(<long>self.evaluate_index(0))
         cdef Instance instance
-        for instance in self.get_instances():
-            if fixed == <void*>instance:
-                break
-        else:
-            return False
-        self.select_instances([instance])
-        return True
+        cdef list instances
+        if self.compareValue == EQUAL_INT:
+            for instance in self.get_instances():
+                if fixed == <void*>instance:
+                    break
+            else:
+                return False
+            self.select_instances([instance])
+            return True
+        elif self.compareValue == DIFFERENT_INT:
+            instances = []
+            for instance in self.get_instances():
+                if fixed == <void*>instance:
+                    continue
+                instances.append(instance)
+            self.select_instances(instances)
+            return len(instances) > 0
 
 from mmfparser.player.event.actions.extension import Wrap, Bounce

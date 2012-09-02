@@ -1,3 +1,4 @@
+#
 # Copyright (C) 2009, Lorenzo Berni
 # Based on previous work under copyright (c) 2001, 2002 McMillan Enterprises, Inc.
 #
@@ -15,12 +16,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
-import os
 
+import PyInstaller.compat as compat
 from hookutils import logger
 
-if not os.environ.get("DJANGO_SETTINGS_MODULE"):
-    os.environ["DJANGO_SETTINGS_MODULE"] = "settings"
+if not compat.getenv("DJANGO_SETTINGS_MODULE"):
+    compat.setenv("DJANGO_SETTINGS_MODULE", "settings")
 
 from django.conf import settings
 
@@ -32,6 +33,7 @@ hiddenimports = (list(settings.AUTHENTICATION_BACKENDS) +
                  list(settings.TEMPLATE_CONTEXT_PROCESSORS) +
                  list(settings.TEMPLATE_LOADERS) +
                  [settings.ROOT_URLCONF])
+
 
 def find_url_callbacks(urls_module):
     urlpatterns = urls_module.urlpatterns
@@ -45,7 +47,7 @@ def find_url_callbacks(urls_module):
 
 from django.core.urlresolvers import RegexURLPattern, RegexURLResolver
 
-base_module_name = ".".join(os.environ.get("DJANGO_SETTINGS_MODULE", "settings").split(".")[:-1])
+base_module_name = ".".join(compat.getenv("DJANGO_SETTINGS_MODULE", "settings").split(".")[:-1])
 if base_module_name:
     base_module = __import__(base_module_name, {}, {}, ["urls"])
     urls = base_module.urls
@@ -53,5 +55,5 @@ else:
     import urls
 hiddenimports += find_url_callbacks(urls)
 
-logger.debug('%r', sorted(set(hiddenimports)))
 
+logger.debug('%r', sorted(set(hiddenimports)))

@@ -101,8 +101,13 @@ class Action12(Action):
 
 class Action13(Action):
     def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+        # ACT_SETHOTSPOT_BOTTOMCENTER
+        image = instance.objectPlayer.image
+        if not image:
+            return
+        x = image.width / 2
+        y = image.height
+        instance.objectPlayer.set_hotspot(x, y)
         
 class Action14(Action):
     def execute(self, instance):
@@ -449,10 +454,13 @@ class ActivePicture(ObjectPlayer):
     def set_hotspot(self, x, y):
         if not self.image:
             return
-        image = self.image
-        image.shape.left = -x
         imageData = self.imageData
-        image.shape.bottom = -(imageData.height - y)
+        image = self.image
+        diff_x = -image.shape.left - x
+        diff_y = (image.shape.bottom + imageData.height) - y
+        self.set_position(image.x - diff_x, image.y + diff_y)
+        image.shape.left = -x
+        image.shape.bottom = -imageData.height + y
     
     def set_transparency(self, value):
         if not self.image:

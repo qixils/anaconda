@@ -84,13 +84,13 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
         if (!manager.update(dt))
             break;
         manager.draw();
-/*        glfwSwapBuffers();
+        
+        glfwSwapBuffers();
         if (!glfwGetWindowParam(GLFW_OPENED))
-            break;*/
+            break;
 
         dt = next_update - glfwGetTime();
         if (dt > 0.0) {
-            printf("sleeping: %f\n", dt);
             glfwSleep(dt);
         }
     }

@@ -1880,7 +1880,7 @@ class Converter(object):
                     object_name = '(*item)'
                 writer.putindent()
                 if negated:
-                    writer.put('if (!')
+                    writer.put('if (!(')
                 else:
                     writer.put('if (')
                 if condition_name == 'PickRandom':
@@ -2058,6 +2058,8 @@ class Converter(object):
                         debug_parameters))
                     writer.put(debug_name)
                 if has_multiple:
+                    if negated:
+                        writer.put(')')
                     writer.put(') item = %s.erase(item);\n' % selected_name)
                     writer.putln('else ++item;')
                     writer.end_brace()

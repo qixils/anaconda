@@ -6,6 +6,8 @@ class GameManager;
 
 #include <GL/glfw.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include "config.h"
 #include "common.h"
 #include "images.h"
@@ -34,12 +36,15 @@ public:
         glfwSetWindowTitle(NAME);
         glfwSwapInterval(0);
 
+        // OpenGL settings
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         set_frame(0);
     }
 
     bool update(double dt)
     {
-        printf("%f\n", 1.0 / dt);
         frame->handle_events();
         return true;
     }
@@ -65,6 +70,9 @@ int main (int argc, char *argv[])
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
 #endif
 {
+    // setup random generator from start
+    srand((unsigned int)time(NULL));
+
     glfwInit();
     GameManager manager = GameManager();
 
@@ -81,10 +89,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
         old_time = current_time;
         next_update = current_time + 1.0 / FRAMERATE;
 
+        printf("%f\n", 1.0 / dt);
         if (!manager.update(dt))
             break;
         manager.draw();
-        
+
         glfwSwapBuffers();
         if (!glfwGetWindowParam(GLFW_OPENED))
             break;

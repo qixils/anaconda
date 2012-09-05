@@ -6,6 +6,8 @@
 #include <list>
 #include <vector>
 #include <map>
+#include <GL/glfw.h>
+#include <stdlib.h>
 
 class Font
 {
@@ -30,41 +32,79 @@ public:
     Sound(char * name) : name(name) {}
 };
 
+void load_texture(const char *filename, int force_channels, 
+                  unsigned int reuse_texture_ID, unsigned int flags,
+                  GLuint * tex, int * width, int * height)
+{
+    unsigned char* img;
+    int channels;
+    img = SOIL_load_image(filename, width, height, &channels, force_channels);
+
+    if( (force_channels >= 1) && (force_channels <= 4) )
+    {
+        channels = force_channels;
+    }
+
+    if(img == NULL)
+    {
+        *tex = 0;
+        return;
+    }
+
+    *tex = SOIL_create_OGL_texture(img, *width, *height, channels,
+        reuse_texture_ID, flags);
+
+    SOIL_free_image_data(img);
+
+    return;
+}
+
 class Image
 {
 public:
-    char * name;
+    std::string filename;
     int hotspot_x, hotspot_y, action_x, action_y;
+    GLuint tex;
+    int width, height;
 
-    Image(char * name, int hot_x, int hot_y, int act_x, int act_y) 
-    : name(name), hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), 
-    action_y(act_y) 
+    Image(std::string name, int hot_x, int hot_y, int act_x, int act_y) 
+    : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), 
+    action_y(act_y), tex(0)
     {
-
+        filename = "./../../images/" + name + ".png";
     }
-    
-/*    def load_icons(self, size):
-        self.load_pixmap()
-        icons = []
-        for i in xrange(self.pixmap.width() / size):
-            pixmap = self.pixmap.copy(i * size, 0, size, size)
-            icon = QIcon(pixmap)
-            icons.append(icon)
-        return icons
-    
-    def load_pixmap(self):
-        if self.pixmap is None:
-            self.pixmap = QPixmap(os.path.join('images', self.name + '.png'))
-        return self.pixmap
-    
-    def load(self, hotspot_x = None, hotspot_y = None):
-        self.load_pixmap()
-        if hotspot_x is None:
-            hotspot_x = self.hotspot_x
-        if hotspot_y is None:
-            hotspot_y = self.hotspot_y
-        return Sprite(self, self.pixmap, hotspot_x, hotspot_y)*/
 
+    void load()
+    {
+        if (tex != NULL)
+            return;
+        load_texture(filename.c_str(), 4, 0, SOIL_FLAG_POWER_OF_TWO,
+            &tex, &width, &height);
+        if (tex == 0) {
+            printf("Could not load %s\n", filename.c_str());
+        }
+    }
+
+    void draw(double x, double y)
+    {
+        load();
+
+        x -= (double)hotspot_x;
+        y -= (double)hotspot_y;
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0);
+        glVertex2d(x, y);
+        glTexCoord2f(1.0, 0.0);
+        glVertex2d(x + width, y);
+        glTexCoord2f(1.0, 1.0);
+        glVertex2d(x + width, y + height);
+        glTexCoord2f(0.0, 1.0);
+        glVertex2d(x, y + height);
+        glEnd();
+        glDisable(GL_TEXTURE_2D);
+    }
 };
 
 
@@ -134,15 +174,59 @@ public:
         values = new AlterableValues;
         strings = new AlterableStrings;
     }
+
+    virtual void draw() {}
+};
+
+enum AnimationIndex {
+    STOPPED = 0,
+};
+
+class Direction
+{
+public:
+    int index, min_speed, max_speed, back_to;
+    bool repeat;
+    std::vector<Image*> frames;
+
+    Direction(int index, int min_speed, int max_speed, bool repeat, int back_to)
+    : index(index), min_speed(min_speed), max_speed(max_speed), repeat(repeat),
+      back_to(back_to)
+    {
+
+    }
 };
 
 class Active : public FrameObject
 {
 public:
+    std::map<AnimationIndex, std::map<int, Direction*>> animations;
+    Image * image;
+
     Active(std::string name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id) 
     {
         create_alterables();
+    }
+
+    void add_direction(AnimationIndex animation, int direction,
+                       int min_speed, int max_speed, bool repeat,
+                       int back_to)
+    {
+        animations[animation][direction] = new Direction(direction, min_speed,
+            max_speed, repeat, back_to);
+    }
+
+    void add_image(AnimationIndex animation, int direction, Image * image)
+    {
+        animations[animation][direction]->frames.push_back(image);
+        this->image = image;
+    }
+
+    void draw()
+    {
+        glColor4f(1.0, 1.0, 1.0, 1.0);
+        image->draw(x, y);
     }
 };
 
@@ -155,7 +239,7 @@ public:
     int width, height;
     int index;
     GameManager * manager;
-    std::vector<FrameObject*> instances;
+    ObjectList instances;
     std::map<int, ObjectList> instance_classes;
     std::map<std::string, int> loop_indexes;
 
@@ -167,7 +251,26 @@ public:
     virtual void on_start() {}
     virtual void on_end() {}
     virtual void handle_events() {}
-    virtual void draw() {}
+
+    void draw() 
+    {
+        int window_width, window_height;
+        glfwGetWindowSize(&window_width, &window_height);
+        glViewport(0, 0, window_width, window_height);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, width, height, 0, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glClearColor(1.0, 1.0, 1.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        for (ObjectList::const_iterator iter = instances.begin(); 
+             iter != instances.end(); iter++) {
+            (*iter)->draw();
+        }
+
+    }
 
     ObjectList & get_instances(int object_id)
     {
@@ -193,7 +296,7 @@ static ObjectList::iterator item;
 
 int randrange(int range)
 {
-    return (int)(range * 0.5);
+    return (rand() * range) / RAND_MAX;
 }
 
 #endif /* COMMON_H */

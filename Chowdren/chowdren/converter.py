@@ -1,6 +1,3 @@
-import sys
-sys.path.append('..')
-
 import os
 import shutil
 from mmfparser.data.exe import ExecutableData
@@ -26,6 +23,9 @@ import string
 import functools
 import itertools
 from collections import defaultdict, Counter
+from chowdren.writers import default_writers
+from chowdren.writers import system as system_writers
+from chowdren.common import get_method_name, get_class_name, check_digits, to_c
 
 WRITE_IMAGES = True
 WRITE_FONTS = True
@@ -656,6 +656,9 @@ def load_native_extension(name):
 def get_image_list(values):
     return '[%s]' % ', '.join(['image%s' % image for image in values])
 
+def get_image_name(value):
+    return 'image%s' % value
+
 def get_qt_key(value):
     if value == 1:
         return 'Qt.LeftButton'
@@ -664,48 +667,6 @@ def get_qt_key(value):
     elif value == 2:
         return 'Qt.RightButton'
     return 'Qt.Key_%s' % key_to_qt(value)
-
-VALID_CHARACTERS = string.ascii_letters + string.digits
-DIGITS = string.digits
-
-def get_method_name(value, check_digits = False):
-    new_name = ''
-    add_underscore = False
-    for c in value:
-        if c.isupper():
-            c = c.lower()
-            add_underscore = True
-        if c in VALID_CHARACTERS:
-            if add_underscore:
-                if new_name:
-                    new_name += '_'
-                add_underscore = False
-            new_name += c
-        else:
-            add_underscore = True
-    if check_digits:
-        new_name = check_digits(new_name, 'meth_')
-    return new_name
-
-def get_class_name(value):
-    new_name = ''
-    go_upper = True
-    for c in value:
-        if c in VALID_CHARACTERS:
-            if go_upper:
-                c = c.upper()
-                go_upper = False
-            new_name += c
-        else:
-            go_upper = True
-    return check_digits(new_name, 'Obj')
-
-def check_digits(value, prefix):
-    if not value:
-        return value
-    if value[0] in DIGITS:
-        value = prefix + value
-    return value
 
 def is_qualifier(handle):
     return handle & 32768 == 32768
@@ -921,15 +882,6 @@ button_type_names = {
     PUSHTEXTBITMAP_BUTTON : 'BitmapText'
 }
 
-COMPARISONS = [
-    '==',
-    '!=',
-    '<=',
-    '<',
-    '>=',
-    '>'
-]
-
 ACCELERATORS = [0.0078125, 0.01171875, 0.015625, 0.0234375, 0.03125, 0.0390625,
     0.046875, 0.0625, 0.078125, 0.09375, 0.1875, 0.21875, 0.25, 0.28125,
     0.3125, 0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5625, 0.625, 0.6875, 
@@ -964,38 +916,11 @@ class EventGroup(object):
         self.container = container
         self.config = {}
 
-class StringWrapper(object):
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        return self.value
-
-    def __repr__(self):
-        return '"%s"' % self.value.replace('"', '')
-
-def to_c(format_spec, *args):
-    new_args = []
-    for arg in args:
-        if isinstance(arg, str):
-            arg = StringWrapper(arg)
-        elif isinstance(arg, bool):
-            if arg:
-                arg = 'true'
-            else:
-                arg = 'false'
-        new_args.append(arg)
-    return format_spec % tuple(new_args)
-
 class Converter(object):
     iterated_object = None
     def __init__(self, filename, outdir):
         self.filename = filename
         self.outdir = outdir
-        
-        self.checked_aces = {'actions' : Counter(), 
-                             'conditions' : Counter(),
-                             'expressions' : Counter()}
 
         self.selected = {}
 
@@ -1160,6 +1085,8 @@ class Converter(object):
             objects_file.putln(to_c('%s(int x, int y) : %s(%r, x, y, type_id)',
                 class_name, subclass, name))
             objects_file.start_brace()
+            if object_type == ACTIVE:
+                self.write_active(objects_file, common)
             objects_file.end_brace()
             if movement_name is not None:
                 objects_file.putln('movement_class = %s' % movement_name)
@@ -1194,7 +1121,6 @@ class Converter(object):
                     vertical))
                     
             elif object_type == ACTIVE:
-                # self.write_active(objects_file, common)
                 pass
             elif object_type == BACKDROP:
                 objects_file.putdef('obstacle_type', 
@@ -1789,13 +1715,13 @@ class Converter(object):
         print ''
         print 'stats:'
         print 'ACTIONS'
-        print self.checked_aces['actions'].most_common()
+        print default_writers['actions'].checked.most_common()
         print ''
         print 'CONDITIONS'
-        print self.checked_aces['conditions'].most_common()
+        print default_writers['conditions'].checked.most_common()
         print ''
         print 'EXPRESSIONS'
-        print self.checked_aces['expressions'].most_common()
+        print default_writers['expressions'].checked.most_common()
     
     def write_event(self, outwriter, group, triggered = False):
         self.current_event_id = group.global_id
@@ -1819,14 +1745,11 @@ class Converter(object):
                 writer.putln('// group: %s' % container.name)
             for condition_index, condition in enumerate(conditions):
                 condition_name = names[condition_index]
+                condition_writer = self.get_condition_writer(condition)
                 if condition_name == 'Always':
                     continue
                 negated = not condition.otherFlags['Not']
                 parameters = condition.items
-                try:
-                    comparison = COMPARISONS[parameters[-1].loader.comparison]
-                except (IndexError, AttributeError):
-                    pass
                 object_name = None
                 has_instance = False
                 has_multiple = False
@@ -1836,31 +1759,31 @@ class Converter(object):
                         object_name = self.get_object(object_info)
                 except KeyError:
                     pass
-                if condition_name in ('IsOverlapping', 'OnCollision'):
-                    real_neg = not negated
-                    other_info = parameters[0].loader.objectInfo
-                    selected_name = '%s_instances' % get_method_name(
-                        self.get_object_name(object_info))
-                    other_selected = '%s_instances' % get_method_name(
-                        self.get_object_name(other_info))
-                    if real_neg:
-                        prefix = ''
-                    else:
-                        prefix = '%s, %s = ' % (selected_name, other_selected)
-                    writer.putln('%sself.check_overlap('
-                                 '%s, %s, negated = %s)' % (prefix,
-                        self.get_object(object_info, True), 
-                        self.get_object(other_info, True), not real_neg))
-                    if not real_neg:
-                        self.has_selection[object_info] = selected_name
-                        self.has_selection[other_info] = other_selected
-                    continue
+                # if condition_name in ('IsOverlapping', 'OnCollision'):
+                #     real_neg = not negated
+                #     other_info = parameters[0].loader.objectInfo
+                #     selected_name = self.get_list_name(self.get_object_name(
+                #         object_info))
+                #     other_selected = self.get_list_name(self.get_object_name(
+                #         other_info))
+                #     if real_neg:
+                #         prefix = ''
+                #     else:
+                #         prefix = '%s, %s = ' % (selected_name, other_selected)
+                #     writer.putln('%sself.check_overlap('
+                #                  '%s, %s, negated = %s)' % (prefix,
+                #         self.get_object(object_info, True), 
+                #         self.get_object(other_info, True), not real_neg))
+                #     if not real_neg:
+                #         self.has_selection[object_info] = selected_name
+                #         self.has_selection[other_info] = other_selected
+                #     continue
                 if object_name is not None:
-                    if condition_name in ('NumberOfObjects',):
+                    if False:#condition_name in ('NumberOfObjects',):
                         pass
                     elif self.has_multiple_instances(object_info):
                         has_multiple = True
-                        selected_name = '%s_instances' % get_method_name(
+                        selected_name = self.get_list_name(
                             self.get_object_name(object_info))
                         if object_info not in self.has_selection:
                             make_dict = self.get_object(object_info, True)
@@ -1891,172 +1814,10 @@ class Converter(object):
                             self.get_object(condition.objectInfo, True)
                         ))
                     else:
-                        if condition_name == 'ObjectInvisible':
+                        if condition_writer.negate:
                             writer.put('not ')
                         writer.put('%s->' % object_name)
-                if condition_name == 'FileReadable':
-                    exp = self.convert_parameter(parameters[0])
-                    writer.put('os.path.isfile(%s)' % exp)
-                elif condition_name == 'Compare':
-                    a = self.convert_parameter(parameters[0])
-                    b = self.convert_parameter(parameters[1])
-                    writer.put('%s %s %s' % (a, comparison, b))
-                elif condition_name == 'CompareGlobalValue':
-                    a = self.convert_parameter(parameters[0])
-                    b = self.convert_parameter(parameters[1])
-                    writer.put('self.get_global_value(%s) %s %s' % (a, comparison,
-                        b))
-                elif condition_name == 'CompareSpeed':
-                    b = self.convert_parameter(parameters[0])
-                    writer.put('movement.speed %s %s' % (
-                        comparison, b))
-                elif condition_name == 'CompareY':
-                    b = self.convert_parameter(parameters[0])
-                    writer.put('y %s %s' % (
-                        comparison, b))
-                elif condition_name == 'CompareX':
-                    b = self.convert_parameter(parameters[0])
-                    writer.put('x %s %s' % (
-                        comparison, b))
-                elif condition_name == 'MovementStopped':
-                    writer.put('movement.is_stopped()')
-                elif condition_name == 'NumberOfObjects':
-                    a = self.convert_parameter(parameters[0])
-                    writer.put(' %s %s' % (comparison, a))
-                elif condition_name == 'CompareAlterableValue':
-                    a = self.convert_parameter(parameters[0])
-                    b = self.convert_parameter(parameters[1])
-                    writer.put('values->get(%s) %s %s' % (a, 
-                        comparison, b))
-                elif condition_name == 'KeyPressed':
-                    key = parameters[0].loader.key.getValue()
-                    qt_key = get_qt_key(key)
-                    writer.put('%s in self.scene.key_presses' % qt_key)
-                elif condition_name == 'KeyDown':
-                    key = parameters[0].loader.key.getValue()
-                    qt_key = get_qt_key(key)
-                    writer.put('%s in self.scene.key_downs' % qt_key)
-                elif condition_name == 'CompareCounter':
-                    b = self.convert_parameter(parameters[0])
-                    writer.put('get_value() %s %s' % (comparison, b))
-                elif condition_name == 'Every':
-                    writer.put('self.every(%s)' % 
-                        self.convert_parameter(parameters[0]))
-                elif condition_name == 'Always':
-                    writer.put('True')
-                elif condition_name == 'MouseOnObject':
-                    objectInfo = parameters[0].loader.objectInfo
-                    writer.put('%s.mouse_over()' % 
-                        self.get_object(objectInfo))
-                elif condition_name == 'ApplicationActive':
-                    writer.put('self.is_active()')
-                elif condition_name == 'NotAlways':
-                    writer.put('self.not_always()')
-                elif condition_name == 'IsWindowVisible':
-                    writer.put('self.is_window_visible()')
-                elif condition_name == 'EditHasFocus':
-                    writer.put('has_focus()')
-                elif condition_name in ('SubApplicationVisible', 
-                                        'ObjectVisible', 'EditIsVisible'):
-                    writer.put('visible')
-                elif condition_name in ('ObjectInvisible',):
-                    writer.put('visible')
-                elif condition_name == 'SockIsConnected':
-                    writer.put('is_connected()')
-                elif condition_name == 'FlagOff':
-                    writer.put('flags[%s] == False' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'FlagOn':
-                    writer.put('flags[%s] == True' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'SockReceived':
-                    writer.put('has_bytes()')
-                elif condition_name == 'NumberOfLives':
-                    writer.put('self.players[%s].lives %s %s' % (
-                        condition.objectInfo, comparison,
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'ModIsPlaying':
-                    writer.put('self.is_mod_playing(%s)' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'GroupActivated':
-                    name = self.containers[parameters[0].loader.pointer].name
-                    writer.put('self.groups[%r]' % name)
-                elif condition_name == 'Once':
-                    writer.put('self.check_once()')
-                elif condition_name == 'ButtonBoxChecked':
-                    writer.put('get_value()')
-                elif condition_name == 'EditIsNumber':
-                    writer.put('is_number()')
-                elif condition_name == 'EditModified':
-                    writer.put('is_modified()')
-                elif condition_name == 'NameIsFile':
-                    writer.put('os.path.isfile(%s)' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'PickObjectsInZone':
-                    writer.put('"self.pick_objects(zone = %s)"' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'MouseInZone':
-                    writer.put('self.mouse_in_zone(%s)' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name == 'PlayerKeyPressed':
-                    key_flags.setFlags(parameters[0].loader.value)
-                    keys = []
-                    for k, v in key_flags.iteritems():
-                        if v:
-                            keys.append(k)
-                    writer.put('self.players[%s].key_pressed(%r)' % (
-                        condition.objectInfo, keys))
-                elif condition_name == 'PlayerKeyDown':
-                    key_flags.setFlags(parameters[0].loader.value)
-                    keys = []
-                    for k, v in key_flags.iteritems():
-                        if v:
-                            keys.append(k)
-                    writer.put('self.players[%s].key_down(%r)' % (
-                        condition.objectInfo, keys))
-                elif condition_name == 'ControlAnyKeyDown':
-                    writer.put('len(self.scene.key_downs) > 1')
-                elif condition_name == 'WhileMousePressed':
-                    key = parameters[0].loader.key.getValue()
-                    qt_key = get_qt_key(key)
-                    writer.putln('%s in self.scene.mouse_downs' % (
-                        qt_key))
-                elif condition_name == 'Never':
-                    writer.put('False')
-                elif condition_name == 'FacingInDirection':
-                    writer.put('direction == %s' % (
-                        self.get_direction(parameters[0])))
-                elif condition_name == 'RestrictFor':
-                    writer.put('self.restrict_for(%s)' % (
-                        self.convert_parameter(parameters[0])))
-                elif condition_name in ('IsOverlapping', 'OnCollision'):
-                    other_info = parameters[0].loader.objectInfo
-                    collisions[object_info].append(other_info)
-                    writer.put('is_overlapping(%s)' % self.get_object(
-                        other_info, True))
-                elif condition_name == 'OutsidePlayfield':
-                    writer.put('is_outside()')
-                elif condition_name == 'InsidePlayfield':
-                    writer.put('is_inside()')
-                elif condition_name == 'LeavingPlayfield':
-                    value = self.convert_parameter(parameters[0])
-                    if value != 15:
-                        # up down left right boop boop
-                        raise NotImplementedError
-                    writer.put('is_leaving()')
-                elif condition_name == 'PickRandom':
-                    writer.put('index == 0')
-                else:
-                    if condition_name not in self.checked_aces['conditions']:
-                        print ('condition %r not implemented' % condition_name),
-                        self.print_parameters(condition)
-                        wait_unimplemented()
-                    self.checked_aces['conditions'][condition_name] += 1
-                    debug_parameters = [str(self.convert_parameter(parameter))
-                        for parameter in parameters]
-                    debug_name = '%s(%s)' % (condition_name, ', '.join(
-                        debug_parameters))
-                    writer.put(debug_name)
+                    condition_writer.write(writer)
                 if has_multiple:
                     if negated:
                         writer.put(')')
@@ -2072,7 +1833,7 @@ class Converter(object):
 
         for action in actions:
             parameters = action.items
-            action_name = self.get_action_name(action)
+            action_writer = self.get_action_writer(action)
             has_multiple = False
             object_info = None
             if action.hasObjectInfo():
@@ -2081,7 +1842,8 @@ class Converter(object):
                     has_multiple = True
                 elif object_info not in self.object_names:
                     object_info = None
-            if action_name in ('DisplayText', 'Shoot'):
+            if action_writer.iterate_objects is False:
+            # if action_name in ('DisplayText', 'Shoot'):
                 has_multiple = False
                 object_info = None
             if has_multiple:
@@ -2091,7 +1853,6 @@ class Converter(object):
                     list_name = self.get_object(object_info, True)
                 writer.putln('for (item = %s.begin(); item != %s.end(); '
                              'item++) {' % (list_name, list_name))
-
                 writer.indent()
                 writer.putindent()
                 writer.put('(*item)->')
@@ -2101,539 +1862,7 @@ class Converter(object):
                 writer.put('%s.' % self.get_object(object_info))
             else:
                 writer.putindent()
-            if action_name == 'HideCursor':
-                writer.put('self.hide_cursor()')
-            elif action_name == 'ShowCursor':
-                writer.put('self.show_cursor()')
-            elif action_name == 'CreateFile':
-                filename = self.convert_parameter(parameters[0])
-                writer.put('open(%s, "wb").close()' % filename)
-            elif action_name == 'AppendText':
-                data = self.convert_parameter(parameters[0])
-                filename = self.convert_parameter(parameters[1])
-                writer.putln('fp = open(%s, "ab")' % filename,
-                    indent = False)
-                writer.putln('fp.write(%s)' % data,
-                             'fp.close()')
-            elif action_name == 'QuickLoadMod':
-                filename = self.convert_parameter(parameters[0])
-                cache = self.convert_parameter(parameters[1])
-                track = self.convert_parameter(parameters[2])
-                writer.put('self.load_mod(%s, %s, %s)' % (filename, cache,
-                    track))
-            elif action_name == 'NextFrame':
-                writer.put('self.next_frame()')
-            elif action_name == 'LimitTextSize':
-                writer.put('limit_size(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetFocusOn':
-                writer.put('set_focus(True)')
-            elif action_name == 'SetMinimumValue':
-                writer.put('set_minimum(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetMaximumValue':
-                writer.put('set_maximum(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetCounterValue':
-                writer.put('set_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SubtractCounterValue':
-                writer.put('subtract_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'AddCounterValue':
-                writer.put('add_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetINIFile':
-                writer.put('set_filename(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetINIGroup':
-                writer.put('set_group(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetINIGroupItemValue':
-                writer.put('set_group_item_value(%s, %s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1]),
-                    self.convert_parameter(parameters[2])))
-            elif action_name == 'SetINIItem':
-                writer.put('set_item(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetEditText':
-                writer.put('set_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetString':
-                writer.put('set_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetGlobalValue':
-                writer.put('self.values[%s] = %s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'AddGlobalValue':
-                writer.put('self.values[%s] += %s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'SetAlterableValue':
-                writer.put('values->set(%s, %s);' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'SubtractFromAlterable':
-                writer.put('values[%s] -= %s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'AddToAlterable':
-                writer.put('values[%s] += %s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'AddDelimiter':
-                writer.put('add_delimiter(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'EditLoadFile':
-                writer.put('load_file(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'AddEncryptionKey':
-                writer.put('add_encryption_key(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetLives':
-                writer.put('self.players[%s].lives = %s' % (
-                    action.objectInfo, self.convert_parameter(parameters[0])))
-            elif action_name == 'IgnoreControls':
-                writer.put('self.players[%s].set_ignore(True)' % (
-                    action.objectInfo))
-            elif action_name == 'RestoreControls':
-                writer.put('self.players[%s].set_ignore(False)' % (
-                    action.objectInfo))
-            elif action_name == 'SetModuleVolume':
-                writer.put('self.set_mod_volume(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ModuleCrossFade':
-                src = self.convert_parameter(parameters[0])
-                dst = self.convert_parameter(parameters[1])
-                duration = self.convert_parameter(parameters[2])
-                writer.put('self.cross_fade_mod(%s, %s, %s)' % (
-                    src, dst, duration))
-            elif action_name == 'ModulePlay':
-                src = self.convert_parameter(parameters[0])
-                writer.put('self.play_mod(%s)' % src)
-            elif action_name == 'EndApplication':
-                writer.put('self.end_application()')
-            elif action_name == 'SetSemiTransparency':
-                a = self.convert_parameter(parameters[0])
-                writer.put('set_transparency(%s)' % a)
-            elif action_name == 'Disconnect':
-                writer.put('disconnect()')
-            elif action_name == 'Connect':
-                writer.put('connect(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'DeactivateGroup':
-                name = self.containers[parameters[0].loader.pointer].name
-                writer.put('self.groups[%r] = False' % name)
-            elif action_name == 'ActivateGroup':
-                name = self.containers[parameters[0].loader.pointer].name
-                writer.put('self.groups[%r] = True' % name)
-            elif action_name == 'EditReadOnlyOff':
-                writer.put('set_read_only(False)')
-            elif action_name == 'EditReadOnlyOn':
-                writer.put('set_read_only(True)')
-            elif action_name == 'StartLoop':
-                real_name = self.convert_parameter(parameters[0])
-                name = get_method_name(real_name)
-                times = self.convert_parameter(parameters[1])
-                writer.putln('for (int i = 0; i < %s; i++) {' % times, 
-                    indent = False)
-                writer.indent()
-                writer.putln('loop_indexes[%s] = i;' % real_name)
-                writer.putln('if (!loop_%s()) %s' % (name, event_break))
-                writer.end_brace()
-            elif action_name == 'StartFuncLoop':
-                real_name = self.convert_parameter(parameters[0])
-                name = get_method_name(real_name)
-                times = self.convert_parameter(parameters[1])
-                writer.putln('for loop_index in xrange(%s):\n' % times,
-                    indent = False)
-                writer.indent()
-                writer.put('if self.loop_%s(loop_index) == False: break' % (
-                    name), True)
-                writer.dedent()
-            elif action_name == 'StopLoop':
-                real_name = self.convert_parameter(parameters[0])
-                writer.put('return False # %s' % real_name)
-            elif action_name == 'StopCurrentFuncLoop':
-                writer.put('return False')
-            elif action_name == 'ReturnFunction':
-                writer.put('return')
-            elif action_name == 'ParserSetText':
-                writer.put('set_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetTextColor':
-                writer.put('set_color(%s)' % (
-                    self.convert_parameter(parameters[0]),))
-            elif action_name == 'JumpToFrame':
-                frame_parameter = parameters[0].loader
-                if frame_parameter.isExpression:
-                    value = '(%s - 1)' % self.convert_parameter(frame_parameter)
-                else:
-                    value = str(self.game.frameHandles[frame_parameter.value])
-                writer.put('self.set_frame(%s)' % value)
-            elif action_name == 'ForceAnimation':
-                a = ANIMATION_NAMES[parameters[0].loader.value]
-                writer.put('force_animation(%r)' % a)
-            elif action_name == 'RestoreAnimation':
-                writer.put('restore_animation()')
-            elif action_name == 'BinaryInsertString':
-                writer.put('insert(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'BinaryReplaceString':
-                writer.put('replace(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'BinaryDecodeBase64':
-                writer.put('decode_base64()')
-            elif action_name == 'ResetDelimiters':
-                writer.put('clear_delimiters()')
-            elif action_name == 'SockSendText':
-                writer.put('send_text(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'DisableFlag':
-                writer.put('flags[%s] = False' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'RichGoCharacter':
-                writer.put('go_to_character(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetINIItemString':
-                writer.put('set_item_string(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'SetINIItemValue':
-                writer.put('set_item_value(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ListReset':
-                writer.put('reset()')
-            elif action_name == 'ListAddLine':
-                writer.put('add_line(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'BinaryClear':
-                writer.put('clear()')
-            elif action_name == 'RichSetFontColorString':
-                color = eval(eval(self.convert_parameter(parameters[0])))
-                writer.put('set_color(%r)' % (color,))
-            elif action_name == 'RichSetText':
-                writer.put('set_text(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'IconListReset':
-                writer.put('reset()')
-            elif action_name == 'IconListAddLine':
-                writer.put('add_line(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'IconListSetLine':
-                writer.put('set_line(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'ModuleFadeStop':
-                writer.put('self.stop_mod(%s, %s) # with fade' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ModuleStop':
-                writer.put('self.stop_mod(%s)' % 
-                    self.convert_parameter(parameters[0]))
-            elif action_name == 'IconListDehighlight':
-                writer.put('set_focus(False)')
-            elif action_name == 'EditScrollToEnd':
-                writer.put('scroll_end()')
-            elif action_name == 'ListScrollEnd':
-                writer.put('scroll_end()')
-            elif action_name == 'SockSendLine':
-                writer.put('send_line(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'EnableFlag':
-                writer.put('flags[%s] = True' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'DeleteLine':
-                writer.put('delete_line(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'ListLoadFiles':
-                writer.put('load_file_list(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'ListLoad':
-                writer.put('load(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'EditDisable':
-                writer.put('disable()')
-            elif action_name == 'EncryptText':
-                writer.put('encrypt_file(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'DecryptText':
-                writer.put('decrypt_file(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ButtonCheck':
-                writer.put('set_value(True)')
-            elif action_name == 'ListFocusOff':
-                writer.put('set_focus(False)')
-            elif action_name == 'EditEnable':
-                writer.put('enable()')
-            elif action_name == 'ButtonDisable':
-                writer.put('disable()')
-            elif action_name == 'ButtonEnable':
-                writer.put('enable()')
-            elif action_name == 'ListFocusOn':
-                writer.put('set_focus(True)')
-            elif action_name == 'SockAccept':
-                writer.put('accept()')
-            elif action_name in ('CallFunction', 'CallFunctionInt'):
-                arguments = ''
-                if len(parameters) > 1:
-                    arguments = self.convert_parameter(parameters[1])
-                real_name = self.convert_parameter(parameters[0])
-                exp = parameters[0].loader.items
-                if len(exp) != 2 or exp[0].getName() != 'String':
-                    func_get = 'getattr(self, "function_" + %s)' % real_name
-                else:
-                    func_get = 'self.function_%s' % get_method_name(real_name)
-                writer.put('%s(%s)' % (func_get, arguments))
-            elif action_name == 'CalculateCRC':
-                writer.put('calculate(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'RestartFrame':
-                writer.put('self.restart_frame()')
-            elif action_name == 'Destroy':
-                writer.put('destroy()')
-            elif action_name == 'SockSetTimeout':
-                writer.put('set_timeout(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SoundSetDirectory':
-                writer.put('self.audio.set_default_directory(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'ControlSetPlayerUp':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].up = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ControlSetPlayerDown':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].down = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ControlSetPlayerLeft':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].left = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ControlSetPlayerRight':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].right = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ControlSetPlayerFire1':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].fire1 = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'ControlSetPlayerFire2':
-                num = parameters[0].loader.items[0].loader.value
-                writer.put('self.players[%s].fire2 = key_from_name(%s)' % (
-                    num - 1,
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'StopGlobalTimer':
-                writer.put('self.stop_timer(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetFocusOff':
-                # kcedit
-                writer.put('set_focus(False)')
-            elif action_name == 'SetInkEffect':
-                shorts = parameters[0].loader
-                effect_name = repr(INK_EFFECTS[shorts.value1])
-                if effect_name == 'Semitransparent':
-                    parameters = (effect_name, repr(shorts.value1))
-                else:
-                    parameters = (effect_name,)
-                writer.put('set_effect(%s)' % (
-                    ', '.join(parameters)))
-            elif action_name == 'SetDirection':
-                writer.put('set_direction(%s)' % (
-                    self.get_direction(parameters[0])))
-            elif action_name == 'SetSpeed':
-                writer.put('movement.set_speed(%s)' % (
-                    self.get_direction(parameters[0])))
-            elif action_name == 'SockListen':
-                writer.put('listen(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'Stop':
-                writer.put('stop()')
-            elif action_name == 'Start':
-                writer.put('movement.start()')
-            elif action_name == 'SetMaximumValue':
-                writer.put('set_maximum(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'DeleteFile':
-                writer.put('os.remove(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'CaptureSetFilename':
-                writer.put('self.capture_filename = %s' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'BoxSetText':
-                writer.put('set_text(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SockSetProperty':
-                writer.put('set_property(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'SockSelectSock':
-                writer.put('select_sock(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetGlobalString':
-                writer.put('self.strings[%s] = %s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name in ('Hide', 'HideSubApplication',
-                                 'EditMakeInvisible'):
-                writer.put('set_visible(False)')
-            elif action_name in ('Show', 'ShowSubApplication',
-                                 'EditMakeVisible'):
-                writer.put('set_visible(True)')
-            elif action_name == 'SetX':
-                writer.put('set_x(%s);' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SetY':
-                writer.put('set_y(%s);' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name in ('CreateObject', 'DisplayText', 'Shoot'):
-                is_shoot = action_name == 'Shoot'
-                details = self.convert_parameter(parameters[0])
-                x = str(details['x'])
-                y = str(details['y'])
-                parent = details.get('parent', None)
-                if parent and not is_shoot:
-                    x = '%s.x + %s' % (parent, x)
-                    y = '%s.y + %s' % (parent, y)
-                    # arguments.append('parent = %s' % details['parent'])
-                    # if details.get('use_action_point', False):
-                    #     arguments.append('use_action = True')
-                    # if details.get('set_direction', False):
-                    #     arguments.append('use_direction = True')
-                if is_shoot:
-                    create_object = details['shoot_object']
-                else:
-                    create_object = details['create_object']
-                arguments = [x, y]
-                list_name = '%s_instances' % get_method_name(create_object)
-                if is_shoot:
-                    create_method = '%s->shoot' % self.get_object(
-                        action.objectInfo)
-                    arguments.append(str(details['shoot_speed']))
-                else:
-                    create_method = 'create_object'
-                writer.put('%s = %s(new %s(%s)); // %s' % (
-                    list_name, create_method, create_object, 
-                    ', '.join(arguments), details))
-                self.has_selection[parameters[0].loader.objectInfo] = list_name
-                if action_name == 'DisplayText':
-                    paragraph = parameters[1].loader.value
-                    if paragraph != 0:
-                        raise NotImplementedError
-            elif action_name == 'OverlayClearRGB':
-                writer.put('clear(%s, %s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1]),
-                    self.convert_parameter(parameters[2])))
-            elif action_name == 'SetPosition':
-                details = self.convert_parameter(parameters[0])
-                x = str(details['x'])
-                y = str(details['y'])
-                parent = details.get('parent', None)
-                if parent:
-                    x = '%s.x + %s' % (parent, x)
-                    y = '%s.y + %s' % (parent, y)
-                    # arguments.append('parent = %s' % details['parent'])
-                    # if details.get('use_action_point', False):
-                    #     arguments.append('use_action = True')
-                    # if details.get('set_direction', False):
-                    #     arguments.append('use_direction = True')
-                arguments = [x, y]
-                writer.put('set_position(%s) # %s' % (
-                    ', '.join(arguments), details))
-            elif action_name == 'LookAt':
-                details = self.convert_parameter(parameters[0])
-                x = str(details['x'])
-                y = str(details['y'])
-                parent = details.get('parent', None)
-                if parent:
-                    x = '%s.x + %s' % (parent, x)
-                    y = '%s.y + %s' % (parent, y)
-                    # arguments.append('parent = %s' % details['parent'])
-                    # if details.get('use_action_point', False):
-                    #     arguments.append('use_action = True')
-                    # if details.get('set_direction', False):
-                    #     arguments.append('use_direction = True')
-                arguments = [x, y]
-                writer.put('look_at(%s) # %s' % (
-                    ', '.join(arguments), details))
-            elif action_name == 'AddBackdrop':
-                writer.put('add_backdrop()')
-            elif action_name == 'SortByAlterableDecreasing':
-                writer.put('self.sort_by_alterable(%s, default = %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'OverlaySetTransparent':
-                writer.put('set_transparency(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'SoundAutoPlay':
-                writer.put('self.audio.play_sound(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'PlaySample':
-                writer.put('self.audio.play_sound(%r)' % (
-                    self.convert_parameter(parameters[0]) + '.wav'))
-            elif action_name == 'SpreadValue':
-                writer.put('values[%s] = index+%s' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            elif action_name == 'BlitChangeText':
-                writer.put('set_value(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'BringToFront':
-                writer.put('bring_to_front()')
-            elif action_name == 'BringToBack':
-                writer.put('bring_to_back()')
-            elif action_name == 'SoundSetListenerPosition':
-                x = self.convert_parameter(parameters[0])
-                y = self.convert_parameter(parameters[1])
-                writer.put('self.audio.set_listener(%s, %s)' % (x, y))
-            elif action_name == 'SoundAutoPlayPosition':
-                name = self.convert_parameter(parameters[0])
-                x = self.convert_parameter(parameters[1])
-                y = self.convert_parameter(parameters[2])
-                writer.put('self.audio.play_sound(%s, pos = (%s, %s))' % (
-                    name, x, y))
-            elif action_name == 'Bounce':
-                other_infos = collisions[object_info]
-                if len(other_infos) > 1:
-                    raise NotImplementedError
-                if not other_infos:
-                    other_info = ''
-                else:
-                    other_info = self.get_object(other_infos[0], True)
-                writer.put('movement.bounce(%s)' % other_info)
-            elif action_name == 'ActivePictureCreateBackdrop':
-                writer.put('create_backdrop(%s)' % (
-                    self.convert_parameter(parameters[0])))
-            elif action_name == 'ListInsertLine':
-                writer.put('insert_line(%s, %s)' % (
-                    self.convert_parameter(parameters[0]),
-                    self.convert_parameter(parameters[1])))
-            else:
-                if action_name not in self.checked_aces['actions']:
-                    print ('action %r not implemented' % action_name),
-                    self.print_parameters(action)
-                    wait_unimplemented()
-                self.checked_aces['actions'][action_name] += 1
-                debug_parameters = [str(self.convert_parameter(parameter))
-                    for parameter in parameters]
-                debug_name = '%s(%s)' % (action_name, ', '.join(
-                    debug_parameters))
-                writer.put(debug_name)
+            action_writer.write(writer)
             writer.put('\n')
             if has_multiple:
                 writer.end_brace()
@@ -2649,175 +1878,14 @@ class Converter(object):
         if loader.isExpression:
             for item_index, item in enumerate(loader.items[:-1]):
                 item_name = self.get_expression_name(item)
-                if item_name == 'ObjectCount':
-                    out += 'len(%s)' % self.get_object(item.objectInfo, True)
-                    continue
-                elif item_name == 'FixedValue':
-                    out += 'id(%s)' % self.get_object(item.objectInfo)
-                    continue
                 if item.hasObjectInfo():
                     try:
                         object_info = item.objectInfo
                         out += '%s->' % self.get_object(item.objectInfo)
                     except KeyError:
                         pass
-                if item_name in ('String', 'Long', 'Double'):
-                    out += to_c('%r', item.loader.value)
-                elif item_name == 'CurrentText':
-                    out += 'text'
-                elif item_name == 'EditTextNumeric':
-                    out += 'get_number()'
-                elif item_name == 'EditGetText':
-                    out += 'get_value()'
-                elif item_name == 'Plus':
-                    out += '+'
-                elif item_name == 'Minus':
-                    out += '-'
-                elif item_name == 'Multiply':
-                    out += '*'
-                elif item_name == 'Virgule':
-                    if out[-1] == '(':
-                        out += ')'
-                    out += ', '
-                elif item_name == 'Parenthesis':
-                    out += '('
-                elif item_name == 'EndParenthesis':
-                    out += ')'
-                elif item_name == 'LeftString':
-                    out += 'left_string('
-                elif item_name == 'ApplicationDirectory':
-                    prev_exp = self.get_expression_name(
-                        loader.items[item_index-2])
-                    if prev_exp == 'ApplicationDrive':
-                        out += "(os.path.splitdrive(os.getcwd())[1]+'\\\\')"
-                    else:
-                        out += "(os.getcwd()+'\\\\')"
-                elif item_name == 'ApplicationDrive':
-                    out += "os.path.splitdrive(os.getcwd())[0]"
-                elif item_name == 'GetINIString':
-                    out += 'get()'
-                elif item_name == 'GetINIValueItem':
-                    out += 'get_value_item('
-                elif item_name == 'GetINIStringItem':
-                    out += 'get_string_item('
-                elif item_name == 'NewLine':
-                    out += "'\\r\\n'"
-                elif item_name == 'StringLength':
-                    out += 'len('
-                elif item_name == 'MidString':
-                    out += 'mid_string('
-                elif item_name == 'LoopIndex':
-                    out += 'self.get_loop_index('
-                elif item_name == 'GetCurrentFuncLoopIndex':
-                    out += 'loop_index'
-                elif item_name == 'CounterValue':
-                    out += 'get_value()'
-                elif item_name == 'ParserGetElement':
-                    out += 'get_element(-1 + '
-                elif item_name == 'ParserGetFirstElement':
-                    out += 'get_element(0)'
-                elif item_name == 'ParserGetLastElement':
-                    out += 'get_element(-1)'
-                elif item_name == 'ParserGetElementCount':
-                    out += 'get_count()'
-                elif item_name == 'BinaryGetStringAt':
-                    out += 'get_string('
-                elif item_name == 'BinaryGetSize':
-                    out += 'get_size()'
-                elif item_name == 'ToNumber':
-                    out += 'to_number('
-                elif item_name == 'SockGetLocalIP':
-                    out += 'get_local_ip()'
-                elif item_name == 'SockReceiveText':
-                    out += 'get_bytes('
-                elif item_name == 'RichGetCharacterCount':
-                    out += 'get_character_count()'
-                elif item_name == 'IconListGetIndex':
-                    out += 'get_index()'
-                elif item_name == 'ListGetLine':
-                    out += 'get_line('
-                elif item_name == 'ListFindExact':
-                    out += 'find_exact('
-                elif item_name == 'SockReceiveLine':
-                    out += 'get_line('
-                elif item_name == 'ParserGetString':
-                    out += 'get_value()'
-                elif item_name == 'RightString':
-                    out += 'right_string('
-                elif item_name == 'GetGlobalString':
-                    out += 'self.get_global_string('
-                elif item_name == 'ToString':
-                    out += 'str('
-                elif item_name == 'Random':
-                    out += 'randrange('
-                elif item_name == 'ListCurrentLineIndex':
-                    out += 'get_index()'
-                elif item_name == 'GetFileCRC':
-                    out += 'get_crc()'
-                elif item_name == 'GlobalValue':
-                    out += 'self.get_global_value(%s)' % item.loader.value
-                elif item_name == 'AlterableValue':
-                    out += 'values->get(%s)' % item.loader.value
-                elif item_name == 'GetFlag':
-                    out += 'get_flag('
-                elif item_name == 'XPosition':
-                    out += 'get_x()'
-                elif item_name == 'YPosition':
-                    out += 'get_y()'
-                elif item_name == 'GetINIValue':
-                    out += 'get_value()'
-                elif item_name == 'BoxGetText':
-                    out += 'get_text()'
-                elif item_name in ('IIFIntegerCompareInteger', 
-                                   'IIFStringCompareString',
-                                   'IIFStringCompareInteger'):
-                    out += 'immediate_compare('
-                elif item_name == 'BlowfishRandomKey':
-                    out += 'make_random_key('
-                elif item_name == 'BlowfishFilterString':
-                    out += 'filter_string('
-                elif item_name == 'Max':
-                    out += 'max('
-                elif item_name == 'Abs':
-                    out += 'abs('
-                elif item_name == 'Divide':
-                    out += '/'
-                elif item_name == 'ToInt':
-                    out += 'to_int('
-                elif item_name == 'ControlLastKeyString':
-                    out += 'key_string(self.scene.key_downs[-1])'
-                elif item_name == 'ListGetCurrentLine':
-                    out += 'get_line(None)'
-                elif item_name == 'BlowfishEncryptString':
-                    out += 'encrypt_string('
-                elif item_name == 'BlowfishDecryptString':
-                    out += 'decrypt_string('
-                elif item_name == 'SockGetProperty':
-                    out += 'get_property('
-                elif item_name == 'Cos':
-                    out += 'cos('
-                elif item_name == 'Sin':
-                    out += 'sin('
-                elif item_name == 'Modulus':
-                    out += '%'
-                elif item_name == 'GetGlobalTimer':
-                    out += 'self.get_timer('
-                elif item_name == 'GetIntArgumentA':
-                    out += 'int_arg'
-                elif item_name == 'ListGetLineCount':
-                    out += 'get_count()'
-                elif item_name == 'GetDirection':
-                    out += 'direction'
-                elif item_name == 'PlayerLives':
-                    out += 'self.players[%s].lives' % item.objectInfo
-                elif item_name == 'Speed':
-                    out += 'movement.speed'
-                else:
-                    if item_name not in self.checked_aces['expressions']:
-                        print 'expression not implemented:', item_name, item.loader
-                        wait_unimplemented()
-                    self.checked_aces['expressions'][item_name] += 1
-                    out += '%s(' % item_name
+                self.last_out = out
+                out += self.get_expression_writer(item).get_string()
         else:
             parameter_name = type(container.loader).__name__
             if parameter_name == 'Object':
@@ -2934,6 +2002,9 @@ class Converter(object):
         else:
             return '%s' % self.object_names[handle]
 
+    def get_list_name(self, object_name):
+        return '%s_instances' % get_method_name(object_name)
+
     def get_object_handle(self, handle):
         if is_qualifier(handle):
             return 'qualifier_%s' % get_qualifier(handle)
@@ -2942,9 +2013,6 @@ class Converter(object):
 
     def resolve_qualifier(self, handle):
         return self.qualifiers[get_qualifier(handle)]
-
-    def print_parameters(self, ace):
-        print [parameter.getName() for parameter in ace.items]
 
     def get_condition_name(self, item):
         return self.get_ace_name(item, 'conditions')
@@ -2985,34 +2053,49 @@ class Converter(object):
             import code
             code.interact(local = locals())
         return ret
+
+    def get_action_writer(self, item):
+        return self.get_ace_writer(item, 'actions')
+
+    def get_condition_writer(self, item):
+        return self.get_ace_writer(item, 'conditions')
+
+    def get_expression_writer(self, item):
+        return self.get_ace_writer(item, 'expressions')
+
+    def get_ace_writer(self, item, ace_type):
+        writer_module = None
+        if item.getType() == EXTENSION_BASE:
+            raise NotImplementedError()
+            num = item.getExtensionNum()
+            if num >= 0:
+                extension = self.get_extension(item)
+                writer_module = extension.name
+                key = num
+        if writer_module is None:
+            writer_module = system_writers
+            key = item.getName()
+        try:
+            klass = getattr(writer_module, ace_type)[key]
+        except (KeyError, AttributeError):
+            klass = default_writers[ace_type]
+        return klass(self, item)
     
     def get_extension(self, item):
         return item.getExtension(self.game.extensions)
     
     def write_active(self, writer, common):
         animations = common.animations.loadedAnimations
-        writer.putln('animations = {')
-        writer.indent()
         for animation_index, animation in animations.iteritems():
             directions = animation.loadedDirections
-            writer.putln('%r : {' % animation.getName())
-            writer.indent()
+            animation_name = animation.getName().upper()
             for direction_index, direction in directions.iteritems():
-                writer.putln('%s : {' % direction_index)
-                writer.indent()
-                writer.putln("'min_speed' : %r," % direction.minSpeed)
-                writer.putln("'max_speed' : %r," % direction.maxSpeed)
-                writer.putln("'repeat' : %r," % direction.repeat)
-                writer.putln("'back_to' : %r," % direction.backTo)
-                writer.putln("'frames' : %s" % get_image_list(direction.frames))
-                writer.dedent()
-                writer.putln('},')
-                
-            writer.dedent()
-            writer.putln('},')
-
-        writer.dedent()
-        writer.putln('}')
+                writer.putln('add_direction(%s, %s, %s, %s, %s, %s);' % (
+                    animation_name, direction_index, direction.minSpeed,
+                    direction.maxSpeed, direction.repeat, direction.backTo))
+                for image in direction.frames:
+                    writer.putln('add_image(%s, %s, &%s);' % (animation_name,
+                        direction_index, get_image_name(image)))
     
     def open_code(self, *path):
         return CodeWriter(self.get_filename(*path))
@@ -3022,16 +2105,3 @@ class Converter(object):
     
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(description='Chowdren')
-    parser.add_argument('filename', type = str, help = 'input file to convert')
-    parser.add_argument('outdir', type = str, help = 'destination directory')
-    args = parser.parse_args()
-    
-    Converter(args.filename, args.outdir)
-    
-
-if __name__ == '__main__':
-    main()

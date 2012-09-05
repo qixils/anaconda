@@ -1,1 +1,1 @@
-python chowdren.py test2.ccn test2
+python -m chowdren.run test2.ccn test2

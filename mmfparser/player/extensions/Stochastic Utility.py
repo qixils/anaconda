@@ -331,7 +331,7 @@ class ApproachInt(Expression):
 import random
 
 class DefaultObject(HiddenObject):
-    def created(self, data):
+    def created(self, data = None):
         self.random = random.Random()
 
 class StochasticUtility(UserExtension):

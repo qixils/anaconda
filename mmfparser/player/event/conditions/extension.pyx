@@ -125,12 +125,13 @@ cdef class OnCollision(Condition):
 cdef inline bint check_backdrop_overlap(Instance instance):
     if instance.destroying:
         return False
-    cdef list instances = instance.layer.ladders + instance.layer.obstacles
+    cdef list instances
     cdef Instance otherInstance
     cdef CollisionBase collision = instance.objectPlayer.collision
-    for otherInstance in instances:
-        if collide(otherInstance.objectPlayer.collision, collision):
-            return True
+    for instances in (instance.layer.ladders, instance.layer.obstacles):
+        for otherInstance in instances:
+            if collide(otherInstance.objectPlayer.collision, collision):
+                return True
     return False
 
 cdef inline tuple check_overlap(list instances, list otherInstances):
@@ -633,14 +634,19 @@ cdef class CompareFixedValue(Condition):
         cdef Instance instance
         cdef list instances
         if self.compareValue == EQUAL_INT:
-            for instance in self.get_instances():
-                if fixed == <void*>instance:
-                    break
-            else:
+            if fixed == <void*>(-1):
                 return False
-            self.select_instances([instance])
+            # for instance in self.get_instances():
+            #     if fixed == <void*>instance:
+            #         break
+            # else:
+            #     return False
+            # self.select_instances([instance])
+            self.select_instances([<object>fixed])
             return True
         elif self.compareValue == DIFFERENT_INT:
+            if fixed == <void*>(-1):
+                return True
             instances = []
             for instance in self.get_instances():
                 if fixed == <void*>instance:

@@ -86,8 +86,13 @@ class Action9(Action):
         
 class Action10(Action):
     def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+        # ACT_SETHOTSPOT_CENTER
+        image = instance.objectPlayer.image
+        if not image:
+            return
+        x = image.width / 2
+        y = image.height / 2
+        instance.objectPlayer.set_hotspot(x, y)
 
 class Action11(Action):
     def execute(self, instance):

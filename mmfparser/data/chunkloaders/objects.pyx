@@ -168,6 +168,15 @@ COLLISION_MODES = [
 ]
 
 cdef class _Background(DataLoader):
+    def getCollisionMode(self):
+        return COLLISION_MODES[self.collisionMode]
+    
+    def getObstacleType(self):
+        return OBSTACLE_TYPES[self.obstacleType]
+    
+    def getImage(self, imageBank):
+        return imageBank.fromHandle(self.image)
+
     def isBackground(self):
         return True
 
@@ -195,15 +204,6 @@ cdef class QuickBackdrop(_Background):
         reader.writeInt(self.width)
         reader.writeInt(self.height)
         self.shape.write(reader)
-    
-    def getCollisionMode(self):
-        return COLLISION_MODES[self.collisionMode]
-    
-    def getObstacleType(self):
-        return OBSTACLE_TYPES[self.obstacleType]
-    
-    def getImage(self, imageBank):
-        return imageBank.fromHandle(self.image)
 
 cdef class Backdrop(_Background):
     cdef public:
@@ -212,6 +212,7 @@ cdef class Backdrop(_Background):
         int width
         int height
         int image
+
     cpdef read(self, ByteReader reader):
         size = reader.readInt()
         self.obstacleType = reader.readShort()

@@ -80,6 +80,9 @@ cdef class InkEffect:
                     elif type == FLOAT:
                         shader.uniformf(name, value)
                     elif type == INT_FLOAT4:
+                        if value == 0:
+                            # print 'invalid parameter:', type, value, name
+                            continue
                         shader.uniformf(name, *value)
                     elif type == IMAGE:
                         continue
@@ -498,6 +501,8 @@ cdef class Instance(PlayerChild):
                                 reader.readByte(True) / 255.0,
                                 reader.readByte(True) / 255.0, 
                                 reader.readByte(True) / 255.0)
+                        else:
+                            raise NotImplementedError
                         parameters[parameter.name].value = value
             elif effect == MONOCHROME_EFFECT:
                 shader = MONOCHROME_SHADER

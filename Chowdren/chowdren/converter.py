@@ -23,16 +23,19 @@ import string
 import functools
 import itertools
 from collections import defaultdict, Counter
-from chowdren.writers import default_writers
-from chowdren.writers import system as system_writers
-from chowdren.common import get_method_name, get_class_name, check_digits, to_c
+from chowdren.writers.events import default_writers
+from chowdren.writers.events import system as system_writers
+from chowdren.writers.objects.system import system_objects
+from chowdren.common import (get_method_name, get_class_name, check_digits, 
+    to_c, make_color)
 
 WRITE_IMAGES = True
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-WAIT_UNIMPLEMENTED = False
-WAIT_UNNAMED = True
 WRITE_CONFIG = True
+
+WAIT_UNIMPLEMENTED = False
+WAIT_UNNAMED = False
 
 LICENSE = ("""\
 // Copyright (c) Mathias Kaerlev 2012.
@@ -238,404 +241,11 @@ class CodeWriter(object):
             italic = bool(font.italic)
             underline = bool(font.underline)
         self.putln('font = Font(%r, %r, %r, %r, %r)' % (face, size, bold, 
-            italic, underline))    
-
-extensions = {
-    'kcfile' : {
-        'actions' : {
-            4 : 'CreateFile',
-            10 : 'AppendText',
-            5 : 'DeleteFile'
-            
-        },
-        'conditions' : {
-            2 : 'FileReadable',
-            4 : 'NameIsFile'
-        },
-        'expressions' : {}
-    },
-    'kcpica' : {
-        'actions' : {
-            5 : 'ActivePictureSetTransparency',
-            0 : 'ActivePictureCreateBackdrop'
-        },
-        'conditions' : {
-        },
-        'expressions' : {}
-    },
-    'ModFusionEX' : {
-        'actions' : {
-            4 : 'QuickLoadMod',
-            15 : 'SetModuleVolume',
-            23 : 'ModuleCrossFade',
-            13 : 'ModuleFadeStop',
-            12 : 'ModuleStop',
-            11 : 'ModulePlay'
-        },
-        'conditions' : {
-            1 : 'ModIsPlaying'
-        },
-        'expressions' : {}
-    },
-    'moosock' : {
-        'actions' : {
-            0 : 'SockAccept',
-            1 : 'Connect',
-            2 : 'Disconnect',
-            4 : 'SockSendText',
-            5 : 'SockSendLine',
-            12 : 'SockSetTimeout',
-            3 : 'SockListen',
-            18 : 'DeleteSocket',
-            13 : 'SelectSocket',
-            16 : 'SockSetProperty',
-            17 : 'SockSelectSockWithProperty'
-        },
-        'conditions' : {
-            0 : 'SockConnected',
-            3 : 'SockCanAccept',
-            1 : 'SockDisconnected',
-            2 : 'SockReceived',
-            4 : 'SockIsConnected'
-        },
-        'expressions' : {
-            1 : 'SockGetLocalIP',
-            2 : 'SockGetRemoteIP',
-            3 : 'SockReceiveText',
-            4 : 'SockReceiveLine',
-            40 : 'SockGetProperty',
-            39 : 'SockCountSockets'
-        }
-    },
-    'kcedit' : {
-        'actions' : {
-            23 : 'LimitTextSize',
-            16 : 'SetFocusOn',
-            30 : 'SetFocusOff',
-            4 : 'SetEditText',
-            0 : 'EditLoadFile',
-            20 : 'EditReadOnlyOff',
-            19 : 'EditReadOnlyOn',
-            33 : 'EditScrollToEnd',
-            17 : 'EditEnable',
-            18 : 'EditDisable',
-            12 : 'EditMakeVisible',
-            13 : 'EditMakeInvisible'
-        },
-        'conditions' : {
-            0 : 'EditIsVisible',
-            3 : 'EditModified',
-            4 : 'EditHasFocus',
-            5 : 'EditIsNumber'
-        },
-        'expressions' : {
-            0 : 'EditGetText',
-            6 : 'EditTextNumeric'
-        }
-    },
-    'kcini' : {
-        'actions' : {
-            6 : 'SetINIFile',
-            0 : 'SetINIGroup',
-            1 : 'SetINIItem',
-            9 : 'SetINIItemString',
-            10 : 'SetINIGroupItemValue',
-            7 : 'SetINIItemValue'
-        },
-        'conditions' : {},
-        'expressions' : {
-            0 : 'GetINIValue',
-            1 : 'GetINIString',
-            2 : 'GetINIValueItem',
-            4 : 'GetINIStringItem'
-        }
-    },
-    'parser' : {
-        'actions' : {
-            6 : 'AddDelimiter',
-            5 : 'ResetDelimiters',
-            0 : 'ParserSetText'
-            
-        },
-        'conditions' : {},
-        'expressions' : {
-            0 : 'ParserGetString',
-            31 : 'ParserGetLastElement',
-            29 : 'ParserGetElement',
-            30 : 'ParserGetFirstElement',
-            24 : 'ParserGetElementCount'
-        }
-    },
-    'Blowfish' : {
-        'actions' : {
-            0 : 'AddEncryptionKey',
-            1 : 'BlowfishRemoveKey'
-        },
-        'conditions' : {},
-        'expressions' : {
-            10 : 'BlowfishRandomKey',
-            6 : 'BlowfishFilterString',
-            2 : 'BlowfishEncryptString',
-            5 : 'BlowfishDecryptString',
-        }
-    },
-    'binary' : {
-        'actions' : {
-            3 : 'BinaryInsertString',
-            40 : 'BinaryReplaceString',
-            22 : 'BinaryDecodeBase64',
-            33 : 'BinaryClear',
-            21 : 'BinaryEncodeBase64'
-        },
-        'conditions' : {},
-        'expressions' : {
-            1 : 'BinaryGetStringAt',
-            0 : 'BinaryGetSize'
-        }
-    },
-    'iconlist' : {
-        'actions' : {
-            0 : 'IconListSetLine',
-            1 : 'IconListAddLine',
-            6 : 'IconListReset',
-            13 : 'IconListDehighlight'
-        },
-        'conditions' : {
-            1 : 'IconListSelectionChanged',
-            2 : 'IconListOnDoubleClick'
-        },
-        'expressions' : {
-            0 : 'IconListGetIndex'
-        }
-    },
-    'kcriched' : {
-        'actions' : {
-            24 : 'RichGoCharacter',
-            44 : 'RichSetFontColorString',
-            46 : 'RichSetText'
-        },
-        'conditions' : {
-            19 : 'RichLinkClicked'
-        },
-        'expressions' : {
-            16 : 'RichGetCharacterCount',
-            13 : 'RichGetLinkText'
-        }
-    },
-    'kclist' : {
-        'actions' : {
-            5 : 'ListReset',    
-            6 : 'ListAddLine',
-            24 : 'ListScrollEnd',
-            8 : 'DeleteLine',
-            3 : 'ListLoadFiles',
-            0 : 'ListLoad',
-            14 : 'ListFocusOff',
-            13 : 'ListFocusOn',
-            4 : 'ListSaveListFile',
-            7 : 'ListInsertLine'
-        },
-        'conditions' : {
-            3 : 'ListSelectionChanged'
-        },
-        'expressions' : {
-            4 : 'ListGetLine',
-            15 : 'ListFindExact',
-            0 : 'ListCurrentLineIndex',
-            7 : 'ListGetLineCount',
-            1 : 'ListGetCurrentLine'
-        }
-    },
-    'kcwctrl' : {
-        'actions' : {
-        },
-        'conditions' : {
-            3 : 'ApplicationActive',
-            2 : 'IsWindowVisible'
-        },
-        'expressions' : {
-        }
-    },
-    'Gstrings' : {
-        'actions' : {
-            0 : 'SetGlobalString'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-            0 : 'GetGlobalString'
-        }
-    },
-    'kcbutton' : {
-        'actions' : {
-            14 : 'ButtonCheck',
-            4 : 'ButtonDisable',
-            3 : 'ButtonEnable'
-        },
-        'conditions' : {
-            0 : 'ButtonBoxChecked',
-            1 : 'ButtonClicked'
-        },
-        'expressions' : {
-        }
-    },
-    'Encryption' : {
-        'actions' : {
-            0 : 'EncryptText',
-            1 : 'DecryptText'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-    'XXCRC' : {
-        'actions' : {
-            0 : 'CalculateCRC'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-            0 : 'GetFileCRC'
-        }
-    },
-    'funcloop' : {
-        'actions' : {
-            0 : 'CallFunction',
-            13 : 'StartFuncLoop',
-            1 : 'CallFunctionInt',
-            14 : 'StopCurrentFuncLoop',
-            9 : 'ReturnFunction',
-            # 1 : 'GetFuncLoopIndex',
-            # 1 : 'GetCurrentFuncLoopIndex'
-        },
-        'conditions' : {
-            0 : 'OnFunction',
-            1 : 'OnFuncLoop'
-        },
-        'expressions' : {
-            1 : 'GetCurrentFuncLoopIndex',
-            2 : 'GetIntArgumentA'
-        }
-    },
-    'IIF' : {
-        'actions' : {
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-            0 : 'IIFIntegerCompareInteger', # 'Return Types...', 'Integers', 'Compare Integers(n,operator,n,true,false)',
-            3 : 'IIFStringCompareInteger',
-            4 : 'IIFStringCompareString'
-        }
-    },
-    'Capture' : {
-        'actions' : {
-            0 : 'CaptureSetFilename',
-            5 : 'CaptureFrame',
-            8 : 'CaptureStartAutomatic'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-    'timex' : {
-        'actions' : {
-            1 : 'StartGlobalTimer',
-            2 : 'StopGlobalTimer',
-            4 : 'ResetGlobalTimer'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-            2 : 'GetGlobalTimer'
-        }
-    },
-    'Overlay' : {
-        'actions' : {
-            48 : 'OverlaySetTransparent',
-            8 : 'OverlayClearRGB',
-            12 : 'OverlayDrawRectangle'
-        },
-        'conditions' : {
-            1 : 'OverlayMatchColorRGB'
-        },
-        'expressions' : {
-        }
-    },
-    'Dsound' : {
-        'actions' : {
-            5 : 'SoundAutoPlay',
-            7 : 'SoundAutoPlayPosition',
-            0 : 'SoundSetDirectory',
-            8 : 'SoundSetListenerPosition'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-    'Layer' : {
-        'actions' : {
-            27 : 'SortByAlterableDecreasing'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-    'KcBoxA' : {
-        'actions' : {
-            55 : 'BoxSetText'
-        },
-        'conditions' : {
-            3 : 'BoxLeftClicked'
-        },
-        'expressions' : {
-            29 : 'BoxGetText'
-        }
-    },
-    'ctrlx' : {
-        'actions' : {
-            7 : 'ControlSetPlayerUp',
-            8 : 'ControlSetPlayerDown',
-            9 : 'ControlSetPlayerLeft',
-            10 : 'ControlSetPlayerRight',
-            11 : 'ControlSetPlayerFire1',
-            12 : 'ControlSetPlayerFire2'
-        },
-        'conditions' : {
-            9 : 'ControlAnyKeyDown'
-        },
-        'expressions' : {
-            0 : 'ControlLastKeyString'
-        }
-    },
-    'kcplugin' : {
-        'actions' : {
-            4 : 'OpenURL'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-    'txtblt' : {
-        'actions' : {
-            0 : 'BlitChangeText'
-        },
-        'conditions' : {
-        },
-        'expressions' : {
-        }
-    },
-}
+            italic, underline))
 
 native_extension_cache = {}
 MMF_PATHS = (
-    # ('C:\Programs\Multimedia Fusion 1.5\Programs\Extensions', '.cox'),
-    ('C:\Programs\Multimedia Fusion Developer 2\Extensions', '.mfx')
+    ('C:\Programs\Multimedia Fusion Developer 2\Extensions', '.mfx'),
 )
 
 def load_native_extension(name):
@@ -652,12 +262,6 @@ def load_native_extension(name):
             return extension
     native_extension_cache[name] = None
     return None
-
-def get_image_list(values):
-    return '[%s]' % ', '.join(['image%s' % image for image in values])
-
-def get_image_name(value):
-    return 'image%s' % value
 
 def get_qt_key(value):
     if value == 1:
@@ -718,42 +322,42 @@ def get_system_color(index):
 def read_system_color(reader):
     return get_system_color(reader.readInt(True))
 
-OBJECT_CLASSES = {
-    TEXT : 'Text',
-    ACTIVE : 'Active',
-    BACKDROP : 'Backdrop',
-    COUNTER : 'Counter',
-    SUBAPPLICATION : 'SubApplication',
-    'kcedit' : 'Edit',
-    'kcpica' : 'ActivePicture',
-    'parser' : 'StringParser',
-    'binary' : 'BinaryObject',
-    'kcbutton' : 'ButtonControl',
-    'kcini' : 'INI',
-    'Blowfish' : None,
-    'kcfile' : None,
-    'ModFusionEX' : None,
-    'ControlX' : None,
-    'Gstrings' : None,
-    'kcplugin' : None,
-    'ctrlx' : None,
-    'funcloop' : None,
-    'IIF' : None,
-    'Layer' : None,
-    'Dsound' : None,
-    'timex' : None,
-    'Encryption' : None,
-    'XXCRC' : 'ChecksumCalculator',
-    'kcwctrl' : None,
-    'moosock' : 'Socket',
-    'kclist' : 'ListControl',
-    'iconlist' : 'IconList',
-    'kcriched' : 'RichEdit',
-    'KcBoxA' : 'ActiveBox',
-    'txtblt' : 'TextBlitter',
-    'Overlay' : 'OverlayRedux',
-    'Capture' : None,
-}
+# OBJECT_CLASSES = {
+#     TEXT : 'Text',
+#     ACTIVE : 'Active',
+#     BACKDROP : 'Backdrop',
+#     COUNTER : 'Counter',
+#     SUBAPPLICATION : 'SubApplication',
+#     'kcedit' : 'Edit',
+#     'kcpica' : 'ActivePicture',
+#     'parser' : 'StringParser',
+#     'binary' : 'BinaryObject',
+#     'kcbutton' : 'ButtonControl',
+#     'kcini' : 'INI',
+#     'Blowfish' : None,
+#     'kcfile' : None,
+#     'ModFusionEX' : None,
+#     'ControlX' : None,
+#     'Gstrings' : None,
+#     'kcplugin' : None,
+#     'ctrlx' : None,
+#     'funcloop' : None,
+#     'IIF' : None,
+#     'Layer' : None,
+#     'Dsound' : None,
+#     'timex' : None,
+#     'Encryption' : None,
+#     'XXCRC' : 'ChecksumCalculator',
+#     'kcwctrl' : None,
+#     'moosock' : 'Socket',
+#     'kclist' : 'ListControl',
+#     'iconlist' : 'IconList',
+#     'kcriched' : 'RichEdit',
+#     'KcBoxA' : 'ActiveBox',
+#     'txtblt' : 'TextBlitter',
+#     'Overlay' : 'OverlayRedux',
+#     'Capture' : None,
+# }
 
 active_picture_flags = BitDict(
     'Resize',
@@ -1010,20 +614,17 @@ class Converter(object):
                 class_name = 'Object%s' % handle
             else:
                 class_name = get_class_name(name) + '_' + str(handle)
-            common = frameitem.properties.loader
             object_type = frameitem.properties.getType()
-            if object_type == EXTENSION_BASE:
-                object_key = self.get_extension(frameitem).name
-            else:
-                object_key = object_type
             try:
-                subclass = OBJECT_CLASSES[object_key]
+                if object_type == EXTENSION_BASE:
+                    # object_writer = self.get_extension(frameitem).name
+                    continue
+                else:
+                    object_writer = system_objects[object_type](self, frameitem)
             except KeyError:
-                print repr(frameitem.name), object_key, handle
+                print repr(frameitem.name), object_type, handle
                 continue
-            if subclass is None:
-                continue
-
+            common = object_writer.common
             try:
                 visible = common.newFlags['VisibleAtStart']
             except (AttributeError, KeyError):
@@ -1076,18 +677,26 @@ class Converter(object):
                 objects_file.putln('')
             except (AttributeError, IndexError, StopIteration):
                 movement_name = None
-
+            subclass = object_writer.class_name
             self.object_names[handle] = class_name
             self.instance_names[handle] = get_method_name(class_name)
+            object_writer.write_pre(objects_file)
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
             objects_file.putln('static const int type_id = %s;' % type_id.next())
-            objects_file.putln(to_c('%s(int x, int y) : %s(%r, x, y, type_id)',
-                class_name, subclass, name))
+            object_writer.write_constants(objects_file)
+            parameters = [to_c('%r', name), 'x', 'y', 'type_id']
+            parameters = ', '.join(object_writer.get_parameters() + parameters)
+            init_list = [to_c('%s(%s)', subclass, parameters)]
+            for name, value in object_writer.get_init_list():
+                init_list.append(to_c('%s(%r)', name, value))
+            init_list = ', '.join(init_list)
+            objects_file.putln(to_c('%s(int x, int y) : %s', class_name, 
+                init_list))
             objects_file.start_brace()
-            if object_type == ACTIVE:
-                self.write_active(objects_file, common)
+            object_writer.write_init(objects_file)
             objects_file.end_brace()
+            object_writer.write_class(objects_file)
             if movement_name is not None:
                 objects_file.putln('movement_class = %s' % movement_name)
             if frameitem.flags['Global']:
@@ -1095,9 +704,6 @@ class Converter(object):
             if object_type == TEXT:
                 text = common.text
                 lines = [paragraph.value for paragraph in text.items]
-                if len(lines) != 1:
-                    raise NotImplementedError(
-                        'text can only be 1 paragraph')
                 objects_file.putdef('width', text.width)
                 objects_file.putdef('height', text.height)
                 objects_file.putln('font = font%s' % text.items[0].font)
@@ -1106,245 +712,238 @@ class Converter(object):
                 
                 paragraph = text.items[0]
                 if paragraph.flags['HorizontalCenter']:
-                    horizontal = 'Qt.AlignHCenter'
+                    horizontal = 'ALIGN_HORIZONTAL_CENTER'
                 elif paragraph.flags['RightAligned']:
-                    horizontal = 'Qt.AlignRight'
+                    horizontal = 'ALIGN_RIGHT'
                 else:
-                    horizontal = 'Qt.AlignLeft'
+                    horizontal = 'ALIGN_LEFT'
                 if paragraph.flags['VerticalCenter']:
-                    vertical = 'Qt.AlignVCenter'
+                    vertical = 'ALIGN_VERTICAL_CENTER'
                 elif paragraph.flags['BottomAligned']:
-                    vertical = 'Qt.AlignBottom'
+                    vertical = 'ALIGN_BOTTOM'
                 else:
-                    vertical = 'Qt.AlignTop'
+                    vertical = 'ALIGN_TOP'
                 objects_file.putln('alignment = %s | %s' % (horizontal,
                     vertical))
-                    
-            elif object_type == ACTIVE:
-                pass
-            elif object_type == BACKDROP:
-                objects_file.putdef('obstacle_type', 
-                    common.getObstacleType())
-                objects_file.putdef('collision_mode', 
-                    common.getCollisionMode())
-                objects_file.putln('image = image%s' % common.image)
-            elif object_type == COUNTER:
-                counters = common.counters
-                counter = common.counter
-                if counters:
-                    display_type = counters.displayType
-                    if display_type == NUMBERS:
-                        objects_file.putln('frames = {')
+
+            if False:
+                if object_type == COUNTER:
+                    counters = common.counters
+                    counter = common.counter
+                    if counters:
+                        display_type = counters.displayType
+                        if display_type == NUMBERS:
+                            objects_file.putln('frames = {')
+                            objects_file.indent()
+                            for char_index, char in enumerate(COUNTER_FRAMES):
+                                objects_file.putln("%r : image%s," % (char,
+                                    counters.frames[char_index]))
+                            objects_file.dedent()
+                            objects_file.putln('}')
+                        elif display_type == HORIZONTAL_BAR:
+                            shape_object = counters.shape
+                            shape = shape_object.shape
+                            fill_type = shape_object.fillType
+                            if shape != RECTANGLE_SHAPE:
+                                raise NotImplementedError
+                            objects_file.putdef('width', counters.width)
+                            objects_file.putdef('height', counters.height)
+                            if fill_type == GRADIENT_FILL:
+                                objects_file.putdef('color1', shape_object.color1)
+                                objects_file.putdef('color2', shape_object.color2)
+                            elif fill_type == SOLID_FILL:
+                                objects_file.putdef('color1', shape_object.color1)
+                            else:
+                                raise NotImplementedError
+                        else:
+                            raise NotImplementedError
+                    objects_file.putdef('initial', counter.initial)
+                    objects_file.putdef('minimum', counter.minimum)
+                    objects_file.putdef('maximum', counter.maximum)
+                elif object_type == SUBAPPLICATION:
+                    subapp = common.subApplication
+                    objects_file.putdef('width', subapp.width)
+                    objects_file.putdef('height', subapp.height)
+                    objects_file.putdef('start_frame', subapp.startFrame)
+                    # self.options.setFlags(reader.readInt(True))
+                elif object_type == EXTENSION_BASE:
+                    extension = self.get_extension(frameitem)
+                    extension_name = extension.name
+                    if common.extensionData is not None:
+                        data = ByteReader(common.extensionData)
+                    if extension_name == 'kcpica':
+                        objects_file.putdef('width', data.readInt())
+                        objects_file.putdef('height', data.readInt())
+                        active_picture_flags.setFlags(data.readInt(True))
+                        visible = not active_picture_flags['HideOnStart']
+                        transparent_color = data.readColor()
+                        image = data.readString(260) or None
+                        objects_file.putdef('filename', image)
+                    elif extension_name == 'kcini':
+                        data.skipBytes(2)
+                        filename = data.readString()
+                        if filename != 'Name.ini':
+                            objects_file.putdef('filename', filename)
+                    elif extension_name == 'kcedit':
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        objects_file.putfont(LogFont(data, old = True))
+                        data.skipBytes(4 * 16)
+                        objects_file.putdef('foreground', data.readColor())
+                        background = data.readColor()
+                        data.skipBytes(40)
+                        edit_flags.setFlags(data.readInt())
+                        visible = not edit_flags['HideOnStart']
+                        transparent = edit_flags['Transparent']
+                        if transparent:
+                            background = None
+                        objects_file.putdef('background', background)
+                        objects_file.putdef('transparent', transparent)
+                        objects_file.putdef('border', edit_flags['Border'])
+                    elif extension_name == 'kclist':
+                        objects_file.putdef('width', data.readShort())
+                        objects_file.putdef('height', data.readShort())
+                        objects_file.putfont(LogFont(data, old = True))
+                        objects_file.putdef('font_color', data.readColor())
+                        data.skipBytes(40 + 16 * 4)
+                        objects_file.putdef('background', data.readColor())
+                        list_flags.setFlags(data.readInt())
+                        visible = not list_flags['HideOnStart']
+                        line_count = data.readShort(True)
+                        index_offset = -1 if data.readInt() == 1 else 0
+                        objects_file.putdef('index_offset', index_offset)
+                        data.skipBytes(4 * 3)
+                        objects_file.putln('lines = [')
                         objects_file.indent()
-                        for char_index, char in enumerate(COUNTER_FRAMES):
-                            objects_file.putln("%r : image%s," % (char,
-                                counters.frames[char_index]))
+                        for i in xrange(line_count):
+                            if i == line_count - 1:
+                                objects_file.putln('%r' % data.readString())
+                            else:
+                                objects_file.putln('%r,' % data.readString())
                         objects_file.dedent()
-                        objects_file.putln('}')
-                    elif display_type == HORIZONTAL_BAR:
-                        shape_object = counters.shape
-                        shape = shape_object.shape
-                        fill_type = shape_object.fillType
-                        if shape != RECTANGLE_SHAPE:
-                            raise NotImplementedError
-                        objects_file.putdef('width', counters.width)
-                        objects_file.putdef('height', counters.height)
-                        if fill_type == GRADIENT_FILL:
-                            objects_file.putdef('color1', shape_object.color1)
-                            objects_file.putdef('color2', shape_object.color2)
-                        elif fill_type == SOLID_FILL:
-                            objects_file.putdef('color1', shape_object.color1)
+                        objects_file.putln(']')
+                    elif extension_name == 'iconlist':
+                        data.skipBytes(4) # version?
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        image16 = data.readShort(True)
+                        image32 = data.readShort(True)
+                        data.skipBytes(4)
+                        list_type = data.readInt(True) # 1: simple, 2: combo
+                        if list_type == 1:
+                            type_name = 'Simple'
+                        elif list_type == 2:
+                            type_name = 'Combo'
                         else:
-                            raise NotImplementedError
-                    else:
-                        raise NotImplementedError
-                objects_file.putdef('initial', counter.initial)
-                objects_file.putdef('minimum', counter.minimum)
-                objects_file.putdef('maximum', counter.maximum)
-            elif object_type == SUBAPPLICATION:
-                subapp = common.subApplication
-                objects_file.putdef('width', subapp.width)
-                objects_file.putdef('height', subapp.height)
-                objects_file.putdef('start_frame', subapp.startFrame)
-                # self.options.setFlags(reader.readInt(True))
-            elif object_type == EXTENSION_BASE:
-                extension = self.get_extension(frameitem)
-                extension_name = extension.name
-                if common.extensionData is not None:
-                    data = ByteReader(common.extensionData)
-                if extension_name == 'kcpica':
-                    objects_file.putdef('width', data.readInt())
-                    objects_file.putdef('height', data.readInt())
-                    active_picture_flags.setFlags(data.readInt(True))
-                    visible = not active_picture_flags['HideOnStart']
-                    transparent_color = data.readColor()
-                    image = data.readString(260) or None
-                    objects_file.putdef('filename', image)
-                elif extension_name == 'kcini':
-                    data.skipBytes(2)
-                    filename = data.readString()
-                    if filename != 'Name.ini':
-                        objects_file.putdef('filename', filename)
-                elif extension_name == 'kcedit':
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    objects_file.putfont(LogFont(data, old = True))
-                    data.skipBytes(4 * 16)
-                    objects_file.putdef('foreground', data.readColor())
-                    background = data.readColor()
-                    data.skipBytes(40)
-                    edit_flags.setFlags(data.readInt())
-                    visible = not edit_flags['HideOnStart']
-                    transparent = edit_flags['Transparent']
-                    if transparent:
-                        background = None
-                    objects_file.putdef('background', background)
-                    objects_file.putdef('transparent', transparent)
-                    objects_file.putdef('border', edit_flags['Border'])
-                elif extension_name == 'kclist':
-                    objects_file.putdef('width', data.readShort())
-                    objects_file.putdef('height', data.readShort())
-                    objects_file.putfont(LogFont(data, old = True))
-                    objects_file.putdef('font_color', data.readColor())
-                    data.skipBytes(40 + 16 * 4)
-                    objects_file.putdef('background', data.readColor())
-                    list_flags.setFlags(data.readInt())
-                    visible = not list_flags['HideOnStart']
-                    line_count = data.readShort(True)
-                    index_offset = -1 if data.readInt() == 1 else 0
-                    objects_file.putdef('index_offset', index_offset)
-                    data.skipBytes(4 * 3)
-                    objects_file.putln('lines = [')
-                    objects_file.indent()
-                    for i in xrange(line_count):
-                        if i == line_count - 1:
-                            objects_file.putln('%r' % data.readString())
+                            raise NotImplementedError('invalid icon list type')
+                        objects_file.putdef('list_type', type_name)
+                        icon_size = int(data.readInt(True))
+                        objects_file.putdef('icon_size', icon_size)
+                        if icon_size == 16:
+                            objects_file.putln('image = image%s' % image16)
+                        elif icon_size == 32:
+                            objects_file.putln('image = image%s' % image32)
+                        data.skipBytes(4)
+                        focus = bool(data.readInt(True))
+                        invisible = bool(data.readInt(True))
+                        data.skipBytes(24)
+                        font = LogFont(data)
+                        if not font.faceName:
+                            font = None
+                        objects_file.putfont(font)
+                        data.skipBytes(52)
+                        objects_file.putdef('font_color', data.readColor())
+                    elif extension_name == 'kcriched':
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        rich_edit_flags.setFlags(data.readInt(True))
+                        string_unknown = data.readString(260)
+                        visible = rich_edit_flags['Visible']
+                        undo_levels = data.readInt(True)
+                        unknown_integer = data.readInt(True)
+                        string_size = data.readInt(True)
+                        objects_file.putfont(LogFont(data))
+                        data.skipBytes(64)
+                        objects_file.putdef('foreground', data.readColor())
+                        objects_file.putdef('background', data.readColor())
+                        objects_file.putdef('read_only', 
+                            rich_edit_flags['ReadOnly'])
+                        string_unknown2 = data.readString(40)
+                        if rich_edit_flags['Internal']:
+                            objects_file.putdef('text', data.readString(
+                                string_size))
+                    elif extension_name == 'kcbutton':
+                        # data.openEditor()
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        button_type = data.readShort()
+                        objects_file.putdef('type', button_type_names[button_type])
+                        button_count = data.readShort()
+                        button_flags.setFlags(data.readShort())
+                        visible = not button_flags['HideOnStart']
+                        objects_file.putfont(LogFont(data, old = True))
+                        foreground = data.readColor()
+                        background = data.readColor()
+                        if button_flags['SystemColor']:
+                            background = (255, 255, 255)
+                        objects_file.putdef('foreground', foreground)
+                        objects_file.putdef('background', background)
+                        data.skipBytes(104)
+                        images = [data.readShort() for _ in xrange(3)]
+                        if button_type in (PUSHBITMAP_BUTTON, PUSHTEXTBITMAP_BUTTON):
+                            images = [('image%s' % item) if item != -1 else 'None'
+                                      for item in images]
+                            objects_file.putln('images = [%s]' % ', '.join(images))
+                        data.skipBytes(10)
+                        strings = []
+                        if button_type == RADIO_BUTTON:
+                            strings = None
+                            # strings = [data.readString() 
+                            #     for _ in xrange(button_count)]
                         else:
-                            objects_file.putln('%r,' % data.readString())
-                    objects_file.dedent()
-                    objects_file.putln(']')
-                elif extension_name == 'iconlist':
-                    data.skipBytes(4) # version?
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    image16 = data.readShort(True)
-                    image32 = data.readShort(True)
-                    data.skipBytes(4)
-                    list_type = data.readInt(True) # 1: simple, 2: combo
-                    if list_type == 1:
-                        type_name = 'Simple'
-                    elif list_type == 2:
-                        type_name = 'Combo'
-                    else:
-                        raise NotImplementedError('invalid icon list type')
-                    objects_file.putdef('list_type', type_name)
-                    icon_size = int(data.readInt(True))
-                    objects_file.putdef('icon_size', icon_size)
-                    if icon_size == 16:
-                        objects_file.putln('image = image%s' % image16)
-                    elif icon_size == 32:
-                        objects_file.putln('image = image%s' % image32)
-                    data.skipBytes(4)
-                    focus = bool(data.readInt(True))
-                    invisible = bool(data.readInt(True))
-                    data.skipBytes(24)
-                    font = LogFont(data)
-                    if not font.faceName:
-                        font = None
-                    objects_file.putfont(font)
-                    data.skipBytes(52)
-                    objects_file.putdef('font_color', data.readColor())
-                elif extension_name == 'kcriched':
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    rich_edit_flags.setFlags(data.readInt(True))
-                    string_unknown = data.readString(260)
-                    visible = rich_edit_flags['Visible']
-                    undo_levels = data.readInt(True)
-                    unknown_integer = data.readInt(True)
-                    string_size = data.readInt(True)
-                    objects_file.putfont(LogFont(data))
-                    data.skipBytes(64)
-                    objects_file.putdef('foreground', data.readColor())
-                    objects_file.putdef('background', data.readColor())
-                    objects_file.putdef('read_only', 
-                        rich_edit_flags['ReadOnly'])
-                    string_unknown2 = data.readString(40)
-                    if rich_edit_flags['Internal']:
-                        objects_file.putdef('text', data.readString(
-                            string_size))
-                elif extension_name == 'kcbutton':
-                    # data.openEditor()
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    button_type = data.readShort()
-                    objects_file.putdef('type', button_type_names[button_type])
-                    button_count = data.readShort()
-                    button_flags.setFlags(data.readShort())
-                    visible = not button_flags['HideOnStart']
-                    objects_file.putfont(LogFont(data, old = True))
-                    foreground = data.readColor()
-                    background = data.readColor()
-                    if button_flags['SystemColor']:
-                        background = (255, 255, 255)
-                    objects_file.putdef('foreground', foreground)
-                    objects_file.putdef('background', background)
-                    data.skipBytes(104)
-                    images = [data.readShort() for _ in xrange(3)]
-                    if button_type in (PUSHBITMAP_BUTTON, PUSHTEXTBITMAP_BUTTON):
-                        images = [('image%s' % item) if item != -1 else 'None'
-                                  for item in images]
-                        objects_file.putln('images = [%s]' % ', '.join(images))
-                    data.skipBytes(10)
-                    strings = []
-                    if button_type == RADIO_BUTTON:
-                        strings = None
-                        # strings = [data.readString() 
-                        #     for _ in xrange(button_count)]
-                    else:
-                        strings.append(data.readString())
-                    if strings:
-                        objects_file.putdef('strings', strings)
-                elif extension_name == 'KcBoxA':
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    active_box_flags.setFlags(data.readInt(True))
-                    if not active_box_flags['Button']:
-                        objects_file.putdef('disabled', True)
-                    fill = read_system_color(data)
-                    objects_file.putdef('fill', fill)
-                    border1 = read_system_color(data)
-                    border2 = read_system_color(data)
-                    image = data.readShort()
-                    margin_left = data.readShort()
-                    margin_top = data.readShort()
-                    margin_right = data.readShort()
-                    margin_bottom = data.readShort()
-                    data.skipBytes(6)
-                    font = LogFont(data, old = True)
-                    objects_file.putfont(font)
-                    data.skipBytes(42)
-                    text, = data.readReader(data.readInt(True)).readString(
-                        ).rsplit('\\n', 1)
-                    if text:
-                        objects_file.putdef('text', text)
-                    version = data.readInt()
-                    hyperlink_color = read_system_color(data)
-                elif extension_name == 'txtblt':
-                    data.skipBytes(4)
-                    objects_file.putdef('width', data.readShort(True))
-                    objects_file.putdef('height', data.readShort(True))
-                    data.seek(1424)
-                    char_width = data.readInt(True)
-                    char_height = data.readInt(True)
-                    objects_file.putdef('character_size', 
-                        (char_width, char_height))
-                    data.seek(1468)
-                    image = data.readShort(True)
-                    objects_file.putln('image = image%s' % image)
-                    character_map = data.readString()
-                    if character_map != DEFAULT_CHARMAP:
-                        raise NotImplementedError
+                            strings.append(data.readString())
+                        if strings:
+                            objects_file.putdef('strings', strings)
+                    elif extension_name == 'KcBoxA':
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        active_box_flags.setFlags(data.readInt(True))
+                        if not active_box_flags['Button']:
+                            objects_file.putdef('disabled', True)
+                        fill = read_system_color(data)
+                        objects_file.putdef('fill', fill)
+                        border1 = read_system_color(data)
+                        border2 = read_system_color(data)
+                        image = data.readShort()
+                        margin_left = data.readShort()
+                        margin_top = data.readShort()
+                        margin_right = data.readShort()
+                        margin_bottom = data.readShort()
+                        data.skipBytes(6)
+                        font = LogFont(data, old = True)
+                        objects_file.putfont(font)
+                        data.skipBytes(42)
+                        text, = data.readReader(data.readInt(True)).readString(
+                            ).rsplit('\\n', 1)
+                        if text:
+                            objects_file.putdef('text', text)
+                        version = data.readInt()
+                        hyperlink_color = read_system_color(data)
+                    elif extension_name == 'txtblt':
+                        data.skipBytes(4)
+                        objects_file.putdef('width', data.readShort(True))
+                        objects_file.putdef('height', data.readShort(True))
+                        data.seek(1424)
+                        char_width = data.readInt(True)
+                        char_height = data.readInt(True)
+                        objects_file.putdef('character_size', 
+                            (char_width, char_height))
+                        data.seek(1468)
+                        image = data.readShort(True)
+                        objects_file.putln('image = image%s' % image)
+                        character_map = data.readString()
+                        if character_map != DEFAULT_CHARMAP:
+                            raise NotImplementedError
 
             if not visible:
                 objects_file.putdef('visible', visible)
@@ -1352,6 +951,7 @@ class Converter(object):
             objects_file.end_brace(True)
             objects_file.putln('static ObjectList %s_instances;' % 
                 get_method_name(class_name))
+            object_writer.write_post(objects_file)
 
             objects_file.putln('')
         objects_file.close()
@@ -1394,8 +994,8 @@ class Converter(object):
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
                 object_names = [self.object_names[item] 
                     for item in object_infos]
-                frame_file.putln('qualifier_%s = (%s)' % (qualifier.qualifier,
-                    ', '.join(object_names)), wrap = True)
+                # frame_file.putln('qualifier_%s = (%s)' % (qualifier.qualifier,
+                #     ', '.join(object_names)), wrap = True)
                 frame_file.putln('')
                 self.qualifiers[qualifier.qualifier] = object_infos
             
@@ -1403,12 +1003,9 @@ class Converter(object):
             frame_file.putclass(class_name, 'Frame')
             frame_file.put_access('public')
             frame_file.putln(to_c('%s(GameManager * manager) : '
-                'Frame(%r, %s, %s, %s, manager)',
-                class_name, frame.name, frame.width, frame.height, i))
-            # frame_file.putln(to_c('%s::name = %r;', class_name, frame.name))
-            # frame_file.putln(to_c('%s::width = %r;', class_name, frame.width))
-            # frame_file.putln(to_c('%s::height = %r;', class_name, frame.height))
-            # frame_file.putln(to_c('%s::index = %r;', class_name, i))
+                'Frame(%r, %s, %s, %s, %s, manager)',
+                class_name, frame.name, frame.width, frame.height, 
+                make_color(frame.background), i))
             frame_file.start_brace()
             frame_file.end_brace()
             # frame_file.putdef('name', frame.name)
@@ -1482,7 +1079,8 @@ class Converter(object):
             for k, v in containers.iteritems():
                 if k not in changed_containers:
                     if v.inactive:
-                        raise NotImplementedError
+                        print v.name, 'is weird'
+                        # raise NotImplementedError
                     v.is_static = True
 
             frame_file.putmeth('void initialize')
@@ -2030,7 +1628,8 @@ class Converter(object):
                 extension = self.get_extension(item)
                 extension_name = extension.name
                 try:
-                    return extensions[extension_name][key][num]
+                    # return extensions[extension_name][key][num]
+                    raise KeyError()
                 except KeyError:
                     print 'getting %r %r %r' % (extension_name, key, num)
                     native = load_native_extension(extension_name)
@@ -2083,19 +1682,6 @@ class Converter(object):
     
     def get_extension(self, item):
         return item.getExtension(self.game.extensions)
-    
-    def write_active(self, writer, common):
-        animations = common.animations.loadedAnimations
-        for animation_index, animation in animations.iteritems():
-            directions = animation.loadedDirections
-            animation_name = animation.getName().upper()
-            for direction_index, direction in directions.iteritems():
-                writer.putln('add_direction(%s, %s, %s, %s, %s, %s);' % (
-                    animation_name, direction_index, direction.minSpeed,
-                    direction.maxSpeed, direction.repeat, direction.backTo))
-                for image in direction.frames:
-                    writer.putln('add_image(%s, %s, &%s);' % (animation_name,
-                        direction_index, get_image_name(image)))
     
     def open_code(self, *path):
         return CodeWriter(self.get_filename(*path))

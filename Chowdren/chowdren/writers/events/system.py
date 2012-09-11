@@ -1,5 +1,5 @@
-from chowdren.writers import (ActionWriter, ConditionWriter, ExpressionWriter,
-    ComparisonWriter)
+from chowdren.writers.events import (ActionWriter, ConditionWriter, 
+    ExpressionWriter, ComparisonWriter)
 from chowdren.common import get_method_name, to_c
 
 # conditions
@@ -78,7 +78,7 @@ class MinusExpression(ConstantExpression):
     value = '-'
 
 class MultiplyExpression(ConstantExpression):
-    value = '-'
+    value = '*'
 
 class VirguleExpression(ExpressionWriter):
     def get_string(self):

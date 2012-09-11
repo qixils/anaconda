@@ -73,3 +73,31 @@ def to_c(format_spec, *args):
                 arg = 'false'
         new_args.append(arg)
     return format_spec % tuple(new_args)
+
+def get_image_name(value):
+    return '&image%s' % value
+
+def make_color(value):
+    return 'Color(%s)' % ', '.join([str(item) for item in value])
+
+ANIMATION_NAMES = [
+    'STOPPED',
+    'WALKING',
+    'RUNNING',
+    'APPEARING',
+    'DISAPPEARING',
+    'BOUNCING',
+    'SHOOTING',
+    'JUMPING',
+    'FALLING',
+    'CLIMBING',
+    'CROUCH',
+    'STAND',
+    'USER_DEFINED_1',
+    'USER_DEFINED_2',
+    'USER_DEFINED_3',
+    'USER_DEFINED_4'
+]
+
+def get_animation_name(index):
+    return ANIMATION_NAMES[index]

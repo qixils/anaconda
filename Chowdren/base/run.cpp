@@ -45,7 +45,7 @@ public:
 
     bool update(double dt)
     {
-        frame->handle_events();
+        frame->update((float)dt);
         return true;
     }
 

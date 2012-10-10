@@ -89,8 +89,8 @@ cdef class MMFArray(DataLoader):
         cdef int x, y, z, i
         i = 0
         for z in range(self.z_size):
-            for y in range(self.y_dimension):
-                for x in range(self.x_dimension):
+            for y in range(self.y_size):
+                for x in range(self.x_size):
                     if self.flags['Numeric']:
                         item = reader.readInt(True)
                     elif self.flags['Text']:
@@ -596,6 +596,15 @@ cdef class DefaultObject(ObjectPlayer):
         self.array.setup(x_size, y_size, z_size, array_type)
         storage['value'] = self.array
     
+    cdef void set_x(self, int x):
+        self.array_x = x
+
+    cdef void set_y(self, int y):
+        self.array_y = y
+
+    cdef void set_z(self, int z):
+        self.array_z = z
+
     cdef void write_value(self, value, int x, int y, int z):
         if x == -1:
             x = self.array_x

@@ -80,7 +80,7 @@ cdef class InkEffect:
                     elif type == FLOAT:
                         shader.uniformf(name, value)
                     elif type == INT_FLOAT4:
-                        if value == 0:
+                        if not isinstance(value, tuple):
                             # print 'invalid parameter:', type, value, name
                             continue
                         shader.uniformf(name, *value)

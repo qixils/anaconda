@@ -848,7 +848,7 @@ class FrameItem(DataLoader):
         reader.writeInt(len(self.name)); reader.write(self.name)
         reader.writeInt(int(self.transparent))
         reader.writeInt(self.inkEffect)
-        reader.writeInt(self.inkEffectParameter)
+        reader.writeInt(self.inkEffectParameter, True)
         reader.writeInt(int(self.antiAliasing))
         reader.writeInt(self.flags.getFlags())
         reader.writeInt(1)

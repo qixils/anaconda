@@ -1,16 +1,16 @@
 import os
 import shutil
+import contextlib
 from mmfparser.data.exe import ExecutableData
 from mmfparser.data.gamedata import GameData
 from mmfparser.bytereader import ByteReader
 from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
     TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT, 
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, EXTENSION_BASE,
-    INK_EFFECTS)
-from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES, 
-    ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR, 
-    VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
-    GRADIENT_FILL)
+    INK_EFFECTS, NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT, 
+    XOR_EFFECT, AND_EFFECT, OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT, 
+    SUBTRACT_EFFECT, HWA_EFFECT, SHADER_EFFECT)
+from mmfparser.data.chunkloaders.shaders import INT, FLOAT, INT_FLOAT4, IMAGE
 from mmfparser.data.chunkloaders.frame import NONE_PARENT
 from mmfparser.bitdict import BitDict
 from cStringIO import StringIO
@@ -18,18 +18,20 @@ import textwrap
 import Image
 from mmfparser.extension import loadLibrary, LoadedExtension
 from mmfparser.data.font import LogFont
-from key import key_to_qt
 import string
 import functools
 import itertools
 from collections import defaultdict, Counter
 from chowdren.writers.events import default_writers
 from chowdren.writers.events import system as system_writers
+from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits, 
     to_c, make_color)
+from chowdren.writers.extensions import load_extension_module
+from chowdren.key import VK_TO_GLFW
 
-WRITE_IMAGES = True
+WRITE_IMAGES = False
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 WRITE_CONFIG = True
@@ -184,9 +186,7 @@ class CodeWriter(object):
         self.start_brace()
 
     def put_label(self, name):
-        self.dedent()
         self.putln('%s: ;' % name)
-        self.indent()
 
     def put_access(self, name):
         self.dedent()
@@ -244,67 +244,38 @@ class CodeWriter(object):
             italic, underline))
 
 native_extension_cache = {}
-MMF_PATHS = (
-    ('C:\Programs\Multimedia Fusion Developer 2\Extensions', '.mfx'),
-)
+MMF_BASE = 'C:\Programs\Multimedia Fusion Developer 2'
+MMF_PATH = 'C:\Programs\Multimedia Fusion Developer 2\Extensions'
+MMF_EXT = '.mfx'
+
+EXTENSION_ALIAS = {
+    'INI++15' : 'INI++'
+}
 
 def load_native_extension(name):
-    for path_index, (path, ext) in enumerate(MMF_PATHS):
-        try:
-            return native_extension_cache[name]
-        except KeyError:
-            library = loadLibrary(os.path.join(path, name + ext))
-            if library is None:
-                continue
-            print 'loaded native extension (%s): %s' % (path_index, name)
-            extension = LoadedExtension(library, False)
-            native_extension_cache[name] = extension
-            return extension
-    native_extension_cache[name] = None
-    return None
+    name = EXTENSION_ALIAS.get(name, name)
+    try:
+        return native_extension_cache[name]
+    except KeyError:
+        pass
+    cwd = os.getcwd()
+    os.chdir(MMF_BASE)
+    library = loadLibrary(os.path.join(MMF_PATH, name + MMF_EXT))
+    os.chdir(cwd)
+    if library is None:
+        raise NotImplementedError(name)
+    extension = LoadedExtension(library, False)
+    native_extension_cache[name] = extension
+    return extension
 
-def get_qt_key(value):
-    if value == 1:
-        return 'Qt.LeftButton'
-    elif value == 4:
-        return 'Qt.MiddleButton'
-    elif value == 2:
-        return 'Qt.RightButton'
-    return 'Qt.Key_%s' % key_to_qt(value)
+def convert_key(value):
+    return ' | '.join(VK_TO_GLFW[value])
 
 def is_qualifier(handle):
     return handle & 32768 == 32768
 
 def get_qualifier(handle):
     return handle & 2047
-
-ACTIVE_BOX_COLORS = {
-    0 : (0xC8, 0xC8, 0xC8),
-    1 : (0x00,0x00,0x00),
-    2 : (0x99,0xb4,0xd1),
-    3 : (0xbf,0xcd,0xdb), # SystemColor.activeCaptionBorder,
-    4 : (0xf0,0xf0,0xf0),
-    5 : (0xff,0xff,0xff),
-    6 : (0x64,0x64,0x64), # SystemColor.inactiveCaptionBorder,
-    7 : (0x00,0x00,0x00),
-    8 : (0x00,0x00,0x00),
-    9 : (0x00,0x00,0x00),
-    10 : (0xb4,0xb4,0xb4), # new
-    11 : (0xf4,0xf7,0xfc), # new
-    12 : (0xab,0xab,0xab), # mdi one, doesn't quite match. There is no java mdi background colour./ AppWorksapce
-    13 : (0x33,0x99,0xff), # SystemColor.textText,
-    14 : (0xff,0xff,0xff), # new  #SystemColor.textHighlight,
-    15 : (0xf0,0xf0,0xf0), # SystemColor.textHighlightText,
-    16 : (0xa0,0xa0,0xa0), # SystemColor.textInactiveText,
-    17 : (0x80,0x80,0x80),
-    18 : (0x00,0x00,0x00),
-    19 : (0x43,0x4e,0x54),
-    20 : (0xff,0xff,0xff),
-    21 : (0x69,0x69,0x69),
-    22 : (0xe3,0xe3,0xe3),
-    23 : (0x00,0x00,0x00),
-    24 : (0xff,0xff,0xe1),
-}
 
 def get_color_number(value):
     return (value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16)
@@ -322,43 +293,6 @@ def get_system_color(index):
 def read_system_color(reader):
     return get_system_color(reader.readInt(True))
 
-# OBJECT_CLASSES = {
-#     TEXT : 'Text',
-#     ACTIVE : 'Active',
-#     BACKDROP : 'Backdrop',
-#     COUNTER : 'Counter',
-#     SUBAPPLICATION : 'SubApplication',
-#     'kcedit' : 'Edit',
-#     'kcpica' : 'ActivePicture',
-#     'parser' : 'StringParser',
-#     'binary' : 'BinaryObject',
-#     'kcbutton' : 'ButtonControl',
-#     'kcini' : 'INI',
-#     'Blowfish' : None,
-#     'kcfile' : None,
-#     'ModFusionEX' : None,
-#     'ControlX' : None,
-#     'Gstrings' : None,
-#     'kcplugin' : None,
-#     'ctrlx' : None,
-#     'funcloop' : None,
-#     'IIF' : None,
-#     'Layer' : None,
-#     'Dsound' : None,
-#     'timex' : None,
-#     'Encryption' : None,
-#     'XXCRC' : 'ChecksumCalculator',
-#     'kcwctrl' : None,
-#     'moosock' : 'Socket',
-#     'kclist' : 'ListControl',
-#     'iconlist' : 'IconList',
-#     'kcriched' : 'RichEdit',
-#     'KcBoxA' : 'ActiveBox',
-#     'txtblt' : 'TextBlitter',
-#     'Overlay' : 'OverlayRedux',
-#     'Capture' : None,
-# }
-
 active_picture_flags = BitDict(
     'Resize',
     'HideOnStart',
@@ -370,95 +304,12 @@ active_picture_flags = BitDict(
     'WrapModeOff',
 )
 
-edit_flags = BitDict(
-    'HorizontalScrollbar',
-    'HorizontalAutoscroll',
-    'VerticalScrollbar',
-    'VerticalAutoscroll',
-    'ReadOnly',
-    'Multiline',
-    'Password',
-    'Border',
-    'HideOnStart',
-    'Uppercase',
-    'Lowercase',
-    'Tabstop',
-    'SystemColor',
-    '3DLook',
-    'Transparent',
-    None,
-    'AlignCenter',
-    'AlignRight'
-)
-
-list_flags = BitDict(
-    'FreeFlag',
-    'VerticalScrollbar',
-    'Sort',
-    'Border',
-    'HideOnStart',
-    'SystemColor',
-    '3DLook',
-    'ScrollToNewline'
-)
-
-rich_edit_flags = BitDict(
-    'ReadOnly',
-    'HorizontalBar',
-    'VerticalBar',
-    'HorizontalAutoscroll',
-    'VerticalAutoscroll',
-    'Visible',
-    'Border',
-    'Internal',
-    'SystemColor',
-    'V20',
-    'AutoLinkURL',
-    'Transparent',
-    'MultiLevelUndo',
-    'NoColorChangeWhenDisabled'
-)
-
 button_flags = BitDict(
     'HideOnStart',
     'DisableOnStart',
     'TextOnLeft',
     'Transparent',
     'SystemColor'
-)
-
-active_box_flags = BitDict(
-    'AlignTop',
-    'AlignVerticalCenter', 
-    'AlignBottom', 
-    None, 
-    'AlignLeft', 
-    'AlignHorizontalCenter', 
-    'AlignRight', 
-    None, 
-    'Multiline', 
-    'NoPrefix', 
-    'EndEllipsis', 
-    'PathEllipsis', 
-    'Container', 
-    'Contained', 
-    'Hyperlink', 
-    None, 
-    'AlignImageTopLeft', 
-    'AlignImageCenter', 
-    'AlignImagePattern', 
-    None, 
-    'Button',
-    'Checkbox',
-    'ShowButtonBorder', 
-    'ImageCheckbox',
-    'HideImage',
-    'ForceClipping',
-    None,
-    None,
-    'ButtonPressed', 
-    'ButtonHighlighted',
-    'Disabled'
 )
 
 key_flags = BitDict(
@@ -472,53 +323,77 @@ key_flags = BitDict(
     'Fire4'
 )
 
-PUSHTEXT_BUTTON = 0
-CHECKBOX_BUTTON = 1
-RADIO_BUTTON = 2
-PUSHBITMAP_BUTTON = 3
-PUSHTEXTBITMAP_BUTTON = 4
+def get_color_tuple(value):
+    return value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16
 
-button_type_names = {
-    PUSHTEXTBITMAP_BUTTON : 'Text',
-    CHECKBOX_BUTTON : 'Check',
-    RADIO_BUTTON : 'Radio',
-    PUSHBITMAP_BUTTON : 'Bitmap',
-    PUSHTEXTBITMAP_BUTTON : 'BitmapText'
-}
+def get_directions(value):
+    directions = []
+    for i in xrange(32):
+        if value & (1 << i) != 0:
+            directions.append(i)
+    return directions
 
-ACCELERATORS = [0.0078125, 0.01171875, 0.015625, 0.0234375, 0.03125, 0.0390625,
-    0.046875, 0.0625, 0.078125, 0.09375, 0.1875, 0.21875, 0.25, 0.28125,
-    0.3125, 0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5625, 0.625, 0.6875, 
-    0.75, 0.8125, 0.875, 0.9375, 1.0, 1.0625, 1.125, 1.25, 1.3125, 1.375,
-    1.4375, 1.5, 1.5625, 1.625, 1.6875, 1.75, 1.875, 2.0, 2.125, 2.1875,
-    2.3125, 2.4375, 2.5, 2.625, 2.6875, 2.8125, 2.875, 3.0, 3.0625, 3.1875,
-    3.3125, 3.375, 3.5, 3.625, 3.6875, 3.8125, 3.875, 4.0, 4.375, 4.75,
-    5.125, 5.625, 6.0, 6.375, 6.75, 7.125, 7.625, 8.0, 8.75, 9.5, 10.5, 11.25,
-    12.0, 12.75, 13.5, 14.5, 15.25, 16.0, 25.5625, 19.1953125, 20.375,
-    22.390625, 24.0, 25.59765625, 27.1953125, 28.7734375, 30.390625, 32.0,
-    38.421875, 45.59375, 52.015625, 58.4375, 64.859375, 71.28125, 77.703125,
-    84.0, 100.0, 100.0]
+def parse_direction(value):
+    if value in (0, -1):
+        return 'randrange(32)'
+    directions = get_directions(value)
+    if len(directions) > 1:
+        return 'pick_random(%s, %s)' % (len(directions),
+            ', '.join([str(item) for item in directions]))
+    return directions[0]
 
 DEFAULT_CHARMAP = ''.join([chr(item) for item in xrange(32, 256)])
 
 class EventContainer(object):
     is_static = False
-    def __init__(self, name, inactive):
+    def __init__(self, name, inactive, parent):
         self.name = name
+        if parent is None:
+            self.tree = [name]
+        else:
+            self.tree = parent.tree + [name]
+        self.code_name = 'group_' + get_method_name('_'.join(self.tree))
         self.inactive = inactive
         self.always_groups = []
+        self.parent = parent
+
+class ContainerMark(object):
+    is_container_mark = True
+    def __init__(self, container, mark):
+        self.container = container
+        self.mark = mark
 
 class EventGroup(object):
     global_id = None
     local_id = None
-    container_start = False
-    container_end = False
     generated = False
-    def __init__(self, conditions, actions, container = None):
+    or_exit = None
+    write_actions = True
+    action_label = None
+    is_container_mark = False
+    def __init__(self, conditions, actions, container, global_id, 
+                 or_index, or_len):
         self.conditions = conditions
         self.actions = actions
         self.container = container
         self.config = {}
+        self.global_id = global_id
+        name = 'event_%s' % global_id
+        if or_len == 1:
+            self.name = name
+            return
+        self.name = 'or_event_%s_%s' % (global_id, or_index)
+        self.or_exit = 'goto or_event_%s_%s_end;' % (global_id, or_len-1)
+        self.action_label = name
+        if or_index != or_len-1:
+            self.write_actions = False
+
+    def set_generated(self, value):
+        if value:
+            self.or_exit = None
+            self.write_actions = True
+            self.action_label = None
+        self.generated = value
 
 class Converter(object):
     iterated_object = None
@@ -526,11 +401,11 @@ class Converter(object):
         self.filename = filename
         self.outdir = outdir
 
-        self.selected = {}
+        self.has_single_selection = {}
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
-            exe = ExecutableData(ByteReader(fp))
+            exe = ExecutableData(ByteReader(fp), loadFrames = False)
             game = exe.gameData
         elif filename.endswith('.ccn'):
             game = GameData(ByteReader(fp))
@@ -546,6 +421,7 @@ class Converter(object):
         if WRITE_FONTS:
             fonts_file = self.open_code('fonts.h')
             fonts_file.putln('#include "common.h"')
+            fonts_file.start_guard('FONTS_H')
             fonts_file.putln('')
             all_fonts = []
             if game.fonts:
@@ -557,17 +433,16 @@ class Converter(object):
                         font_name, logfont.faceName, logfont.getSize(), 
                         logfont.isBold(), bool(logfont.italic), 
                         bool(logfont.underline)))
-                
+            fonts_file.close_guard('FONTS_H')
             fonts_file.putln('')
             fonts_file.close()
         
         # images
 
-        if WRITE_IMAGES:
-            images_file = self.open_code('images.h')
-            images_file.putln('#include "common.h"')
+        if WRITE_IMAGES or outdir == 'test3':
+            images_file = self.open_code('images.cpp')
+            images_file.putln('#include "image.h"')
             images_file.putln('')
-            images_file.start_guard('IMAGES_H')
             all_images = []
             if game.images:
                 for image in game.images.items:
@@ -579,13 +454,16 @@ class Converter(object):
                     pil_image.save(self.get_filename('images', 
                         '%s.png' % handle))
                     images_file.putln(to_c(
-                        'static Image %s(%r, %s, %s, %s, %s);',
-                        image_name, str(handle), image.xHotspot, 
+                        'Image %s(%s, %s, %s, %s, %s);',
+                        image_name, handle, image.xHotspot, 
                         image.yHotspot, image.actionX, image.actionY))
-            
-            images_file.close_guard('IMAGES_H')
             images_file.putln('')
             images_file.close()
+            images_header = self.open_code('images.h')
+            images_header.start_guard('IMAGES_H')
+            images_header.putln('extern Image %s;' % ', '.join(all_images))
+            images_header.close_guard('IMAGES_H')
+            images_header.close()
         
         # sounds
         if WRITE_SOUNDS:
@@ -596,6 +474,7 @@ class Converter(object):
         
         # objects
         objects_file = self.open_code('objects.h')
+        objects_file.start_guard('OBJECTS_H')
         objects_file.putln('#include "common.h"')
         objects_file.putln('#include "images.h"')
         objects_file.putln('#include "fonts.h"')
@@ -603,90 +482,47 @@ class Converter(object):
         objects_file.putln('')
         
         self.object_names = {}
+        self.all_objects = {}
         self.instance_names = {}
+        self.name_to_item = {}
+        self.object_types = {}
 
-        type_id = itertools.count()
+        type_id = itertools.count(1)
         
         for frameitem in game.frameItems.items:
             name = frameitem.name
+            self.name_to_item[name] = frameitem
             handle = frameitem.handle
             if name is None:
                 class_name = 'Object%s' % handle
             else:
                 class_name = get_class_name(name) + '_' + str(handle)
-            object_type = frameitem.properties.getType()
+            object_type = frameitem.properties.objectType
             try:
-                if object_type == EXTENSION_BASE:
-                    # object_writer = self.get_extension(frameitem).name
-                    continue
-                else:
-                    object_writer = system_objects[object_type](self, frameitem)
-            except KeyError:
-                print repr(frameitem.name), object_type, handle
+                object_writer = self.get_object_writer(object_type)(
+                    self, frameitem)
+            except (KeyError, AttributeError):
+                print 'not implemented:', repr(frameitem.name), object_type, 
+                print handle
+                continue
+            self.all_objects[handle] = object_writer
+            self.object_types[handle] = object_type
+            if object_writer.static:
                 continue
             common = object_writer.common
-            try:
-                visible = common.newFlags['VisibleAtStart']
-            except (AttributeError, KeyError):
-                visible = True
-
-            try:
-                movement = common.movements.items[0]
-                movement_type = movement.getName()
-                if movement_type == 'Static':
-                    raise StopIteration
-                movement_name = '%sMovement' % class_name
-                objects_file.putclass(movement_name, movement_type)
-                move_loader = movement.loader
-                objects_file.putdef('move_at_start', 
-                    bool(movement.movingAtStart))
-                if movement_type == 'Ball':
-                    objects_file.putdef('start_speed', move_loader.speed)
-                    objects_file.putdef('randomizer', move_loader.randomizer)
-                    objects_file.putdef('angles', 2 ** (move_loader.angles + 3))
-                    objects_file.putdef('security', move_loader.security)
-                    objects_file.putdef('deceleration', 
-                        ACCELERATORS[move_loader.deceleration])
-                elif movement_type == 'Path':
-                    objects_file.putdef('min_speed', move_loader.minimumSpeed)
-                    objects_file.putdef('max_speed', move_loader.maximumSpeed)
-                    objects_file.putdef('loop', bool(move_loader.loop))
-                    objects_file.putdef('reposition', 
-                        bool(move_loader.repositionAtEnd))
-                    objects_file.putdef('reverse', 
-                        bool(move_loader.reverseAtEnd))
-                    objects_file.putln('steps = [')
-                    objects_file.indent()
-                    for step in move_loader.steps:
-                        details = {
-                            'x' : step.destinationX,
-                            'y' : step.destinationY,
-                            'pause' : step.pause,
-                            'name' : step.name
-                        }
-                        objects_file.putln('%s,' % details)
-                    objects_file.dedent()
-                    objects_file.putln(']')
-                elif movement_type == 'Mouse':
-                    objects_file.putdef('player', movement.player - 1)
-                    objects_file.putdef('x1', move_loader.x1)
-                    objects_file.putdef('y1', move_loader.y1)
-                    objects_file.putdef('x2', move_loader.x2)
-                    objects_file.putdef('y2', move_loader.y2)
-                objects_file.dedent()
-                objects_file.putln('')
-            except (AttributeError, IndexError, StopIteration):
-                movement_name = None
             subclass = object_writer.class_name
             self.object_names[handle] = class_name
             self.instance_names[handle] = get_method_name(class_name)
             object_writer.write_pre(objects_file)
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
-            objects_file.putln('static const int type_id = %s;' % type_id.next())
+            objects_file.putln('static const unsigned int type_id = %s;' % 
+                type_id.next())
             object_writer.write_constants(objects_file)
             parameters = [to_c('%r', name), 'x', 'y', 'type_id']
-            parameters = ', '.join(object_writer.get_parameters() + parameters)
+            extra_parameters = [str(item) 
+                for item in object_writer.get_parameters()]
+            parameters = ', '.join(extra_parameters + parameters)
             init_list = [to_c('%s(%s)', subclass, parameters)]
             for name, value in object_writer.get_init_list():
                 init_list.append(to_c('%s(%r)', name, value))
@@ -694,259 +530,49 @@ class Converter(object):
             objects_file.putln(to_c('%s(int x, int y) : %s', class_name, 
                 init_list))
             objects_file.start_brace()
+            if frameitem.shaderId is not None:
+                # raise NotImplementedError('has shader')
+                ink_effect = SHADER_EFFECT
+            else:
+                ink_effect = frameitem.inkEffect
+            if ink_effect:
+                if ink_effect & HWA_EFFECT or ink_effect == SHADER_EFFECT:
+                    parameter = frameitem.inkEffectValue
+                    b, g, r = get_color_tuple(parameter)
+                    a = (parameter & 0xFF000000) >> 24
+                    objects_file.putln('blend_color = %s;' % make_color(
+                        (r, g, b, a)))
+                    ink_effect &= ~HWA_EFFECT
+                elif ink_effect == ADD_EFFECT:
+                    pass
+                else:
+                    raise NotImplementedError(
+                        'unknown inkeffect: %s' % ink_effect)
+            if ink_effect == SHADER_EFFECT:
+                shader_data = game.shaders.items[frameitem.shaderId]
+                parameters = shader_data.get_parameters()
+                values = frameitem.items
+                for index, parameter in enumerate(shader_data.parameters):
+                    reader = values[index]
+                    reader.seek(0)
+                    if parameter.type == INT:
+                        value = reader.readInt()
+                    elif parameter.type == FLOAT:
+                        value = reader.readFloat()
+                    elif parameter.type == INT_FLOAT4:
+                        value = (reader.readByte(True) / 255.0, 
+                            reader.readByte(True) / 255.0,
+                            reader.readByte(True) / 255.0, 
+                            reader.readByte(True) / 255.0)
+                    else:
+                        raise NotImplementedError
+                    parameters[parameter.name].value = value
+                    print parameter.name, value
+            if not object_writer.is_visible():
+                objects_file.putln('set_visible(false);')
             object_writer.write_init(objects_file)
             objects_file.end_brace()
             object_writer.write_class(objects_file)
-            if movement_name is not None:
-                objects_file.putln('movement_class = %s' % movement_name)
-            if frameitem.flags['Global']:
-                objects_file.putdef('is_global', True)
-            if object_type == TEXT:
-                text = common.text
-                lines = [paragraph.value for paragraph in text.items]
-                objects_file.putdef('width', text.width)
-                objects_file.putdef('height', text.height)
-                objects_file.putln('font = font%s' % text.items[0].font)
-                objects_file.putdef('color', text.items[0].color)
-                objects_file.putdef('text', lines[0])
-                
-                paragraph = text.items[0]
-                if paragraph.flags['HorizontalCenter']:
-                    horizontal = 'ALIGN_HORIZONTAL_CENTER'
-                elif paragraph.flags['RightAligned']:
-                    horizontal = 'ALIGN_RIGHT'
-                else:
-                    horizontal = 'ALIGN_LEFT'
-                if paragraph.flags['VerticalCenter']:
-                    vertical = 'ALIGN_VERTICAL_CENTER'
-                elif paragraph.flags['BottomAligned']:
-                    vertical = 'ALIGN_BOTTOM'
-                else:
-                    vertical = 'ALIGN_TOP'
-                objects_file.putln('alignment = %s | %s' % (horizontal,
-                    vertical))
-
-            if False:
-                if object_type == COUNTER:
-                    counters = common.counters
-                    counter = common.counter
-                    if counters:
-                        display_type = counters.displayType
-                        if display_type == NUMBERS:
-                            objects_file.putln('frames = {')
-                            objects_file.indent()
-                            for char_index, char in enumerate(COUNTER_FRAMES):
-                                objects_file.putln("%r : image%s," % (char,
-                                    counters.frames[char_index]))
-                            objects_file.dedent()
-                            objects_file.putln('}')
-                        elif display_type == HORIZONTAL_BAR:
-                            shape_object = counters.shape
-                            shape = shape_object.shape
-                            fill_type = shape_object.fillType
-                            if shape != RECTANGLE_SHAPE:
-                                raise NotImplementedError
-                            objects_file.putdef('width', counters.width)
-                            objects_file.putdef('height', counters.height)
-                            if fill_type == GRADIENT_FILL:
-                                objects_file.putdef('color1', shape_object.color1)
-                                objects_file.putdef('color2', shape_object.color2)
-                            elif fill_type == SOLID_FILL:
-                                objects_file.putdef('color1', shape_object.color1)
-                            else:
-                                raise NotImplementedError
-                        else:
-                            raise NotImplementedError
-                    objects_file.putdef('initial', counter.initial)
-                    objects_file.putdef('minimum', counter.minimum)
-                    objects_file.putdef('maximum', counter.maximum)
-                elif object_type == SUBAPPLICATION:
-                    subapp = common.subApplication
-                    objects_file.putdef('width', subapp.width)
-                    objects_file.putdef('height', subapp.height)
-                    objects_file.putdef('start_frame', subapp.startFrame)
-                    # self.options.setFlags(reader.readInt(True))
-                elif object_type == EXTENSION_BASE:
-                    extension = self.get_extension(frameitem)
-                    extension_name = extension.name
-                    if common.extensionData is not None:
-                        data = ByteReader(common.extensionData)
-                    if extension_name == 'kcpica':
-                        objects_file.putdef('width', data.readInt())
-                        objects_file.putdef('height', data.readInt())
-                        active_picture_flags.setFlags(data.readInt(True))
-                        visible = not active_picture_flags['HideOnStart']
-                        transparent_color = data.readColor()
-                        image = data.readString(260) or None
-                        objects_file.putdef('filename', image)
-                    elif extension_name == 'kcini':
-                        data.skipBytes(2)
-                        filename = data.readString()
-                        if filename != 'Name.ini':
-                            objects_file.putdef('filename', filename)
-                    elif extension_name == 'kcedit':
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        objects_file.putfont(LogFont(data, old = True))
-                        data.skipBytes(4 * 16)
-                        objects_file.putdef('foreground', data.readColor())
-                        background = data.readColor()
-                        data.skipBytes(40)
-                        edit_flags.setFlags(data.readInt())
-                        visible = not edit_flags['HideOnStart']
-                        transparent = edit_flags['Transparent']
-                        if transparent:
-                            background = None
-                        objects_file.putdef('background', background)
-                        objects_file.putdef('transparent', transparent)
-                        objects_file.putdef('border', edit_flags['Border'])
-                    elif extension_name == 'kclist':
-                        objects_file.putdef('width', data.readShort())
-                        objects_file.putdef('height', data.readShort())
-                        objects_file.putfont(LogFont(data, old = True))
-                        objects_file.putdef('font_color', data.readColor())
-                        data.skipBytes(40 + 16 * 4)
-                        objects_file.putdef('background', data.readColor())
-                        list_flags.setFlags(data.readInt())
-                        visible = not list_flags['HideOnStart']
-                        line_count = data.readShort(True)
-                        index_offset = -1 if data.readInt() == 1 else 0
-                        objects_file.putdef('index_offset', index_offset)
-                        data.skipBytes(4 * 3)
-                        objects_file.putln('lines = [')
-                        objects_file.indent()
-                        for i in xrange(line_count):
-                            if i == line_count - 1:
-                                objects_file.putln('%r' % data.readString())
-                            else:
-                                objects_file.putln('%r,' % data.readString())
-                        objects_file.dedent()
-                        objects_file.putln(']')
-                    elif extension_name == 'iconlist':
-                        data.skipBytes(4) # version?
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        image16 = data.readShort(True)
-                        image32 = data.readShort(True)
-                        data.skipBytes(4)
-                        list_type = data.readInt(True) # 1: simple, 2: combo
-                        if list_type == 1:
-                            type_name = 'Simple'
-                        elif list_type == 2:
-                            type_name = 'Combo'
-                        else:
-                            raise NotImplementedError('invalid icon list type')
-                        objects_file.putdef('list_type', type_name)
-                        icon_size = int(data.readInt(True))
-                        objects_file.putdef('icon_size', icon_size)
-                        if icon_size == 16:
-                            objects_file.putln('image = image%s' % image16)
-                        elif icon_size == 32:
-                            objects_file.putln('image = image%s' % image32)
-                        data.skipBytes(4)
-                        focus = bool(data.readInt(True))
-                        invisible = bool(data.readInt(True))
-                        data.skipBytes(24)
-                        font = LogFont(data)
-                        if not font.faceName:
-                            font = None
-                        objects_file.putfont(font)
-                        data.skipBytes(52)
-                        objects_file.putdef('font_color', data.readColor())
-                    elif extension_name == 'kcriched':
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        rich_edit_flags.setFlags(data.readInt(True))
-                        string_unknown = data.readString(260)
-                        visible = rich_edit_flags['Visible']
-                        undo_levels = data.readInt(True)
-                        unknown_integer = data.readInt(True)
-                        string_size = data.readInt(True)
-                        objects_file.putfont(LogFont(data))
-                        data.skipBytes(64)
-                        objects_file.putdef('foreground', data.readColor())
-                        objects_file.putdef('background', data.readColor())
-                        objects_file.putdef('read_only', 
-                            rich_edit_flags['ReadOnly'])
-                        string_unknown2 = data.readString(40)
-                        if rich_edit_flags['Internal']:
-                            objects_file.putdef('text', data.readString(
-                                string_size))
-                    elif extension_name == 'kcbutton':
-                        # data.openEditor()
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        button_type = data.readShort()
-                        objects_file.putdef('type', button_type_names[button_type])
-                        button_count = data.readShort()
-                        button_flags.setFlags(data.readShort())
-                        visible = not button_flags['HideOnStart']
-                        objects_file.putfont(LogFont(data, old = True))
-                        foreground = data.readColor()
-                        background = data.readColor()
-                        if button_flags['SystemColor']:
-                            background = (255, 255, 255)
-                        objects_file.putdef('foreground', foreground)
-                        objects_file.putdef('background', background)
-                        data.skipBytes(104)
-                        images = [data.readShort() for _ in xrange(3)]
-                        if button_type in (PUSHBITMAP_BUTTON, PUSHTEXTBITMAP_BUTTON):
-                            images = [('image%s' % item) if item != -1 else 'None'
-                                      for item in images]
-                            objects_file.putln('images = [%s]' % ', '.join(images))
-                        data.skipBytes(10)
-                        strings = []
-                        if button_type == RADIO_BUTTON:
-                            strings = None
-                            # strings = [data.readString() 
-                            #     for _ in xrange(button_count)]
-                        else:
-                            strings.append(data.readString())
-                        if strings:
-                            objects_file.putdef('strings', strings)
-                    elif extension_name == 'KcBoxA':
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        active_box_flags.setFlags(data.readInt(True))
-                        if not active_box_flags['Button']:
-                            objects_file.putdef('disabled', True)
-                        fill = read_system_color(data)
-                        objects_file.putdef('fill', fill)
-                        border1 = read_system_color(data)
-                        border2 = read_system_color(data)
-                        image = data.readShort()
-                        margin_left = data.readShort()
-                        margin_top = data.readShort()
-                        margin_right = data.readShort()
-                        margin_bottom = data.readShort()
-                        data.skipBytes(6)
-                        font = LogFont(data, old = True)
-                        objects_file.putfont(font)
-                        data.skipBytes(42)
-                        text, = data.readReader(data.readInt(True)).readString(
-                            ).rsplit('\\n', 1)
-                        if text:
-                            objects_file.putdef('text', text)
-                        version = data.readInt()
-                        hyperlink_color = read_system_color(data)
-                    elif extension_name == 'txtblt':
-                        data.skipBytes(4)
-                        objects_file.putdef('width', data.readShort(True))
-                        objects_file.putdef('height', data.readShort(True))
-                        data.seek(1424)
-                        char_width = data.readInt(True)
-                        char_height = data.readInt(True)
-                        objects_file.putdef('character_size', 
-                            (char_width, char_height))
-                        data.seek(1468)
-                        image = data.readShort(True)
-                        objects_file.putln('image = image%s' % image)
-                        character_map = data.readString()
-                        if character_map != DEFAULT_CHARMAP:
-                            raise NotImplementedError
-
-            if not visible:
-                objects_file.putdef('visible', visible)
             
             objects_file.end_brace(True)
             objects_file.putln('static ObjectList %s_instances;' % 
@@ -954,16 +580,18 @@ class Converter(object):
             object_writer.write_post(objects_file)
 
             objects_file.putln('')
+        objects_file.close_guard('OBJECTS_H')
         objects_file.close()
         
         processed_frames = []
         
         # frames
-        for i, frame in enumerate(game.frames):
+        for frame_index, frame in enumerate(game.frames[:2]):
+            self.debug = frame_index > 0
             frame.load()
             self.current_frame = frame
-            processed_frames.append(i+1)
-            frame_file = self.open_code('frame%s.h' % (i + 1))
+            processed_frames.append(frame_index + 1)
+            frame_file = self.open_code('frame%s.h' % (frame_index + 1))
             frame_file.putln('#include "common.h"')
             frame_file.putln('#include "objects.h"')
             frame_file.putln('')
@@ -971,9 +599,15 @@ class Converter(object):
             startup_instances = []
             self.multiple_instances = set()
             startup_set = set()
+            object_writers = set()
             
+
             for instance in frame.instances.items:
                 frameitem = instance.getObjectInfo(game.frameItems)
+                try:
+                    object_writers.add(self.all_objects[frameitem.handle])
+                except KeyError:
+                    continue
                 if frameitem.handle not in self.object_names:
                     continue
                 common = frameitem.properties.loader
@@ -987,37 +621,13 @@ class Converter(object):
                     startup_set.add(frameitem)
                     startup_instances.append((instance, frameitem))
 
+            object_writers.add(SystemObject(self))
+
             events = frame.events
 
-            self.qualifiers = {}
-            for qualifier in events.qualifiers.values():
-                object_infos = qualifier.resolve_objects(self.game.frameItems)
-                object_names = [self.object_names[item] 
-                    for item in object_infos]
-                # frame_file.putln('qualifier_%s = (%s)' % (qualifier.qualifier,
-                #     ', '.join(object_names)), wrap = True)
-                frame_file.putln('')
-                self.qualifiers[qualifier.qualifier] = object_infos
-            
-            class_name = 'Frame%s' % (i+1)
-            frame_file.putclass(class_name, 'Frame')
-            frame_file.put_access('public')
-            frame_file.putln(to_c('%s(GameManager * manager) : '
-                'Frame(%r, %s, %s, %s, %s, manager)',
-                class_name, frame.name, frame.width, frame.height, 
-                make_color(frame.background), i))
-            frame_file.start_brace()
-            frame_file.end_brace()
-            # frame_file.putdef('name', frame.name)
-            # frame_file.putdef('index', i)
-            # frame_file.putdef('width', frame.width)
-            # frame_file.putdef('height', frame.height)
-            # frame_file.putdef('background', frame.background)
-
-            generated_groups = defaultdict(list)
+            generated_groups = self.generated_groups = defaultdict(list)
             always_groups = []
             always_groups_dict = defaultdict(list)
-            action_dict = defaultdict(list)
             current_container = None
             self.containers = containers = {}
             changed_containers = set()
@@ -1027,20 +637,30 @@ class Converter(object):
                 if name == 'NewGroup':
                     group_loader = first_condition.items[0].loader
                     current_container = EventContainer(group_loader.name,
-                        group_loader.flags['Inactive'])
-                    containers[group_loader.offset+2] = current_container
+                        group_loader.flags['Inactive'], current_container)
+                    containers[group_loader.offset] = current_container
+                    always_groups.append(ContainerMark(current_container, name))
                     continue
                 elif name == 'GroupEnd':
-                    always_container = current_container.always_groups
-                    if always_container:
-                        always_container[0].container_start = True
-                        always_container[-1].container_end = True
-                    current_container = None
+                    always_groups.append(ContainerMark(current_container, name))
+                    current_container = current_container.parent
                     continue
-                new_group = EventGroup(group.conditions[:], group.actions[:],
-                    current_container)
-                new_group.global_id = group_index+1
-                for action in new_group.actions[:]:
+
+                # or groups
+                condition_groups = []
+                conditions = []
+                for condition in group.conditions:
+                    name = condition.getName()
+                    if name == 'OrLogical':
+                        condition_groups.append(conditions)
+                        conditions = []
+                    else:
+                        conditions.append(self.get_condition_writer(condition))
+                condition_groups.append(conditions)
+
+                actions = [self.get_action_writer(item)
+                    for item in group.actions]
+                for action in group.actions:
                     action_name = self.get_action_name(action)
                     if action_name in ('CreateObject', 'Shoot', 'DisplayText'):
                         loader = action.items[0].loader
@@ -1054,229 +674,139 @@ class Converter(object):
                             create_info = action.objectInfo
                         loader.objectInfo = create_info
                         self.multiple_instances.add(create_info)
-                    elif action_name in ('StopLoop', 'StopCurrentFuncLoop',
-                                         'ReturnFunction'):
-                        new_group.actions.remove(action)
-                        new_group.actions.append(action)
                     elif action_name in ('DeactivateGroup', 'ActivateGroup'):
                         pointer = action.items[0].loader.pointer
                         changed_containers.add(pointer)
-                    action_dict[action_name].append(action)
-                is_always = first_condition.flags['Always']
-                if name in ('OnCollision',):
-                    is_always = True
-                if is_always:
-                    if current_container:
-                        current_container.always_groups.append(new_group)
-                    always_groups.append(new_group)
-                    new_group.local_id = len(always_groups_dict[name])+1
-                    always_groups_dict[name].append(new_group)
-                else:
-                    new_group.generated = True
-                    new_group.local_id = len(generated_groups[name])+1
-                    generated_groups[name].append(new_group)
+                for or_index, conditions in enumerate(condition_groups):
+                    new_group = EventGroup(conditions, actions, 
+                        current_container, group_index+1, 
+                        or_index, len(condition_groups))
+                    first_writer = new_group.conditions[0]
+                    first_condition = first_writer.data
+                    name = self.get_condition_name(first_condition)
+                    if first_writer.is_always is not None:
+                        is_always = first_writer.is_always
+                    else:
+                        is_always = first_condition.flags['Always']
+                    if is_always:
+                        if current_container:
+                            current_container.always_groups.append(new_group)
+                        always_groups.append(new_group)
+                        new_group.local_id = len(always_groups_dict[name])+1
+                        always_groups_dict[name].append(new_group)
+                    else:
+                        new_group.set_generated(True)
+                        new_group.local_id = len(generated_groups[name])+1
+                        key = None
+                        if first_condition.getType() == EXTENSION_BASE:
+                            num = first_condition.getExtensionNum()
+                            if num >= 0:
+                                key = (first_condition.objectType, num)
+                        if key is None:
+                            key = name
+                        if frame_index == 0:
+                            print key, generated_groups[key]
+                        generated_groups[key].append(new_group)
 
             for k, v in containers.iteritems():
                 if k not in changed_containers:
                     if v.inactive:
                         print v.name, 'is weird'
-                        # raise NotImplementedError
+                        raise NotImplementedError
                     v.is_static = True
 
-            frame_file.putmeth('void initialize')
-                    
-            timer_equals = generated_groups.pop('TimerEquals', [])
-            for timer_group in timer_equals:
-                seconds = timer_group.conditions[0].items[0].loader.timer / 1000.0
-                frame_file.putln('self.add_timed_call(self.on_timer_%s, %s)' % (
-                    (timer_group.local_id), seconds))
-                    
-            # frame_file.putln('groups = {')
-            # frame_file.indent()
-            # for container in containers.values():
-            #     frame_file.putln('%r : %r,' % (container.name, 
-            #         not container.inactive))
-            # frame_file.dedent()
-            # frame_file.putln('}')
+            self.qualifiers = {}
+            for qualifier in events.qualifiers.values():
+                object_infos = qualifier.resolve_objects(self.game.frameItems)
+                object_names = ['%s::type_id' % self.object_names[item] 
+                    for item in object_infos] + ['NULL']
+                class_name = 'qualifier_%s' % qualifier.qualifier
+                frame_file.putln('static unsigned int %s[] = '
+                    '{%s};' % (class_name, ', '.join(object_names)), 
+                    wrap = True)
+                frame_file.putln('static ObjectList %s_instances;' % (
+                    class_name))
+                frame_file.putln('')
+                self.qualifiers[qualifier.qualifier] = object_infos
             
+            class_name = 'Frame%s' % (frame_index+1)
+            frame_file.putclass(class_name, 'Frame')
+            frame_file.put_access('public')
+            for container in containers.values():
+                frame_file.putln('bool %s;' % container.code_name)
+            frame_file.putln(to_c('%s(GameManager * manager) : '
+                'Frame(%r, %s, %s, %s, %s, manager)',
+                class_name, frame.name, frame.width, frame.height, 
+                make_color(frame.background), frame_index))
+            frame_file.start_brace()
             frame_file.end_brace()
-            
-            start_groups = generated_groups.pop('StartOfFrame', None)
+
+            # object writer custom stuff
+            for object_writer in object_writers:
+                object_writer.write_frame(frame_file)
+
             frame_file.putmeth('void on_start')
+
+            for container in containers.values():
+                frame_file.putln(to_c('%s = %s;', container.code_name,
+                    not container.inactive))
+
+            for layer in frame.layers.items:
+                frame_file.putln('add_layer(%s, %s);' % (
+                    layer.xCoefficient, layer.yCoefficient))
+
             for instance, frameitem in startup_instances:
-                frame_file.putln('add_object(new %s(%s, %s));' %
+                frame_file.putln('add_object(new %s(%s, %s), %s);' %
                     (self.object_names[frameitem.handle], instance.x, 
-                    instance.y))
+                    instance.y, instance.layer))
+
+            start_groups = generated_groups.pop('StartOfFrame', None)
             if start_groups:
                 for group in start_groups:
                     self.write_event(frame_file, group, True)
             frame_file.end_brace()
             
-            for group in timer_equals:
-                frame_file.putmeth('on_timer_%s' % (group.local_id))
-                self.write_event(frame_file, group, True)
-                frame_file.putend()
-
-            # loops
-
-            loops = defaultdict(list)
-            for loop_group in generated_groups.pop('OnLoop', []):
-                exp = loop_group.conditions[0].items[0].loader.items[0]
-                loop_name = get_method_name(exp.loader.value)
-                loops[loop_name].append(loop_group)
-
-            for loop_name, groups in loops.iteritems():
-                frame_file.putmeth('bool loop_%s' % loop_name)
-                for group in groups:
-                    self.write_event(frame_file, group, True)
-                frame_file.putln('return true;')
-                frame_file.end_brace()
-
-            # func loops
-
-            func_loops = defaultdict(list)
-            for loop_group in generated_groups.pop('OnFuncLoop', []):
-                exp = loop_group.conditions[0].items[0].loader.items[0]
-                loop_name = get_method_name(exp.loader.value)
-                func_loops[loop_name].append(loop_group)
-
-            for loop_name, groups in func_loops.iteritems():
-                frame_file.putmeth('loop_%s' % loop_name, 'loop_index')
-                for group in groups:
-                    self.write_event(frame_file, group, True)
-                frame_file.putln('return true;')
-                frame_file.end_brace()
-
-            # functions
-
-            functions = defaultdict(list)
-            for loop_group in generated_groups.pop('OnFunction', []):
-                exp = loop_group.conditions[0].items[0].loader.items[0]
-                function_name = get_method_name(exp.loader.value)
-                functions[function_name].append(loop_group)
-
-            for function_name, groups in functions.iteritems():
-                frame_file.putmeth('function_%s' % function_name, 
-                    'int_arg = None')
-                for group in groups:
-                    self.write_event(frame_file, group, True)
-                frame_file.putend()
-            
-            # active
-            anim_groups = generated_groups.pop('AnimationFinished', [])
-            if anim_groups:
-                frame_file.putmeth('on_animation_end', 'instance')
-                for group in anim_groups:
-                    first_condition = group.conditions[0]
-                    object_info = first_condition.objectInfo
-                    anim_index = first_condition.items[0].loader.value
-                    animation_name = ANIMATION_NAMES[anim_index]
-                    frame_file.putln('if type(instance) == %s '
-                                     'and instance.animation_value == %r:' %
-                        (self.get_object_name(object_info), animation_name))
-                    frame_file.indent()
-                    self.write_event(frame_file, group, True)
-                    frame_file.dedent()
-                frame_file.putend()
-
-            # mouse
-
-            object_clicked = defaultdict(list)
-            for group in generated_groups.pop('ObjectClicked', []):
-                button = self.convert_parameter(group.conditions[0].items[0])
-                object_info = group.conditions[0].items[1].loader.objectInfo
-                object_clicked[object_info].append(group)
-
-            mouse_clicked = defaultdict(list)
-            for group in generated_groups.pop('MouseClicked', []):
-                button = self.convert_parameter(group.conditions[0].items[0])
-                mouse_clicked[button].append(group)
-            
-            if object_clicked or mouse_clicked:
-                frame_file.putmeth('on_mouse_press', 'x', 'y', 'button')
-                for object_info, groups in object_clicked.iteritems():
-                    frame_file.putln('if %s.is_over(x, y):' % (
-                        self.get_object(object_info)))
-                    frame_file.indent()
-                    for group in groups:
-                        self.write_event(frame_file, group, True)
-                    frame_file.dedent()
-                for button, groups in mouse_clicked.iteritems():
-                    frame_file.putln('if button == %s:' % button)
-                    frame_file.indent()
-                    for group in groups:
-                        self.write_event(frame_file, group, True)
-                    frame_file.dedent()
-                frame_file.putend()
-            
-            def write_object_handler(group_name, meth_name):
-                handler_groups = generated_groups.pop(group_name, [])
-                if handler_groups:
-                    frame_file.putmeth(meth_name, 'instance')
-                    for group in handler_groups:
-                        object_info = group.conditions[0].objectInfo
-                        frame_file.putln('if type(instance) == %s:' %
-                            self.get_object_name(object_info))
-                        frame_file.indent()
-                        self.write_event(frame_file, group, True)
-                        frame_file.dedent()
-                    frame_file.putend()
-
-            def write_handler(group_name, meth_name, *arg):
-                handler_groups = generated_groups.pop(group_name, [])
-                if handler_groups:
-                    frame_file.putmeth(meth_name, *arg)
-                    for group in handler_groups:
-                        self.write_event(frame_file, group)
-                    frame_file.putend()
-
-            # callbacks
-
-            write_object_handler('ButtonClicked', 'on_button_click')
-            write_object_handler('BoxLeftClicked', 'on_box_click')
-            write_object_handler('SockReceived', 'on_sock_receive')
-            write_object_handler('SockConnected', 'on_sock_connect')
-            write_object_handler('SockDisconnected', 'on_sock_disconnect')
-            write_object_handler('SockCanAccept', 'on_sock_connection')
-            write_object_handler('ListSelectionChanged', 'on_list_selection')
-            write_handler('PlayerKeyPressed', 'on_player_press')
-            
-            if generated_groups:
-                print 'unimplemented generated groups in %r: %s' % (
-                    frame.name, generated_groups.keys())
-
-            for name, group_list in generated_groups.iteritems():
-                meth_name = 'on_%s' % name
-                frame_file.putmeth(meth_name, 'instance')
-                for group in group_list:
-                    first_condition = group.conditions[0]
-                    try:
-                        if first_condition.hasObjectInfo():
-                            object_info = first_condition.objectInfo
-                            object_name = self.get_object_name(object_info)
-                            frame_file.putln('if type(instance) == %s:' %
-                                object_name)
-                            frame_file.indent()
-                            self.write_event(frame_file, group)
-                            frame_file.dedent()
-                            continue
-                    except KeyError:
-                        pass
-                    self.write_event(frame_file, group)
-                frame_file.putend()
-            
             frame_file.putmeth('void handle_events')
-            if always_groups:
-                for group in always_groups:
-                    self.write_event(frame_file, group)
+            if frame_index > 0:
+                always_groups = always_groups[:55]
+
+            end_markers = [] # for debug
+
+            for group in always_groups:
+                if group.is_container_mark:
+                    container = group.container
+                    if group.mark == 'NewGroup':
+                        frame_file.putln('if (!%s) goto %s_end;' % (
+                            container.code_name, container.code_name))
+                        end_markers.insert(0, container.code_name)
+                    elif group.mark == 'GroupEnd':
+                        end_markers.remove(container.code_name)
+                        frame_file.put_label('%s_end' % 
+                            container.code_name)
+                    continue
+                self.write_event(frame_file, group)
+
+            for end_marker in end_markers:
+                frame_file.put_label('%s_end' % end_marker)
             frame_file.end_brace()
             
             frame_file.end_brace(True) # end of frame
+                
+            if False:#generated_groups:
+                print 'unimplemented generated groups in %r: %r' % (
+                    frame.name, generated_groups)
 
         # general configuration
         if WRITE_CONFIG:
             header = game.header
             config_file = self.open_code('config.h')
+            config_file.putdefine('NAME', game.name)
+            config_file.putdefine('COPYRIGHT', game.copyright)
+            config_file.putdefine('ABOUT', game.aboutText)
+            config_file.putdefine('AUTHOR', game.author)
+            config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
+            config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+            config_file.putln('')
             config_file.putln('#include "common.h"')
             frame_classes = []
             for frame_index in processed_frames:
@@ -1284,14 +814,8 @@ class Converter(object):
                 frame_classes.append(frame_class_name)
                 config_file.putln('#include "frame%s.h"' % frame_index)
             config_file.putln('')
-            config_file.putdefine('NAME', game.name)
-            config_file.putdefine('COPYRIGHT', game.copyright)
-            config_file.putdefine('ABOUT', game.aboutText)
-            config_file.putdefine('AUTHOR', game.author)
-            config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
-            config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
             # config_file.putdef('BORDER_COLOR', header.borderColor)
-            config_file.putdefine('START_LIVES', header.initialLives)
+            # config_file.putdefine('START_LIVES', header.initialLives)
             config_file.putln('')
             config_file.putln('static Frame ** frames = NULL;')
             config_file.putmeth('Frame ** get_frames', 'GameManager * manager')
@@ -1305,6 +829,15 @@ class Converter(object):
             config_file.putln('return frames;')
 
             config_file.end_brace()
+
+            config_file.putmeth('void setup_globals',
+                'GlobalValues * values', 'GlobalStrings * strings')
+            for index, value in enumerate(game.globalValues.items):
+                config_file.putln('values->set(%s, %s);' % (index, value))
+            for index, value in enumerate(game.globalStrings.items):
+                config_file.putln(to_c('strings->set(%s, %r);', index, value))
+            config_file.end_brace()
+
             config_file.close()
 
         fp.close()
@@ -1320,78 +853,81 @@ class Converter(object):
         print ''
         print 'EXPRESSIONS'
         print default_writers['expressions'].checked.most_common()
+
+    @contextlib.contextmanager
+    def iterate_object(self, object_info, writer, name = 'item'):
+        selected_name = self.get_list_name(
+            self.get_object_name(object_info))
+        if object_info not in self.has_selection:
+            make_dict = self.get_object(object_info, True)
+            writer.putln('%s = %s;' % (selected_name, make_dict))
+            self.has_selection[object_info] = selected_name
+        self.iterated_object = object_info
+        writer.putln('{')
+        writer.indent()
+        writer.putln('ObjectList::const_iterator %s = %s.begin();' % (
+            name, selected_name))
+        writer.putln('while (%s != %s.end()) {' % 
+            (name, selected_name))
+        writer.indent()
+        yield
+        writer.putln('%s++;' % name)
+        writer.dedent()
+        writer.putln('}')
+        writer.dedent()
+        writer.putln('}')
+        self.iterated_object = None
+
+    def set_object(self, object_info, name):
+        self.has_single_selection[object_info] = name
+
+    def set_list(self, object_info, name):
+        self.has_selection[object_info] = name
     
     def write_event(self, outwriter, group, triggered = False):
         self.current_event_id = group.global_id
         self.has_selection = {}
         actions, conditions = group.actions, group.conditions
         container = group.container
-        has_container_check = bool(container) and not container.is_static
+        has_container_check = (bool(container) and not container.is_static
+            and not triggered)
         if triggered:
             conditions = conditions[1:]
         writer = CodeWriter()
         writer.putln('// event %s' % group.global_id)
-        event_break = 'goto event_%s_end;' % group.global_id
+        event_break = self.event_break = 'goto %s_end;' % group.name
         collisions = defaultdict(list)
         if conditions or has_container_check:
-            names = [self.get_condition_name(condition)
-                for condition in conditions]
-            if has_container_check:
-                writer.putln('if not self.groups[%r]: %s' % 
-                    container.name, event_break)
+            if False:#has_container_check:
+                writer.putln('if (!%s) %s' % (container.code_name, event_break))
             elif container:
                 writer.putln('// group: %s' % container.name)
-            for condition_index, condition in enumerate(conditions):
-                condition_name = names[condition_index]
-                condition_writer = self.get_condition_writer(condition)
-                if condition_name == 'Always':
+            for condition_index, condition_writer in enumerate(conditions):
+                if condition_writer.custom:
+                    condition_writer.write(writer)
                     continue
-                negated = not condition.otherFlags['Not']
-                parameters = condition.items
+                negated = not condition_writer.data.otherFlags['Not']
                 object_name = None
-                has_instance = False
                 has_multiple = False
-                try:
-                    if condition.hasObjectInfo():
-                        object_info = condition.objectInfo
+                object_info, object_type = condition_writer.get_object()
+                self.current_object = (object_info, object_type)
+                if object_info is not None:
+                    try:
                         object_name = self.get_object(object_info)
-                except KeyError:
-                    pass
-                # if condition_name in ('IsOverlapping', 'OnCollision'):
-                #     real_neg = not negated
-                #     other_info = parameters[0].loader.objectInfo
-                #     selected_name = self.get_list_name(self.get_object_name(
-                #         object_info))
-                #     other_selected = self.get_list_name(self.get_object_name(
-                #         other_info))
-                #     if real_neg:
-                #         prefix = ''
-                #     else:
-                #         prefix = '%s, %s = ' % (selected_name, other_selected)
-                #     writer.putln('%sself.check_overlap('
-                #                  '%s, %s, negated = %s)' % (prefix,
-                #         self.get_object(object_info, True), 
-                #         self.get_object(other_info, True), not real_neg))
-                #     if not real_neg:
-                #         self.has_selection[object_info] = selected_name
-                #         self.has_selection[other_info] = other_selected
-                #     continue
-                if object_name is not None:
-                    if False:#condition_name in ('NumberOfObjects',):
+                    except KeyError:
                         pass
-                    elif self.has_multiple_instances(object_info):
-                        has_multiple = True
-                        selected_name = self.get_list_name(
-                            self.get_object_name(object_info))
-                        if object_info not in self.has_selection:
-                            make_dict = self.get_object(object_info, True)
-                        else:
-                            make_dict = None
+                if object_info in self.has_single_selection:
+                    object_name = self.has_single_selection[object_info]
+                    self.iterated_object = object_info
+                elif object_name is not None and self.has_multiple_instances(
+                        object_info):
+                    has_multiple = True
+                    selected_name = self.get_list_name(
+                        self.get_object_name(object_info))
+                    if object_info not in self.has_selection:
+                        make_dict = self.get_object(object_info, True)
+                        writer.putln('%s = %s;' % (selected_name, make_dict))
                         self.has_selection[object_info] = selected_name
-                if has_multiple:
-                    if make_dict is not None:
-                        writer.putln('%s = %s;' % (selected_name, 
-                            make_dict))
                     self.iterated_object = object_info
                     writer.putln('item = %s.begin();' %
                         selected_name)
@@ -1404,21 +940,19 @@ class Converter(object):
                     writer.put('if (!(')
                 else:
                     writer.put('if (')
-                if condition_name == 'PickRandom':
-                    object_name = None
-                if object_name is not None:
-                    if condition_name == 'NumberOfObjects':
-                        writer.put('len(%s)' % (
-                            self.get_object(condition.objectInfo, True)
-                        ))
-                    else:
-                        if condition_writer.negate:
-                            writer.put('not ')
-                        writer.put('%s->' % object_name)
-                    condition_writer.write(writer)
+                if object_name is None:
+                    if condition_writer.static:
+                        writer.put('%s::' % self.get_object_class(
+                            object_type, star = False))
+                else:
+                    if condition_writer.negate:
+                        writer.put('!')
+                    writer.put('((%s)%s)->' % (self.get_object_class(
+                        object_type), object_name))
+                condition_writer.write(writer)
+                if negated:
+                    writer.put(')')
                 if has_multiple:
-                    if negated:
-                        writer.put(')')
                     writer.put(') item = %s.erase(item);\n' % selected_name)
                     writer.putln('else ++item;')
                     writer.end_brace()
@@ -1427,65 +961,88 @@ class Converter(object):
                         event_break))
                     self.iterated_object = None
                 else:
-                    writer.put('): %s\n' % event_break)
+                    writer.put(') %s\n' % event_break)
 
-        for action in actions:
-            parameters = action.items
-            action_writer = self.get_action_writer(action)
-            has_multiple = False
-            object_info = None
-            if action.hasObjectInfo():
-                object_info = action.objectInfo
-                if self.has_multiple_instances(object_info):
-                    has_multiple = True
-                elif object_info not in self.object_names:
-                    object_info = None
-            if action_writer.iterate_objects is False:
-            # if action_name in ('DisplayText', 'Shoot'):
+        if group.write_actions:
+            if group.action_label:
+                writer.put_label(group.action_label)
+            for action_writer in actions:
                 has_multiple = False
-                object_info = None
-            if has_multiple:
-                if object_info in self.has_selection:
-                    list_name = self.has_selection[object_info]
+                has_single = False
+                object_info, object_type = action_writer.get_object()
+                self.current_object = (object_info, object_type)
+                if object_info is not None:
+                    if object_info in self.has_single_selection:
+                        has_single = True
+                    elif self.has_multiple_instances(object_info):
+                        has_multiple = True
+                    elif object_info not in self.object_names:
+                        object_info = None
+                if action_writer.iterate_objects is False:
+                    has_multiple = False
+                    object_info = None
+                object_name = None
+                if has_single:
+                    object_name = self.has_single_selection[object_info]
+                elif has_multiple:
+                    if object_info in self.has_selection:
+                        list_name = self.has_selection[object_info]
+                    else:
+                        list_name = self.get_list_name(
+                            self.get_object_name(object_info))
+                        make_dict = self.get_object(object_info, True)
+                        writer.putln('%s = %s;' % (list_name, make_dict))
+                        self.has_selection[object_info] = list_name
+                    writer.putln('for (item = %s.begin(); item != %s.end(); '
+                                 'item++) {' % (list_name, list_name))
+                    writer.indent()
+                    self.iterated_object = object_info
+                    object_name = '(*item)'
+                elif object_info is not None:
+                    writer.putindent()
+                    writer.put('%s->' % self.get_object(object_info))
+                elif action_writer.static:
+                    writer.put('%s::' % self.get_object_class(object_type,
+                        star = False))
                 else:
-                    list_name = self.get_object(object_info, True)
-                writer.putln('for (item = %s.begin(); item != %s.end(); '
-                             'item++) {' % (list_name, list_name))
-                writer.indent()
-                writer.putindent()
-                writer.put('(*item)->')
-                self.iterated_object = object_info
-            elif object_info is not None:
-                writer.putindent()
-                writer.put('%s.' % self.get_object(object_info))
-            else:
-                writer.putindent()
-            action_writer.write(writer)
-            writer.put('\n')
-            if has_multiple:
-                writer.end_brace()
-                self.iterated_object = None
+                    writer.putindent()
+                if object_name is not None:
+                    writer.putindent()
+                    writer.put('((%s)%s)->' % (self.get_object_class(
+                        object_type), object_name))
+                action_writer.write(writer)
+                writer.put('\n')
+                if has_multiple:
+                    writer.end_brace()
+                    self.iterated_object = None
+        else:
+            writer.putln('goto %s;' % group.action_label)
 
-        writer.putln('event_%s_end: ;' % group.global_id)
-
+        writer.putln('%s_end: ;' % group.name)
         outwriter.putcode(writer)
+        self.has_single_selection = {}
     
     def convert_parameter(self, container):
         loader = container.loader
         out = ''
         if loader.isExpression:
             for item_index, item in enumerate(loader.items[:-1]):
-                item_name = self.get_expression_name(item)
-                if item.hasObjectInfo():
+                expression_writer = self.get_expression_writer(item)
+                object_info, object_type = expression_writer.get_object()
+                self.current_object = (object_info, object_type)
+                if expression_writer.static:
+                    out += '%s::' % self.get_object_class(object_type, 
+                        star = False)
+                elif object_info is not None:
                     try:
-                        object_info = item.objectInfo
                         out += '%s->' % self.get_object(item.objectInfo)
                     except KeyError:
                         pass
                 self.last_out = out
-                out += self.get_expression_writer(item).get_string()
+                out += expression_writer.get_string()
         else:
             parameter_name = type(container.loader).__name__
+            parameter_type = container.getName()
             if parameter_name == 'Object':
                 return self.get_object_name(loader.objectInfo)
             elif parameter_name == 'Sample':
@@ -1514,20 +1071,12 @@ class Converter(object):
                 if position.objectInfoParent != 0xFFFF:
                     parent = self.get_object(position.objectInfoParent)
                     details['parent'] = parent
+                details['layer'] = position.layer
                 details['x'] = position.x
                 details['y'] = position.y
                 return details
             elif parameter_name == 'KeyParameter':
-                value = loader.key.getValue()
-                if value == 1:
-                    value = 'Qt.LeftButton'
-                elif value == 4:
-                    value = 'Qt.MiddleButton'
-                elif value == 2:
-                    value = 'Qt.RightButton'
-                else:
-                    value = get_qt_key(value)
-                return value
+                return convert_key(loader.key.getValue())
             elif parameter_name == 'Zone':
                 return repr((loader.x1, loader.y1, loader.x2, loader.y2))
             elif parameter_name == 'Time':
@@ -1535,9 +1084,21 @@ class Converter(object):
             elif parameter_name == 'Every':
                 return repr(loader.delay / 1000.0)
             elif parameter_name == 'Click':
-                return 'Qt.%sButton' % loader.getButton()
-            elif parameter_name in ('Int', 'Short', 'Colour'):
+                button = loader.getButton()
+                if button == 'Left':
+                    return convert_key(1)
+                if button == 'Right':
+                    return convert_key(2)
+                elif button == 'Middle':
+                    return convert_key(4)
+            elif parameter_name in ('Int', 'Short', 'Colour', 'String'):
+                if parameter_type == 'NEWDIRECTION':
+                    return parse_direction(loader.value)
+                elif parameter_type == 'TEXTNUMBER':
+                    return loader.value + 1
                 return loader.value
+            elif parameter_name == 'Extension':
+                return loader.get_reader()
             else:
                 raise NotImplementedError('parameter: %s' % parameter_name)
         start_clauses = out.count('(')
@@ -1565,34 +1126,42 @@ class Converter(object):
         return is_qualifier(handle) or handle in self.multiple_instances
 
     def get_object(self, handle, as_list = False):
+        object_type = self.get_object_class(object_info = handle)
         if is_qualifier(handle) and not handle in self.has_selection:
             resolved_qualifier = []
             for new_handle in self.resolve_qualifier(handle):
                 if self.iterated_object == new_handle:
-                    return '(*item)'
+                    return '((%s)*item)' % object_type
                 elif new_handle in self.has_selection:
                     resolved_qualifier.append(new_handle)
             if len(resolved_qualifier) == 1:
                 handle = resolved_qualifier[0]
+        if handle in self.has_single_selection:
+            return self.has_single_selection[handle]
         if self.iterated_object == handle:
-            return '(*item)'
+            return '((%s)*item)' % object_type
         elif handle in self.has_selection:
             ret = self.has_selection[handle]
             if not as_list:
-                ret = '%s[-1]' % ret
+                ret = '((%s)%s[0])' % (object_type, ret)
             return ret
         else:
-            arguments = [self.get_object_handle(handle)]
+            type_id, is_qual = self.get_object_handle(handle)
             object_index = ''
+            getter_name = 'get_instances'
             if as_list:
                 pass
-                # arguments.append('True')
             elif (self.has_multiple_instances(handle) and
                   self.iterated_object is not None):
-                # arguments.append('True')
                 object_index = '[index]'
-            ret = 'get_instances(%s)%s' % (', '.join(arguments), object_index)
-            return ret
+            else:
+                # getter_name = 'get_instance'
+                object_index = '[0]'
+            if object_index:
+                return '((%s)%s(%s)%s)' % (object_type, getter_name, type_id, 
+                    object_index)
+            else:
+                return 'get_instances(%s)' % (type_id)
 
     def get_object_name(self, handle):
         if is_qualifier(handle):
@@ -1605,9 +1174,32 @@ class Converter(object):
 
     def get_object_handle(self, handle):
         if is_qualifier(handle):
-            return 'qualifier_%s' % get_qualifier(handle)
+            return ('qualifier_%s' % get_qualifier(handle), True)
         else:
-            return '%s::type_id' % self.object_names[handle]
+            return ('%s::type_id' % self.object_names[handle], False)
+
+    def get_object_class(self, object_type = None, object_info = None, 
+                         star = True):
+        if object_info is not None:
+            if object_info == self.current_object[0]:
+                object_type = self.current_object[1]
+            else:
+                object_type = self.object_types[object_info]
+        try:
+            ret = self.get_object_writer(object_type).class_name
+            if star:
+                ret += '*'
+            return ret
+        except (KeyError, ValueError):
+            return None
+
+    def get_object_writer(self, object_type):
+        if object_type >= EXTENSION_BASE:
+            ext = self.game.extensions.fromHandle(object_type - EXTENSION_BASE)
+            writer_module = load_extension_module(ext.name)
+            return writer_module.get_object()
+        else:
+            return system_objects[object_type]
 
     def resolve_qualifier(self, handle):
         return self.qualifiers[get_qualifier(handle)]
@@ -1627,25 +1219,20 @@ class Converter(object):
             if num >= 0:
                 extension = self.get_extension(item)
                 extension_name = extension.name
+                # print 'getting %r %r %r' % (extension_name, key, num)
+                native = load_native_extension(extension_name)
+                menu_name = key[:-1] + 'Menu'
+                menu_dict = getattr(native, menu_name)
                 try:
-                    # return extensions[extension_name][key][num]
-                    raise KeyError()
-                except KeyError:
-                    print 'getting %r %r %r' % (extension_name, key, num)
-                    native = load_native_extension(extension_name)
-                    if native is None:
-                        menu_entry = repr([])
-                    else:
-                        menu_name = key[:-1] + 'Menu'
-                        menu_dict = getattr(native, menu_name)
-                        try:
-                            menu_entry = menu_dict[num]
-                        except KeyError, e:
-                            print 'could not load menu', num, extension_name, key
-                            menu_entry = repr([])
-                    print 'unnamed:', extension_name, num, menu_entry, key
-                    wait_unnamed()
-                    return None
+                    menu_entry = menu_dict[num]
+                except KeyError, e:
+                    print 'could not load menu', num, extension_name, key
+                    menu_entry = []
+                # print 'unnamed:', extension_name, num, menu_entry, key
+                wait_unnamed()
+                # print '%r' % menu_entry
+                full_name = [extension_name] + menu_entry + [str(num)]
+                return get_method_name('_'.join(full_name))
         ret = item.getName()
         if ret is None:
             print 'ret:', item.objectType, item.num
@@ -1653,23 +1240,22 @@ class Converter(object):
             code.interact(local = locals())
         return ret
 
-    def get_action_writer(self, item):
-        return self.get_ace_writer(item, 'actions')
+    def get_action_writer(self, item, as_klass = False):
+        return self.get_ace_writer(item, 'actions', as_klass)
 
-    def get_condition_writer(self, item):
-        return self.get_ace_writer(item, 'conditions')
+    def get_condition_writer(self, item, as_klass = False):
+        return self.get_ace_writer(item, 'conditions', as_klass)
 
-    def get_expression_writer(self, item):
-        return self.get_ace_writer(item, 'expressions')
+    def get_expression_writer(self, item, as_klass = False):
+        return self.get_ace_writer(item, 'expressions', as_klass)
 
-    def get_ace_writer(self, item, ace_type):
+    def get_ace_writer(self, item, ace_type, as_klass = False):
         writer_module = None
         if item.getType() == EXTENSION_BASE:
-            raise NotImplementedError()
             num = item.getExtensionNum()
             if num >= 0:
                 extension = self.get_extension(item)
-                writer_module = extension.name
+                writer_module = load_extension_module(extension.name)
                 key = num
         if writer_module is None:
             writer_module = system_writers
@@ -1678,7 +1264,10 @@ class Converter(object):
             klass = getattr(writer_module, ace_type)[key]
         except (KeyError, AttributeError):
             klass = default_writers[ace_type]
-        return klass(self, item)
+        if as_klass:
+            return klass
+        else:
+            return klass(self, item)
     
     def get_extension(self, item):
         return item.getExtension(self.game.extensions)

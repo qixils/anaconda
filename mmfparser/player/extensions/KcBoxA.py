@@ -1478,6 +1478,30 @@ class Expression34(Expression):
     def get(self, instance):
         return get_system_color(self.next_argument())
 
+class GetX(Expression):
+    """
+    Position->X Coordinate
+
+    Parameters:
+    0: (not found) ((unknown 27035))
+    Return type: Int
+    """
+
+    def get(self, instance):
+        return instance.x
+
+class GetY(Expression):
+    """
+    Position->Y Coordinate
+
+    Parameters:
+    0: (not found) ((unknown 27036))
+    Return type: Int
+    """
+
+    def get(self, instance):
+        return instance.y
+
 from mmfparser.data.font import LogFont
 from pyglet import gl
 from mmfparser.player.gui import draw_rectangle
@@ -2043,6 +2067,8 @@ class KcBoxA(UserExtension):
         31 : Expression31,
         32 : Expression32,
         33 : Expression33,
+        34 : GetX,
+        35 : GetY,
         36 : Expression34,
     }
 

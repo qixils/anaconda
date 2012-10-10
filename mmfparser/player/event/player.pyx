@@ -36,6 +36,7 @@ from mmfparser.player.event.conditions.system import NotAlways, OrLogical
 from mmfparser.data.chunkloaders.objectinfo import EXTENSION_BASE
 
 DEF PROFILE = 0
+DEF DEBUG = 1
 
 cdef enum:
     OR_NONE,
@@ -137,8 +138,18 @@ cdef class Group(PlayerChild):
         if item.getType() == EXTENSION_BASE:
             extensionNum = item.getExtensionNum()
             if extensionNum >= 0:
-                return self.player.get_extension(item).expressions[
-                    extensionNum]
+                IF DEBUG:
+                    try:
+                        return self.player.get_extension(item).expressions[
+                            extensionNum]
+                    except:
+                        import traceback
+                        traceback.print_exc()
+                        print self.player.get_extension(item)
+                        return None
+                ELSE:
+                    return self.player.get_extension(item).expressions[
+                        extensionNum]
         return EXPRESSIONS[item.getName()]
     
     cpdef list get_conditions(self, klass, objectInfo = None):

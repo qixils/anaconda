@@ -389,7 +389,8 @@ cdef class Shoot(Action):
             newItem.movementEnabled = True
             movement.update()
             newInstances.append(newItem)
-        self.select_instances(newInstances, newItem.handle)
+        if newInstances:
+            self.select_instances(newInstances, newItem.handle)
 
 class ShootToward(Action):
     iterateObjects = False

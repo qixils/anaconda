@@ -59,7 +59,8 @@ class StringWrapper(object):
         return self.value
 
     def __repr__(self):
-        return '"%s"' % self.value.replace('"', '')
+        return '"%s"' % self.value.replace('\\', '\\\\').replace('"', '\\"'
+            ).replace('\r', '\\r').replace('\n', '\\n')
 
 def to_c(format_spec, *args):
     new_args = []
@@ -92,12 +93,11 @@ ANIMATION_NAMES = [
     'FALLING',
     'CLIMBING',
     'CROUCH',
-    'STAND',
-    'USER_DEFINED_1',
-    'USER_DEFINED_2',
-    'USER_DEFINED_3',
-    'USER_DEFINED_4'
+    'STAND'
 ]
 
 def get_animation_name(index):
-    return ANIMATION_NAMES[index]
+    try:
+        return ANIMATION_NAMES[index]
+    except IndexError:
+        return str(index)

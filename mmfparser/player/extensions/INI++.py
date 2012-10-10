@@ -29,10 +29,12 @@ from mmfparser.player.extensions.common import UserExtension, HiddenObject
 from mmfparser.player.event.actions.common import Action
 from mmfparser.player.event.conditions.common import Condition
 from mmfparser.player.event.expressions.common import Expression
-from mmfparser.player.common import open_file
+from mmfparser.player.common import open_file, convert_path
 
 from ConfigParser import (RawConfigParser, NoSectionError, 
     DuplicateSectionError)
+
+import os
 
 import re
 regex_cache = {}
@@ -482,23 +484,21 @@ class Action31(Action):
     """
 
     def execute(self, instance):
-        # leave this very hardcoded for now
-        group_pattern = self.evaluate_index(0)
-        if group_pattern != '*':
-            raise NotImplementedError
-        item_pattern = self.evaluate_index(1)
-        if item_pattern != '*':
-            raise NotImplementedError
-        value_pattern = self.evaluate_index(2)
-        if value_pattern != '0':
-            raise NotImplementedError
+        group_pattern = get_regex_pattern(self.evaluate_index(0))
+        item_pattern = get_regex_pattern(self.evaluate_index(1))
+        value_pattern = get_regex_pattern(self.evaluate_index(2))
         case_sens = self.evaluate_index(3)
         if case_sens != 0:
             raise NotImplementedError
-        for options in instance.objectPlayer.get_dict().itervalues():
+        for option, options in instance.objectPlayer.get_dict().iteritems():
+            if not group_pattern.match(option):
+                continue
             for value_name, value in options.iteritems():
-                if value == value_pattern:
-                    del options[value_name]
+                if not item_pattern.match(value_name):
+                    continue
+                if not value_pattern.match(value):
+                    continue
+                del options[value_name]
 
 class Action32(Action):
     """
@@ -1866,6 +1866,14 @@ class ConfigParser(RawConfigParser):
     def readfp(self, fp, filename = None):
         return RawConfigParser.readfp(self, FileReader(fp), filename)
 
+def open_dir_file(filename, mode):
+    filename = convert_path(filename)
+    try:
+        os.makedirs(os.path.dirname(filename))
+    except OSError:
+        pass
+    return open(filename, mode)
+
 class DefaultObject(HiddenObject):
     filename = None
     group = None
@@ -1916,24 +1924,24 @@ class DefaultObject(HiddenObject):
         if filename == '':
             return
         try:
-            file = open_file(filename, 'rb')
+            fp = open_dir_file(filename, 'rb')
             if self.key is not None:
-                data = file.read()
-                file.close()
+                data = fp.read()
+                fp.close()
                 data = convert(data, self.key)
-                file = StringIO(data)
+                fp = StringIO(data)
             if overwrite:
-                self.config.readfp(file)
+                self.config.readfp(fp)
             else:
                 config = self.get_config()
-                config.readfp(file)
+                config.readfp(fp)
                 for group in config.sections():
                     if not self.config.has_section(group):
                         self.config.add_section(group)
                     for name, value in config.items(group):
                         if not self.config.has_option(group, name):
                             self.config.set(group, name, value)
-            file.close()
+            fp.close()
         except IOError, e:
             print 'INI++ load failed:', e
             pass
@@ -1990,13 +1998,13 @@ class DefaultObject(HiddenObject):
         self.filename = filename
         # print 'saving', filename, self.key
         try:
-            file = open_file(filename, 'wb')
+            fp = open_dir_file(filename, 'wb')
             if self.key is not None:
                 value = self.get_data()
-                file.write(convert(value, self.key))
+                fp.write(convert(value, self.key))
             else:
-                self.config.write(file)
-            file.close()
+                self.config.write(fp)
+            fp.close()
         except IOError, e:
             pass
             # print 'could not save:', e

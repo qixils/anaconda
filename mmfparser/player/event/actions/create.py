@@ -17,6 +17,8 @@
 
 from mmfparser.player.event.actions.common import Action
 
+from mmfparser.player.event.actions.system import StartLoop
+
 class CreateObject(Action):
     selectInstance = True
     clearInstances = False
@@ -28,11 +30,15 @@ class CreateObject(Action):
             return
         objectInfoParent = self.createParameter.position.objectInfoParent
         for action in self.group.actions:
-            if action.__class__ == CreateObject:
+            klass = action.__class__
+            if klass == CreateObject:
                 if action.getObjectInfo() == objectInfo:
                     if action == self:
                         self.clearInstances = objectInfo != objectInfoParent
                     break
+            elif klass == StartLoop:
+                self.clearInstances = True
+                break
             if action.loader and action.loader.objectInfo == objectInfo:
                 self.selectInstance = False
                 break

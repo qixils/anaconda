@@ -30,6 +30,7 @@ from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_GLFW
+import platform
 
 WRITE_IMAGES = False
 WRITE_FONTS = True
@@ -244,16 +245,27 @@ class CodeWriter(object):
             italic, underline))
 
 native_extension_cache = {}
-MMF_BASE = 'C:\Programs\Multimedia Fusion Developer 2'
-MMF_PATH = 'C:\Programs\Multimedia Fusion Developer 2\Extensions'
+
+if platform.node() == 'matpow22':
+    MMF_BASE = 'D:\Multimedia Fusion Developer 2'
+else:
+    MMF_BASE = 'C:\Programs\Multimedia Fusion Developer 2'
+
+MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
 MMF_EXT = '.mfx'
 
 EXTENSION_ALIAS = {
     'INI++15' : 'INI++'
 }
 
+IGNORE_EXTENSIONS = set([
+    'kcwctrl'
+])
+
 def load_native_extension(name):
     name = EXTENSION_ALIAS.get(name, name)
+    if name in IGNORE_EXTENSIONS:
+        return None
     try:
         return native_extension_cache[name]
     except KeyError:
@@ -264,6 +276,7 @@ def load_native_extension(name):
     os.chdir(cwd)
     if library is None:
         raise NotImplementedError(name)
+    print 'Loading', name
     extension = LoadedExtension(library, False)
     native_extension_cache[name] = extension
     return extension
@@ -1221,13 +1234,16 @@ class Converter(object):
                 extension_name = extension.name
                 # print 'getting %r %r %r' % (extension_name, key, num)
                 native = load_native_extension(extension_name)
-                menu_name = key[:-1] + 'Menu'
-                menu_dict = getattr(native, menu_name)
-                try:
-                    menu_entry = menu_dict[num]
-                except KeyError, e:
-                    print 'could not load menu', num, extension_name, key
+                if native is None:
                     menu_entry = []
+                else:
+                    menu_name = key[:-1] + 'Menu'
+                    menu_dict = getattr(native, menu_name)
+                    try:
+                        menu_entry = menu_dict[num]
+                    except KeyError, e:
+                        print 'could not load menu', num, extension_name, key
+                        menu_entry = []
                 # print 'unnamed:', extension_name, num, menu_entry, key
                 wait_unnamed()
                 # print '%r' % menu_entry

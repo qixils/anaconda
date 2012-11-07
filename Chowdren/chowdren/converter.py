@@ -430,7 +430,8 @@ class EventGroup(object):
 class Converter(object):
     iterated_object = None
     debug = False
-    def __init__(self, filename, outdir, images_dir = 'images'):
+    def __init__(self, filename, outdir, no_images = False, 
+                 images_dir = 'images'):
         self.filename = filename
         self.outdir = outdir
 
@@ -474,7 +475,7 @@ class Converter(object):
         
         # images
 
-        if WRITE_IMAGES or outdir in ('test3', 'test5'):
+        if image_dir is not None:
             images_file = self.open_code('images.cpp')
             images_file.putln('#include "image.h"')
             images_file.putln('')
@@ -486,7 +487,7 @@ class Converter(object):
                     all_images.append(image_name)
                     pil_image = Image.fromstring('RGBA', (image.width, 
                         image.height), image.getImageData())
-                    pil_image.save(self.get_filename('images', 
+                    pil_image.save(self.get_filename(image_dir, 
                         '%s.png' % handle))
                     images_file.putln(to_c(
                         'Image %s(%s, %s, %s, %s, %s);',

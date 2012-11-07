@@ -5,15 +5,21 @@ from chowdren.converter import Converter
 import argparse
 
 def main():
-    parser = argparse.ArgumentParser(description='Chowdren')
-    parser.add_argument('filename', type = str, help = 'input file to convert')
+    parser = argparse.ArgumentParser(
+        description = 'Chowdren - MMF to C++ converter')
+    parser.add_argument('filename', type = str, 
+        help = 'input file to convert (should be an EXE or CCN file)')
     parser.add_argument('outdir', type = str, help = 'destination directory')
-    parser.add_argument('--imagedir', type = str, 
-        help = 'destination directory for images')
-    parse.add_argument('--noimages', type = bool, 'turns of image-writing')
+    parser.add_argument('--imagedir', type = str, action = 'store_const',
+        const = 'images', help = 'destination directory for images')
+    parse.add_argument('--noimages', action='store_true',
+        help = 'turns off image writing')
     args = parser.parse_args()
-    
-    Converter(args.filename, args.outdir, getattr(args, 'imagedir', None))
+    if args.noimages:
+        image_dir = None
+    else:
+        image_dir = args.imagedir
+    Converter(args.filename, args.outdir, image_dir)
     
 if __name__ == '__main__':
     main()

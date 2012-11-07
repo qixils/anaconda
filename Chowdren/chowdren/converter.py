@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import contextlib
 from mmfparser.data.exe import ExecutableData
@@ -16,7 +17,6 @@ from mmfparser.bitdict import BitDict
 from cStringIO import StringIO
 import textwrap
 import Image
-from mmfparser.extension import loadLibrary, LoadedExtension
 from mmfparser.data.font import LogFont
 import string
 import functools
@@ -40,6 +40,9 @@ WRITE_CONFIG = True
 
 # enabled for porting
 NATIVE_EXTENSIONS = False
+
+if NATIVE_EXTENSIONS and sys.platform == 'win32':
+    from mmfparser.extension import loadLibrary, LoadedExtension
 
 LICENSE = ("""\
 // Copyright (c) Mathias Kaerlev 2012.

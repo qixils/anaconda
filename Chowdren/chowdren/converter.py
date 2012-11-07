@@ -30,6 +30,8 @@ from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_GLFW
+from chowdren import extra
+from chowdren import shader
 import platform
 
 WRITE_IMAGES = False
@@ -103,10 +105,8 @@ def copytree(src, dst):
 class CodeWriter(object):
     indentation = 0
     def __init__(self, filename = None):
-        if filename is None:
-            self.fp = StringIO()
-        else:
-            self.fp = open(filename, 'wb+')
+        self.fp = StringIO()
+        self.filename = filename
     
     def format_line(self, line):
         return self.get_spaces() + line
@@ -220,7 +220,18 @@ class CodeWriter(object):
         return (self.indentation + extra) * '    '
     
     def close(self):
+        data = self.get_data()
         self.fp.close()
+        if self.filename is None:
+            return
+        # fp = open(self.filename, 'rb')
+        # original_data = fp.read()
+        # fp.close()
+        # if original_data == data:
+        #     return
+        fp = open(self.filename, 'wb')
+        fp.write(data)
+        fp.close()
 
     def get_line_count(self):
         return self.get_data().count('\n')
@@ -282,7 +293,7 @@ def load_native_extension(name):
     return extension
 
 def convert_key(value):
-    return ' | '.join(VK_TO_GLFW[value])
+    return VK_TO_GLFW[value][0]
 
 def is_qualifier(handle):
     return handle & 32768 == 32768
@@ -362,13 +373,15 @@ class EventContainer(object):
     def __init__(self, name, inactive, parent):
         self.name = name
         if parent is None:
-            self.tree = [name]
+            self.tree = [self]
         else:
-            self.tree = parent.tree + [name]
-        self.code_name = 'group_' + get_method_name('_'.join(self.tree))
+            self.tree = parent.tree + [self]
+        names = [item.name for item in self.tree]
+        self.code_name = 'group_' + get_method_name('_'.join(names))
         self.inactive = inactive
         self.always_groups = []
         self.parent = parent
+        self.end_label = '%s_end' % self.code_name
 
 class ContainerMark(object):
     is_container_mark = True
@@ -385,12 +398,16 @@ class EventGroup(object):
     action_label = None
     is_container_mark = False
     def __init__(self, conditions, actions, container, global_id, 
-                 or_index, or_len):
+                 or_index, or_len, not_always):
         self.conditions = conditions
         self.actions = actions
+        for ace_list in (conditions, actions):
+            for ace in ace_list:
+                ace.group = self
         self.container = container
         self.config = {}
         self.global_id = global_id
+        self.not_always = not_always
         name = 'event_%s' % global_id
         if or_len == 1:
             self.name = name
@@ -403,18 +420,23 @@ class EventGroup(object):
 
     def set_generated(self, value):
         if value:
-            self.or_exit = None
-            self.write_actions = True
-            self.action_label = None
+            self.disable_or()
         self.generated = value
+
+    def disable_or(self):
+        self.or_exit = self.action_label = None
+        self.write_actions = True
 
 class Converter(object):
     iterated_object = None
-    def __init__(self, filename, outdir):
+    debug = False
+    def __init__(self, filename, outdir, images_dir = 'images'):
         self.filename = filename
         self.outdir = outdir
 
         self.has_single_selection = {}
+        self.has_selection = {}
+        self.container_tree = []
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
@@ -452,7 +474,7 @@ class Converter(object):
         
         # images
 
-        if WRITE_IMAGES or outdir == 'test3':
+        if WRITE_IMAGES or outdir in ('test3', 'test5'):
             images_file = self.open_code('images.cpp')
             images_file.putln('#include "image.h"')
             images_file.putln('')
@@ -520,7 +542,7 @@ class Converter(object):
                 continue
             self.all_objects[handle] = object_writer
             self.object_types[handle] = object_type
-            if object_writer.static:
+            if object_writer.static or extra.is_special_object(name):
                 continue
             common = object_writer.common
             subclass = object_writer.class_name
@@ -543,6 +565,13 @@ class Converter(object):
             objects_file.putln(to_c('%s(int x, int y) : %s', class_name, 
                 init_list))
             objects_file.start_brace()
+
+            if not object_writer.is_visible():
+                objects_file.putln('set_visible(false);')
+
+            object_writer.write_init(objects_file)
+            
+            shader_name = None
             if frameitem.shaderId is not None:
                 # raise NotImplementedError('has shader')
                 ink_effect = SHADER_EFFECT
@@ -556,11 +585,17 @@ class Converter(object):
                     objects_file.putln('blend_color = %s;' % make_color(
                         (r, g, b, a)))
                     ink_effect &= ~HWA_EFFECT
+                    if ink_effect == SHADER_EFFECT:
+                        shader_data = game.shaders.items[frameitem.shaderId]
+                        shader_name = shader_data.name
                 elif ink_effect == ADD_EFFECT:
-                    pass
+                    shader_name = 'Add'
                 else:
                     raise NotImplementedError(
                         'unknown inkeffect: %s' % ink_effect)
+            if shader_name is not None:
+                objects_file.putln('set_shader(&%s);' % shader.get_name(
+                    shader_name))
             if ink_effect == SHADER_EFFECT:
                 shader_data = game.shaders.items[frameitem.shaderId]
                 parameters = shader_data.get_parameters()
@@ -573,17 +608,37 @@ class Converter(object):
                     elif parameter.type == FLOAT:
                         value = reader.readFloat()
                     elif parameter.type == INT_FLOAT4:
-                        value = (reader.readByte(True) / 255.0, 
-                            reader.readByte(True) / 255.0,
-                            reader.readByte(True) / 255.0, 
-                            reader.readByte(True) / 255.0)
+                        value = make_color((reader.readByte(True), 
+                            reader.readByte(True),
+                            reader.readByte(True), 
+                            reader.readByte(True)))
                     else:
                         raise NotImplementedError
                     parameters[parameter.name].value = value
-                    print parameter.name, value
-            if not object_writer.is_visible():
-                objects_file.putln('set_visible(false);')
-            object_writer.write_init(objects_file)
+                for name, value in parameters.iteritems():
+                    objects_file.putln(to_c('set_shader_parameter(%r, %s);',
+                        name, value.value))
+
+            if hasattr(common, 'movements') and common.movements:
+                movements = common.movements.items
+                if len(movements) != 1:
+                    raise NotImplementedError
+                movement, = movements
+                if movement.getName() != 'Static':
+                    raise NotImplementedError
+                start_direction = movement.directionAtStart
+                if start_direction != 0:
+                    objects_file.putln('set_direction(%s);' % parse_direction(
+                        start_direction))
+            if common and not common.isBackground():
+                if common.values:
+                    for index, value in enumerate(common.values.items):
+                        objects_file.putln(to_c('values->set(%s, %s);', index, 
+                            value))
+                if common.strings:
+                    for index, value in enumerate(common.strings.items):
+                        objects_file.putln(to_c('strings->set(%s, %r);', index, 
+                            value))
             objects_file.end_brace()
             object_writer.write_class(objects_file)
             
@@ -599,8 +654,8 @@ class Converter(object):
         processed_frames = []
         
         # frames
-        for frame_index, frame in enumerate(game.frames[:2]):
-            self.debug = frame_index > 0
+        for frame_index, frame in enumerate(game.frames):
+            frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
             frame.load()
             self.current_frame = frame
             processed_frames.append(frame_index + 1)
@@ -612,13 +667,15 @@ class Converter(object):
             startup_instances = []
             self.multiple_instances = set()
             startup_set = set()
-            object_writers = set()
-            
+            object_writers = []
+
+            self.system_object = SystemObject(self)
+            object_writers.append(self.system_object)
 
             for instance in frame.instances.items:
                 frameitem = instance.getObjectInfo(game.frameItems)
                 try:
-                    object_writers.add(self.all_objects[frameitem.handle])
+                    object_writers.append(self.all_objects[frameitem.handle])
                 except KeyError:
                     continue
                 if frameitem.handle not in self.object_names:
@@ -634,13 +691,11 @@ class Converter(object):
                     startup_set.add(frameitem)
                     startup_instances.append((instance, frameitem))
 
-            object_writers.add(SystemObject(self))
-
             events = frame.events
 
             generated_groups = self.generated_groups = defaultdict(list)
             always_groups = []
-            always_groups_dict = defaultdict(list)
+            always_groups_dict = self.always_groups_dict = defaultdict(list)
             current_container = None
             self.containers = containers = {}
             changed_containers = set()
@@ -662,38 +717,59 @@ class Converter(object):
                 # or groups
                 condition_groups = []
                 conditions = []
+                not_always = False
                 for condition in group.conditions:
                     name = condition.getName()
                     if name == 'OrLogical':
                         condition_groups.append(conditions)
                         conditions = []
                     else:
-                        conditions.append(self.get_condition_writer(condition))
+                        if name == 'NotAlways':
+                            not_always = True
+                            # not used yet, but just in case
+                        condition_writer = self.get_condition_writer(condition)
+                        condition_writer.container = current_container
+                        conditions.append(condition_writer)
                 condition_groups.append(conditions)
 
-                actions = [self.get_action_writer(item)
-                    for item in group.actions]
-                for action in group.actions:
-                    action_name = self.get_action_name(action)
-                    if action_name in ('CreateObject', 'Shoot', 'DisplayText'):
-                        loader = action.items[0].loader
-                        try:
-                            create_info = self.current_frame.instances.fromHandle(
-                                loader.objectInstance).objectInfo
-                        except ValueError:
-                            create_info = loader.objectInfo
-                        if create_info == 0xFFFF:
-                            # the case for DisplayText
-                            create_info = action.objectInfo
-                        loader.objectInfo = create_info
-                        self.multiple_instances.add(create_info)
-                    elif action_name in ('DeactivateGroup', 'ActivateGroup'):
-                        pointer = action.items[0].loader.pointer
-                        changed_containers.add(pointer)
+                action_groups = []
+
+                for _ in xrange(len(condition_groups)):
+                    actions = []
+                    for action in group.actions:
+                        action_writer = self.get_action_writer(action)
+                        action_writer.container = current_container
+                        actions.append(action_writer)
+
+                        action_name = self.get_action_name(action)
+                        if action_name in ('CreateObject', 'Shoot', 
+                                           'DisplayText'):
+                            loader = action.items[0].loader
+                            try:
+                                instances = self.current_frame.instances
+                                create_info = instances.fromHandle(
+                                    loader.objectInstance).objectInfo
+                            except ValueError:
+                                create_info = loader.objectInfo
+                            if create_info == 0xFFFF:
+                                # the case for DisplayText
+                                create_info = action.objectInfo
+                            loader.objectInfo = create_info
+                            self.multiple_instances.add(create_info)
+                        elif action_name in ('DeactivateGroup', 
+                                             'ActivateGroup'):
+                            pointer = action.items[0].loader.pointer
+                            changed_containers.add(pointer)
+                    action_groups.append(actions)
+
+                all_groups = []
+                has_generated = False
                 for or_index, conditions in enumerate(condition_groups):
+                    actions = action_groups[or_index]
                     new_group = EventGroup(conditions, actions, 
                         current_container, group_index+1, 
-                        or_index, len(condition_groups))
+                        or_index, len(condition_groups), not_always)
+                    all_groups.append(new_group)
                     first_writer = new_group.conditions[0]
                     first_condition = first_writer.data
                     name = self.get_condition_name(first_condition)
@@ -708,8 +784,8 @@ class Converter(object):
                         new_group.local_id = len(always_groups_dict[name])+1
                         always_groups_dict[name].append(new_group)
                     else:
+                        has_generated = True
                         new_group.set_generated(True)
-                        new_group.local_id = len(generated_groups[name])+1
                         key = None
                         if first_condition.getType() == EXTENSION_BASE:
                             num = first_condition.getExtensionNum()
@@ -717,9 +793,11 @@ class Converter(object):
                                 key = (first_condition.objectType, num)
                         if key is None:
                             key = name
-                        if frame_index == 0:
-                            print key, generated_groups[key]
+                        new_group.local_id = len(generated_groups[key])+1
                         generated_groups[key].append(new_group)
+                if has_generated:
+                    for group in all_groups:
+                        group.disable_or()
 
             for k, v in containers.iteritems():
                 if k not in changed_containers:
@@ -729,6 +807,7 @@ class Converter(object):
                     v.is_static = True
 
             self.qualifiers = {}
+            self.qualifier_types = {}
             for qualifier in events.qualifiers.values():
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
                 object_names = ['%s::type_id' % self.object_names[item] 
@@ -741,15 +820,15 @@ class Converter(object):
                     class_name))
                 frame_file.putln('')
                 self.qualifiers[qualifier.qualifier] = object_infos
+                self.qualifier_types[qualifier.qualifier] = qualifier.type
             
-            class_name = 'Frame%s' % (frame_index+1)
-            frame_file.putclass(class_name, 'Frame')
+            frame_file.putclass(frame_class_name, 'Frame')
             frame_file.put_access('public')
             for container in containers.values():
                 frame_file.putln('bool %s;' % container.code_name)
             frame_file.putln(to_c('%s(GameManager * manager) : '
                 'Frame(%r, %s, %s, %s, %s, manager)',
-                class_name, frame.name, frame.width, frame.height, 
+                frame_class_name, frame.name, frame.width, frame.height, 
                 make_color(frame.background), frame_index))
             frame_file.start_brace()
             frame_file.end_brace()
@@ -761,18 +840,25 @@ class Converter(object):
             frame_file.putmeth('void on_start')
 
             for container in containers.values():
+                if container.is_static:
+                    continue
                 frame_file.putln(to_c('%s = %s;', container.code_name,
                     not container.inactive))
 
             for layer in frame.layers.items:
-                frame_file.putln('add_layer(%s, %s);' % (
-                    layer.xCoefficient, layer.yCoefficient))
+                frame_file.putln(to_c('add_layer(%s, %s, %s);',
+                    layer.xCoefficient, layer.yCoefficient, 
+                    not layer.flags['ToHide']))
 
             for instance, frameitem in startup_instances:
                 frame_file.putln('add_object(new %s(%s, %s), %s);' %
                     (self.object_names[frameitem.handle], instance.x, 
                     instance.y, instance.layer))
 
+            for object_writer in object_writers:
+                object_writer.write_start(frame_file)
+
+            self.begin_events()
             start_groups = generated_groups.pop('StartOfFrame', None)
             if start_groups:
                 for group in start_groups:
@@ -780,32 +866,37 @@ class Converter(object):
             frame_file.end_brace()
             
             frame_file.putmeth('void handle_events')
-            if frame_index > 0:
-                always_groups = always_groups[:55]
-
             end_markers = [] # for debug
-
+            self.begin_events()
             for group in always_groups:
                 if group.is_container_mark:
                     container = group.container
+                    if container.is_static:
+                        continue
                     if group.mark == 'NewGroup':
-                        frame_file.putln('if (!%s) goto %s_end;' % (
-                            container.code_name, container.code_name))
-                        end_markers.insert(0, container.code_name)
+                        # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
+                        #     container.code_name, group.mark))
+                        frame_file.putln('if (!%s) goto %s;' % (
+                            container.code_name, container.end_label))
+                        end_markers.insert(0, container.end_label)
+                        self.container_tree.insert(0, container)
                     elif group.mark == 'GroupEnd':
-                        end_markers.remove(container.code_name)
-                        frame_file.put_label('%s_end' % 
-                            container.code_name)
+                        end_markers.remove(container.end_label)
+                        frame_file.put_label(container.end_label)
+                        self.container_tree.remove(container)
+                        # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
+                        #     container.code_name, group.mark))
                     continue
                 self.write_event(frame_file, group)
 
             for end_marker in end_markers:
-                frame_file.put_label('%s_end' % end_marker)
+                frame_file.put_label(end_marker)
             frame_file.end_brace()
             
             frame_file.end_brace(True) # end of frame
+            frame_file.close()
                 
-            if False:#generated_groups:
+            if generated_groups:
                 print 'unimplemented generated groups in %r: %r' % (
                     frame.name, generated_groups)
 
@@ -845,10 +936,13 @@ class Converter(object):
 
             config_file.putmeth('void setup_globals',
                 'GlobalValues * values', 'GlobalStrings * strings')
-            for index, value in enumerate(game.globalValues.items):
-                config_file.putln('values->set(%s, %s);' % (index, value))
-            for index, value in enumerate(game.globalStrings.items):
-                config_file.putln(to_c('strings->set(%s, %r);', index, value))
+            if game.globalValues:
+                for index, value in enumerate(game.globalValues.items):
+                    config_file.putln('values->set(%s, %s);' % (index, value))
+            if game.globalStrings:
+                for index, value in enumerate(game.globalStrings.items):
+                    config_file.putln(to_c('strings->set(%s, %r);', index, 
+                        value))
             config_file.end_brace()
 
             config_file.close()
@@ -869,15 +963,12 @@ class Converter(object):
 
     @contextlib.contextmanager
     def iterate_object(self, object_info, writer, name = 'item'):
-        selected_name = self.get_list_name(
+        selected_name = 'extra_' + self.get_list_name(
             self.get_object_name(object_info))
-        if object_info not in self.has_selection:
-            make_dict = self.get_object(object_info, True)
-            writer.putln('%s = %s;' % (selected_name, make_dict))
-            self.has_selection[object_info] = selected_name
+        make_dict = self.get_object(object_info, True)
+        writer.putln('ObjectList %s = %s;' % (selected_name, make_dict))
         self.iterated_object = object_info
-        writer.putln('{')
-        writer.indent()
+        writer.start_brace()
         writer.putln('ObjectList::const_iterator %s = %s.begin();' % (
             name, selected_name))
         writer.putln('while (%s != %s.end()) {' % 
@@ -891,28 +982,56 @@ class Converter(object):
         writer.putln('}')
         self.iterated_object = None
 
+    def begin_events(self):
+        pass
+
     def set_object(self, object_info, name):
         self.has_single_selection[object_info] = name
 
     def set_list(self, object_info, name):
         self.has_selection[object_info] = name
+
+    def clear_selection(self):
+        self.has_selection = {}
     
+    def write_instance_check(self, object_info, writer):
+        writer.putln('if (%s.size() == 0) %s' % (
+            self.get_object(object_info, True), self.event_break))
+
+    def write_container_check(self, group, writer):
+        container = group.container
+        if group.generated:
+            return
+        for item in container.tree:
+            if item.is_static:
+                continue
+            writer.putln('if (!%s) goto %s;' % (
+                item.code_name, item.end_label))
+
     def write_event(self, outwriter, group, triggered = False):
         self.current_event_id = group.global_id
-        self.has_selection = {}
         actions, conditions = group.actions, group.conditions
         container = group.container
-        has_container_check = (bool(container) and not container.is_static
-            and not triggered)
+        has_container_check = False
+        if container:
+            is_static = all([item.is_static for item in container.tree])
+            has_container_check = (triggered and not is_static)
         if triggered:
             conditions = conditions[1:]
         writer = CodeWriter()
         writer.putln('// event %s' % group.global_id)
         event_break = self.event_break = 'goto %s_end;' % group.name
         collisions = defaultdict(list)
+        writer.start_brace() # new scope
         if conditions or has_container_check:
-            if False:#has_container_check:
-                writer.putln('if (!%s) %s' % (container.code_name, event_break))
+            if has_container_check:
+                groups = []
+                for item in container.tree:
+                    if item.is_static:
+                        continue
+                    groups.append(item.code_name)
+                condition = ' && '.join(groups)
+                writer.putln('if (!(%s)) %s' % (condition, event_break))
             elif container:
                 writer.putln('// group: %s' % container.name)
             for condition_index, condition_writer in enumerate(conditions):
@@ -934,20 +1053,21 @@ class Converter(object):
                     self.iterated_object = object_info
                 elif object_name is not None and self.has_multiple_instances(
                         object_info):
-                    has_multiple = True
                     selected_name = self.get_list_name(
                         self.get_object_name(object_info))
                     if object_info not in self.has_selection:
                         make_dict = self.get_object(object_info, True)
                         writer.putln('%s = %s;' % (selected_name, make_dict))
                         self.has_selection[object_info] = selected_name
-                    self.iterated_object = object_info
-                    writer.putln('item = %s.begin();' %
-                        selected_name)
-                    writer.putln('while (item != %s.end()) {' % 
-                        selected_name)
-                    writer.indent()
-                    object_name = '(*item)'
+                    if condition_writer.iterate_objects is not False:
+                        has_multiple = True
+                        self.iterated_object = object_info
+                        writer.putln('item = %s.begin();' %
+                            selected_name)
+                        writer.putln('while (item != %s.end()) {' % 
+                            selected_name)
+                        writer.indent()
+                        object_name = '(*item)'
                 writer.putindent()
                 if negated:
                     writer.put('if (!(')
@@ -957,7 +1077,7 @@ class Converter(object):
                     if condition_writer.static:
                         writer.put('%s::' % self.get_object_class(
                             object_type, star = False))
-                else:
+                elif condition_writer.iterate_objects is not False:
                     if condition_writer.negate:
                         writer.put('!')
                     writer.put('((%s)%s)->' % (self.get_object_class(
@@ -980,6 +1100,9 @@ class Converter(object):
             if group.action_label:
                 writer.put_label(group.action_label)
             for action_writer in actions:
+                if action_writer.custom:
+                    action_writer.write(writer)
+                    continue
                 has_multiple = False
                 has_single = False
                 object_info, object_type = action_writer.get_object()
@@ -1028,18 +1151,25 @@ class Converter(object):
                 if has_multiple:
                     writer.end_brace()
                     self.iterated_object = None
+            for action_writer in actions:
+                action_writer.write_post(writer)
         else:
             writer.putln('goto %s;' % group.action_label)
 
         writer.putln('%s_end: ;' % group.name)
+        writer.end_brace()
         outwriter.putcode(writer)
         self.has_single_selection = {}
+        self.has_selection = {}
     
     def convert_parameter(self, container):
         loader = container.loader
         out = ''
         if loader.isExpression:
-            for item_index, item in enumerate(loader.items[:-1]):
+            self.expression_items = loader.items[:-1]
+            self.item_index = 0
+            while self.item_index < len(self.expression_items):
+                item = self.expression_items[self.item_index]
                 expression_writer = self.get_expression_writer(item)
                 object_info, object_type = expression_writer.get_object()
                 self.current_object = (object_info, object_type)
@@ -1053,6 +1183,7 @@ class Converter(object):
                         pass
                 self.last_out = out
                 out += expression_writer.get_string()
+                self.item_index += 1
         else:
             parameter_name = type(container.loader).__name__
             parameter_type = container.getName()
@@ -1104,7 +1235,7 @@ class Converter(object):
                     return convert_key(2)
                 elif button == 'Middle':
                     return convert_key(4)
-            elif parameter_name in ('Int', 'Short', 'Colour', 'String'):
+            elif parameter_name in ('Int', 'Short', 'Colour'):
                 if parameter_type == 'NEWDIRECTION':
                     return parse_direction(loader.value)
                 elif parameter_type == 'TEXTNUMBER':
@@ -1112,6 +1243,8 @@ class Converter(object):
                 return loader.value
             elif parameter_name == 'Extension':
                 return loader.get_reader()
+            elif parameter_name in ('String', 'Filename'):
+                return to_c('%r', loader.value)
             else:
                 raise NotImplementedError('parameter: %s' % parameter_name)
         start_clauses = out.count('(')
@@ -1140,17 +1273,20 @@ class Converter(object):
 
     def get_object(self, handle, as_list = False):
         object_type = self.get_object_class(object_info = handle)
-        if is_qualifier(handle) and not handle in self.has_selection:
-            resolved_qualifier = []
-            for new_handle in self.resolve_qualifier(handle):
-                if self.iterated_object == new_handle:
-                    return '((%s)*item)' % object_type
-                elif new_handle in self.has_selection:
-                    resolved_qualifier.append(new_handle)
-            if len(resolved_qualifier) == 1:
-                handle = resolved_qualifier[0]
         if handle in self.has_single_selection:
-            return self.has_single_selection[handle]
+            ret = self.has_single_selection[handle]
+            if as_list:
+                ret = 'make_single_list(%s)' % ret
+            return ret
+        # if is_qualifier(handle) and not handle in self.has_selection:
+        #     resolved_qualifier = []
+        #     for new_handle in self.resolve_qualifier(handle):
+        #         if self.iterated_object == new_handle:
+        #             return '((%s)*item)' % object_type
+        #         elif new_handle in self.has_selection:
+        #             resolved_qualifier.append(new_handle)
+        #     if len(resolved_qualifier) == 1:
+        #         handle = resolved_qualifier[0]
         if self.iterated_object == handle:
             return '((%s)*item)' % object_type
         elif handle in self.has_selection:
@@ -1164,17 +1300,19 @@ class Converter(object):
             getter_name = 'get_instances'
             if as_list:
                 pass
-            elif (self.has_multiple_instances(handle) and
-                  self.iterated_object is not None):
-                object_index = '[index]'
             else:
-                # getter_name = 'get_instance'
-                object_index = '[0]'
-            if object_index:
+                getter_name = 'get_instance'
+            # elif (self.has_multiple_instances(handle) and
+            #       self.iterated_object is not None):
+            #     object_index = '[0]' # [index], but probably not needed
+            # else:
+            #     # getter_name = 'get_instance'
+            #     object_index = '[0]'
+            if as_list: # object_index:
+                return '%s(%s)' % (getter_name, type_id)
+            else:
                 return '((%s)%s(%s)%s)' % (object_type, getter_name, type_id, 
                     object_index)
-            else:
-                return 'get_instances(%s)' % (type_id)
 
     def get_object_name(self, handle):
         if is_qualifier(handle):
@@ -1197,7 +1335,11 @@ class Converter(object):
             if object_info == self.current_object[0]:
                 object_type = self.current_object[1]
             else:
-                object_type = self.object_types[object_info]
+                if is_qualifier(object_info):
+                    object_type = self.qualifier_types[
+                        get_qualifier(object_info)]
+                else:
+                    object_type = self.object_types[object_info]
         try:
             ret = self.get_object_writer(object_type).class_name
             if star:
@@ -1276,6 +1418,15 @@ class Converter(object):
         if writer_module is None:
             writer_module = system_writers
             key = item.getName()
+        object_name = None
+        if item.hasObjectInfo():
+            object_writer = self.all_objects.get(item.objectInfo, None)
+            if object_writer:
+                object_name = object_writer.data.name
+        else:
+            object_name = None
+        if extra.is_special_object(object_name):
+            writer_module = extra
         try:
             klass = getattr(writer_module, ace_type)[key]
         except (KeyError, AttributeError):

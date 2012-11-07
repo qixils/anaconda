@@ -16,17 +16,36 @@ class Active(ObjectWriter):
 
     def write_init(self, writer):
         common = self.common
+        writer.putln('static AnimationMap * saved_animations = '
+                     'new AnimationMap;')
+        writer.putln('this->animations = saved_animations;')
+        writer.putln('static bool initialized = false;')
+        writer.putln('if (!initialized) {')
+        writer.indent()
+        writer.putln('initialized = true;')
         animations = common.animations.loadedAnimations
         for animation_index, animation in animations.iteritems():
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
             for direction_index, direction in directions.iteritems():
-                writer.putln('add_direction(%s, %s, %s, %s, %s, %s);' % (
+                loop_count = direction.repeat
+                if loop_count not in (0, 1):
+                    raise NotImplementedError
+                repeat = loop_count == 0
+                writer.putln(to_c('add_direction(%s, %s, %s, %s, %s, %s);',
                     animation_name, direction_index, direction.minSpeed,
-                    direction.maxSpeed, direction.repeat, direction.backTo))
+                    direction.maxSpeed, repeat, direction.backTo))
                 for image in direction.frames:
                     writer.putln('add_image(%s, %s, %s);' % (animation_name,
                         direction_index, get_image_name(image)))
+        writer.putln('initialize_animations();')
+        writer.end_brace()
+        flags = common.newFlags
+        writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
+        if flags['AutomaticRotation']:
+            raise NotImplementedError
+        writer.putln('animation = %s;' % get_animation_name(min(animations)))
+        writer.putln('initialize_active();')
 
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'

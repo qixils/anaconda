@@ -238,7 +238,9 @@ namespace Utility
         return String.substr(Start, Length);
     }
 
-    std::string StrExpressionCompare(float First, float Second, int ComparisonType, std::string ReturnIfTrue, std::string ReturnIfFalse)
+    const std::string & StrExpressionCompare(float First, float Second, 
+        int ComparisonType, const std::string & ReturnIfTrue, 
+        const std::string & ReturnIfFalse)
     {
         if (Compare(First, Second, ComparisonType)) 
             return ReturnIfTrue; 

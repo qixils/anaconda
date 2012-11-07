@@ -1,47 +1,110 @@
 #include <vector>
 #include <map>
 #include "audio.h"
+#include "math.h"
+#include <algorithm>
+#include "filecommon.h"
+#include <fstream>
+
+double clamp_sound(double val)
+{
+    return std::max<double>(0, std::min<double>(val, 100));
+}
+
+class SoundData
+{
+public:
+    virtual void load(ChowdrenAudio::SoundBase ** source, bool * is_music) {}
+    virtual ~SoundData() {}
+};
+
+class SoundFile : public SoundData
+{
+public:
+    std::string filename;
+
+    SoundFile(const std::string & filename) : filename(filename)
+    {
+
+    }
+
+    void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
+    {
+        // std::cout << "Loading " << filename << std::endl;
+        *source = new ChowdrenAudio::SoundStream(filename);
+        *is_music = true;
+    }
+};
+
+class SoundMemory : public SoundData
+{
+public:
+    ChowdrenAudio::Sample * buffer;
+
+    SoundMemory(const std::string & filename)
+    {
+        // std::cout << "Loading buffer " << filename << std::endl;
+        buffer = new ChowdrenAudio::Sample(filename);
+    }
+
+    void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
+    {
+        *source = new ChowdrenAudio::Sound(*buffer);
+        *is_music = false;
+    }
+
+    ~SoundMemory()
+    {
+        delete buffer;
+    }
+};
 
 class Channel
 {
 public:
     bool locked;
-    Music * music;
-    double volume, frequency;
+    ChowdrenAudio::SoundBase * sound;
+    double volume, frequency, pan;
+    bool is_music;
 
     Channel() 
-    : music(NULL), locked(false), volume(100), frequency(0)
+    : locked(false), volume(100), frequency(0), pan(0), sound(NULL)
     {
 
     }
 
-    void play(const std::string & filename, int loop)
+    void play(SoundData & data, int loop)
     {
-        if (music != NULL) {
-            music->stop();  
-            delete music;
-        }
-        music = new Music();
-        if (!music->openFromFile(filename)) {
-            std::cout << "Could not load " << filename << std::endl;
-            return;
-        }
+        stop();
+        if (sound != NULL)
+            delete sound;
+        data.load(&sound, &is_music);
         set_volume(volume);
+        set_pan(pan);
         if (frequency != 0)
             set_frequency(frequency);
-        if (loop == 0)
-            music->setLoop(true);
-        else if (loop > 1)
+
+        if (loop == 0) {
+            sound->set_loop(true);
+        } else if (loop > 1)
             std::cout << "Invalid number of loops (" << loop << ")" << std::endl;
-        music->play();
+
+        sound->play();
+    }
+
+    void stop()
+    {
+        if (is_invalid())
+            return;
+        sound->stop();
     }
 
     void set_volume(double value)
     {
-        volume = value;
+        volume = clamp_sound(value);
         if (is_invalid())
             return;
-        music->setVolume(value);
+        sound->set_volume(value / 100.0);
     }
 
     void set_frequency(double value)
@@ -49,31 +112,63 @@ public:
         frequency = value;
         if (is_invalid())
             return;
-        music->setPitch(value / music->getSampleRate());
+        sound->set_frequency(value);
+    }
+
+    void set_position(double value)
+    {
+        if (is_invalid())
+            return;
+        sound->set_playing_offset(value / 1000.0);
+    }
+
+    double get_position()
+    {
+        if (is_invalid())
+            return 0.0;
+        return sound->get_playing_offset() * 1000.0;
+    }
+
+    void set_pan(double value)
+    {
+        pan = value;
+        if (is_invalid())
+            return;
+        value /= 100;
+        if (value > 1.0)
+            value = 1.0;
+        else if (value < -1.0)
+            value = -1.0;
+        sound->set_pan(value);
     }
 
     bool is_invalid()
     {
-        return music == NULL;
+        return sound == NULL || sound->closed;
     }
 
     bool is_stopped()
     {
-        return is_invalid() || music->getStatus() == SoundSource::Stopped;
+        if (is_invalid())
+            return true;
+        return sound->get_status() == ChowdrenAudio::SoundBase::Stopped;
     }
 };
+
+typedef std::map<std::string, SoundData*> SoundMap;
 
 class Media
 {
 public:
-    std::map<std::string, std::string> sounds;
+    SoundMap sounds;
     Channel channels[32];
 
     Media()
     {
+        ChowdrenAudio::open_audio();
     }
 
-    void play(const std::string & filename, int channel = -1, int loop = 1)
+    void play(SoundData & data, int channel = -1, int loop = 1)
     {
         if (channel == -1) {
             for (channel = 0; channel < 32; channel++) {
@@ -84,31 +179,111 @@ public:
             if (channel == 32)
                 return;
         }
-        channels[channel].play(filename, loop);
+        channels[channel].play(data, loop);
+    }
+
+    void play(const std::string & filename, int channel = -1, int loop = 1)
+    {
+        // std::cout << "Playing: " << filename << std::endl;
+        SoundFile data(filename);
+        play(data, channel, loop);
     }
 
     void play_name(const std::string & name, int channel = -1, int loop = 1)
     {
-        play(sounds[name], channel, loop);
+        // std::cout << "Playing: " << name << std::endl;
+        play(*sounds[name], channel, loop);
     }
 
     void lock(unsigned int channel)
     {
+        if (!is_channel_valid(channel))
+            return;
         channels[channel].locked = true;
     }
 
     void set_channel_volume(unsigned int channel, double volume)
     {
+        if (!is_channel_valid(channel))
+            return;
         channels[channel].set_volume(volume);
     }
 
     void set_channel_frequency(unsigned int channel, double freq)
     {
+        if (!is_channel_valid(channel))
+            return;
         channels[channel].set_frequency(freq);
+    }
+
+    void set_channel_pan(unsigned int channel, double pan)
+    {
+        if (!is_channel_valid(channel))
+            return;
+        channels[channel].set_pan(pan);
+    }
+
+    void stop_channel(unsigned int channel)
+    {
+        if (!is_channel_valid(channel))
+            return;
+        channels[channel].stop();
+    }
+
+    void stop_samples()
+    {
+        for (int i = 0; i < 32; i++) {
+            stop_channel(i);
+        }
+    }
+
+    double get_channel_position(unsigned int channel)
+    {
+        if (!is_channel_valid(channel))
+            return 0.0;
+        return channels[channel].get_position();
+    }
+
+    void set_channel_position(unsigned int channel, double pos)
+    {
+        if (!is_channel_valid(channel))
+            return;
+        return channels[channel].set_position(pos);
+    }
+
+    bool is_channel_playing(unsigned int channel)
+    {
+        if (!is_channel_valid(channel))
+            return false;
+        return !channels[channel].is_stopped();
+    }
+
+    bool is_channel_valid(unsigned int channel)
+    {
+        return (channel >= 0 && channel < 32);
     }
 
     void add_file(const std::string & name, const std::string & filename)
     {
-        sounds[name] = filename;
+        SoundMap::const_iterator it = sounds.find(name);
+        if (it != sounds.end()) {
+            delete it->second;
+        }
+        SoundData * data;
+        if (get_file_size(filename.c_str()) > 0.5 * 1024 * 1024) // 0.5 mb
+            data = new SoundFile(filename);
+        else
+            data = new SoundMemory(filename);
+        sounds[name] = data;
+    }
+
+    double get_main_volume()
+    {
+        return ChowdrenAudio::Listener::get_volume() * 100.0;
+    }
+
+    void set_main_volume(double volume)
+    {
+        ChowdrenAudio::Listener::set_volume(clamp_sound(volume) / 100.0);
     }
 };

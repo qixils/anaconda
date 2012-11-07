@@ -6,6 +6,7 @@ class EventWriter(BaseWriter):
     static = False
     custom = False
     has_object = True
+    container = None
 
     def __init__(self, *arg, **kw):
         BaseWriter.__init__(self, *arg, **kw)
@@ -30,12 +31,19 @@ class ActionWriter(ACBase):
     def write(self, writer):
         raise NotImplementedError()
 
+    def write_post(self, writer):
+        pass
+
 class ConditionWriter(ACBase):
     negate = False
     is_always = None
+    limit_once = False
 
     def write(self, writer):
         raise NotImplementedError()
+
+    def get_comparison(self):
+        return COMPARISONS[self.parameters[-1].loader.comparison]
 
 class ExpressionWriter(EventWriter):
     def get_string(self):
@@ -51,18 +59,22 @@ class EmptyAction(ActionWriter):
 
 class ComparisonWriter(ConditionWriter):
     def write(self, writer):
-        comparison = COMPARISONS[self.parameters[-1].loader.comparison]
+        comparison = self.get_comparison()
         parameters = [str(self.convert_parameter(parameter))
             for parameter in self.parameters]
+        value = self.get_comparison_value()
         if len(parameters) == 1:
-            value1 = self.value
+            value1 = value
             value2, = parameters
         elif len(parameters) == 2:
-            value1 = self.value % parameters[0]
+            value1 = value % parameters[0]
             value2 = parameters[1]
         else:
             raise NotImplementedError
         writer.put('%s %s %s' % (value1, comparison, value2))
+
+    def get_comparison_value(self):
+        return self.value
 
 # debug writers
 
@@ -150,6 +162,11 @@ def make_expression(value):
     class NewExpression(ExpressionWriter):
         def get_string(self):
             return value
+    return NewExpression
+
+def make_static_expression(v):
+    class NewExpression(StaticExpressionWriter):
+        method = v
     return NewExpression
 
 def make_comparison(v):

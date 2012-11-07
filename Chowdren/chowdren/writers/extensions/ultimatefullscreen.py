@@ -11,10 +11,12 @@ class UltimateFullcsreen(ObjectWriter):
     static = True
 
 actions = make_table(ActionMethodWriter, {
-
+    1 : 'set_fullscreen(false)',
+    0 : 'set_fullscreen(true)'
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    1 : '!is_fullscreen()'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

@@ -26,14 +26,21 @@ class INI(ObjectWriter):
         elif filename:
             writer.putln(to_c('load_file(%r);', filename))
 
-class PerformSearch(ConditionMethodWriter):
+class PerformSearch(ActionMethodWriter):
     def write(self, writer):
         writer.put('search(%s, %s, %s);' % (
             self.convert_index(0),
             self.convert_index(1),
             self.convert_index(2)))
 
-class MergeObject(ConditionMethodWriter):
+class DeletePattern(ActionMethodWriter):
+    def write(self, writer):
+        writer.put('delete_pattern(%s, %s, %s);' % (
+            self.convert_index(0),
+            self.convert_index(1),
+            self.convert_index(2)))
+
+class MergeObject(ActionMethodWriter):
     def write(self, writer):
         name = self.parameters[0].loader.data.readString()
         handle = self.converter.name_to_item[name].handle
@@ -41,25 +48,47 @@ class MergeObject(ConditionMethodWriter):
         writer.put('merge_object(%s, %s);' % (self.converter.get_object(handle),
             overwrite))
 
+class MergeGroupObject(ActionMethodWriter):
+    def write(self, writer):
+        name = self.parameters[0].loader.data.readString()
+        handle = self.converter.name_to_item[name].handle
+        src_group = self.convert_index(1)
+        dst_group = self.convert_index(2)
+        overwrite = self.convert_index(3)
+        writer.put('merge_group(%s, %s, %s, %s);' % (
+            self.converter.get_object(handle), src_group, dst_group, overwrite))    
+
 actions = make_table(ActionMethodWriter, {
     0 : 'set_group',
     14 : 'set_value', # specified group
+    15 : 'set_string', # specified group
     1 : 'set_value', # current group
     2 : 'set_string', # current group
+    28 : 'delete_group',
+    9 : 'delete_group',
+    10 : 'delete_item',
+    29 : 'delete_item',
     43 : 'load_file',
+    48 : 'load_string',
+    32 : 'reset',
     38 : 'merge_file',
     45 : 'save_file',
+    31 : DeletePattern,
     33 : PerformSearch,
-    40 : MergeObject
+    40 : MergeObject,
+    41 : MergeGroupObject
+
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    1 : 'has_item'
+    1 : 'has_item',
+    4 : 'has_item',
+    3 : 'has_group'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
     17 : 'get_item_count',
-    7 : 'get_item_count',
+    7 : 'get_item_count()',
     16 : 'get_group_count',
     14 : 'get_string_index',
     6 : 'get_string_index',
@@ -71,7 +100,8 @@ expressions = make_table(ExpressionMethodWriter, {
     12 : 'get_group_name',
     8 : 'get_value',
     20 : 'get_search_result_group',
-    19 : 'get_search_count'
+    19 : 'get_search_count',
+    37 : 'get_item_part'
 })
 
 def get_object():

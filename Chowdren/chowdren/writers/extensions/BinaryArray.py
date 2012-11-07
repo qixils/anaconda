@@ -13,13 +13,20 @@ class BinaryArray(ObjectWriter):
         pass
 
 actions = make_table(ActionMethodWriter, {
-    2 : 'load'
+    0 : 'load_file',
+    2 : 'load_workspaces',
+    12 : 'create_workspace',
+    4 : 'switch_workspace',
+
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    0 : 'has_workspace'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    10 : 'get_size',
+    3 : 'read_string'
 })
 
 def get_object():

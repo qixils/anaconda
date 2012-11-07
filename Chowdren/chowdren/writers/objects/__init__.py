@@ -25,6 +25,9 @@ class ObjectWriter(BaseWriter):
     def write_class(self, writer):
         pass
 
+    def write_start(self, writer):
+        pass
+
     def write_frame(self, writer):
         pass    
 
@@ -37,12 +40,16 @@ class ObjectWriter(BaseWriter):
     def get_data(self):
         return ByteReader(self.common.extensionData)
 
-    def get_conditions(self, value):
-        if self.data is None:
-            key = value
-        else:
-            key = (self.data.properties.objectType, value)
-        return self.converter.generated_groups.pop(key, [])
+    def get_conditions(self, *values):
+        groups = []
+        for value in values:
+            if self.data is None:
+                key = value
+            else:
+                key = (self.data.properties.objectType, value)
+            groups.extend(self.converter.generated_groups.pop(key, []))
+        groups.sort(key = lambda x: x.global_id)
+        return groups
 
     def is_visible(self):
         try:

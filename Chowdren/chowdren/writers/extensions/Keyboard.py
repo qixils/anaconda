@@ -5,7 +5,7 @@ from chowdren.common import (get_image_name, get_animation_name, to_c,
 
 from chowdren.writers.events import (StaticConditionWriter, 
     StaticActionWriter, StaticExpressionWriter, make_table,
-    ConditionWriter, ExpressionMethodWriter)
+    ConditionMethodWriter, ExpressionMethodWriter)
 
 class Keyboard(ObjectWriter):
     class_name = 'Keyboard'
@@ -14,7 +14,7 @@ class Keyboard(ObjectWriter):
     def write_init(self, writer):
         pass
 
-class OnAnyDown(ConditionWriter):
+class OnAnyDown(ConditionMethodWriter):
     is_always = True
     def write(self, writer):
         writer.put('last_key != -1')
@@ -22,8 +22,10 @@ class OnAnyDown(ConditionWriter):
 actions = make_table(StaticActionWriter, {
 })
 
-conditions = make_table(ConditionWriter, {
-    3 : OnAnyDown
+conditions = make_table(ConditionMethodWriter, {
+    3 : OnAnyDown,
+    2 : 'is_key_pressed',
+    0 : 'is_key_pressed_once'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

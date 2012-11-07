@@ -16,7 +16,10 @@ class Console(ObjectWriter):
         pass
 
 actions = make_table(ActionMethodWriter, {
-    0 : EmptyAction
+    0 : EmptyAction,
+    11 : 'std::cout << (%s)',
+    13 : 'std::cout << (%s) << std::endl',
+    15 : '.std::cout << std::endl'
 })
 
 conditions = make_table(ConditionMethodWriter, {

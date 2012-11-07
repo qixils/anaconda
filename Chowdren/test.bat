@@ -7,8 +7,8 @@ set HASVCVARSALL=1
 python -m chowdren.run "Knytt Underground.exe" test2
 if %errorlevel% neq 0 popd && exit /b %errorlevel%
 cd test2\build
-devenv Chowdren.sln /Build MinSizeRel
+devenv Chowdren.sln /Build Debug
 if %errorlevel% neq 0 popd && exit /b %errorlevel%
 cd ..
-build\MinSizeRel\Chowdren.exe
+build\Debug\Chowdren.exe
 popd

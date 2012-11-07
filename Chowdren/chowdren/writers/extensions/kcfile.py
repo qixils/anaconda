@@ -4,7 +4,7 @@ from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
 from chowdren.writers.events import (StaticConditionWriter, 
-    StaticActionWriter, StaticExpressionWriter, make_table)
+    StaticActionWriter, StaticExpressionWriter, make_table, EmptyAction)
 
 class File(ObjectWriter):
     class_name = 'File'
@@ -14,10 +14,12 @@ class File(ObjectWriter):
         pass
 
 actions = make_table(StaticActionWriter, {
+    5 : 'delete_file',
+    11 : EmptyAction
 })
 
 conditions = make_table(StaticConditionWriter, {
-    4 : 'file_exists'
+    4 : 'file_exists',
 })
 
 expressions = make_table(StaticExpressionWriter, {

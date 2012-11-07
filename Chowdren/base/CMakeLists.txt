@@ -1,16 +1,9 @@
 cmake_minimum_required (VERSION 2.6)
-project (Chowdren)
 
-add_definitions(-DGLEW_STATIC)
-add_executable(Chowdren run.cpp images.cpp image.cpp glew.c 
-               include/tinythread/tinythread.cpp assets.cpp)
-find_library(GLFW_LIBRARY GLFW lib)
-find_library(FT_LIBRARY freetype lib)
-find_library(SNDFILE_LIBRARY libsndfile-1 lib)
-find_library(PYTHON_DEBUG_LIB python27_d lib)
-find_package(OpenGL REQUIRED)
-find_package(OpenAL REQUIRED)
-find_package(PythonLibs 2.7 REQUIRED)
+project(Chowdren)
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
 if(MSVC)
     # /bigobj is required for Windows because images.h can get too big on
@@ -21,8 +14,19 @@ if(MSVC)
     set(PLATFORM_LIBRARIES winmm)
 endif()
 
-include_directories(${PROJECT_SOURCE_DIR}/include ${OPENAL_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS})
+add_definitions(-DGLEW_STATIC)
+add_executable(Chowdren run.cpp images.cpp image.cpp glew.c 
+               include/tinythread/tinythread.cpp assets.cpp)
+find_library(PYTHON_DEBUG_LIB python27_d lib)
+find_package(GLFW REQUIRED)
+find_package(SndFile REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(OpenAL REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
+
+include_directories(${OPENAL_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
+    ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR})
 target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
-    ${FT_LIBRARY} ${SNDFILE_LIBRARY} ${OPENAL_LIBRARY} ${PYTHON_LIBRARIES}
-    ${PLATFORM_LIBRARIES})
+    ${FREETYPE_LIBRARIES} ${SNDFILE_LIBRARIES} ${OPENAL_LIBRARY} 
+    ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES})

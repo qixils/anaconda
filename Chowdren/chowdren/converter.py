@@ -38,6 +38,7 @@ WRITE_FONTS = True
 WRITE_SOUNDS = True
 WRITE_CONFIG = True
 
+# enabled for porting
 NATIVE_EXTENSIONS = False
 
 LICENSE = ("""\
@@ -421,8 +422,7 @@ class EventGroup(object):
 class Converter(object):
     iterated_object = None
     debug = False
-    def __init__(self, filename, outdir, no_images = False, 
-                 images_dir = 'images'):
+    def __init__(self, filename, outdir, images_dir = 'images'):
         self.filename = filename
         self.outdir = outdir
 
@@ -466,7 +466,7 @@ class Converter(object):
         
         # images
 
-        if image_dir is not None:
+        if images_dir is not None:
             images_file = self.open_code('images.cpp')
             images_file.putln('#include "image.h"')
             images_file.putln('')
@@ -478,7 +478,7 @@ class Converter(object):
                     all_images.append(image_name)
                     pil_image = Image.fromstring('RGBA', (image.width, 
                         image.height), image.getImageData())
-                    pil_image.save(self.get_filename(image_dir, 
+                    pil_image.save(self.get_filename(images_dir, 
                         '%s.png' % handle))
                     images_file.putln(to_c(
                         'Image %s(%s, %s, %s, %s, %s);',
@@ -1379,7 +1379,6 @@ class Converter(object):
                         print 'could not load menu', num, extension_name, key
                         menu_entry = []
                 # print 'unnamed:', extension_name, num, menu_entry, key
-                wait_unnamed()
                 # print '%r' % menu_entry
                 full_name = [extension_name] + menu_entry + [str(num)]
                 return get_method_name('_'.join(full_name))

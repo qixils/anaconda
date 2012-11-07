@@ -125,8 +125,8 @@ cdef class ObjectCollision(CollisionBase):
         else:
             self.transform = True
         cdef double co, si
-        co = cos(rad(self.angle))
-        si = sin(rad(self.angle))
+        co = cos(radians(self.angle))
+        si = sin(radians(self.angle))
         cdef int x1, y1, x2, y2
         transform_rect(self.width, self.height, co, si, self.xScale, 
             self.yScale, &x1, &y1, &x2, &y2)
@@ -134,8 +134,8 @@ cdef class ObjectCollision(CollisionBase):
         self.y1 = y1
         self.x2 = x2
         self.y2 = y2
-        self.cosinus = cos(rad(-self.angle))
-        self.sinus = sin(rad(-self.angle))
+        self.cosinus = cos(radians(-self.angle))
+        self.sinus = sin(radians(-self.angle))
     
     cdef bint get_bit(self, int x, int y):
         if not self.transform:

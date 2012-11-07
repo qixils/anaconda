@@ -34,13 +34,11 @@ from chowdren import extra
 from chowdren import shader
 import platform
 
-WRITE_IMAGES = False
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 WRITE_CONFIG = True
 
-WAIT_UNIMPLEMENTED = False
-WAIT_UNNAMED = False
+NATIVE_EXTENSIONS = False
 
 LICENSE = ("""\
 // Copyright (c) Mathias Kaerlev 2012.
@@ -60,15 +58,6 @@ LICENSE = ("""\
 // You should have received a copy of the GNU General Public License
 // along with Chowdren.  If not, see <http://www.gnu.org/licenses/>.\
 """)
-
-
-def wait_unimplemented():
-    if WAIT_UNIMPLEMENTED:
-        raw_input('(press enter to continue)')
-
-def wait_unnamed():
-    if WAIT_UNNAMED:
-        raw_input('(press enter to continue)')
 
 def copytree(src, dst):
     names = os.listdir(src)
@@ -274,6 +263,8 @@ IGNORE_EXTENSIONS = set([
 ])
 
 def load_native_extension(name):
+    if not NATIVE_EXTENSIONS or sys.platform != 'win32':
+        return None
     name = EXTENSION_ALIAS.get(name, name)
     if name in IGNORE_EXTENSIONS:
         return None

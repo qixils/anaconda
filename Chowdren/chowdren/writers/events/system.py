@@ -604,7 +604,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'AlphaCoefficient' : 'blend_color.get_alpha_coefficient()',
     'EffectParameter' : 'get_shader_parameter',
     'Floor' : 'floor',
-    'Round' : 'round',
+    'Round' : 'int_round',
     'AnimationNumber' : 'get_animation',
     'Ceil' : 'ceil',
     'GetMainVolume' : 'media->get_main_volume()',

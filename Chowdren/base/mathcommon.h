@@ -30,7 +30,7 @@ inline double atan2d(double a, double b)
     return deg(atan2(a, b));
 }
 
-inline int round(double d)
+inline int int_round(double d)
 {
     int v = (int)floor(d + 0.5);
     // MMF behaviour - don't ask me

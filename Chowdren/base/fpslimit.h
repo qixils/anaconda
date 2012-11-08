@@ -1,8 +1,9 @@
+#include "include_gl.h"
+
 #ifdef _WIN32
 // apparently, QueryPerformanceCounter sucks on Windows. use timeGetTime!
 
 #include "windows.h"
-#include "include_gl.h"
 
 inline int get_period(int framerate)
 {

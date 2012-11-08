@@ -5,7 +5,14 @@
 #endif
 
 #define Py_PYMATH_H
+
+#if defined(_DEBUG) && defined(FORCE_PYTHON_RELEASE)
+#undef _DEBUG
 #include <Python.h>
+#define _DEBUG
+#else
+#include <Python.h>
+#endif
 
 // macros for event handling
 

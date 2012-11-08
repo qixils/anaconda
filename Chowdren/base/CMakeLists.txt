@@ -21,13 +21,18 @@ endif()
 add_definitions(-DGLEW_STATIC)
 add_executable(Chowdren run.cpp images.cpp image.cpp glew.c 
                include/tinythread/tinythread.cpp assets.cpp)
-find_library(PYTHON_DEBUG_LIB python27_d lib)
 find_package(GLFW REQUIRED)
 find_package(SndFile REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenAL REQUIRED)
 find_package(PythonLibs 2.7 REQUIRED)
+
+message(Checking Python debug)
+if(NOT PYTHON_DEBUG_LIBRARIES)
+    message(Forcing Python release library)
+    add_definitions(-DFORCE_PYTHON_RELEASE)
+endif()
 
 include_directories(${OPENAL_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR})

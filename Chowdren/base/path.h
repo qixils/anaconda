@@ -2,6 +2,7 @@
 #define CHOWDREN_PATH_H
 
 #include <string>
+#include <algorithm>
 
 inline std::string get_app_path()
 {

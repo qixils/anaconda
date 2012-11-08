@@ -6,6 +6,7 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 if(MSVC)
+    include_directories(${PROJECT_SOURCE_DIR}/include/win32)
     # /bigobj is required for Windows because images.h can get too big on
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")

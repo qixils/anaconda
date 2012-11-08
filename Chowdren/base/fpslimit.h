@@ -1,20 +1,10 @@
 #include "include_gl.h"
+#include <iostream>
 
 #ifdef _WIN32
 // apparently, QueryPerformanceCounter sucks on Windows. use timeGetTime!
 
 #include "windows.h"
-
-inline int get_period(int framerate)
-{
-    int period = 50;
-    if (framerate > 10) {
-        period = 1000 / (2 * framerate);
-        if (period < 1)
-            period = 1;
-    }
-    return period;
-};
 
 double chowdren_get_time()
 {
@@ -37,21 +27,17 @@ public:
     FPSLimiter() : framerate(-1)
     {
         old_time = chowdren_get_time();
+        timeBeginPeriod(1);
     }
 
     ~FPSLimiter()
     {
+        timeEndPeriod(1);
         set(-1);
     }
 
     void set(int value)
     {
-#ifdef _WIN32
-        if (framerate != -1)
-            timeEndPeriod(get_period(framerate));
-        if (value != -1)
-            timeBeginPeriod(get_period(value));
-#endif
         framerate = value;
     }
 

@@ -60,7 +60,7 @@ public:
         glDetachShader(program, frag_shader);
 
 
-        if (has_background && background_texture == NULL)
+        if (has_background && background_texture == 0)
             initialize_background_texture();
 
         initialized = true;

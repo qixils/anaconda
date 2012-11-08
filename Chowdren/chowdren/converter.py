@@ -806,7 +806,7 @@ class Converter(object):
             for qualifier in events.qualifiers.values():
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
                 object_names = ['%s::type_id' % self.object_names[item] 
-                    for item in object_infos] + ['NULL']
+                    for item in object_infos] + ['0']
                 class_name = 'qualifier_%s' % qualifier.qualifier
                 frame_file.putln('static unsigned int %s[] = '
                     '{%s};' % (class_name, ', '.join(object_names)), 

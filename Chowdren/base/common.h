@@ -629,7 +629,7 @@ public:
     {
         ObjectList list;
         int index = 0;
-        while (qualifier[index] != NULL) {
+        while (qualifier[index] != 0) {
             ObjectList & b = get_instances(qualifier[index]);
             list.insert(list.end(), b.begin(), b.end());
             index++;
@@ -1525,7 +1525,7 @@ public:
     static std::map<std::string, SectionMap> global_data;
     std::string current_group;
     SectionMap data;
-    std::vector<std::pair<std::string, std::string>> search_results;
+    std::vector<std::pair<std::string, std::string> > search_results;
     bool overwrite;
     bool auto_save;
     std::string filename;
@@ -1661,8 +1661,6 @@ public:
     void set_string(const std::string & group, const std::string & item, 
                     const std::string & value)
     {
-        if (item == std::string("Character Transform"))
-            __debugbreak();
         data[group][item] = value;
         if (auto_save)
             save_file();

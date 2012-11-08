@@ -68,7 +68,7 @@ public:
         return 255 - a;
     }
 
-    int get_int()
+    int get_int() const
     {
         return make_color_int(r, g, b, a);
     }

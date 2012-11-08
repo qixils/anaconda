@@ -47,7 +47,7 @@ public:
     void set_layer(int layer);
     void set_shader(Shader * shader);
     void set_shader_parameter(const std::string & name, double value);
-    void set_shader_parameter(const std::string & name, Color & color);
+    void set_shader_parameter(const std::string & name, const Color & color);
     double get_shader_parameter(const std::string & name);
     void set_level(int index);
     int get_level();

@@ -892,7 +892,7 @@ void FrameObject::set_shader_parameter(const std::string & name, double value)
 }
 
 void FrameObject::set_shader_parameter(const std::string & name,
-                                       Color & color)
+                                       const Color & color)
 {
     set_shader_parameter(name, (double)color.get_int());
 }
@@ -1938,7 +1938,7 @@ public:
         return get_app_path();
     }
 
-    static bool file_exists(std::string & path)
+    static bool file_exists(const std::string & path)
     {
         std::ifstream ifile(path.c_str());
         if (ifile) {
@@ -1948,7 +1948,7 @@ public:
         }
     }
 
-    static void delete_file(std::string & path)
+    static void delete_file(const std::string & path)
     {
         if (remove(path.c_str()) != 0)
             std::cout << "Could not remove " << path << std::endl;

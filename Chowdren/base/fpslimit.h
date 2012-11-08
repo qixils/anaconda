@@ -27,13 +27,16 @@ public:
     FPSLimiter() : framerate(-1)
     {
         old_time = chowdren_get_time();
+#ifdef _WIN32
         timeBeginPeriod(1);
+#endif
     }
 
     ~FPSLimiter()
     {
+#ifdef _WIN32
         timeEndPeriod(1);
-        set(-1);
+#endif
     }
 
     void set(int value)

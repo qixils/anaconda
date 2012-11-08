@@ -1810,7 +1810,7 @@ public:
                     it2++;
                     continue;
                 }
-                it2 = option_map.erase(it2);
+                option_map.erase(it2++);
             }
         }
         if (auto_save)

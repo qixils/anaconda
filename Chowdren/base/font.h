@@ -725,7 +725,7 @@ class FTCleanup
     protected:
         static FTCleanup* _instance;
 
-        FTCleanup::FTCleanup()
+        FTCleanup()
         {
         }
 

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <time.h>
 
 namespace Utility
 {
@@ -38,7 +39,7 @@ namespace Utility
 
     void SetRandomSeedToTimer()
     {
-        srand(GetTickCount());
+        srand(time(NULL));
     }
 
     // Useful Functions
@@ -166,7 +167,7 @@ namespace Utility
 
     float Approach(float Value, float Amount, float Target)
     {
-        return (Value<Target) ? min(Value + Amount, Target) : max(Value - Amount, Target);
+        return (Value<Target) ? std::min<float>(Value + Amount, Target) : std::max<float>(Value - Amount, Target);
     }
 
     // Integer versions of the float expressions

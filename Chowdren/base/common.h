@@ -1802,14 +1802,15 @@ public:
         for (it1 = data.begin(); it1 != data.end(); it1++) {
             if (!match_wildcard(group, (*it1).first))
                 continue;
-            it2 = (*it1).second.begin();
-            while (it2 != (*it1).second.end()) {
+            OptionMap & option_map = (*it1).second;
+            it2 = option_map.begin();
+            while (it2 != option_map.end()) {
                 if (!match_wildcard(item, (*it2).first) || 
                     !match_wildcard(value, (*it2).second)) {
                     it2++;
                     continue;
                 }
-                it2 = (*it1).second.erase(it2);
+                it2 = option_map.erase(it2);
             }
         }
         if (auto_save)

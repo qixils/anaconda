@@ -1,9 +1,9 @@
 cmake_minimum_required (VERSION 2.6)
 
 project(Chowdren)
-SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-
-include_directories(${PROJECT_SOURCE_DIR}/include)
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${PROJECT_SOURCE_DIR}/lib")
+include_directories("${PROJECT_SOURCE_DIR}/include")
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/include/win32)

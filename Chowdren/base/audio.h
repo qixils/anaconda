@@ -55,7 +55,10 @@ void _al_check(const std::string& file, unsigned int line)
         std::cerr << "An internal OpenAL call failed in "
             << file.substr(file.find_last_of("\\/") + 1) << " (" << line <<
             ") : " << error << ", " << description << std::endl;
+#ifdef _WIN32
+        // let's debug on Windows
         __debugbreak();
+#endif
     }
 }
 

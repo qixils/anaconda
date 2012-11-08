@@ -2292,47 +2292,34 @@ ImageCache ActivePicture::image_cache;
 
 // event helpers
 
-class PowHelper
+struct MathHelper
 {
-public:
     double lhs;
-
-    PowHelper()
-    {
-    }
 };
 
-PowHelper & operator*(double lhs, PowHelper& rhs)
+MathHelper & operator*(double lhs, MathHelper& rhs)
 {
     rhs.lhs = lhs;
     return rhs;
 }
 
-double operator*(const PowHelper& lhs, double rhs)
+double operator*(const MathHelper& lhs, double rhs)
 {
     return pow(lhs.lhs, rhs);
 }
 
-class ModulusHelper
-{
-public:
-    double lhs;
-
-    ModulusHelper()
-    {
-    }
-};
-
-ModulusHelper & operator%(double lhs, ModulusHelper& rhs)
+MathHelper & operator%(double lhs, MathHelper& rhs)
 {
     rhs.lhs = lhs;
     return rhs;
 }
 
-double operator%(const ModulusHelper& lhs, double rhs)
+double operator%(const MathHelper& lhs, double rhs)
 {
     return fmod(lhs.lhs, rhs);
 }
+
+static MathHelper math_helper;
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {

@@ -30,8 +30,8 @@ void Image::load()
 {
     if (image != NULL)
         return;
-    load_filename(get_assets_folder() + 
-                  "/images/" + number_to_string(handle) + ".png");
+    load_filename(
+        get_assets_folder() + "/" + number_to_string(handle) + ".png");
 }
 
 void Image::load_filename(const std::string & filename, Color * color)

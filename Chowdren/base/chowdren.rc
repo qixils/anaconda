@@ -1,0 +1,26 @@
+#include "resource.h"
+
+GLFW_ICON ICON "icon.ico"
+
+1 VERSIONINFO
+FILEVERSION {version_number}
+PRODUCTVERSION {version_number}
+FILEOS 0x00040004L
+FILETYPE 0x00000001L
+{{
+    BLOCK "StringFileInfo"
+    {{
+        BLOCK "040904E4"
+        {{
+            VALUE "CompanyName", "{company}\0"
+            VALUE "FileDescription", "{description}\0"
+            VALUE "FileVersion", "{version}\0"
+            VALUE "LegalCopyright", "{copyright}\0"
+        }}
+    }}
+
+    BLOCK "VarFileInfo"
+    {{
+        VALUE "Translation", 1033, 1252
+    }}
+}}

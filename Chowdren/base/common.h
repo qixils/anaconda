@@ -30,6 +30,7 @@
 #include "color.h"
 #include "mathcommon.h"
 #include "assets.h"
+#include "path.h"
 
 std::string newline_character("\r\n");
 
@@ -43,18 +44,6 @@ int randrange(int range)
 bool random_chance(int a, int b)
 {
     return randrange(b) < a;
-}
-
-std::string get_app_path()
-{
-    return "./";
-}
-
-std::string convert_path(std::string value)
-{
-    std::string new_str = value;
-    std::replace(new_str.begin(), new_str.end(), '\\', '/');
-    return new_str;
 }
 
 int pick_random(int count, ...)
@@ -1676,8 +1665,7 @@ public:
     {
         if (!merge)
             reset();
-        std::string filename = convert_path(fn);
-        this->filename = filename;
+        filename = convert_path(fn);
         std::cout << "Loading " << filename << " (" << name << ")" << std::endl;
         int e = ini_parse_file(filename.c_str(), _parse_handler, this);
         if (e != 0) {
@@ -1715,9 +1703,9 @@ public:
         }
     }
 
-    void save_file(const std::string & filename)
+    void save_file(const std::string & fn)
     {
-        this->filename = filename;
+        filename = convert_path(fn);
         std::stringstream out;
         get_data(out);
         std::ofstream fp;
@@ -1940,7 +1928,7 @@ public:
 
     static bool file_exists(const std::string & path)
     {
-        std::ifstream ifile(path.c_str());
+        std::ifstream ifile(convert_path(path).c_str());
         if (ifile) {
             return true;
         } else {
@@ -1950,7 +1938,7 @@ public:
 
     static void delete_file(const std::string & path)
     {
-        if (remove(path.c_str()) != 0)
+        if (remove(convert_path(path).c_str()) != 0)
             std::cout << "Could not remove " << path << std::endl;
     }
 };
@@ -2009,7 +1997,7 @@ public:
 
     void load_workspaces(const std::string & filename)
     {
-        std::ifstream fp(filename.c_str(), std::ios::binary);
+        std::ifstream fp(convert_path(filename).c_str(), std::ios::binary);
         stream.set_stream(fp);
         Workspace * workspace;
         while (!stream.at_end()) {
@@ -2049,7 +2037,7 @@ public:
 
     void load_file(const std::string & filename)
     {
-        std::ifstream fp(filename.c_str(), std::ios::binary);
+        std::ifstream fp(convert_path(filename).c_str(), std::ios::binary);
         current->data << fp.rdbuf();
         fp.close();
     }
@@ -2194,8 +2182,9 @@ public:
         collision = new SpriteCollision(this, NULL);
     }
 
-    void load(const std::string & filename)
+    void load(const std::string & fn)
     {
+        std::string filename = convert_path(fn);
         ImageCache::const_iterator it = image_cache.find(filename);
         if (it == image_cache.end()) {
             std::cout << "Cached new image: " << filename << " (" <<

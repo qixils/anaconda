@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "filecommon.h"
 #include <fstream>
+#include "path.h"
 
 double clamp_sound(double val)
 {
@@ -185,7 +186,7 @@ public:
     void play(const std::string & filename, int channel = -1, int loop = 1)
     {
         // std::cout << "Playing: " << filename << std::endl;
-        SoundFile data(filename);
+        SoundFile data(convert_path(filename));
         play(data, channel, loop);
     }
 
@@ -263,8 +264,9 @@ public:
         return (channel >= 0 && channel < 32);
     }
 
-    void add_file(const std::string & name, const std::string & filename)
+    void add_file(const std::string & name, const std::string & fn)
     {
+        std::string filename = convert_path(fn);
         SoundMap::const_iterator it = sounds.find(name);
         if (it != sounds.end()) {
             delete it->second;

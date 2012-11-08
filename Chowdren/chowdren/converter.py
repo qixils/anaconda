@@ -425,7 +425,8 @@ class EventGroup(object):
 class Converter(object):
     iterated_object = None
     debug = False
-    def __init__(self, filename, outdir, images_dir = 'images'):
+    def __init__(self, filename, outdir, images_dir = 'images', win_ico = None,
+                 company = None, version = None, copyright = None):
         self.filename = filename
         self.outdir = outdir
 
@@ -446,6 +447,19 @@ class Converter(object):
         
         # shutil.rmtree(outdir, ignore_errors = True)
         copytree(os.path.join(os.getcwd(), 'base'), outdir)
+
+        # application info
+        company = company or game.author
+        version = version or '1.0.0.0'
+        version_number = ', '.join(version.split('.'))
+        copyright = copyright or game.author
+        print repr((company, version, copyright, game.name))
+        res_path = self.get_filename('chowdren.rc')
+        res_data = open(res_path, 'rb').read()
+        res_data = res_data.format(company = company, version = version, 
+            copyright = copyright, description = game.name,
+            version_number = version_number)
+        open(res_path, 'wb').write(res_data)
         
         # fonts
         if WRITE_FONTS:

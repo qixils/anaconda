@@ -2,11 +2,14 @@ cmake_minimum_required (VERSION 2.6)
 
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${PROJECT_SOURCE_DIR}/lib")
 include_directories("${PROJECT_SOURCE_DIR}/include")
+set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "${PROJECT_SOURCE_DIR}/include")
 
 if(MSVC)
-    include_directories(${PROJECT_SOURCE_DIR}/include/win32)
+    set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} 
+        "${PROJECT_SOURCE_DIR}/lib/win32")
+    set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} 
+        "${PROJECT_SOURCE_DIR}/include/win32")
     # /bigobj is required for Windows because images.h can get too big on
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")

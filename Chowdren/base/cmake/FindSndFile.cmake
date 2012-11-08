@@ -25,7 +25,7 @@ find_path(SNDFILE_INCLUDE_DIR
 
 find_library(SNDFILE_LIBRARY
     NAMES
-      sndfile sndfile-1
+      sndfile sndfile-1 libsndfile-1
     PATHS
       /usr/lib
       /usr/local/lib

@@ -2343,21 +2343,18 @@ bool check_overlap(ObjectList in_a, ObjectList in_b,
             out_b.push_back(f2);
         }
     }
-    return true;
+    return ret;
 }
 
 bool check_not_overlap(ObjectList in_a, ObjectList in_b)
 {
     ObjectList::const_iterator item1, item2;
-    bool ret = false;
     for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        bool added = false;
         for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
             FrameObject * f1 = (*item1);
             FrameObject * f2 = (*item2);
             if (f1->overlaps(f2))
                 return false;
-                continue;
         }
     }
     return true;

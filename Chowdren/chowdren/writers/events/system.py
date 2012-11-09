@@ -376,7 +376,11 @@ class JumpToFrame(ActionWriter):
 class SetEffect(ActionWriter):
     def write(self, writer):
         name = self.parameters[0].loader.value
-        writer.put('set_shader(&%s);' % shader.get_name(name))
+        if name == '':
+            shader_name = 'NULL'
+        else:
+            shader_name = '&%s' % shader.get_name(name)
+        writer.put('set_shader(%s);' % shader_name)
 
 # expressions
 

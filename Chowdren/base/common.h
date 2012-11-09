@@ -124,6 +124,8 @@ inline std::string lowercase_string(std::string v)
 
 inline std::string mid_string(const std::string & v, size_t index, size_t count)
 {
+    if (index > v.size())
+        return "";
     return v.substr(index, count);
 }
 
@@ -467,11 +469,7 @@ public:
             FrameObject * item = (*iter);
             if (!item->visible)
                 continue;
-            if (item->shader != NULL)
-                item->shader->begin(item);
             item->draw();
-            if (item->shader != NULL)
-                item->shader->end(item);
         }
     }
 };
@@ -768,6 +766,20 @@ FrameObject::~FrameObject()
     delete values;
     delete strings;
     delete shader_parameters;
+}
+
+void FrameObject::draw_image(Image * img, double x, double y, double angle,
+                             double x_scale, double y_scale, bool flip_x,
+                             bool flip_y)
+{
+    GLuint back_tex = 0;
+    if (shader != NULL) {
+        shader->begin(this, img);
+        back_tex = shader->get_background_texture();
+    }
+    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex);
+    if (shader != NULL)
+        shader->end(this);
 }
 
 void FrameObject::set_position(int x, int y)
@@ -1136,7 +1148,7 @@ public:
         int old_frame = animation_frame;
         while (counter > 100) {
             animation_frame++;
-            if (animation_frame >= dir->frames.size()) {
+            if (animation_frame >= (int)dir->frames.size()) {
                 if (!dir->repeat)
                     animation_frame--;
                 else
@@ -1156,10 +1168,7 @@ public:
             return;
         }
         blend_color.apply();
-        GLuint back_tex = 0;
-        if (shader != NULL)
-            back_tex = shader->get_background_texture();
-        img->draw(x, y, angle, x_scale, y_scale, false, false, back_tex);
+        draw_image(img, x, y, angle, x_scale, y_scale, false, false);
     }
 
     inline Image * get_image()
@@ -1171,7 +1180,7 @@ public:
         }
         const DirectionArray & dirs = it->second.dirs;
         const Direction * dir = dirs[get_animation_direction()];
-        if (get_frame() >= dir->frames.size()) {
+        if (get_frame() >= (int)dir->frames.size()) {
             std::cout << "Invalid frame: " << get_frame() << " " <<
                 dir->frames.size() << " " <<
                 "(" << name << ")" << std::endl;
@@ -2184,26 +2193,26 @@ public:
 
     void load(const std::string & fn)
     {
-        std::string filename = convert_path(fn);
+        filename = convert_path(fn);
         ImageCache::const_iterator it = image_cache.find(filename);
         if (it == image_cache.end()) {
-            std::cout << "Cached new image: " << filename << " (" <<
-                name << ")" << std::endl;
             Color * transparent = NULL;
             if (has_transparent_color)
                 transparent = &transparent_color;
             image = new Image(filename, 0, 0, 0, 0, transparent);
-            if (image->image == 0) {
+            if (image->image == NULL) {
                 delete image;
                 image = NULL;
-            } else
+            } else {
+                std::cout << "Cached new image: " << filename << " (" <<
+                    name << ")" << std::endl;
                 image_cache[filename] = image;
+            }
         } else {
             image = it->second;
         }
         if (image != NULL)
             collision->set_image(image);
-        this->filename = filename;
     }
 
     void set_transparent_color(const Color & color)
@@ -2246,12 +2255,26 @@ public:
         angle = value;
     }
 
+    int get_width()
+    {
+        if (image == NULL)
+            return 0;
+        return image->width;
+    }
+
+    int get_height()
+    {
+        if (image == NULL)
+            return 0;
+        return image->height;
+    }
+
     void draw()
     {
         if (image == NULL)
             return;
         blend_color.apply();
-        image->draw(x, y, angle, scale_x, scale_y, horizontal_flip);
+        draw_image(image, x, y, angle, scale_x, scale_y, horizontal_flip);
     }
 
     CollisionBase * get_collision()

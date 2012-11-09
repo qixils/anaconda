@@ -162,6 +162,12 @@ public:
 
     void get_box(int v[4])
     {
+        if (image == NULL) {
+            v[0] = v[2] = instance->x;
+            v[1] = v[3] = instance->y;
+            return;
+        }
+
         int h_x, h_y;
         if (transform) {
             h_x = hotspot_x;
@@ -230,8 +236,8 @@ public:
         }
         int new_x = int(x * x_scale * co + y * y_scale * si);
         int new_y = int(y * y_scale * co - x * x_scale * si);
-        r_x = -(x1 - x);
-        r_y = -(y1 - y);
+        r_x = -(x1 - new_x);
+        r_y = -(y1 - new_y);
     }
 
     bool get_bit(int x, int y)

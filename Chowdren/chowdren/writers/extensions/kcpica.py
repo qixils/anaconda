@@ -49,8 +49,8 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    1 : '.image->width',
-    2 : '.image->height',
+    1 : 'get_width()',
+    2 : 'get_height()',
     9 : '.angle',
     13 : '.scale_x'
 })

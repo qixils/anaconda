@@ -1,3 +1,6 @@
+#ifndef CHOWDREN_IMAGE_H
+#define CHOWDREN_IMAGE_H
+
 #include <string>
 #include "include_gl.h"
 #include "color.h"
@@ -23,3 +26,5 @@ public:
               bool flip_x = false, bool flip_y = false, GLuint back = 0);
     unsigned int & get(int x, int y);
 };
+
+#endif // CHOWDREN_IMAGE_H

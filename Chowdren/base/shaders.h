@@ -1,6 +1,7 @@
 #include "include_gl.h"
 #include "frameobject.h"
 #include "filecommon.h"
+#include "image.h"
 
 static GLuint background_texture = 0;
 
@@ -17,7 +18,7 @@ void initialize_background_texture()
 class Shader
 {
 public:
-    virtual void begin(FrameObject * instance) {}
+    virtual void begin(FrameObject * instance, Image * image) {}
     virtual void end(FrameObject * instance) {}
     virtual GLuint get_background_texture()
     {
@@ -106,7 +107,7 @@ public:
         return shader;
     }
 
-    void begin(FrameObject * instance)
+    void begin(FrameObject * instance, Image * image)
     {
         if (!initialized)
             initialize();
@@ -119,13 +120,14 @@ public:
         if (has_background) {
             glUniform1i(get_uniform("texture"), 0);
             glUniform1i(get_uniform("background_texture"), 1);
+            glUniform2f(get_uniform("texture_size"), image->width, 
+                                                     image->height);
             glBindTexture(GL_TEXTURE_2D, background_texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                 GL_UNSIGNED_BYTE, 0);
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 
                 box[0], WINDOW_HEIGHT - box[3], width, height);
         }
-        glUniform2f(get_uniform("texture_size"), width, height);
         GLenum error = glGetError();
         if (error != GL_NO_ERROR)
             std::cout << "OpenGL error: " << error << std::endl;
@@ -171,7 +173,7 @@ public:
 class SubtractShader : public Shader
 {
 public:
-    void begin(FrameObject * instance)
+    void begin(FrameObject * instance, Image * image)
     {
         glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
         glBlendFunc(GL_DST_COLOR, GL_ONE);
@@ -187,7 +189,7 @@ public:
 class AdditiveShader : public Shader
 {
 public:
-    void begin(FrameObject * instance)
+    void begin(FrameObject * instance, Image * image)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     }

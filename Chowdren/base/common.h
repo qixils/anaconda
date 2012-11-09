@@ -1131,8 +1131,12 @@ public:
 
         img->load();
         collision->set_image(img);
-        width = collision->width;
-        height = collision->height;
+        update_action_point();
+    }
+
+    void update_action_point()
+    {
+        Image * img = get_image();
         collision->get_transform(img->action_x, img->action_y, 
                                  action_x, action_y);
         action_x -= collision->hotspot_x;
@@ -1203,6 +1207,7 @@ public:
     {
         this->angle = angle;
         collision->set_angle(angle);
+        update_action_point();
     }
 
     double get_angle()
@@ -1264,7 +1269,7 @@ public:
     {
         set_x_scale(scale);
         set_y_scale(scale);
-        collision->set_scale(scale);
+        update_action_point();
     }
 
     void set_x_scale(double value)

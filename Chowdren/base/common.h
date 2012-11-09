@@ -1274,7 +1274,7 @@ public:
     {
         Image * img = get_image();
         frame->layers[layer_index]->paste(img, 
-            x-collision->hotspot_x, y-collision->hotspot_y, 0, 0, 
+            x-img->hotspot_x, y-img->hotspot_y, 0, 0, 
             img->width, img->height, collision_type);
     }
 
@@ -2322,30 +2322,45 @@ inline ObjectList make_single_list(FrameObject * item)
 }
 
 bool check_overlap(ObjectList in_a, ObjectList in_b, 
-                   ObjectList & out_a, ObjectList & out_b,
-                   bool negated)
+                   ObjectList & out_a, ObjectList & out_b)
 {
     out_a.clear();
     out_b.clear();
     ObjectList::const_iterator item1, item2;
-    bool added;
     bool ret = false;
     for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        added = false;
+        bool added = false;
         for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
             FrameObject * f1 = (*item1);
             FrameObject * f2 = (*item2);
-            if ((*item1)->overlaps((*item2)) == negated)
+            if (!f1->overlaps(f2))
                 continue;
             ret = true;
             if (!added) {
                 added = true;
-                out_a.push_back((*item1));
+                out_a.push_back(f1);
             }
-            out_b.push_back((*item2));
+            out_b.push_back(f2);
         }
     }
-    return ret;
+    return true;
+}
+
+bool check_not_overlap(ObjectList in_a, ObjectList in_b)
+{
+    ObjectList::const_iterator item1, item2;
+    bool ret = false;
+    for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
+        bool added = false;
+        for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
+            FrameObject * f1 = (*item1);
+            FrameObject * f2 = (*item2);
+            if (f1->overlaps(f2))
+                return false;
+                continue;
+        }
+    }
+    return true;
 }
 
 void pick_random(ObjectList & instances)

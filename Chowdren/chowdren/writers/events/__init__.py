@@ -42,6 +42,9 @@ class ConditionWriter(ACBase):
     def write(self, writer):
         raise NotImplementedError()
 
+    def is_negated(self):
+        return self.data.otherFlags['Not']
+
     def get_comparison(self):
         return COMPARISONS[self.parameters[-1].loader.comparison]
 

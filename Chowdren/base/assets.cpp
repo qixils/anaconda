@@ -2,7 +2,7 @@
 #include <iostream>
 #include "path.h"
 
-static std::string assets_folder = std::string(".");
+static std::string assets_folder = std::string("./images");
 
 const std::string & get_assets_folder()
 {

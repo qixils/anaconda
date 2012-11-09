@@ -70,18 +70,26 @@ class IsOverlapping(ConditionWriter):
         object_info = data.objectInfo
         other_info = data.items[0].loader.objectInfo
         converter = self.converter
-        selected_name = converter.get_list_name(converter.get_object_name(
-            object_info))
-        other_selected = converter.get_list_name(converter.get_object_name(
-            other_info))
-        writer.put(to_c(
-            'check_overlap(%s, %s, %s, %s, %s)',
-            converter.get_object(object_info, True), 
-            converter.get_object(other_info, True), 
-            selected_name, other_selected,
-            negated))
-        converter.set_list(object_info, selected_name)
-        converter.set_list(other_info, other_selected)
+        if negated:
+            writer.put(to_c(
+                'check_not_overlap(%s, %s)',
+                converter.get_object(object_info, True), 
+                converter.get_object(other_info, True)))
+        else:
+            selected_name = converter.get_list_name(converter.get_object_name(
+                object_info))
+            other_selected = converter.get_list_name(converter.get_object_name(
+                other_info))
+            writer.put(to_c(
+                'check_overlap(%s, %s, %s, %s)',
+                converter.get_object(object_info, True), 
+                converter.get_object(other_info, True), 
+                selected_name, other_selected))
+            converter.set_list(object_info, selected_name)
+            converter.set_list(other_info, other_selected)
+
+    def is_negated(self):
+        return False
 
 class MouseOnObject(ConditionWriter):
     def get_object(self):

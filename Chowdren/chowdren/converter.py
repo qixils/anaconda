@@ -1047,7 +1047,7 @@ class Converter(object):
                 if condition_writer.custom:
                     condition_writer.write(writer)
                     continue
-                negated = not condition_writer.data.otherFlags['Not']
+                negated = not condition_writer.is_negated()
                 object_name = None
                 has_multiple = False
                 object_info, object_type = condition_writer.get_object()

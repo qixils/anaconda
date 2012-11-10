@@ -1267,8 +1267,8 @@ public:
 
     void set_scale(double scale)
     {
-        set_x_scale(scale);
-        set_y_scale(scale);
+        x_scale = y_scale = scale;
+        collision->set_scale(scale);
         update_action_point();
     }
 
@@ -1276,12 +1276,14 @@ public:
     {
         x_scale = value;
         collision->set_x_scale(value);
+        update_action_point();
     }
 
     void set_y_scale(double value)
     {
         y_scale = value;
         collision->set_y_scale(value);
+        update_action_point();
     }
 
     void paste(int collision_type)
@@ -2254,10 +2256,20 @@ public:
         scale_x = scale_y = value;
     }
 
+    void set_zoom(double value)
+    {
+        set_scale(value / 100.0);
+    }
+
     void set_angle(double value)
     {
         collision->set_angle(value);
         angle = value;
+    }
+
+    double get_zoom_x()
+    {
+        return scale_x * 100.0;
     }
 
     int get_width()

@@ -41,7 +41,7 @@ actions = make_table(ActionMethodWriter, {
     26 : 'paste',
     15 : 'flip_horizontal',
     4 : 'set_angle',
-    29 : 'set_scale(%s / 100.0)'
+    29 : 'set_zoom'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -52,7 +52,7 @@ expressions = make_table(ExpressionMethodWriter, {
     1 : 'get_width()',
     2 : 'get_height()',
     9 : '.angle',
-    13 : '.scale_x'
+    13 : 'get_zoom_x()'
 })
 
 def get_object():

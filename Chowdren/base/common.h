@@ -585,12 +585,11 @@ public:
 
     void draw() 
     {
-        int window_width, window_height;
-        glfwGetWindowSize(&window_width, &window_height);
-        glViewport(0, 0, window_width, window_height);
+        // first, draw the actual window contents
+        glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glOrtho(0, window_width, window_height, 0, -1, 1);
+        glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glClearColor(background_color.r / 255.0f, background_color.g / 255.0f, 
                      background_color.b / 255.0f, 1.0f);
@@ -706,9 +705,8 @@ public:
 
     void get_mouse_pos(int * x, int * y)
     {
-        glfwGetMousePos(x, y);
-        (*x) += off_x;
-        (*y) += off_y;
+        (*x) = manager->mouse_x + off_x;
+        (*y) = manager->mouse_y + off_y;
     }
 
     int get_mouse_x()
@@ -2418,16 +2416,6 @@ void set_cursor_visible(bool value)
         glfwEnable(GLFW_MOUSE_CURSOR);
     else
         glfwDisable(GLFW_MOUSE_CURSOR);
-}
-
-void set_fullscreen(bool value)
-{
-    // std::cout << "Set fullscreen: " << value << std::endl;
-}
-
-bool is_fullscreen()
-{
-    return false;
 }
 
 std::string get_platform()

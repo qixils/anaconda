@@ -36,7 +36,6 @@ import platform
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-WRITE_CONFIG = True
 
 # enabled for porting
 NATIVE_EXTENSIONS = False
@@ -681,7 +680,7 @@ class Converter(object):
             self.system_object = SystemObject(self)
             object_writers.append(self.system_object)
 
-            for instance in frame.instances.items:
+            for instance in getattr(frame.instances, 'items', ()):
                 frameitem = instance.getObjectInfo(game.frameItems)
                 try:
                     object_writers.append(self.all_objects[frameitem.handle])
@@ -910,51 +909,60 @@ class Converter(object):
                     frame.name, generated_groups)
 
         # general configuration
-        if WRITE_CONFIG:
-            header = game.header
-            config_file = self.open_code('config.h')
-            config_file.putdefine('NAME', game.name)
-            config_file.putdefine('COPYRIGHT', game.copyright)
-            config_file.putdefine('ABOUT', game.aboutText)
-            config_file.putdefine('AUTHOR', game.author)
-            config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
-            config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+        header = game.header
+        config_file = self.open_code('config.h')
+
+        # small hack to make applications with Ultimate Fullscreen not open
+        # a window before "Make Fullscreen" or "Make Windowed" are called
+        # explicitly.
+        extension_names = set([item.name for item in  game.extensions.items])
+        if 'ultimatefullscreen' not in extension_names:
+            config_file.putln('#define CHOWDREN_STARTUP_WINDOW')
             config_file.putln('')
-            config_file.putln('#include "common.h"')
-            frame_classes = []
-            for frame_index in processed_frames:
-                frame_class_name = 'Frame%s' % frame_index
-                frame_classes.append(frame_class_name)
-                config_file.putln('#include "frame%s.h"' % frame_index)
-            config_file.putln('')
-            # config_file.putdef('BORDER_COLOR', header.borderColor)
-            # config_file.putdefine('START_LIVES', header.initialLives)
-            config_file.putln('')
-            config_file.putln('static Frame ** frames = NULL;')
-            config_file.putmeth('Frame ** get_frames', 'GameManager * manager')
-            config_file.putln('if (frames) return frames;')
 
-            config_file.putln('frames = new Frame*[%s];' % len(frame_classes))
+        config_file.putdefine('NAME', game.name)
+        config_file.putdefine('COPYRIGHT', game.copyright)
+        config_file.putdefine('ABOUT', game.aboutText)
+        config_file.putdefine('AUTHOR', game.author)
+        config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
+        config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
 
-            for i, frame in enumerate(frame_classes):
-                config_file.putln('frames[%s] = new %s(manager);' % (i, frame))
+        config_file.putln('')
+        config_file.putln('#include "common.h"')
+        frame_classes = []
+        for frame_index in processed_frames:
+            frame_class_name = 'Frame%s' % frame_index
+            frame_classes.append(frame_class_name)
+            config_file.putln('#include "frame%s.h"' % frame_index)
+        config_file.putln('')
+        # config_file.putdef('BORDER_COLOR', header.borderColor)
+        # config_file.putdefine('START_LIVES', header.initialLives)
+        config_file.putln('')
+        config_file.putln('static Frame ** frames = NULL;')
+        config_file.putmeth('Frame ** get_frames', 'GameManager * manager')
+        config_file.putln('if (frames) return frames;')
 
-            config_file.putln('return frames;')
+        config_file.putln('frames = new Frame*[%s];' % len(frame_classes))
 
-            config_file.end_brace()
+        for i, frame in enumerate(frame_classes):
+            config_file.putln('frames[%s] = new %s(manager);' % (i, frame))
 
-            config_file.putmeth('void setup_globals',
-                'GlobalValues * values', 'GlobalStrings * strings')
-            if game.globalValues:
-                for index, value in enumerate(game.globalValues.items):
-                    config_file.putln('values->set(%s, %s);' % (index, value))
-            if game.globalStrings:
-                for index, value in enumerate(game.globalStrings.items):
-                    config_file.putln(to_c('strings->set(%s, %r);', index, 
-                        value))
-            config_file.end_brace()
+        config_file.putln('return frames;')
 
-            config_file.close()
+        config_file.end_brace()
+
+        config_file.putmeth('void setup_globals',
+            'GlobalValues * values', 'GlobalStrings * strings')
+        if game.globalValues:
+            for index, value in enumerate(game.globalValues.items):
+                config_file.putln('values->set(%s, %s);' % (index, value))
+        if game.globalStrings:
+            for index, value in enumerate(game.globalStrings.items):
+                config_file.putln(to_c('strings->set(%s, %r);', index, 
+                    value))
+        config_file.end_brace()
+
+        config_file.close()
 
         fp.close()
 

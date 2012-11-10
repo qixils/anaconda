@@ -544,7 +544,7 @@ class Converter(object):
             try:
                 object_writer = self.get_object_writer(object_type)(
                     self, frameitem)
-            except (KeyError, AttributeError):
+            except (KeyError, AttributeError, NotImplementedError):
                 print 'not implemented:', repr(frameitem.name), object_type, 
                 print handle
                 continue
@@ -810,8 +810,8 @@ class Converter(object):
             for k, v in containers.iteritems():
                 if k not in changed_containers:
                     if v.inactive:
-                        print v.name, 'is weird'
-                        raise NotImplementedError
+                        print v.name, 'is never activated!'
+                        continue
                     v.is_static = True
 
             self.qualifiers = {}
@@ -859,8 +859,13 @@ class Converter(object):
                     not layer.flags['ToHide']))
 
             for instance, frameitem in startup_instances:
-                frame_file.putln('add_object(new %s(%s, %s), %s);' %
-                    (self.object_names[frameitem.handle], instance.x, 
+                object_writer = self.all_objects[frameitem.handle]
+                if object_writer.is_background():
+                    method = 'add_background_object'
+                else:
+                    method = 'add_object'
+                frame_file.putln('%s(new %s(%s, %s), %s);' %
+                    (method, self.object_names[frameitem.handle], instance.x, 
                     instance.y, instance.layer))
 
             for object_writer in object_writers:

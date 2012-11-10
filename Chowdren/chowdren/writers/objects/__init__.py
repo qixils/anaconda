@@ -9,6 +9,10 @@ class ObjectWriter(BaseWriter):
     def __init__(self, *arg, **kw):
         BaseWriter.__init__(self, *arg, **kw)
         self.common = self.data.properties.loader
+        self.initialize()
+
+    def initialize(self):
+        pass
 
     def write_pre(self, writer):
         pass
@@ -56,3 +60,6 @@ class ObjectWriter(BaseWriter):
             return self.common.newFlags['VisibleAtStart']
         except (AttributeError, KeyError):
             return True
+
+    def is_background(self):
+        return self.common.isBackground()

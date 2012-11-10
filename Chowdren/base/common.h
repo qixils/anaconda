@@ -376,6 +376,7 @@ class Layer
 {
 public:
     ObjectList instances;
+    ObjectList background_instances;
     bool visible;
     double scroll_x, scroll_y;
     Background * back;
@@ -386,6 +387,22 @@ public:
       index(index)
     {
 
+    }
+
+    ~Layer()
+    {
+        delete back;
+
+        // layers are in charge of deleting background instances
+        for (ObjectList::const_iterator iter = background_instances.begin(); 
+             iter != background_instances.end(); iter++) {
+            delete (*iter);
+        }
+    }
+
+    void add_background_object(FrameObject * instance)
+    {
+        background_instances.push_back(instance);
     }
 
     void add_object(FrameObject * instance)
@@ -464,6 +481,16 @@ public:
         if (back != NULL)
             back->draw();
 
+        // draw backgrounds
+        for (ObjectList::const_iterator iter = background_instances.begin(); 
+             iter != background_instances.end(); iter++) {
+            FrameObject * item = (*iter);
+            if (!item->visible)
+                continue;
+            item->draw();
+        }
+
+        // draw active instances
         for (ObjectList::const_iterator iter = instances.begin(); 
              iter != instances.end(); iter++) {
             FrameObject * item = (*iter);
@@ -651,6 +678,13 @@ public:
         instances.push_back(object);
         instance_classes[object->id].push_back(object);
         layers[layer_index]->add_object(object);
+    }
+
+    void add_background_object(FrameObject * object, int layer_index)
+    {
+        object->frame = this;
+        object->layer_index = layer_index;
+        layers[layer_index]->add_background_object(object);
     }
 
     ObjectList create_object(FrameObject * object, int layer_index)
@@ -1430,6 +1464,31 @@ public:
     {
         glColor4f(1.0, 1.0, 1.0, 1.0);
         image->draw(x, y);
+    }
+};
+
+class QuickBackdrop : public FrameObject
+{
+public:
+    Color color;
+
+    QuickBackdrop(const Color & color, int width, int height, 
+                  std::string name, int x, int y, int type_id) 
+    : FrameObject(name, x, y, type_id), color(color)
+    {
+        this->width = width;
+        this->height = height;
+    }
+
+    void draw()
+    {
+        glColor4ub(color.r, color.g, color.b, blend_color.a);
+        glBegin(GL_QUADS);
+        glVertex2f(x, y);
+        glVertex2f(x + width, y);
+        glVertex2f(x + width, y + height);
+        glVertex2f(x, y + height);
+        glEnd();
     }
 };
 

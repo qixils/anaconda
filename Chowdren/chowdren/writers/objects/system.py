@@ -49,9 +49,28 @@ class Active(ObjectWriter):
 
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'
+    def get_parameters(self):
+        if self.common.getObstacleType() != 'None':
+            raise NotImplementedError
+        return [get_image_name(self.common.image)]
+
+class QuickBackdrop(ObjectWriter):
+    class_name = 'QuickBackdrop'
+
+    def initialize(self):
+        if self.common.getObstacleType() != 'None':
+            raise NotImplementedError
+        shape = self.common.shape
+        if shape.getShape() != 'Rectangle':
+            raise NotImplementedError
+        if shape.getFill() != 'Solid':
+            raise NotImplementedError
+        if shape.borderSize != 0:
+            raise NotImplementedError
 
     def get_parameters(self):
-        return [get_image_name(self.common.image)]
+        shape = self.common.shape
+        return [make_color(shape.color1), self.common.width, self.common.height]
         # objects_file.putln('const static int obstacle_type = %s;' % 
         #     common.getObstacleType())
         # objects_file.putdef('collision_mode', 
@@ -60,6 +79,10 @@ class Backdrop(ObjectWriter):
 
 class Text(ObjectWriter):
     class_name = 'Text'
+
+    def initialize(self):
+        if self.is_background():
+            raise NotImplementedError
 
     def write_init(self, writer):
         text = self.common.text
@@ -126,6 +149,7 @@ system_objects = {
     TEXT : Text,
     ACTIVE : Active,
     BACKDROP : Backdrop,
+    QUICKBACKDROP : QuickBackdrop,
     COUNTER : Counter,
     # SUBAPPLICATION : 'SubApplication',
 }

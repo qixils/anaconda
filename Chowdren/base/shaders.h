@@ -120,8 +120,8 @@ public:
         if (has_background) {
             glUniform1i(get_uniform("texture"), 0);
             glUniform1i(get_uniform("background_texture"), 1);
-            glUniform2f(get_uniform("texture_size"), image->width, 
-                                                     image->height);
+            glUniform2f(get_uniform("texture_size"), 1.0f / image->width, 
+                                                     1.0f / image->height);
             glBindTexture(GL_TEXTURE_2D, background_texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                 GL_UNSIGNED_BYTE, 0);
@@ -243,6 +243,18 @@ public:
     }
 };
 
+class DodgeBlurShader : public GLSLShader
+{
+public:
+    DodgeBlurShader() : GLSLShader("dodgeblur", true) {}
+
+    void set_parameters(FrameObject * instance) 
+    {
+        set_float(instance, "vertical");
+        set_float(instance, "radius");
+    }
+};
+
 static SubtractShader subtract_shader;
 static AdditiveShader additive_shader;
 static MonochromeShader monochrome_shader;
@@ -251,4 +263,4 @@ static HueShader hue_shader;
 static Shader dummy_shader;
 static Shader blend_shader;
 static OffsetShader offset_shader;
-static Shader dodgeblur_shader;
+static DodgeBlurShader dodgeblur_shader;

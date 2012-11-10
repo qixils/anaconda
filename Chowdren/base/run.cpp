@@ -160,17 +160,30 @@ void GameManager::draw()
 {
     if (!window_created)
         return;
-    frame->draw();
 
-    // resize the window contents if necessary (fullscreen mode)
     int window_width, window_height;
     glfwGetWindowSize(&window_width, &window_height);
-    if (window_width == WINDOW_WIDTH && window_height == WINDOW_HEIGHT) {
+    bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
+
+    if (resize) {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    }
+
+    frame->draw();
+
+    if (resize) {
+        glDisable(GL_SCISSOR_TEST);
+    } else {
         off_x = off_y = 0;
         x_size = WINDOW_WIDTH;
         y_size = WINDOW_HEIGHT;
         return;
     }
+
+    // resize the window contents if necessary (fullscreen mode)
 
     glBindTexture(GL_TEXTURE_2D, resize_tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 
@@ -204,6 +217,8 @@ void GameManager::draw()
     float x2 = off_x + x_size;
     float y2 = off_y + y_size;
 
+    glColor4f(1.0, 1.0, 1.0, 1.0);
+    glDisable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 1.0);
@@ -216,6 +231,7 @@ void GameManager::draw()
     glVertex2f(off_x, y2);
     glEnd();
     glDisable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
 }
 
 void GameManager::set_frame(int index)

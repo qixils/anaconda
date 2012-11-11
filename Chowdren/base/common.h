@@ -1772,7 +1772,7 @@ public:
             out << "[" << (*it1).first << "]" << std::endl;
             for (it2 = (*it1).second.begin(); it2 != (*it1).second.end(); 
                  it2++) {
-                out << (*it2).first << " = " << (*it2).second << std::endl;
+                out << (*it2).first << "=" << (*it2).second << std::endl;
             }
             out << std::endl;
         }

@@ -133,7 +133,9 @@ public:
             y1 = std::max<int>(0, std::min<int>(WINDOW_HEIGHT, box[1]));
             x2 = std::max<int>(0, std::min<int>(WINDOW_WIDTH, box[2]));
             y2 = std::max<int>(0, std::min<int>(WINDOW_HEIGHT, box[3]));
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 
+                x1 - box[0], 
+                box[3] - y2, 
                 x1, WINDOW_HEIGHT - y2, x2 - x1, y2 - y1);
         }
         set_parameters(instance);

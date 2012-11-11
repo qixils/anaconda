@@ -31,6 +31,7 @@
 #include "mathcommon.h"
 #include "assets.h"
 #include "path.h"
+#include "types.h"
 
 std::string newline_character("\r\n");
 
@@ -969,6 +970,7 @@ void FrameObject::move_front(FrameObject * other)
 
 double FrameObject::get_fixed()
 {
+/*    int64_t v = int64_t(intptr_t(this));*/
     FrameObject * v = this;
     return *((double*)&v);
 }

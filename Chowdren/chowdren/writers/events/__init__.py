@@ -38,6 +38,7 @@ class ConditionWriter(ACBase):
     negate = False
     is_always = None
     limit_once = False
+    dereference = True
 
     def write(self, writer):
         raise NotImplementedError()

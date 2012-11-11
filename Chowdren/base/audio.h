@@ -6,6 +6,7 @@
 #include <alc.h>
 #include <tinythread/tinythread.h>
 #include <math.h>
+#include "types.h"
 
 namespace ChowdrenAudio {
 
@@ -483,15 +484,6 @@ public:
 };
 
 #define BUFFER_COUNT 3
-
-#if defined(_MSC_VER)
-    typedef signed __int64 Int64;
-    typedef unsigned __int64 Uint64;
-#else
-    typedef signed long long Int64;
-    typedef unsigned long long Uint64;
-#endif
-
 #define LOCK_STREAM global_device->stream_mutex.lock
 #define UNLOCK_STREAM global_device->stream_mutex.unlock
 
@@ -504,7 +496,7 @@ public:
     unsigned int channels;
     unsigned int sample_rate;
     bool loop;
-    Uint64 samples_processed;
+    uint64_t samples_processed;
     bool end_buffers[BUFFER_COUNT];
     bool stopping;
 
@@ -595,7 +587,7 @@ public:
         clear_queue();
         al_check(alSourcei(source, AL_BUFFER, 0));
         on_seek(time);
-        samples_processed = static_cast<Uint64>(
+        samples_processed = static_cast<uint64_t>(
             time * file->sample_rate * file->channels);
         for (int i = 0; i < BUFFER_COUNT; ++i)
             end_buffers[i] = false;

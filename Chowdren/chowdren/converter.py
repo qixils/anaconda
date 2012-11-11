@@ -1102,8 +1102,11 @@ class Converter(object):
                 elif condition_writer.iterate_objects is not False:
                     if condition_writer.negate:
                         writer.put('!')
-                    writer.put('((%s)%s)->' % (self.get_object_class(
-                        object_type), object_name))
+                    obj = '((%s)%s)' % (self.get_object_class(
+                        object_type), object_name)
+                    if condition_writer.dereference:
+                        obj += '->'
+                    writer.put(obj)
                 condition_writer.write(writer)
                 if negated:
                     writer.put(')')

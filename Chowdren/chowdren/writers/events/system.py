@@ -187,6 +187,14 @@ class NumberOfObjects(ComparisonWriter):
         object_info, object_type = self.get_object()
         return '%s.size()' % self.converter.get_object(object_info, True)
 
+class CompareFixedValue(ConditionWriter):
+    dereference = False
+
+    def write(self, writer):
+        comparison = self.get_comparison()
+        value = self.convert_index(0)
+        writer.put(' %s get_object_from_fixed(%s)' % (comparison, value))
+
 class FacingInDirection(ConditionWriter):
     def write(self, writer):
         parameter = self.parameters[0].loader
@@ -539,7 +547,7 @@ conditions = make_table(ConditionMethodWriter, {
     'FacingInDirection' : FacingInDirection,
     'AnimationPlaying' : 'test_animation',
     'Chance' : 'random_chance',
-    'CompareFixedValue' : make_comparison('get_fixed()'),
+    'CompareFixedValue' : CompareFixedValue,
     'OutsidePlayfield' : 'outside_playfield',
     'IsObstacle' : 'test_background_collision',
     'IsOverlappingBackground' : 'overlaps_background',

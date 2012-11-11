@@ -1,12 +1,12 @@
 #version 120
 
 varying vec2 texture_coordinate;
-uniform sampler2D tex;
+uniform sampler2D texture;
 uniform float fHue;
 
 void main()
 {
-    vec4 col = texture2D(tex, texture_coordinate);
+    vec4 col = texture2D(texture, texture_coordinate);
     gl_FragColor.a = col.a;
     if(fHue < 1.0)
     {

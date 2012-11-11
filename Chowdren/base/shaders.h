@@ -61,7 +61,6 @@ public:
         glDetachShader(program, vert_shader);
         glDetachShader(program, frag_shader);
 
-
         if (has_background && background_texture == 0)
             initialize_background_texture();
 
@@ -113,13 +112,13 @@ public:
         if (!initialized)
             initialize();
         glUseProgram(program);
+        glUniform1i(get_uniform("texture"), 0);
 
         int box[4];
         instance->get_box(box);
         int width = box[2] - box[0];
         int height = box[3] - box[1];
         if (has_background) {
-            glUniform1i(get_uniform("texture"), 0);
             glUniform1i(get_uniform("background_texture"), 1);
             glUniform2f(get_uniform("texture_size"), 1.0f / image->width, 
                                                      1.0f / image->height);

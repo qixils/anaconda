@@ -123,8 +123,10 @@ public:
             glUniform2f(get_uniform("texture_size"), 1.0f / image->width, 
                                                      1.0f / image->height);
             glBindTexture(GL_TEXTURE_2D, background_texture);
+            unsigned char * data = new unsigned char[width * height * 3]();
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                GL_UNSIGNED_BYTE, 0);
+                GL_UNSIGNED_BYTE, data);
+            delete[] data;
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 
                 box[0], WINDOW_HEIGHT - box[3], width, height);
         }

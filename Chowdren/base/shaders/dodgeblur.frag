@@ -9,7 +9,6 @@ uniform bool vertical;
 uniform float radius;
 
 #define iterations 28
-#define saturate(x) clamp(x, 0.0, 1.0)
 
 void main()
 {
@@ -29,7 +28,7 @@ void main()
     }
     b /= iterations;
     if (o != vec4(1.0, 1.0, 1.0, 1.0))
-        o = saturate(b/(1.0-o));
+        o = clamp(b/(1.0-o), 0.0, 1.0);
     o.a = 1.0;
     gl_FragColor = o;
 }

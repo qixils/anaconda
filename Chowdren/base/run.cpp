@@ -163,6 +163,10 @@ void GameManager::draw()
 
     int window_width, window_height;
     glfwGetWindowSize(&window_width, &window_height);
+    if (window_width <= 0 || window_height <= 0)
+        // for some reason, GLFW sets these properties to 0 when minimized.
+        return;
+
     bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
 
     if (resize) {

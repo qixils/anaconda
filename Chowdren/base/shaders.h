@@ -2,6 +2,7 @@
 #include "frameobject.h"
 #include "filecommon.h"
 #include "image.h"
+#include <algorithm>
 
 static GLuint background_texture = 0;
 
@@ -127,12 +128,14 @@ public:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                 GL_UNSIGNED_BYTE, data);
             delete[] data;
+            int x1, y1, x2, y2;
+            x1 = std::max<int>(0, std::min<int>(WINDOW_WIDTH, box[0]));
+            y1 = std::max<int>(0, std::min<int>(WINDOW_HEIGHT, box[1]));
+            x2 = std::max<int>(0, std::min<int>(WINDOW_WIDTH, box[2]));
+            y2 = std::max<int>(0, std::min<int>(WINDOW_HEIGHT, box[3]));
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 
-                box[0], WINDOW_HEIGHT - box[3], width, height);
+                x1, WINDOW_HEIGHT - y2, x2 - x1, y2 - y1);
         }
-        GLenum error = glGetError();
-        if (error != GL_NO_ERROR)
-            std::cout << "OpenGL error: " << error << std::endl;
         set_parameters(instance);
     }
 

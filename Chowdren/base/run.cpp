@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -19,8 +21,9 @@ public:
     FPSLimiter fps_limit;
     bool window_created;
     bool fullscreen;
-    GLuint resize_tex;
-    double off_x, off_y, x_size, y_size;
+    GLuint screen_texture;
+    GLuint screen_fbo;
+    int off_x, off_y, x_size, y_size;
     int mouse_x, mouse_y;
 
     GameManager();
@@ -80,6 +83,29 @@ GameManager::GameManager()
     set_frame(0);
 }
 
+inline bool check_opengl_extension(const char * name)
+{
+    if (glewGetExtension(name) == GL_TRUE)
+        return true;
+    std::cout << "OpenGL extension '" << name << "' not supported." << std::endl;
+    return false;
+}
+
+inline bool check_opengl_extensions()
+{
+    char * extensions[] = {
+        "GL_EXT_framebuffer_object",
+        "GL_ARB_vertex_shader",
+        "GL_ARB_fragment_shader",
+        "GL_ARB_texture_non_power_of_two",
+        NULL
+    };
+    for (int i = 0; extensions[i] != NULL; i++)
+        if (!check_opengl_extension(extensions[i]))
+            return false;
+    return true;
+}
+
 void GameManager::set_window(bool fullscreen)
 {
     if (window_created)
@@ -90,7 +116,7 @@ void GameManager::set_window(bool fullscreen)
     glfwOpenWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 #endif
     glfwOpenWindowHint(GLFW_FSAA_SAMPLES, 0);
-    glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_TRUE);
+    glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_FALSE);
     if (fullscreen) {
         GLFWvidmode desktop_mode;
         glfwGetDesktopMode(&desktop_mode);
@@ -113,13 +139,28 @@ void GameManager::set_window(bool fullscreen)
     // initialize OpenGL extensions
     glewInit();
 
+    // check extensions
+    if (!check_opengl_extensions()) {
+        std::cout << "Not all OpenGL extensions supported. Quitting..." 
+            << std::endl;
+        exit(EXIT_FAILURE);
+        return;
+    }
+
     // for fullscreen or window resize
-    glGenTextures(1, &resize_tex);
-    glBindTexture(GL_TEXTURE_2D, resize_tex);
+    glGenTextures(1, &screen_texture);
+    glBindTexture(GL_TEXTURE_2D, screen_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffersEXT(1, &screen_fbo);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
+        GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, screen_texture, 0);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 }
 
 bool GameManager::is_fullscreen()
@@ -167,33 +208,18 @@ void GameManager::draw()
         // for some reason, GLFW sets these properties to 0 when minimized.
         return;
 
-    bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
-    if (resize) {
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    }
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     frame->draw();
 
-    if (resize) {
-        glDisable(GL_SCISSOR_TEST);
-    } else {
-        off_x = off_y = 0;
-        x_size = WINDOW_WIDTH;
-        y_size = WINDOW_HEIGHT;
-        return;
-    }
+    glDisable(GL_SCISSOR_TEST);
+
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
     // resize the window contents if necessary (fullscreen mode)
-
-    glBindTexture(GL_TEXTURE_2D, resize_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 
-        GL_RGB, GL_UNSIGNED_BYTE, 0);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, 
-                        WINDOW_WIDTH, WINDOW_HEIGHT);
 
     glViewport(0, 0, window_width, window_height);
     glMatrixMode(GL_PROJECTION);
@@ -204,38 +230,48 @@ void GameManager::draw()
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
 
-    // aspect-aware resize
-    float aspect_width = window_width / float(WINDOW_WIDTH);
-    float aspect_height = window_height / float(WINDOW_HEIGHT);
+    bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
 
-    if (aspect_width > aspect_height) {
-        x_size = aspect_height * WINDOW_WIDTH;
-        y_size = aspect_height * WINDOW_HEIGHT;
+    if (resize) {
+        // aspect-aware resize
+        float aspect_width = window_width / float(WINDOW_WIDTH);
+        float aspect_height = window_height / float(WINDOW_HEIGHT);
+
+        if (aspect_width > aspect_height) {
+            x_size = aspect_height * WINDOW_WIDTH;
+            y_size = aspect_height * WINDOW_HEIGHT;
+        } else {
+            x_size = aspect_width * WINDOW_WIDTH;
+            y_size = aspect_width * WINDOW_HEIGHT;
+        }
+
+        off_x = (window_width - x_size) / 2;
+        off_y = (window_height - y_size) / 2;
     } else {
-        x_size = aspect_width * WINDOW_WIDTH;
-        y_size = aspect_width * WINDOW_HEIGHT;
+        off_x = off_y = 0;
+        x_size = WINDOW_WIDTH;
+        y_size = WINDOW_HEIGHT;
     }
 
-    off_x = (window_width - x_size) / 2;
-    off_y = (window_height - y_size) / 2;
-    float x2 = off_x + x_size;
-    float y2 = off_y + y_size;
+    int x2 = off_x + x_size;
+    int y2 = off_y + y_size;
 
-    glColor4f(1.0, 1.0, 1.0, 1.0);
-    glDisable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, screen_texture);
+    glDisable(GL_BLEND);
+    glColor4f(1.0, 1.0, 1.0, 1.0);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 1.0);
-    glVertex2f(off_x, off_y);
+    glVertex2i(off_x, off_y);
     glTexCoord2f(1.0, 1.0);
-    glVertex2f(x2, off_y);
+    glVertex2i(x2, off_y);
     glTexCoord2f(1.0, 0.0);
-    glVertex2f(x2, y2);
+    glVertex2i(x2, y2);
     glTexCoord2f(0.0, 0.0);
-    glVertex2f(off_x, y2);
+    glVertex2i(off_x, y2);
     glEnd();
-    glDisable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
 }
 
 void GameManager::set_frame(int index)
@@ -268,8 +304,8 @@ void GameManager::run()
 
         // update mouse position
         glfwGetMousePos(&mouse_x, &mouse_y);
-        mouse_x = (mouse_x - off_x) * (WINDOW_WIDTH / x_size);
-        mouse_y = (mouse_y - off_y) * (WINDOW_HEIGHT / y_size);
+        mouse_x = (mouse_x - off_x) * (float(WINDOW_WIDTH) / x_size);
+        mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
 
         if (measure_fps)
             std::cout << "Framerate: " << fps_limit.current_framerate 

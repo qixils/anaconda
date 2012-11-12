@@ -76,8 +76,8 @@ void Image::upload_texture()
                  GL_UNSIGNED_BYTE, image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
 unsigned int & Image::get(int x, int y)
@@ -92,7 +92,7 @@ void Image::draw(double x, double y, double angle,
     load();
     upload_texture();
 
-    if (tex == NULL)
+    if (tex == 0)
         return;
 
     glPushMatrix();
@@ -101,11 +101,11 @@ void Image::draw(double x, double y, double angle,
     glScaled(scale_x, scale_y, 1.0);
     x -= (double)hotspot_x;
     y -= (double)hotspot_y;
-    if (background != NULL)
+    if (background != 0)
         glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, tex);
-    if (background != NULL) {
+    if (background != 0) {
         glActiveTexture(GL_TEXTURE1);
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, background);
@@ -124,23 +124,23 @@ void Image::draw(double x, double y, double angle,
          tex_coords[6] = 0.0; tex_coords[7] = 1.0;
     }
     glTexCoord2f(tex_coords[0], tex_coords[1]);
-    if (background != NULL)
-        glMultiTexCoord2f(GL_TEXTURE1, 0.0, 1.0);
+    if (background != 0)
+        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[0], tex_coords[1]);
     glVertex2d(-hotspot_x, -hotspot_y);
     glTexCoord2f(tex_coords[2], tex_coords[3]);
-    if (background != NULL)
-        glMultiTexCoord2f(GL_TEXTURE1, 1.0, 1.0);
+    if (background != 0)
+        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[2], tex_coords[3]);
     glVertex2d(-hotspot_x + width, -hotspot_y);
     glTexCoord2f(tex_coords[4], tex_coords[5]);
-    if (background != NULL)
-        glMultiTexCoord2f(GL_TEXTURE1, 1.0, 0.0);
+    if (background != 0)
+        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[4], tex_coords[5]);
     glVertex2d(-hotspot_x + width, -hotspot_y + height);
     glTexCoord2f(tex_coords[6], tex_coords[7]);
-    if (background != NULL)
-        glMultiTexCoord2f(GL_TEXTURE1, 0.0, 0.0);
+    if (background != 0)
+        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[6], tex_coords[7]);
     glVertex2d(-hotspot_x, -hotspot_y + height);
     glEnd();
-    if (background != NULL) {
+    if (background != 0) {
         glDisable(GL_TEXTURE_2D);
         glActiveTexture(GL_TEXTURE0);
     }

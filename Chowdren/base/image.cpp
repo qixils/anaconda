@@ -8,22 +8,36 @@
 
 Image::Image(int handle, int hot_x, int hot_y, int act_x, int act_y) 
 : handle(handle), hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), 
-action_y(act_y), tex(NULL), image(NULL)
+action_y(act_y), tex(0), image(NULL), ref(false)
 {
 }
 
 Image::~Image()
 {
+    if (ref)
+        return;
     if (image != NULL)
         stbi_image_free(image);
+    if (tex != 0)
+        glDeleteTextures(1, &tex);
+    image = NULL;
+    tex = 0;
 }
 
 Image::Image(const std::string & filename, int hot_x, int hot_y, 
              int act_x, int act_y, Color * color) 
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
-  tex(NULL), image(NULL)
+  tex(NULL), image(NULL), ref(false)
 {
     load_filename(filename, color);
+}
+
+Image::Image(const Image & img) 
+: hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
+  action_x(img.action_x), action_y(img.action_y),
+  tex(img.tex), image(img.image), ref(true), width(img.width), 
+  height(img.height)
+{
 }
 
 void Image::load()

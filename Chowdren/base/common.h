@@ -2280,28 +2280,47 @@ public:
         collision = new SpriteCollision(this, NULL);
     }
 
+    ~ActivePicture()
+    {
+        remove_image();
+    }
+
+    void remove_image()
+    {
+        if (image == NULL)
+            return;
+        delete image;
+        image = NULL;
+    }
+
     void load(const std::string & fn)
     {
+        remove_image();
         filename = convert_path(fn);
         ImageCache::const_iterator it = image_cache.find(filename);
+        Image * image_data;
         if (it == image_cache.end()) {
             Color * transparent = NULL;
             if (has_transparent_color)
                 transparent = &transparent_color;
-            image = new Image(filename, 0, 0, 0, 0, transparent);
-            if (image->image == NULL) {
-                delete image;
-                image = NULL;
+            image_data = new Image(filename, 0, 0, 0, 0, transparent);
+            if (image_data->image == NULL) {
+                delete image_data;
+                image_data = NULL;
             } else {
                 std::cout << "Cached new image: " << filename << " (" <<
                     name << ")" << std::endl;
-                image_cache[filename] = image;
+                image_cache[filename] = image_data;
             }
         } else {
-            image = it->second;
+            image_data = it->second;
         }
-        if (image != NULL)
+
+        if (image_data != NULL) {
+            image = new Image(*image_data);
             collision->set_image(image);
+            image->hotspot_x = image->hotspot_y = 0;
+        }
     }
 
     void set_transparent_color(const Color & color)

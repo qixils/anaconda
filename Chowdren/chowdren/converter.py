@@ -512,8 +512,10 @@ class Converter(object):
         if WRITE_SOUNDS:
             if game.sounds:
                 for sound in game.sounds.items:
-                    self.open('sounds', '%s.wav' % sound.name).write(
-                        str(sound.get_wav()))
+                    sound_type = sound.getType()
+                    extension = {'OGG' : 'ogg', 'WAV' : 'wav'}[sound_type]
+                    self.open('sounds', '%s.%s' % (sound.name, extension)
+                        ).write(str(sound.data))
         
         # objects
         objects_file = self.open_code('objects.h')
@@ -598,6 +600,9 @@ class Converter(object):
                         shader_name = shader_data.name
                 elif ink_effect == ADD_EFFECT:
                     shader_name = 'Add'
+                elif ink_effect == SEMITRANSPARENT_EFFECT:
+                    objects_file.putln('blend_color = %s;' % make_color(
+                        (255, 255, 255, frameitem.inkEffectValue)))
                 else:
                     raise NotImplementedError(
                         'unknown inkeffect: %s' % ink_effect)
@@ -1022,7 +1027,7 @@ class Converter(object):
 
     def write_container_check(self, group, writer):
         container = group.container
-        if group.generated:
+        if group.generated or not container:
             return
         for item in container.tree:
             if item.is_static:

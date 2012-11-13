@@ -479,9 +479,6 @@ public:
         if (!visible)
             return;
 
-        if (back != NULL)
-            back->draw();
-
         // draw backgrounds
         for (ObjectList::const_iterator iter = background_instances.begin(); 
              iter != background_instances.end(); iter++) {
@@ -490,6 +487,10 @@ public:
                 continue;
             item->draw();
         }
+
+        // draw pasted items
+        if (back != NULL)
+            back->draw();
 
         // draw active instances
         for (ObjectList::const_iterator iter = instances.begin(); 
@@ -1357,6 +1358,15 @@ public:
 
 static FTTextureFont default_font("Arial.ttf", false);
 
+void init_font()
+{
+    static bool initialized = false;
+    if (initialized)
+        return;
+    default_font.FaceSize(12, 96);
+    initialized = false;
+}
+
 class Text : public FrameObject
 {
 public:
@@ -1386,11 +1396,7 @@ public:
 
     void draw()
     {
-        static bool init = false;
-        if (!init) {
-            init = true;
-            default_font.FaceSize(12, 96);
-        }
+        init_font();
         color.apply();
         glPushMatrix();
         FTBBox box = default_font.BBox(text.c_str(), text.size(), FTPoint());

@@ -112,9 +112,9 @@ void GameManager::set_window(bool fullscreen)
         return;
     this->fullscreen = fullscreen;
     window_created = true;
-#ifdef CHOWDREN_DEBUG
+/*#ifdef CHOWDREN_DEBUG
     glfwOpenWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-#endif
+#endif*/
     glfwOpenWindowHint(GLFW_FSAA_SAMPLES, 0);
     glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_FALSE);
     if (fullscreen) {
@@ -126,6 +126,7 @@ void GameManager::set_window(bool fullscreen)
     } else
         glfwOpenWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, 0, 0, 0, 0, 
            GLFW_WINDOW);
+    glfwEnable(GLFW_SYSTEM_KEYS);
     glfwSetWindowTitle(NAME);
     glfwSwapInterval(0);
     glfwDisable(GLFW_AUTO_POLL_EVENTS);
@@ -210,12 +211,7 @@ void GameManager::draw()
 
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
     frame->draw();
-
-    glDisable(GL_SCISSOR_TEST);
 
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
@@ -259,7 +255,6 @@ void GameManager::draw()
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glDisable(GL_BLEND);
-    glColor4f(1.0, 1.0, 1.0, 1.0);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 1.0);
     glVertex2i(off_x, off_y);
@@ -272,6 +267,18 @@ void GameManager::draw()
     glEnd();
     glEnable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
+
+#if 0
+    init_font();
+    glColor4f(1.0, 1.0, 1.0, 1.0);
+    glPushMatrix();
+    glTranslatef(50, window_height - 50, 0.0);
+    glScalef(1, -1, 1);
+    std::string fps_string = number_to_string(fps_limit.current_framerate);
+    default_font.Render(fps_string.c_str(), fps_string.size(), FTPoint(),
+        FTPoint(), RENDER_ALL);
+    glPopMatrix();
+#endif
 }
 
 void GameManager::set_frame(int index)

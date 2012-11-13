@@ -42,6 +42,7 @@ public:
     std::string name;
     bool initialized;
     bool has_background;
+    GLint size_uniform;
 
     GLSLShader(const std::string & name, bool has_back = false) 
     : initialized(false), name(name), has_background(has_back)
@@ -72,7 +73,23 @@ public:
         if (has_background && !background_initialized)
             initialize_background();
 
+        glUseProgram(program);
+        glUniform1i(get_uniform("texture"), 0);
+
+        if (has_background) {
+            glUniform1i(get_uniform("background_texture"), 1);
+            size_uniform = get_uniform("texture_size");
+        }
+
+        glUseProgram(0);
+
+        initialize_parameters();
+
         initialized = true;
+    }
+
+    virtual void initialize_parameters() 
+    {
     }
 
     GLuint get_background_texture()
@@ -129,7 +146,7 @@ public:
             glBindTexture(GL_TEXTURE_2D, background_texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-            glPushAttrib(GL_VIEWPORT_BIT | GL_TRANSFORM_BIT | GL_SCISSOR_BIT);
+            glPushAttrib(GL_VIEWPORT_BIT | GL_TRANSFORM_BIT);
             glViewport(0, 0, width, height);
             glMatrixMode(GL_PROJECTION);
             glPushMatrix();
@@ -144,9 +161,6 @@ public:
             if (result != GL_FRAMEBUFFER_COMPLETE_EXT)
                 std::cout << "framebuffer incomplete: " << result << std::endl;
 
-            glDisable(GL_SCISSOR_TEST);
-            glClearColor(0.0, 0.0, 0.0, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT);
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, global_manager->screen_texture);
             glDisable(GL_BLEND);
@@ -174,12 +188,10 @@ public:
         }
 
         glUseProgram(program);
-        glUniform1i(get_uniform("texture"), 0);
-        if (has_background) {
-            glUniform1i(get_uniform("background_texture"), 1);
-            glUniform2f(get_uniform("texture_size"), 1.0f / image->width, 
-                                                     1.0f / image->height);
-        }
+
+        if (has_background)
+            glUniform2f(size_uniform, 1.0f / image->width, 
+                                      1.0f / image->height);
 
         set_parameters(instance);
     }
@@ -191,12 +203,12 @@ public:
         glUseProgram(0);
     }
 
-    void set_float(FrameObject * instance, const std::string & name)
+    void set_float(FrameObject * instance, const std::string & name, GLint i)
     {
-        glUniform1f(get_uniform(name), (*instance->shader_parameters)[name]);
+        glUniform1f(i, (*instance->shader_parameters)[name]);
     }
 
-    void set_vec4(FrameObject * instance, const std::string & name)
+    void set_vec4(FrameObject * instance, const std::string & name, GLint i)
     {
         int val = (int)(*instance->shader_parameters)[name];
         float a, b, c, d;
@@ -204,12 +216,7 @@ public:
         b = ((val >> 8) & 0xFF) / 255.0f;
         c = ((val >> 16) & 0xFF) / 255.0f;
         d = ((val >> 24) & 0xFF) / 255.0f;
-        glUniform4f(get_uniform(name), a, b, c, d);
-    }
-
-    GLint get_uniform(const std::string & value)
-    {
-        return glGetUniformLocation(program, value.c_str());
+        glUniform4f(i, a, b, c, d);
     }
 
     GLint get_uniform(const char * value)
@@ -260,48 +267,80 @@ public:
 class MixerShader : public GLSLShader
 {
 public:
+    GLint r, g, b;
+
     MixerShader() : GLSLShader("colormixer") {}
+
+    void initialize_parameters()
+    {
+        r = get_uniform("r");
+        g = get_uniform("g");
+        b = get_uniform("b");
+    }
 
     void set_parameters(FrameObject * instance) 
     {
-        set_vec4(instance, "r");
-        set_vec4(instance, "g");
-        set_vec4(instance, "b");
+        set_vec4(instance, "r", r);
+        set_vec4(instance, "g", g);
+        set_vec4(instance, "b", b);
     }
 };
 
 class HueShader : public GLSLShader
 {
 public:
+    GLint hue;
+
     HueShader() : GLSLShader("hue") {}
 
     void set_parameters(FrameObject * instance) 
     {
-        set_float(instance, "fHue");
+        set_float(instance, "fHue", hue);
+    }
+
+    void initialize_parameters()
+    {
+        hue = get_uniform("fHue");
     }
 };
 
 class OffsetShader : public GLSLShader
 {
 public:
+    GLint width, height;
+
     OffsetShader() : GLSLShader("offset", true) {}
+
+    void initialize_parameters()
+    {
+        width = get_uniform("width");
+        height = get_uniform("height");
+    }
 
     void set_parameters(FrameObject * instance) 
     {
-        set_float(instance, "width");
-        set_float(instance, "height");
+        set_float(instance, "width", width);
+        set_float(instance, "height", height);
     }
 };
 
 class DodgeBlurShader : public GLSLShader
 {
 public:
+    GLint vertical, radius;
+
     DodgeBlurShader() : GLSLShader("dodgeblur", true) {}
+
+    void initialize_parameters()
+    {
+        vertical = get_uniform("vertical");
+        radius = get_uniform("radius");
+    }
 
     void set_parameters(FrameObject * instance) 
     {
-        set_float(instance, "vertical");
-        set_float(instance, "radius");
+        set_float(instance, "vertical", vertical);
+        set_float(instance, "radius", radius);
     }
 };
 

@@ -2,6 +2,7 @@
 
 varying vec2 texture_coordinate0;
 varying vec2 texture_coordinate1;
+
 void main()
 {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;

@@ -1584,10 +1584,23 @@ typedef std::map<std::string, OptionMap> SectionMap;
 inline bool match_wildcard(const std::string & pattern, 
                            const std::string & value)
 {
+    if (pattern.empty() || value.empty())
+        return pattern == value;
     if (pattern == "*")
         return true;
-    else if (std::count(pattern.begin(), pattern.end(), '*') > 0) {
-        std::cout << "Wildcards not implemented yet: " << pattern << std::endl;
+    else if (pattern[0] == '*') {
+        size_t size = pattern.size() - 1;
+        if (size > value.size())
+            return false;
+        return pattern.compare(1, size, value, value.size() - size, size) == 0;
+    } else if (pattern[pattern.size() - 1] == '*') {
+        size_t size = pattern.size() - 1;
+        if (size > value.size())
+            return false;
+        return pattern.compare(0, size, value, 0, size) == 0;
+    } else if (std::count(pattern.begin(), pattern.end(), '*') > 0) {
+        std::cout << "Generic wildcard not implemented yet: " << pattern 
+            << std::endl;
         return false;
     }
     return value == pattern;

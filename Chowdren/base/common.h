@@ -577,7 +577,16 @@ public:
 
         for (ObjectList::const_iterator iter = destroyed_instances.begin(); 
              iter != destroyed_instances.end(); iter++) {
-            delete (*iter);
+            FrameObject * instance = (*iter);
+            instances.erase(
+                std::remove(instances.begin(), instances.end(), instance), 
+                instances.end());
+            ObjectList & class_instances = instance_classes[instance->id];
+            class_instances.erase(
+                std::remove(class_instances.begin(), class_instances.end(), 
+                instance), class_instances.end());
+            layers[instance->layer_index]->remove_object(instance);
+            delete instance;
         }
 
         destroyed_instances.clear();
@@ -699,14 +708,9 @@ public:
 
     void destroy_object(FrameObject * object)
     {
-        instances.erase(
-            std::remove(instances.begin(), instances.end(), object), 
-            instances.end());
-        ObjectList & class_instances = instance_classes[object->id];
-        class_instances.erase(
-            std::remove(class_instances.begin(), class_instances.end(), object), 
-            class_instances.end());
-        layers[object->layer_index]->remove_object(object);
+        if (object->destroying)
+            return;
+        object->destroying = true;
         destroyed_instances.push_back(object);
     }
 
@@ -791,7 +795,8 @@ public:
 
 FrameObject::FrameObject(std::string name, int x, int y, int type_id) 
 : name(name), x(x), y(y), id(type_id), visible(true), shader(NULL), 
-values(NULL), strings(NULL), shader_parameters(NULL), direction(0)
+  values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
+  destroying(false)
 {
 }
 

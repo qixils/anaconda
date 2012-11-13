@@ -27,7 +27,7 @@ void main()
         b += max(temp, b2);
     }
     b /= iterations;
-    if (o != 1.0)
+    if (o != vec4(1.0))
         o = clamp(b/(1.0-o), 0.0, 1.0);
     o.a = 1.0;
     gl_FragColor = o;

@@ -29,6 +29,7 @@ public:
     Frame * frame;
     Shader * shader;
     ShaderParameters * shader_parameters;
+    bool destroying;
 
     FrameObject(std::string name, int x, int y, int type_id);
     virtual ~FrameObject();

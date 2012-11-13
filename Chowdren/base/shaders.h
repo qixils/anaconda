@@ -157,9 +157,11 @@ public:
             glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
                 GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, background_texture, 0);
 
+#if 0
             GLenum result = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
             if (result != GL_FRAMEBUFFER_COMPLETE_EXT)
                 std::cout << "framebuffer incomplete: " << result << std::endl;
+#endif
 
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, global_manager->screen_texture);

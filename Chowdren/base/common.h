@@ -971,8 +971,7 @@ void FrameObject::move_front(FrameObject * other)
 
 double FrameObject::get_fixed()
 {
-/*    int64_t v = int64_t(intptr_t(this));*/
-    FrameObject * v = this;
+    int64_t v = int64_t(intptr_t(this));
     return *((double*)&v);
 }
 

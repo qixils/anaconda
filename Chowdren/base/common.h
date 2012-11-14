@@ -29,7 +29,6 @@
 #include "alterables.h"
 #include "color.h"
 #include "mathcommon.h"
-#include "assets.h"
 #include "path.h"
 #include "types.h"
 

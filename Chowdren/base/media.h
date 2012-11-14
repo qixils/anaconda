@@ -272,7 +272,7 @@ public:
             delete it->second;
         }
         SoundData * data;
-        if (get_file_size(filename.c_str()) > 1 * 1024 * 1024) // 0.5 mb
+        if (get_file_size(filename.c_str()) > 0.5 * 1024 * 1024) // 0.5 mb
             data = new SoundFile(filename);
         else
             data = new SoundMemory(filename);

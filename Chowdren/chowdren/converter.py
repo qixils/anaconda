@@ -424,8 +424,9 @@ class EventGroup(object):
 class Converter(object):
     iterated_object = None
     debug = False
-    def __init__(self, filename, outdir, images_dir = 'images', win_ico = None,
-                 company = None, version = None, copyright = None):
+    def __init__(self, filename, outdir, image_file = 'Sprites.dat', 
+                 win_ico = None, company = None, version = None, 
+                 copyright = None):
         self.filename = filename
         self.outdir = outdir
 
@@ -482,7 +483,8 @@ class Converter(object):
         
         # images
 
-        if images_dir is not None:
+        if image_file is not None:
+            image_data = open(self.get_filename(image_file), 'wb')
             images_file = self.open_code('images.cpp')
             images_file.putln('#include "image.h"')
             images_file.putln('')
@@ -494,12 +496,16 @@ class Converter(object):
                     all_images.append(image_name)
                     pil_image = Image.fromstring('RGBA', (image.width, 
                         image.height), image.getImageData())
-                    pil_image.save(self.get_filename(images_dir, 
-                        '%s.png' % handle))
+                    temp = StringIO()
+                    pil_image.save(temp, 'PNG')
+                    temp = temp.getvalue()
+                    offset = image_data.tell()
+                    image_data.write(temp)
                     images_file.putln(to_c(
                         'Image %s(%s, %s, %s, %s, %s);',
-                        image_name, handle, image.xHotspot, 
+                        image_name, offset, image.xHotspot, 
                         image.yHotspot, image.actionX, image.actionY))
+            image_data.close()
             images_file.putln('')
             images_file.close()
             images_header = self.open_code('images.h')

@@ -5,17 +5,20 @@
 #include "include_gl.h"
 #include "color.h"
 
+const std::string & get_image_path();
+void set_image_path(const std::string & path);
+
 class Image
 {
 public:
-    int handle;
+    int offset;
     int hotspot_x, hotspot_y, action_x, action_y;
     GLuint tex;
     unsigned char * image;
     int width, height;
     bool ref;
 
-    Image(int handle, int hot_x, int hot_y, int act_x, int act_y);
+    Image(int offset, int hot_x, int hot_y, int act_x, int act_y);
     Image(const std::string & filename, int hot_x, int hot_y, 
           int act_x, int act_y, Color * color = NULL);
     Image(const Image & image);

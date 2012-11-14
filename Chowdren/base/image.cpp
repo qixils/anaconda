@@ -4,11 +4,22 @@
 #include "string.h"
 #include "color.h"
 #include <iostream>
-#include "assets.h"
+#include <stdio.h>
+#include "path.h"
 
-Image::Image(int handle, int hot_x, int hot_y, int act_x, int act_y) 
-: handle(handle), hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), 
-action_y(act_y), tex(0), image(NULL), ref(false)
+static std::string image_path = std::string("./Sprites.dat");
+
+void set_image_path(const std::string & filename)
+{
+    image_path = convert_path(filename);
+    std::cout << "Setting image file to: " << image_path << std::endl;
+}
+
+static FILE * image_file = NULL;
+
+Image::Image(int offset, int hot_x, int hot_y, int act_x, int act_y) 
+: offset(offset), hotspot_x(hot_x), hotspot_y(hot_y), 
+  action_x(act_x), action_y(act_y), tex(0), image(NULL), ref(false)
 {
 }
 
@@ -44,8 +55,11 @@ void Image::load()
 {
     if (image != NULL)
         return;
-    load_filename(
-        get_assets_folder() + "/" + number_to_string(handle) + ".png");
+    if (image_file == NULL)
+        image_file = fopen(image_path.c_str(), "rb");
+    fseek(image_file, offset, SEEK_SET);
+    int channels; // may be useful later
+    image = stbi_load_from_file(image_file, &width, &height, &channels, 4);
 }
 
 void Image::load_filename(const std::string & filename, Color * color)

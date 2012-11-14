@@ -3,10 +3,10 @@
 from chowdren.writers.events import (ExpressionWriter, ActionWriter, 
     ConditionWriter)
 
-ASSETS_STRING = 'Chowdren: Assets Folder'
+SPRITES_STRING = 'Chowdren: Sprites'
 PLATFORM_STRING = 'Chowdren: Platform'
 
-SPECIAL_OBJECTS = set([ASSETS_STRING, PLATFORM_STRING])
+SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING])
 
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
@@ -22,8 +22,8 @@ class SetString(ActionWriter):
     has_object = False
     def write(self, writer):
         name = self.converter.all_objects[self.data.objectInfo].data.name
-        if name == ASSETS_STRING:
-            writer.put('set_assets_folder(%s);' % self.convert_index(0))
+        if name == SPRITES_STRING:
+            writer.put('set_image_path(%s);' % self.convert_index(0))
 
 actions = {
     'SetString' : SetString

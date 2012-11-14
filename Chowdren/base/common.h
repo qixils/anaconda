@@ -209,7 +209,6 @@ public:
     Background()
     : mask(NULL), image(NULL), image_changed(true)
     {
-        glEnable(GL_TEXTURE_2D);
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -217,8 +216,15 @@ public:
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, BACK_WIDTH_POT,
             BACK_HEIGHT_POT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
             0);
-        glDisable(GL_TEXTURE_2D);
         reset();
+    }
+
+    ~Background()
+    {
+        delete[] mask;
+        delete[] image;
+        delete collision;
+        glDeleteTextures(1, &tex);
     }
 
     void reset(bool clear_items = true)

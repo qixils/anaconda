@@ -257,7 +257,7 @@ public:
     float pitch;
     bool closed;
 
-    void initialize()
+    SoundBase()
     {
         left_gain = right_gain = 1.0;
         pan = 0.0;
@@ -363,9 +363,8 @@ class Sound : public SoundBase
 public:
     Sample & sample;
 
-    Sound(Sample & sample) : sample(sample)
+    Sound(Sample & sample) : sample(sample), SoundBase()
     {
-        initialize();
         al_check(alSourcei(source, AL_BUFFER, sample.buffer->buffer));
         sample.add_sound(this);
     }
@@ -453,7 +452,7 @@ public:
     bool stopping;
 
     SoundStream(const std::string & filename)
-    : playing(false), loop(false), stopping(false)
+    : playing(false), loop(false), stopping(false), SoundBase()
     {
         file = create_decoder(filename);
         format = get_format(file->channels);
@@ -461,8 +460,6 @@ public:
         for (int i = 0; i < BUFFER_COUNT; ++i)
             buffers[i] = new SoundBuffer(file->sample_rate, file->channels,
                                          format);
-
-        initialize();
 
         LOCK_STREAM();
         global_device->add_stream(this);

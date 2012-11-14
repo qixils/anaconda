@@ -22,7 +22,6 @@ if(MSVC)
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LTCG")
     add_definitions("/wd4244 /wd4102 /wd4305")
 endif()
 

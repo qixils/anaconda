@@ -1389,6 +1389,11 @@ public:
         collision = new InstanceBox(this);
     }
 
+    ~Text()
+    {
+        delete collision;
+    }
+
     void add_line(std::string text)
     {
         paragraphs.push_back(text);
@@ -2283,6 +2288,7 @@ public:
     ~ActivePicture()
     {
         remove_image();
+        delete collision;
     }
 
     void remove_image()

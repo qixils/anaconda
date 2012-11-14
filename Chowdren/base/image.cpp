@@ -6,6 +6,9 @@
 #include <iostream>
 #include <stdio.h>
 #include "path.h"
+#include <vector>
+
+typedef std::vector<Image*> ImageList;
 
 static std::string image_path = std::string("./Sprites.dat");
 
@@ -19,7 +22,7 @@ static FILE * image_file = NULL;
 
 Image::Image(int offset, int hot_x, int hot_y, int act_x, int act_y) 
 : offset(offset), hotspot_x(hot_x), hotspot_y(hot_y), 
-  action_x(act_x), action_y(act_y), tex(0), image(NULL), ref(false)
+  action_x(act_x), action_y(act_y), tex(0), image(NULL), ref(NULL)
 {
 }
 
@@ -38,16 +41,16 @@ Image::~Image()
 Image::Image(const std::string & filename, int hot_x, int hot_y, 
              int act_x, int act_y, Color * color) 
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
-  tex(NULL), image(NULL), ref(false)
+  tex(0), image(NULL), ref(NULL), offset(-1)
 {
     load_filename(filename, color);
 }
 
-Image::Image(const Image & img) 
+Image::Image(Image & img) 
 : hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
   action_x(img.action_x), action_y(img.action_y),
-  tex(img.tex), image(img.image), ref(true), width(img.width), 
-  height(img.height)
+  tex(img.tex), image(img.image), ref(&img), width(img.width), 
+  height(img.height), offset(-1)
 {
 }
 
@@ -91,10 +94,13 @@ void Image::load_filename(const std::string & filename, Color * color)
 
 void Image::upload_texture()
 {
-    if (tex != NULL)
+    if (tex != 0)
         return;
-    else if (image == NULL) {
-        tex = NULL;
+    else if (image == NULL)
+        return;
+    if (ref != NULL) {
+        ref->upload_texture();
+        tex = ref->tex;
         return;
     }
 
@@ -117,11 +123,13 @@ void Image::draw(double x, double y, double angle,
                  double scale_x, double scale_y,
                  bool flip_x, bool flip_y, GLuint background)
 {
-    load();
-    upload_texture();
+    if (tex == 0) {
+        load();
+        upload_texture();
 
-    if (tex == 0)
-        return;
+        if (tex == 0)
+            return;
+    }
 
     glPushMatrix();
     glTranslated(x, y, 0.0);

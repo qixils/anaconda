@@ -16,12 +16,12 @@ public:
     GLuint tex;
     unsigned char * image;
     int width, height;
-    bool ref;
+    Image * ref;
 
     Image(int offset, int hot_x, int hot_y, int act_x, int act_y);
     Image(const std::string & filename, int hot_x, int hot_y, 
           int act_x, int act_y, Color * color = NULL);
-    Image(const Image & image);
+    Image(Image & image);
     ~Image();
     void load();
     void load_filename(const std::string & filename, Color * color = NULL);

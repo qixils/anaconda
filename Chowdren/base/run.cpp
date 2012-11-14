@@ -267,18 +267,6 @@ void GameManager::draw()
     glEnd();
     glEnable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
-
-#if 0
-    init_font();
-    glColor4f(1.0, 1.0, 1.0, 1.0);
-    glPushMatrix();
-    glTranslatef(50, window_height - 50, 0.0);
-    glScalef(1, -1, 1);
-    std::string fps_string = number_to_string(fps_limit.current_framerate);
-    default_font.Render(fps_string.c_str(), fps_string.size(), FTPoint(),
-        FTPoint(), RENDER_ALL);
-    glPopMatrix();
-#endif
 }
 
 void GameManager::set_frame(int index)

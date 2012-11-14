@@ -1,5 +1,4 @@
 #include <string>
-#include <sndfile.h>
 #include <set>
 #include <algorithm>
 #include <al.h>
@@ -7,6 +6,7 @@
 #include <tinythread/tinythread.h>
 #include <math.h>
 #include "types.h"
+#include "audiodecoders.h"
 
 namespace ChowdrenAudio {
 
@@ -91,55 +91,6 @@ void open_audio()
     global_device = new AudioDevice;
 }
 
-class SoundFile
-{
-public:
-    SNDFILE * file;
-    std::size_t samples;
-    unsigned int channels;
-    unsigned int sample_rate;
-
-    SoundFile(const std::string & filename)
-    : file(NULL)
-    {
-        SF_INFO info;
-        file = sf_open(filename.c_str(), SFM_READ, &info);
-        if (!file) {
-            std::cerr << "Failed to open sound file \"" << filename << "\" (" 
-                << sf_strerror(file) << ")" << std::endl;
-            return;
-        }
-
-        channels = info.channels;
-        sample_rate = info.samplerate;
-        samples = static_cast<std::size_t>(info.frames) * info.channels;
-
-        // if (info.format & SF_FORMAT_VORBIS)
-        //     sf_command(file, SFC_SET_SCALE_FLOAT_INT_READ, NULL, SF_TRUE);
-    }
-
-    std::size_t read(signed short * data, std::size_t samples)
-    {
-        if (data && samples)
-            return static_cast<std::size_t>(sf_read_short(file, data, samples));
-        else
-            return 0;
-    }
-
-    void seek(double value)
-    {
-        sf_count_t offset = static_cast<sf_count_t>(value * sample_rate);
-        sf_seek(file, offset, SEEK_SET);
-    }
-
-    ~SoundFile()
-    {
-        if (!file)
-            return;
-        sf_close(file);
-    }
-};
-
 ALenum get_format(unsigned int channels)
 {
     switch (channels)
@@ -180,7 +131,7 @@ public:
         al_check(alGenBuffers(1, &buffer));
     }
 
-    SoundBuffer(SoundFile & file, size_t sample_count)
+    SoundBuffer(SoundDecoder & file, size_t sample_count)
     : left_gain(1.0), right_gain(1.0), samples_size(0), samples(NULL)
     {
         al_check(alGenBuffers(1, &buffer));
@@ -190,7 +141,7 @@ public:
         read(file, sample_count);
     }
 
-    bool read(SoundFile & file, size_t read_samples)
+    bool read(SoundDecoder & file, size_t read_samples)
     {
         if (samples_size < read_samples) {
             delete[] samples;
@@ -202,7 +153,7 @@ public:
         return sample_count == read_samples;
     }
 
-    bool read(SoundFile & file)
+    bool read(SoundDecoder & file)
     {
         return read(file, sample_rate * channels);
     }
@@ -490,7 +441,7 @@ public:
 class SoundStream : public SoundBase
 {
 public:
-    SoundFile * file;
+    SoundDecoder * file;
     bool playing;
     SoundBuffer * buffers[BUFFER_COUNT];
     unsigned int channels;
@@ -503,7 +454,7 @@ public:
     SoundStream(const std::string & filename)
     : playing(false), loop(false), stopping(false)
     {
-        file = new SoundFile(filename);
+        file = create_decoder(filename);
         format = get_format(file->channels);
 
         for (int i = 0; i < BUFFER_COUNT; ++i)
@@ -524,6 +475,8 @@ public:
         LOCK_STREAM();
         global_device->remove_stream(this);
         UNLOCK_STREAM();
+
+        delete file;
     }
 
     void play()
@@ -829,12 +782,13 @@ public:
 
 Sample::Sample(const std::string & filename)
 {
-    SoundFile file(filename);
-    std::size_t sample_count = file.samples;
-    channels = file.channels;
-    sample_rate = file.sample_rate;
-    buffer = new SoundBuffer(file, file.samples);
+    SoundDecoder * file = create_decoder(filename);
+    std::size_t sample_count = file->samples;
+    channels = file->channels;
+    sample_rate = file->sample_rate;
+    buffer = new SoundBuffer(*file, file->samples);
     duration = double(sample_count) / sample_rate / channels;
+    delete file;
 }
 
 Sample::~Sample()

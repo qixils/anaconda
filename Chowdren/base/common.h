@@ -1155,6 +1155,7 @@ public:
 
     void add_image(int animation, int direction, Image * image)
     {
+        image->load();
         (*animations)[animation].dirs[direction]->frames.push_back(image);
     }
 
@@ -1168,7 +1169,6 @@ public:
         if (img == NULL)
             return;
 
-        img->load();
         collision->set_image(img);
         update_action_point();
     }
@@ -2162,7 +2162,7 @@ public:
 class ArrayObject : public FrameObject
 {
 public:
-    int * array;
+    double * array;
     int x_size, y_size, z_size;
 
     ArrayObject(std::string name, int x, int y, int type_id) 
@@ -2183,15 +2183,15 @@ public:
     {
         if (array != NULL)
             delete array;
-        array = new int[x_size * y_size * z_size]();
+        array = new double[x_size * y_size * z_size]();
     }
 
-    int & get_value(int x, int y)
+    inline double & get_value(int x, int y)
     {
         return array[x + y * x_size];
     }
 
-    void set_value(int value, int x, int y)
+    inline void set_value(double value, int x, int y)
     {
         get_value(x, y) = value;
     }

@@ -22,13 +22,14 @@ if(MSVC)
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LTCG")
     add_definitions("/wd4244 /wd4102 /wd4305")
 endif()
 
 add_definitions(-DGLEW_STATIC)
 add_executable(Chowdren ${SRCS})
 find_package(GLFW REQUIRED)
-find_package(SndFile REQUIRED)
+find_package(Vorbis REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenAL REQUIRED)
@@ -39,7 +40,8 @@ if(NOT PYTHON_DEBUG_LIBRARIES)
 endif()
 
 include_directories(${OPENAL_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
-    ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR})
+    ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
+    ${VORBIS_INCLUDE_DIR})
 target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
     ${FREETYPE_LIBRARIES} ${SNDFILE_LIBRARIES} ${OPENAL_LIBRARY} 
-    ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES})
+    ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES})

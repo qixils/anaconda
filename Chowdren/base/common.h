@@ -1161,7 +1161,6 @@ public:
 
     void add_image(int animation, int direction, Image * image)
     {
-        image->load();
         (*animations)[animation].dirs[direction]->frames.push_back(image);
     }
 
@@ -1579,7 +1578,6 @@ public:
             Image * image = get_image(it[0]);
             if (image == NULL)
                 continue;
-            image->load(); // need to know metrics beforehand
             image->draw(current_x + image->hotspot_x - image->width, 
                         y + image->hotspot_y - image->height);
             current_x -= image->width;

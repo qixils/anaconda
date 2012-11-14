@@ -43,33 +43,6 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
   tex(0), image(NULL), ref(NULL), offset(-1)
 {
-    load_filename(filename, color);
-}
-
-Image::Image(Image & img) 
-: hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
-  action_x(img.action_x), action_y(img.action_y),
-  tex(img.tex), image(img.image), ref(&img), width(img.width), 
-  height(img.height), offset(-1)
-{
-}
-
-void Image::load()
-{
-    if (image != NULL)
-        return;
-    if (image_file == NULL)
-        image_file = fopen(image_path.c_str(), "rb");
-    fseek(image_file, offset, SEEK_SET);
-    int channels; // may be useful later
-    image = stbi_load_from_file(image_file, &width, &height, &channels, 4);
-}
-
-void Image::load_filename(const std::string & filename, Color * color)
-{
-    if (image != NULL)
-        return;
-
     int channels;
     image = stbi_load(filename.c_str(), &width, &height, &channels, 4);
 
@@ -90,6 +63,25 @@ void Image::load_filename(const std::string & filename, Color * color)
             }
         }
     }
+}
+
+Image::Image(Image & img) 
+: hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
+  action_x(img.action_x), action_y(img.action_y),
+  tex(img.tex), image(img.image), ref(&img), width(img.width), 
+  height(img.height), offset(-1)
+{
+}
+
+void Image::load()
+{
+    if (image != NULL)
+        return;
+    if (image_file == NULL)
+        image_file = fopen(image_path.c_str(), "rb");
+    fseek(image_file, offset, SEEK_SET);
+    int channels; // may be useful later
+    image = stbi_load_from_file(image_file, &width, &height, &channels, 4);
 }
 
 void Image::upload_texture()
@@ -124,7 +116,6 @@ void Image::draw(double x, double y, double angle,
                  bool flip_x, bool flip_y, GLuint background)
 {
     if (tex == 0) {
-        load();
         upload_texture();
 
         if (tex == 0)

@@ -89,7 +89,7 @@ conditions = make_table(ConditionMethodWriter, {
 expressions = make_table(ExpressionMethodWriter, {
     17 : 'get_item_count',
     7 : 'get_item_count()',
-    16 : 'get_group_count',
+    16 : 'get_group_count()',
     14 : 'get_string_index',
     6 : 'get_string_index',
     1 : 'get_string',

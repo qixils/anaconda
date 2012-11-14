@@ -27,7 +27,7 @@ from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits, 
-    to_c, make_color)
+    to_c, make_color, get_image_name)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_GLFW
 from chowdren import extra
@@ -694,7 +694,8 @@ class Converter(object):
             for instance in getattr(frame.instances, 'items', ()):
                 frameitem = instance.getObjectInfo(game.frameItems)
                 try:
-                    object_writers.append(self.all_objects[frameitem.handle])
+                    object_writer = self.all_objects[frameitem.handle]
+                    object_writers.append(object_writer)
                 except KeyError:
                     continue
                 if frameitem.handle not in self.object_names:
@@ -852,11 +853,22 @@ class Converter(object):
             frame_file.start_brace()
             frame_file.end_brace()
 
+            startup_images = set()
             # object writer custom stuff
             for object_writer in object_writers:
                 object_writer.write_frame(frame_file)
+                startup_images.update(object_writer.get_images())
 
             frame_file.putmeth('void on_start')
+
+            # load images on startup
+            frame_file.putln('static bool images_initialized = false;')
+            frame_file.putln('if (!images_initialized) {')
+            frame_file.indent()
+            for image_handle in startup_images:
+                frame_file.putln('%s.load();' % get_image_name(image_handle, 
+                    False))
+            frame_file.end_brace()
 
             for container in containers.values():
                 if container.is_static:

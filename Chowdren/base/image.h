@@ -24,7 +24,6 @@ public:
     Image(Image & image);
     ~Image();
     void load();
-    void load_filename(const std::string & filename, Color * color = NULL);
     void upload_texture();
     void draw(double x, double y, double angle = 0.0, 
               double scale_x = 1.0, double scale_y = 1.0,

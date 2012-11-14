@@ -75,8 +75,11 @@ def to_c(format_spec, *args):
         new_args.append(arg)
     return format_spec % tuple(new_args)
 
-def get_image_name(value):
-    return '&image%s' % value
+def get_image_name(value, pointer = True):
+    ret = 'image%s' % value
+    if pointer:
+        ret = '&' + ret
+    return ret
 
 def make_color(value):
     return 'Color(%s)' % ', '.join([str(item) for item in value])

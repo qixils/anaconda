@@ -47,12 +47,25 @@ class Active(ObjectWriter):
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         writer.putln('initialize_active();')
 
+    def get_images(self):
+        images = set()
+        common = self.common
+        animations = common.animations.loadedAnimations
+        for animation in animations.values():
+            directions = animation.loadedDirections
+            for direction in directions.values():
+                images.update(direction.frames)
+        return images
+
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'
     def get_parameters(self):
         if self.common.getObstacleType() != 'None':
             raise NotImplementedError
         return [get_image_name(self.common.image)]
+
+    def get_images(self):
+        return [self.common.image]
 
 class QuickBackdrop(ObjectWriter):
     class_name = 'QuickBackdrop'
@@ -144,6 +157,16 @@ class Counter(ObjectWriter):
     def get_parameters(self):
         counter = self.common.counter
         return [counter.initial, counter.minimum, counter.maximum]
+
+    def get_images(self):
+        common = self.common
+        counters = common.counters
+        counter = common.counter
+        if counters:
+            display_type = counters.displayType
+            if display_type == NUMBERS:
+                return counters.frames
+        return []
 
 system_objects = {
     TEXT : Text,

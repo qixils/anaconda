@@ -63,3 +63,6 @@ class ObjectWriter(BaseWriter):
 
     def is_background(self):
         return self.common.isBackground()
+
+    def get_images(self):
+        return []

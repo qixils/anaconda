@@ -113,7 +113,7 @@ public:
         GLint len = length;
 
         glShaderSource(shader, 1, (const GLchar**)&data, &len);
-        delete data;
+        delete[] data;
         glCompileShader(shader);
 
         GLint status;

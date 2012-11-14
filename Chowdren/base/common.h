@@ -224,8 +224,8 @@ public:
     void reset(bool clear_items = true)
     {
         if (mask != NULL) {
-            delete mask;
-            delete image;
+            delete[] mask;
+            delete[] image;
             delete collision;
         }
         mask = new unsigned char[BACK_WIDTH * BACK_HEIGHT]();
@@ -445,7 +445,8 @@ public:
 
     void destroy_backgrounds()
     {
-        create_background();
+        if (back == NULL)
+            return;
         back->reset();
     }
 

@@ -260,6 +260,7 @@ public:
     void initialize()
     {
         left_gain = right_gain = 1.0;
+        pan = 0.0;
         al_check(alGenSources(1, &source));
         if (global_device->direct_channels_ext)
             al_check(alSourcei(source, AL_DIRECT_CHANNELS_SOFT, AL_TRUE));

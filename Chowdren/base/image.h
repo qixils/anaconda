@@ -1,6 +1,7 @@
 #ifndef CHOWDREN_IMAGE_H
 #define CHOWDREN_IMAGE_H
 
+#include "path.h"
 #include <string>
 #include "include_gl.h"
 #include "color.h"

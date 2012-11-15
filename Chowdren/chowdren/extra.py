@@ -40,7 +40,7 @@ class SetString(ActionWriter):
         elif name == FONT_STRING:
             writer.put('set_font_path(%s);' % self.convert_index(0))
         elif name == RESIZE_STRING:
-            writer.put(to_c('set_window_resize(%s)', convert_repr_bool(
+            writer.put(to_c('set_window_resize(%s);', convert_repr_bool(
                 self.convert_index(0))))
 
 actions = {

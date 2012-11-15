@@ -15,6 +15,7 @@ class File(ObjectWriter):
 
 actions = make_table(StaticActionWriter, {
     5 : 'delete_file',
+    8 : 'copy_file',
     11 : EmptyAction
 })
 

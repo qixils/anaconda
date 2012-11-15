@@ -955,6 +955,8 @@ class Converter(object):
         config_file.putdefine('AUTHOR', game.author)
         config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+        config_file.putdefine('RESIZABLE_WINDOW', 
+            not header.newFlags['NoThickFrame'])
 
         config_file.putln('')
         config_file.putln('#include "common.h"')

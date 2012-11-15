@@ -1364,15 +1364,28 @@ public:
     }
 };
 
-static FTTextureFont default_font("Arial.ttf", false);
+static FTTextureFont * default_font = NULL;
+
+void set_font_path(const char * path)
+{
+    if (default_font != NULL)
+        return;
+    default_font = new FTTextureFont(path, false);
+}
+
+void set_font_path(const std::string & path)
+{
+    set_font_path(path.c_str());
+}
 
 void init_font()
 {
     static bool initialized = false;
     if (initialized)
         return;
-    default_font.FaceSize(12, 96);
-    initialized = false;
+    set_font_path("Arial.ttf"); // default font, could be set already
+    default_font->FaceSize(12, 96);
+    initialized = true;
 }
 
 class Text : public FrameObject
@@ -1412,11 +1425,11 @@ public:
         init_font();
         color.apply();
         glPushMatrix();
-        FTBBox box = default_font.BBox(text.c_str(), text.size(), FTPoint());
+        FTBBox box = default_font->BBox(text.c_str(), text.size(), FTPoint());
         double box_w = box.Upper().X() - box.Lower().X();
         double box_h = box.Upper().Y() - box.Lower().Y();
         double off_x = x;
-        double off_y = y + default_font.Ascender();
+        double off_y = y + default_font->Ascender();
 
         if (alignment & ALIGN_HCENTER)
             off_x += 0.5 * (width - box_w);
@@ -1424,13 +1437,13 @@ public:
             off_x += width - box_w;
 
         if (alignment & ALIGN_VCENTER)
-            off_y += height * 0.5 - default_font.LineHeight() * 0.5;
+            off_y += height * 0.5 - default_font->LineHeight() * 0.5;
         else if (alignment & ALIGN_BOTTOM)
-            off_y += default_font.LineHeight();
+            off_y += default_font->LineHeight();
 
         glTranslated((int)off_x, (int)off_y, 0.0);
         glScalef(1, -1, 1);
-        default_font.Render(text.c_str(), text.size(), FTPoint(),
+        default_font->Render(text.c_str(), text.size(), FTPoint(),
             FTPoint(), RENDER_ALL);
         glPopMatrix();
     }

@@ -6,7 +6,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "${PROJECT_SOURCE_DIR}/include")
 
 set(SRCS run.cpp images.cpp image.cpp glew.c
-    include/tinythread/tinythread.cpp assets.cpp)
+    include/tinythread/tinythread.cpp)
 
 if(WIN32)
     set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} 

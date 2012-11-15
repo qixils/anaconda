@@ -143,16 +143,11 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
     }
 
     if (!has_alpha && color != NULL) {
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                unsigned char * data = &(image[(y * width + x)*4]);
-                if (data[0] == color->r && data[1] == color->g && 
-                    data[2] == color->b)
-                    data[3] = 0;
-                else
-                    data[3] = 255;
-            }
-        }
+        int trans_color = color->get_int();
+        int * data = (int*)image;
+        for (int i = 0; i < width * height; i++)
+            if (data[i] == trans_color)
+                data[i] = data[i] & 0xFFFFFF;
     }
 }
 

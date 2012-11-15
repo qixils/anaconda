@@ -253,7 +253,6 @@ public:
                          item.dest_x + item.src_width, 
                          item.dest_y + item.src_height,
                          x, y, x, y)) {
-                // std::cout << "Destroying: " << item.collision_type << std::endl;
                 it = items.erase(it);
                 items_changed = true;
             } else
@@ -2272,6 +2271,7 @@ class ActivePicture : public FrameObject
 {
 public:
     Image * image;
+    Image * cached_image;
     bool horizontal_flip;
     std::string filename;
     Color transparent_color;
@@ -2308,26 +2308,23 @@ public:
         remove_image();
         filename = convert_path(fn);
         ImageCache::const_iterator it = image_cache.find(filename);
-        Image * image_data;
         if (it == image_cache.end()) {
             Color * transparent = NULL;
             if (has_transparent_color)
                 transparent = &transparent_color;
-            image_data = new Image(filename, 0, 0, 0, 0, transparent);
-            if (image_data->image == NULL) {
-                delete image_data;
-                image_data = NULL;
+            cached_image = new Image(filename, 0, 0, 0, 0, transparent);
+            if (cached_image->image == NULL) {
+                delete cached_image;
+                cached_image = NULL;
             } else {
-                std::cout << "Cached new image: " << filename << " (" <<
-                    name << ")" << std::endl;
-                image_cache[filename] = image_data;
+                image_cache[filename] = cached_image;
             }
         } else {
-            image_data = it->second;
+            cached_image = it->second;
         }
 
-        if (image_data != NULL) {
-            image = new Image(*image_data);
+        if (cached_image != NULL) {
+            image = new Image(*cached_image);
             collision->set_image(image);
             image->hotspot_x = image->hotspot_y = 0;
         }
@@ -2417,7 +2414,7 @@ public:
             std::cout << "Invalid image paste: " << filename << std::endl;
             return;
         }
-        frame->layers[layer_index]->paste(image, dest_x, dest_y, 
+        frame->layers[layer_index]->paste(cached_image, dest_x, dest_y, 
             src_x, src_y, src_width, src_height, collision_type);
     }
 };

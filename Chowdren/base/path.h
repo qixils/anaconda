@@ -11,10 +11,9 @@ inline std::string get_app_path()
 
 inline std::string convert_path(std::string value)
 {
-#ifdef _WIN32
-    // don't do anything on Windows yet
-#else
-    std::replace(value.begin(), value.end(), '\\', '/');
+#if defined(CHOWDREN_DEBUG) && defined(_WIN32)
+    if (value.find('\\') != std::string::npos)
+        __debugbreak();
 #endif
     return value;
 }

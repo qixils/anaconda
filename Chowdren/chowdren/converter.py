@@ -865,6 +865,7 @@ class Converter(object):
             frame_file.putln('static bool images_initialized = false;')
             frame_file.putln('if (!images_initialized) {')
             frame_file.indent()
+            frame_file.putln('images_initialized = true;')
             for image_handle in startup_images:
                 frame_file.putln('%s.load();' % get_image_name(image_handle, 
                     False))

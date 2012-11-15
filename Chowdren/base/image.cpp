@@ -1,12 +1,103 @@
 #include <string>
 #include "image.h"
-#include "stb_image.c"
+#include "png.h"
 #include "string.h"
 #include "color.h"
 #include <iostream>
 #include <stdio.h>
 #include "path.h"
 #include <vector>
+
+unsigned char * read_png(FILE *fp, int *w, int *h, bool * has_alpha)
+{
+    unsigned char *pixels;
+    png_bytep *row_pointers;
+    png_structp png_ptr;
+    png_infop info_ptr, end_info;
+    png_uint_32 width, height;
+    int i, bit_depth, color_type, interlace_type;
+
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, 
+        NULL);
+    if (png_ptr == NULL)
+        return NULL;
+
+    info_ptr = png_create_info_struct(png_ptr);
+    if (info_ptr == NULL) {
+        png_destroy_read_struct(&png_ptr, NULL, NULL);
+        return NULL;
+    }
+
+    end_info = png_create_info_struct(png_ptr);
+    if (end_info == NULL) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+        return NULL;
+    }
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+        return NULL;
+    }
+
+    png_init_io(png_ptr, fp);
+    png_read_info(png_ptr, info_ptr);
+    png_get_IHDR(png_ptr, info_ptr, &width, &height,
+     &bit_depth, &color_type, &interlace_type,
+     NULL, NULL);
+    pixels = new unsigned char[width * height * 4];
+    row_pointers = new png_bytep[height];
+
+    for (i = 0; i < (int)height; i++)
+        row_pointers[i] = (pixels + width * 4 * i);
+
+    *has_alpha = true; // default
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        *has_alpha = false;
+        png_set_palette_to_rgb(png_ptr);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png_ptr);
+
+    if (bit_depth == 16)
+        png_set_strip_16(png_ptr);
+
+    if (bit_depth < 8)
+        png_set_packing(png_ptr);
+
+    if (color_type == PNG_COLOR_TYPE_RGB || 
+        color_type == PNG_COLOR_TYPE_GRAY) {
+        *has_alpha = false;
+        png_set_add_alpha(png_ptr, 0xFF, PNG_FILLER_AFTER);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY || 
+        color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png_ptr);
+
+    png_read_image(png_ptr, row_pointers);
+    png_read_end(png_ptr, end_info);
+    png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+    delete[] row_pointers;
+    *w = width;
+    *h = height;
+    return pixels;
+}
+
+unsigned char * read_png(const std::string & filename, int * w, int * h,
+                         bool * has_alpha)
+{
+    FILE * fp = fopen(filename.c_str(), "rb");
+    if (!fp)
+        return NULL;
+    unsigned char * pixels = read_png(fp, w, h, has_alpha);
+    fclose(fp);
+    return pixels;
+}
 
 typedef std::vector<Image*> ImageList;
 
@@ -31,7 +122,7 @@ Image::~Image()
     if (ref)
         return;
     if (image != NULL)
-        stbi_image_free(image);
+        delete[] image;
     if (tex != 0)
         glDeleteTextures(1, &tex);
     image = NULL;
@@ -43,15 +134,15 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
   tex(0), image(NULL), ref(NULL), offset(-1)
 {
-    int channels;
-    image = stbi_load(filename.c_str(), &width, &height, &channels, 4);
+    bool has_alpha;
+    image = read_png(filename, &width, &height, &has_alpha);
 
     if(image == NULL) {
         printf("Could not load %s\n", filename.c_str());
         return;
     }
 
-    if ((channels == 1 || channels == 3) && color != NULL) {
+    if (!has_alpha && color != NULL) {
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 unsigned char * data = &(image[(y * width + x)*4]);
@@ -80,8 +171,8 @@ void Image::load()
     if (image_file == NULL)
         image_file = fopen(image_path.c_str(), "rb");
     fseek(image_file, offset, SEEK_SET);
-    int channels; // may be useful later
-    image = stbi_load_from_file(image_file, &width, &height, &channels, 4);
+    bool has_alpha; // may be useful later
+    image = read_png(image_file, &width, &height, &has_alpha);
 }
 
 void Image::upload_texture()

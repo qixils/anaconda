@@ -5,7 +5,6 @@
 #include "color.h"
 #include <iostream>
 #include <stdio.h>
-#include "path.h"
 #include <vector>
 
 unsigned char * read_png(FILE *fp, int *w, int *h, bool * has_alpha)

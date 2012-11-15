@@ -1786,6 +1786,7 @@ public:
             reset();
         filename = convert_path(fn);
         std::cout << "Loading " << filename << " (" << name << ")" << std::endl;
+        create_directories(filename);
         int e = ini_parse_file(filename.c_str(), _parse_handler, this);
         if (e != 0) {
             std::cout << "INI load failed (" << filename << ") with code " << e
@@ -1825,6 +1826,7 @@ public:
     void save_file(const std::string & fn)
     {
         filename = convert_path(fn);
+        create_directories(filename);
         std::stringstream out;
         get_data(out);
         std::ofstream fp;

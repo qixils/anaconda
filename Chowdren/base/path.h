@@ -3,6 +3,9 @@
 
 #include <string>
 #include <algorithm>
+#include <platformstl/platformstl.hpp>
+#include <platformstl/filesystem/directory_functions.hpp>
+#include <platformstl/filesystem/path.hpp>
 
 inline std::string get_app_path()
 {
@@ -16,6 +19,13 @@ inline std::string convert_path(std::string value)
         __debugbreak();
 #endif
     return value;
+}
+
+inline void create_directories(const std::string & value)
+{
+    platformstl::path path(value);
+    path.pop();
+    platformstl::create_directory_recurse(path);
 }
 
 #endif // CHOWDREN_PATH_H

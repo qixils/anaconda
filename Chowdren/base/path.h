@@ -8,8 +8,8 @@
 #define unix
 #endif
 #include <platformstl/platformstl.hpp>
-#include <platformstl/filesystem/directory_functions.hpp>
 #include <platformstl/filesystem/path.hpp>
+#include <platformstl/filesystem/directory_functions.hpp>
 
 inline std::string get_app_path()
 {

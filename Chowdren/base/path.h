@@ -3,6 +3,10 @@
 
 #include <string>
 #include <algorithm>
+// for some reason, "unix" is not defined on OS X
+#ifdef __APPLE__
+#define unix
+#endif
 #include <platformstl/platformstl.hpp>
 #include <platformstl/filesystem/directory_functions.hpp>
 #include <platformstl/filesystem/path.hpp>

@@ -1635,6 +1635,7 @@ public:
     SectionMap data;
     std::vector<std::pair<std::string, std::string> > search_results;
     bool overwrite;
+    bool read_only;
     bool auto_save;
     std::string filename;
     std::string global_key;
@@ -1770,8 +1771,7 @@ public:
                     const std::string & value)
     {
         data[group][item] = value;
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
     void set_string(const std::string & item, const std::string & value)
@@ -1782,9 +1782,10 @@ public:
     void load_file(const std::string & fn, bool read_only = false, 
                    bool merge = false, bool overwrite = false)
     {
-        if (!merge)
-            reset();
+        this->read_only = read_only;
         filename = convert_path(fn);
+        if (!merge)
+            reset(false);
         std::cout << "Loading " << filename << " (" << name << ")" << std::endl;
         create_directories(filename);
         int e = ini_parse_file(filename.c_str(), _parse_handler, this);
@@ -1797,7 +1798,7 @@ public:
     void load_string(const std::string & data, bool merge)
     {
         if (!merge)
-            reset();
+            reset(false);
         int e = ini_parse_string(data, _parse_handler, this);
         if (e != 0) {
             std::cout << "INI load failed with code " << e << std::endl;
@@ -1823,8 +1824,10 @@ public:
         }
     }
 
-    void save_file(const std::string & fn)
+    void save_file(const std::string & fn, bool force = true)
     {
+        if (fn.empty() || (read_only && !force))
+            return;
         filename = convert_path(fn);
         create_directories(filename);
         std::stringstream out;
@@ -1835,9 +1838,16 @@ public:
         fp.close();
     }
 
-    void save_file()
+    void save_file(bool force = true)
     {
-        save_file(filename);
+        save_file(filename, force);
+    }
+
+    void save_auto()
+    {
+        if (!auto_save)
+            return;
+        save_file(false);
     }
 
     int get_item_count(const std::string & section)
@@ -1922,22 +1932,20 @@ public:
                 option_map.erase(it2++);
             }
         }
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
-    void reset()
+    void reset(bool save = true)
     {
         data.clear();
-        if (auto_save)
-            save_file();
+        if (save)
+            save_auto();
     }
 
     void delete_group(const std::string & group)
     {
         data.erase(group);
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
     void delete_group()
@@ -1948,8 +1956,7 @@ public:
     void delete_item(const std::string & group, const std::string & item)
     {
         data[group].erase(item);
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
     void delete_item(const std::string & item)
@@ -1986,8 +1993,7 @@ public:
                 data[(*it1).first][(*it2).first] = (*it2).second;
             }
         }
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
     void merge_map(SectionMap & data2, const std::string & src_group, 
@@ -2000,8 +2006,7 @@ public:
                 continue;
             data[dst_group][(*it).first] = (*it).second;
         }
-        if (auto_save)
-            save_file();
+        save_auto();
     }
 
     size_t get_search_count()

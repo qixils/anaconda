@@ -228,7 +228,7 @@ cdef class Condition(_AceCommon):
 cdef class EventGroup(DataLoader):
     cdef public:
         object flags
-        int restrict
+        int is_restricted
         int restrictCpt
         int identifier
         int undo
@@ -245,7 +245,7 @@ cdef class EventGroup(DataLoader):
         cdef int numberOfConditions = reader.readByte(True)
         cdef int numberOfActions = reader.readByte(True)
         self.flags.setFlags(reader.readShort(True)) # Flags
-        self.restrict = reader.readShort() # If the group is inhibited
+        self.is_restricted = reader.readShort() # If the group is inhibited
         self.restrictCpt = reader.readShort() # Counter
         self.identifier = reader.readShort() # Unique identifier
         self.undo = reader.readShort() # Identifier for UNDO
@@ -266,7 +266,7 @@ cdef class EventGroup(DataLoader):
         newReader.writeByte(len(self.conditions), True)
         newReader.writeByte(len(self.actions), True)
         newReader.writeShort(self.flags.getFlags(), True)
-        newReader.writeShort(self.restrict)
+        newReader.writeShort(self.is_restricted)
         newReader.writeShort(self.restrictCpt)
         newReader.writeShort(self.identifier)
         newReader.writeShort(self.undo)

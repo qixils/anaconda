@@ -13,7 +13,7 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/lib/win32")
     set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} 
         "${PROJECT_SOURCE_DIR}/include/win32")
-    set(SRCS ${SRCS} chowdren.rc)
+    set(SRCS ${SRCS} resource.rc)
     set(PLATFORM_LIBRARIES winmm)
 endif(WIN32)
 
@@ -26,7 +26,16 @@ if(MSVC)
 endif()
 
 add_definitions(-DGLEW_STATIC)
-add_executable(Chowdren ${SRCS})
+
+add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
+
+set(MACOSX_BUNDLE_ICON_FILE icon.icns)
+set(MACOSX_BUNDLE_BUNDLE_NAME "%(name)s")
+set(MACOSX_BUNDLE_GUI_IDENTIFIER "%(name)s")
+set(MACOSX_BUNDLE_INFO_STRING "%(name)s - %(version)s")
+set(MACOSX_BUNDLE_BUNDLE_VERSION "%(version)s")
+set(MACOSX_BUNDLE_COPYRIGHT "%(copyright)s")
+
 find_package(GLFW REQUIRED)
 find_package(Vorbis REQUIRED)
 find_package(Freetype REQUIRED)

@@ -453,13 +453,13 @@ class Converter(object):
         version = version or '1.0.0.0'
         version_number = ', '.join(version.split('.'))
         copyright = copyright or game.author
-        print repr((company, version, copyright, game.name))
-        res_path = self.get_filename('chowdren.rc')
-        res_data = open(res_path, 'rb').read()
-        res_data = res_data.format(company = company, version = version, 
+        self.info_dict = dict(company = company, version = version, 
             copyright = copyright, description = game.name,
-            version_number = version_number)
-        open(res_path, 'wb').write(res_data)
+            version_number = version_number, name = game.name)
+
+        # for resource.rc
+        self.format_file('resource.rc')
+        self.format_file('CMakeLists.txt')
         
         # fonts
         if WRITE_FONTS:
@@ -1497,3 +1497,13 @@ class Converter(object):
     
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)
+
+    def format_file(self, path):
+        path = self.get_filename(path)
+        fp = open(path, 'rb')
+        data = fp.read()
+        fp.close()
+        data = data % self.info_dict
+        fp = open(path, 'wb')
+        fp.write(data)
+        fp.close()

@@ -2,6 +2,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #endif
 
 #include "globals.h"
@@ -346,12 +348,29 @@ void _on_mouse(int key, int state)
     global_manager->on_mouse(key, state);
 }
 
-#if 1 /* defined(CHOWDREN_DEBUG) || !defined(_WIN32) */
-int main (int argc, char *argv[])
-#else
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
+#else
+int main (int argc, char *argv[])
 #endif
 {
+#if defined(_WIN32) && defined(CHOWDREN_DEBUG)
+    // open console in debug mode
+    AllocConsole();
+
+    HANDLE handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
+    int hCrt = _open_osfhandle((long) handle_out, _O_TEXT);
+    FILE* hf_out = _fdopen(hCrt, "w");
+    setvbuf(hf_out, NULL, _IONBF, 1);
+    *stdout = *hf_out;
+
+    HANDLE handle_in = GetStdHandle(STD_INPUT_HANDLE);
+    hCrt = _open_osfhandle((long) handle_in, _O_TEXT);
+    FILE* hf_in = _fdopen(hCrt, "r");
+    setvbuf(hf_in, NULL, _IONBF, 128);
+    *stdin = *hf_in;
+#endif
+
     GameManager manager = GameManager();
     global_manager = &manager;
     manager.run();

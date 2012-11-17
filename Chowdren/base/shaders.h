@@ -4,6 +4,13 @@
 #include "image.h"
 #include <algorithm>
 
+static std::string shader_path = ".";
+
+void set_shader_path(const std::string & path)
+{
+    shader_path = path;
+}
+
 static bool background_initialized = false;
 static GLuint background_fbo;
 static GLuint background_texture;
@@ -103,7 +110,7 @@ public:
     {
         GLuint shader = glCreateShader(type);
 
-        std::string path = "./shaders/" + name + "." + ext;
+        std::string path = shader_path + "/" + name + "." + ext;
 
         GLchar * data;
         size_t length;

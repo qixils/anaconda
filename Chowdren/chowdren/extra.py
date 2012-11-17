@@ -8,9 +8,10 @@ SPRITES_STRING = 'Chowdren: Sprites'
 PLATFORM_STRING = 'Chowdren: Platform'
 FONT_STRING = 'Chowdren: Font'
 RESIZE_STRING = 'Chowdren: Window Resize'
+SHADERS_STRING = 'Chowdren: Shaders'
 
 SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING, 
-    RESIZE_STRING])
+    RESIZE_STRING, SHADERS_STRING])
 
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
@@ -42,6 +43,8 @@ class SetString(ActionWriter):
         elif name == RESIZE_STRING:
             writer.put(to_c('set_window_resize(%s);', convert_repr_bool(
                 self.convert_index(0))))
+        elif name == SHADERS_STRING:
+            writer.put('set_shader_path(%s);' % self.convert_index(0))
 
 actions = {
     'SetString' : SetString

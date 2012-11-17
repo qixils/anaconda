@@ -254,6 +254,7 @@ void GameManager::draw()
     int x2 = off_x + x_size;
     int y2 = off_y + y_size;
 
+    glColor4f(1.0, 1.0, 1.0, 1.0);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glDisable(GL_BLEND);

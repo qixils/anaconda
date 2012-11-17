@@ -159,24 +159,10 @@ public:
 
 typedef std::vector<FrameObject*> ObjectList;
 
-inline unsigned int nearest_pot(unsigned int v)
-{
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-    return v;
-}
-
 #define BACK_WIDTH WINDOW_WIDTH
 #define BACK_HEIGHT WINDOW_HEIGHT
 #define BACK_X_OFFSET 0
 #define BACK_Y_OFFSET 0
-#define BACK_WIDTH_POT nearest_pot(BACK_WIDTH)
-#define BACK_HEIGHT_POT nearest_pot(BACK_HEIGHT)
 
 class BackgroundItem
 {
@@ -213,8 +199,8 @@ public:
         glBindTexture(GL_TEXTURE_2D, tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, BACK_WIDTH_POT,
-            BACK_HEIGHT_POT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, BACK_WIDTH,
+            BACK_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
             0);
         reset();
     }
@@ -361,11 +347,11 @@ public:
         glTexCoord2f(0.0, 0.0);
         glVertex2d(0, 0);
         glTexCoord2f(1.0, 0.0);
-        glVertex2d(BACK_WIDTH_POT, 0.0);
+        glVertex2d(BACK_WIDTH, 0.0);
         glTexCoord2f(1.0, 1.0);
-        glVertex2d(BACK_WIDTH_POT, BACK_HEIGHT_POT);
+        glVertex2d(BACK_WIDTH, BACK_HEIGHT);
         glTexCoord2f(0.0, 1.0);
-        glVertex2d(0, BACK_HEIGHT_POT);
+        glVertex2d(0, BACK_HEIGHT);
         glEnd();
         glDisable(GL_TEXTURE_2D);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2044,12 +2030,42 @@ public:
 
 std::map<std::string, SectionMap> INI::global_data;
 
+#ifdef _WIN32
+#include "windows.h"
+#include "shlobj.h"
+#elif __APPLE__
+#include <CoreServices/CoreServices.h>
+#else
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
+
 class File
 {
 public:
     static std::string get_appdata_directory()
     {
-        return get_app_path();
+        static bool initialized = false;
+        static std::string dir;
+        if (!initialized) {
+#ifdef _WIN32
+            TCHAR path[MAX_PATH];
+            SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
+            dir = path;
+#elif __APPLE__
+            FSRef ref;
+            OSType folderType = kApplicationSupportFolderType;
+            char path[MAX_PATH];
+            FSFindFolder(kUserDomain, folderType, kCreateFolder, &ref);
+            FSRefMakePath(&ref, (UInt8*)&path, MAX_PATH);
+            dir = path;
+#else
+            struct passwd *pw = getpwuid(getuid());
+            dir = pw->pw_dir;
+#endif
+        }
+        return dir;
     }
 
     static bool file_exists(const std::string & path)

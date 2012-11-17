@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.6)
 
-project("%(name)s")
+project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
 set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "${PROJECT_SOURCE_DIR}/include")
@@ -27,7 +27,7 @@ endif()
 
 add_definitions(-DGLEW_STATIC)
 
-add_executable("%(name)s" WIN32 MACOSX_BUNDLE ${SRCS})
+add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)
@@ -40,11 +40,11 @@ if(APPLE)
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/Resources
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/MacOS
         COMMAND cp ../../../pixmaps/${MACOSX_BUNDLE_ICON_FILE}
-            ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/Resources/${MACOSX_BUNDLE_ICON_FILE}
+            ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources/${MACOSX_BUNDLE_ICON_FILE}
         # Qt translations - uncomment this line when you need to install them to the bundle
-        #COMMAND cp *.qm ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/Resources/
+        #COMMAND cp *.qm ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources/
     )
-    add_dependencies("%(name)s" osx_bundle_dirs)
+    add_dependencies(Chowdren osx_bundle_dirs)
     # This tells cmake where to place files inside the bundle
     set_source_files_properties(${ProjectName_RESOURCES} ${ProjectName_TRANSLATIONS}
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
@@ -67,7 +67,7 @@ endif()
 include_directories(${OPENAL_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
     ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS})
-target_link_libraries("%(name)s" ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
+target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
     ${FREETYPE_LIBRARIES} ${SNDFILE_LIBRARIES} ${OPENAL_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
     ${PNG_LIBRARIES})

@@ -214,11 +214,18 @@ SoundDecoder * create_decoder(const std::string & filename)
     if (pos != std::string::npos)
         ext = filename.substr(pos + 1);
     ext = to_lower(ext);
+    SoundDecoder * decoder;
     if (ext == "wav")
-        return new WavDecoder(filename);
-    if (ext == "ogg")
-        return new OggDecoder(filename);
-    std::cout << "No decoder available for " << filename << std::endl;
+        decoder = new WavDecoder(filename);
+    else if (ext == "ogg")
+        decoder = new OggDecoder(filename);
+    else {
+        std::cout << "No decoder available for " << filename << std::endl;
+        return NULL;
+    }
+    if (decoder.is_valid())
+        return decoder;
+    std::cout << "Could not load " << filename << std::endl;
     return NULL;
 }
 

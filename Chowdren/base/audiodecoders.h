@@ -223,7 +223,7 @@ SoundDecoder * create_decoder(const std::string & filename)
         std::cout << "No decoder available for " << filename << std::endl;
         return NULL;
     }
-    if (decoder.is_valid())
+    if (decoder->is_valid())
         return decoder;
     std::cout << "Could not load " << filename << std::endl;
     return NULL;

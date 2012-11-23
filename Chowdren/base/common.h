@@ -1455,6 +1455,11 @@ public:
         return current_paragraph;
     }
 
+    int get_count()
+    {
+        return paragraphs.size();
+    }
+
     std::string get_paragraph(int index)
     {
         if (index < 0)

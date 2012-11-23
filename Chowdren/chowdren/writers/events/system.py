@@ -591,6 +591,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ActionX' : 'get_action_x()',
     'ActionY' : 'get_action_y()',
     'GetParagraph' : 'get_paragraph',
+    'ParagraphCount' : 'get_count()',
     'CurrentParagraphIndex' : 'get_index()+1',
     'LoopIndex' : 'get_loop_index',
     'CurrentText' : '.text',

@@ -375,7 +375,18 @@ class EventContainer(object):
         self.inactive = inactive
         self.always_groups = []
         self.parent = parent
+        self.children = []
         self.end_label = '%s_end' % self.code_name
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def get_all_children(self):
+        children = set()
+        for child in self.children:
+            children.add(child)
+            children.update(child.get_all_children())
+        return list(children)
 
 class ContainerMark(object):
     is_container_mark = True
@@ -724,8 +735,11 @@ class Converter(object):
                 name = self.get_condition_name(first_condition)
                 if name == 'NewGroup':
                     group_loader = first_condition.items[0].loader
-                    current_container = EventContainer(group_loader.name,
+                    new_container = EventContainer(group_loader.name,
                         group_loader.flags['Inactive'], current_container)
+                    if current_container:
+                        current_container.add_child(new_container)
+                    current_container = new_container
                     containers[group_loader.offset] = current_container
                     always_groups.append(ContainerMark(current_container, name))
                     continue
@@ -1056,6 +1070,16 @@ class Converter(object):
             writer.putln('if (!%s) goto %s;' % (
                 item.code_name, item.end_label))
 
+    def get_container_check(self, container):
+        groups = []
+        for item in container.tree:
+            if item.is_static:
+                continue
+            groups.append(item.code_name)
+        if not groups:
+            return 'true'
+        return ' && '.join(groups)
+
     def write_event(self, outwriter, group, triggered = False):
         self.current_event_id = group.global_id
         actions, conditions = group.actions, group.conditions
@@ -1073,12 +1097,7 @@ class Converter(object):
         writer.start_brace() # new scope
         if conditions or has_container_check:
             if has_container_check:
-                groups = []
-                for item in container.tree:
-                    if item.is_static:
-                        continue
-                    groups.append(item.code_name)
-                condition = ' && '.join(groups)
+                condition = self.get_container_check(container)
                 writer.putln('if (!(%s)) %s' % (condition, event_break))
             elif container:
                 writer.putln('// group: %s' % container.name)

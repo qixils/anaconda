@@ -26,8 +26,9 @@ class SystemObject(ObjectWriter):
         for group in self.converter.always_groups_dict['OnGroupActivation']:
             cond = group.conditions[0]
             container = cond.container
-            writer.putln('bool %s;' % (cond.get_group_check()))
-            self.group_activations[container].append(cond.get_group_check())
+            check_name = cond.get_group_check()
+            writer.putln('bool %s;' % (check_name))
+            self.group_activations[container].append(check_name)
 
     def write_loops(self, writer):
         loops = defaultdict(list)
@@ -165,7 +166,7 @@ class GroupActivated(ConditionWriter):
     def write(self, writer):
         container = self.converter.containers[
             self.parameters[0].loader.pointer]
-        writer.put(container.code_name)
+        writer.put(self.converter.get_container_check(container))
 
 class PickRandom(ConditionWriter):
     custom = True
@@ -347,7 +348,7 @@ class DeactivateGroup(ActionWriter):
         container = self.get_deactivated_container()
         if container in self.converter.container_tree:
             writer.putln('goto %s;' % container.end_label)
-        elif container in self.container.tree:
+        elif self.container and container in self.container.tree:
             pass
 
 class StopLoop(ActionWriter):
@@ -361,7 +362,11 @@ class ActivateGroup(ActionWriter):
         container = self.converter.containers[
             self.parameters[0].loader.pointer]
         writer.put('%s = true;' % container.code_name)
-        for name in self.converter.system_object.group_activations[container]:
+        check_names = set()
+        group_activations = self.converter.system_object.group_activations
+        for child in ([container] + container.get_all_children()):
+            check_names.update(group_activations[child])
+        for name in check_names:
             writer.putln('%s = true;' % name)
 
 class CenterDisplayY(ActionWriter):

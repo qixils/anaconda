@@ -2040,6 +2040,7 @@ std::map<std::string, SectionMap> INI::global_data;
 #include "shlobj.h"
 #elif __APPLE__
 #include <CoreServices/CoreServices.h>
+#include <limits.h>
 #else
 #include <unistd.h>
 #include <sys/types.h>
@@ -2061,9 +2062,9 @@ public:
 #elif __APPLE__
             FSRef ref;
             OSType folderType = kApplicationSupportFolderType;
-            char path[MAX_PATH];
+            char path[PATH_MAX];
             FSFindFolder(kUserDomain, folderType, kCreateFolder, &ref);
-            FSRefMakePath(&ref, (UInt8*)&path, MAX_PATH);
+            FSRefMakePath(&ref, (UInt8*)&path, PATH_MAX);
             dir = path;
 #else
             struct passwd *pw = getpwuid(getuid());

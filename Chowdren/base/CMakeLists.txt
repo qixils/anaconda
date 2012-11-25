@@ -3,6 +3,7 @@ cmake_minimum_required (VERSION 2.6)
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
+set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 set(SRCS run.cpp images.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)

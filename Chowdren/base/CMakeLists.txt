@@ -2,9 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 include_directories("${PROJECT_SOURCE_DIR}/include")
-set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 set(SRCS run.cpp images.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)
@@ -68,6 +66,7 @@ if(NOT PYTHON_DEBUG_LIBRARIES)
     add_definitions(-DFORCE_PYTHON_RELEASE)
 endif()
 
+link_directories(${CMAKE_LIBRARY_PATH})
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
     ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS})

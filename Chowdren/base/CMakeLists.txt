@@ -45,10 +45,8 @@ if(APPLE)
     add_custom_target(osx_bundle_dirs
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/Resources
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/MacOS
-        COMMAND cp ../../../pixmaps/${MACOSX_BUNDLE_ICON_FILE}
+        COMMAND cp ${CMAKE_SOURCE_DIR}/${MACOSX_BUNDLE_ICON_FILE}
             ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources/${MACOSX_BUNDLE_ICON_FILE}
-        # Qt translations - uncomment this line when you need to install them to the bundle
-        #COMMAND cp *.qm ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources/
     )
     add_dependencies(Chowdren osx_bundle_dirs)
     # This tells cmake where to place files inside the bundle

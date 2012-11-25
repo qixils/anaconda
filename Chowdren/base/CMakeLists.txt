@@ -43,8 +43,8 @@ if(APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "%(version)s")
     set(MACOSX_BUNDLE_COPYRIGHT "%(copyright)s")
     add_custom_target(osx_bundle_dirs
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/Resources
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/%(name)s.app/Contents/MacOS
+        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources
+        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/MacOS
         COMMAND cp ${CMAKE_SOURCE_DIR}/${MACOSX_BUNDLE_ICON_FILE}
             ${CMAKE_CURRENT_BINARY_DIR}/Chowdren.app/Contents/Resources/${MACOSX_BUNDLE_ICON_FILE}
     )

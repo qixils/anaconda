@@ -729,7 +729,7 @@ AudioDevice::AudioDevice()
         alBufferSubDataSOFT = (PFNALBUFFERSUBDATASOFTPROC)alGetProcAddress(
             "alBufferSubDataSOFT");
     }
-    streaming_thread = new tthread::thread(_stream_update, NULL);
+    streaming_thread = new tthread::thread(_stream_update, (void*)this);
 }
 
 void AudioDevice::stream_update()
@@ -746,7 +746,7 @@ void AudioDevice::stream_update()
 
 void AudioDevice::_stream_update(void * data)
 {
-    global_device->stream_update();
+    ((AudioDevice*)data)->stream_update();
 }
 
 void AudioDevice::add_stream(SoundStream * stream)

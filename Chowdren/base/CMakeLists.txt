@@ -20,6 +20,8 @@ elseif(APPLE)
         ${CMAKE_LIBRARY_PATH})
     set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include/osx"
         ${CMAKE_INCLUDE_PATH})
+    find_library(CARBON_LIBRARY Carbon)
+    set(PLATFORM_LIBRARIES ${CARBON_LIBRARY})
 endif()
 
 if(MSVC)
@@ -31,7 +33,6 @@ if(MSVC)
 endif()
 
 add_definitions(-DGLEW_STATIC)
-
 add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
 if(APPLE)
@@ -67,7 +68,6 @@ if(NOT PYTHON_DEBUG_LIBRARIES)
     add_definitions(-DFORCE_PYTHON_RELEASE)
 endif()
 
-link_directories(${CMAKE_LIBRARY_PATH})
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
     ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS})

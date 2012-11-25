@@ -2,20 +2,26 @@ cmake_minimum_required (VERSION 2.6)
 
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 include_directories("${PROJECT_SOURCE_DIR}/include")
-set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "${PROJECT_SOURCE_DIR}/include")
+set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 set(SRCS run.cpp images.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} 
-        "${PROJECT_SOURCE_DIR}/lib/win32")
-    set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} 
-        "${PROJECT_SOURCE_DIR}/include/win32")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/win32"
+        ${CMAKE_LIBRARY_PATH})
+    set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include/win32"
+        ${CMAKE_INCLUDE_PATH})
     set(SRCS ${SRCS} resource.rc)
     set(PLATFORM_LIBRARIES winmm)
-endif(WIN32)
+elseif(APPLE)
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/osx"
+        ${CMAKE_LIBRARY_PATH})
+    set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include/osx"
+        ${CMAKE_INCLUDE_PATH})
+endif()
 
 if(MSVC)
     # /bigobj is required for MSVC because images.cpp can get too big on

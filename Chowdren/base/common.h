@@ -878,11 +878,15 @@ bool FrameObject::mouse_over()
 
 bool FrameObject::overlaps(FrameObject * other)
 {
+    if (destroying || other->destroying)
+        return false;
     return collide(other->get_collision(), get_collision());
 }
 
 bool FrameObject::overlaps_background()
 {
+    if (destroying)
+        return false;
     Background * back = frame->layers[layer_index]->back;
     back->update();
     return collide(get_collision(), back->get_collision());
@@ -2519,9 +2523,9 @@ bool check_overlap(ObjectList in_a, ObjectList in_b,
     ObjectList::const_iterator item1, item2;
     bool ret = false;
     for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
+        FrameObject * f1 = (*item1);
         bool added = false;
         for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f1 = (*item1);
             FrameObject * f2 = (*item2);
             if (!f1->overlaps(f2))
                 continue;

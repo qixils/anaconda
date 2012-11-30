@@ -870,6 +870,8 @@ CollisionBase * FrameObject::get_collision()
 
 bool FrameObject::mouse_over()
 {
+    if (destroying)
+        return false;
     int x, y;
     frame->get_mouse_pos(&x, &y);
     PointCollision col1(x, y);

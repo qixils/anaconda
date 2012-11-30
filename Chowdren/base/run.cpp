@@ -337,6 +337,7 @@ void GameManager::run()
 
         fps_limit.finish();
     }
+    delete media;
 }
 
 void _on_key(int key, int state) 

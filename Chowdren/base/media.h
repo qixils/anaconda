@@ -169,6 +169,11 @@ public:
         ChowdrenAudio::open_audio();
     }
 
+    ~Media()
+    {
+        ChowdrenAudio::close_audio();
+    }
+
     void play(SoundData & data, int channel = -1, int loop = 1)
     {
         if (channel == -1) {

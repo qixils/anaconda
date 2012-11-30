@@ -70,25 +70,33 @@ class SoundStream;
 class AudioDevice
 {
 public:
+    ALCdevice * device;
+    ALCcontext * context;
     ALboolean direct_channels_ext, sub_buffer_data_ext;
     tthread::thread * streaming_thread;
     std::vector<SoundStream*> streams;
     tthread::recursive_mutex stream_mutex;
+    volatile bool closing;
 
     AudioDevice();
     static void _stream_update(void * data);
     void stream_update();
     void add_stream(SoundStream*);
     void remove_stream(SoundStream*);
+    void close();
 };
 
 AudioDevice * global_device = NULL;
 
 void open_audio()
 {
-    if (global_device != NULL)
-        return;
+    delete global_device;
     global_device = new AudioDevice;
+}
+
+void close_audio()
+{
+    global_device->close();
 }
 
 ALenum get_format(unsigned int channels)
@@ -701,15 +709,15 @@ public:
 
 // audio device implementation
 
-AudioDevice::AudioDevice()
+AudioDevice::AudioDevice() : closing(false)
 {
-    ALCdevice *device = alcOpenDevice(NULL);
+    device = alcOpenDevice(NULL);
     if(!device) {
         std::cerr << "Device open failed" << std::endl;
         return;
     }
 
-    ALCcontext *context = alcCreateContext(device, NULL);
+    context = alcCreateContext(device, NULL);
     if(!context || alcMakeContextCurrent(context) == ALC_FALSE) {
         if(context)
             alcDestroyContext(context);
@@ -732,9 +740,19 @@ AudioDevice::AudioDevice()
     streaming_thread = new tthread::thread(_stream_update, (void*)this);
 }
 
+void AudioDevice::close()
+{
+    closing = true;
+    streaming_thread->join();
+
+    alcMakeContextCurrent(NULL);
+    alcDestroyContext(context);
+    alcCloseDevice(device);
+}
+
 void AudioDevice::stream_update()
 {
-    while (true) {
+    while (!closing) {
         stream_mutex.lock();
         std::vector<SoundStream*>::const_iterator it;
         for (it = streams.begin(); it != streams.end(); it++)

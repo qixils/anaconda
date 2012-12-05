@@ -357,20 +357,29 @@ int main (int argc, char *argv[])
 #endif
 {
 #if defined(_WIN32) && defined(CHOWDREN_DEBUG)
-    // open console in debug mode
+    int outHandle, errHandle, inHandle;
+    FILE *outFile, *errFile, *inFile;
     AllocConsole();
+    CONSOLE_SCREEN_BUFFER_INFO coninfo;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &coninfo);
 
-    HANDLE handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
-    int hCrt = _open_osfhandle((long) handle_out, _O_TEXT);
-    FILE* hf_out = _fdopen(hCrt, "w");
-    setvbuf(hf_out, NULL, _IONBF, 1);
-    *stdout = *hf_out;
+    outHandle = _open_osfhandle((long)GetStdHandle(STD_OUTPUT_HANDLE), _O_TEXT);
+    errHandle = _open_osfhandle((long)GetStdHandle(STD_ERROR_HANDLE), _O_TEXT);
+    inHandle = _open_osfhandle((long)GetStdHandle(STD_INPUT_HANDLE), _O_TEXT);
 
-    HANDLE handle_in = GetStdHandle(STD_INPUT_HANDLE);
-    hCrt = _open_osfhandle((long) handle_in, _O_TEXT);
-    FILE* hf_in = _fdopen(hCrt, "r");
-    setvbuf(hf_in, NULL, _IONBF, 128);
-    *stdin = *hf_in;
+    outFile = _fdopen(outHandle, "w" );
+    errFile = _fdopen(errHandle, "w");
+    inFile =  _fdopen(inHandle, "r");
+
+    *stdout = *outFile;
+    *stderr = *errFile;
+    *stdin = *inFile;
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+    setvbuf(stdin, NULL, _IONBF, 0);
+
+    std::ios::sync_with_stdio();
 #endif
 
     GameManager manager = GameManager();

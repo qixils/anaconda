@@ -49,13 +49,12 @@ if(APPLE)
     set(SRCS ${SRCS} ${OSX_ICON_FILES})
 endif()
 
-if(UNIX)
-    # for all binaries created in a CMake project
-    SET(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
-    # for certain targets
-    SET_TARGET_PROPERTIES(Chowdren 
-        PROPERTIES INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
-endif()
+# for Linux (set RPATH properly)
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
+SET(CMAKE_SKIP_BUILD_RPATH TRUE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+SET(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
 add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 

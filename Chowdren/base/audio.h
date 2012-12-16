@@ -63,7 +63,11 @@ void _al_check(const std::string& file, unsigned int line)
     }
 }
 
+#ifndef NDEBUG
 #define al_check(Func) ((Func), _al_check(__FILE__, __LINE__))
+#else
+#define al_check(Func) (Func)
+#endif
 
 class SoundStream;
 

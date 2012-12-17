@@ -59,8 +59,7 @@ public:
     {
         if (framerate >= 100)
             return;
-        while (next_update - chowdren_get_time() > 0.0)
-            glfwSleep(0.001f);
+        glfwSleep(next_update - chowdren_get_time());
     }
 
 };

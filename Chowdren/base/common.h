@@ -161,8 +161,7 @@ typedef std::vector<FrameObject*> ObjectList;
 
 #define BACK_WIDTH WINDOW_WIDTH
 #define BACK_HEIGHT WINDOW_HEIGHT
-#define BACK_X_OFFSET 0
-#define BACK_Y_OFFSET 0
+#define MASK_PAD 32
 
 class BackgroundItem
 {
@@ -220,9 +219,11 @@ public:
             delete[] image;
             delete collision;
         }
-        mask = new unsigned char[BACK_WIDTH * BACK_HEIGHT]();
+        mask = new unsigned char[(BACK_WIDTH + MASK_PAD * 2) * 
+                                 (BACK_HEIGHT + MASK_PAD * 2)]();
         image = new unsigned char[BACK_WIDTH * BACK_HEIGHT * 4]();
-        collision = new MaskCollision(mask, 0, 0, BACK_WIDTH, BACK_HEIGHT);
+        collision = new MaskCollision(mask, -MASK_PAD, -MASK_PAD, 
+            BACK_WIDTH + MASK_PAD, BACK_HEIGHT + MASK_PAD);
         image_changed = true;
         items_changed = false;
         if (clear_items)
@@ -253,7 +254,9 @@ public:
 
     inline unsigned char & get_mask(int x, int y)
     {
-        return mask[y * BACK_WIDTH + x];
+        x += MASK_PAD;
+        y += MASK_PAD;
+        return mask[y * (BACK_WIDTH + MASK_PAD * 2) + x];
     }
 
     void update()
@@ -282,19 +285,31 @@ public:
             return;
         }
         int x, y, dest_x2, dest_y2, src_x2, src_y2;
+
+        int min_x, max_x, min_y, max_y;
+        if (collision_type == 1) {
+            min_x = min_y = -MASK_PAD;
+            max_x = BACK_WIDTH + MASK_PAD;
+            max_y = BACK_HEIGHT + MASK_PAD;
+        } else {
+            min_x = min_y = 0;
+            max_x = BACK_WIDTH;
+            max_y = BACK_HEIGHT;
+        }
+
         for (x = 0; x < src_width; x++) {
             src_x2 = src_x + x;
             if (src_x2 < 0 || src_x2 >= img->width)
                 continue;
             dest_x2 = dest_x + x;
-            if (dest_x2 < 0 || dest_x2 >= BACK_WIDTH)
+            if (dest_x2 < min_x || dest_x2 >= max_x)
                 continue;
             for (y = 0; y < src_height; y++) {
                 src_y2 = src_y + y;
                 if (src_y2 < 0 || src_y2 >= img->height)
                     continue;
                 dest_y2 = dest_y + y;
-                if (dest_y2 < 0 || dest_y2 >= BACK_HEIGHT)
+                if (dest_y2 < min_y || dest_y2 >= max_y)
                     continue;
                 unsigned char * src_c = (unsigned char*)&img->get(
                     src_x2, src_y2);

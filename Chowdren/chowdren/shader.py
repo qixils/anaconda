@@ -10,4 +10,4 @@ NATIVE_SHADERS = {
 }
 
 def get_name(name):
-    return NATIVE_SHADERS[name]
+    return NATIVE_SHADERS.get(name, name.split('.')[0])

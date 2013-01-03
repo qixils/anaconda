@@ -39,7 +39,9 @@ class Extension(DataLoader):
 
     def read(self, reader):
         currentPosition = reader.tell()
-        size = reader.readShort(True)
+        size = reader.readShort()
+        if size < 0:
+            size = -size
         self.handle = reader.readShort()
         self.magicNumber = reader.readInt()
         self.versionLS = reader.readInt()
@@ -74,6 +76,7 @@ class ExtensionList(DataLoader):
         self.items = []
 
     def read(self, reader):
+        # reader.openEditor()
         numberOfExtensions = reader.readShort(True)
         self.preloadExtensions = reader.readShort(True)
         self.items = [self.new(Extension, reader)

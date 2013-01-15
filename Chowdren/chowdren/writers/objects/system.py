@@ -126,6 +126,9 @@ class Text(ObjectWriter):
             vertical = 'ALIGN_TOP'
         writer.putln('alignment = %s | %s;' % (horizontal, vertical))
 
+    def is_background(self):
+        return False
+
 class Counter(ObjectWriter):
     class_name = 'Counter'
 

@@ -39,8 +39,9 @@ inline typename A::iterator set_map_value(A & map, const B & key,
                                           const C & value)
 {
 
-    std::pair<A::iterator, bool> res = map.insert(std::make_pair(key, value));
-    A::iterator it = res.first;
+    std::pair<typename A::iterator, bool> res = map.insert(
+        std::make_pair(key, value));
+    typename A::iterator it = res.first;
     if (!res.second)
         it->second = value;
     return it;

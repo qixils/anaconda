@@ -14,6 +14,7 @@ class Util(ObjectWriter):
         pass
 
 actions = make_table(StaticActionWriter, {
+    1 : 'SetRandomSeedToTimer'
 })
 
 conditions = make_table(StaticConditionWriter, {

@@ -56,7 +56,33 @@ class MergeGroupObject(ActionMethodWriter):
         dst_group = self.convert_index(2)
         overwrite = self.convert_index(3)
         writer.put('merge_group(%s, %s, %s, %s);' % (
-            self.converter.get_object(handle), src_group, dst_group, overwrite))    
+            self.converter.get_object(handle), src_group, dst_group, overwrite))
+
+SORT_BY_VALUE = 0
+SORT_BY_NAME = 9
+SORT_FIRST_PART = 10
+SHUFFLE = 1
+REMOVE_FIRST = 2
+REMOVE_LAST = 4
+CYCLE_UP = 3
+CYCLE_DOWN = 5
+REVERSE = 6
+SWAP = 7
+RENUMBER = 8
+
+ALPHANUM_SORT = 0
+CASE_INSENSITIVE_SORT = 1
+CASE_SENSITIVE_SORT = 2
+
+class SortGroup(ActionMethodWriter):
+    def write(self, writer):
+        reader = self.parameters[0].loader.get_reader()
+        option = reader.readByte(True)
+        parameter = reader.readByte(True)
+        group = self.convert_index(1)
+        if option != SORT_BY_NAME or parameter != ALPHANUM_SORT:
+            raise NotImplementedError
+        writer.put('sort_group_by_name(%s);' % group)
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_group',
@@ -76,8 +102,8 @@ actions = make_table(ActionMethodWriter, {
     31 : DeletePattern,
     33 : PerformSearch,
     40 : MergeObject,
-    41 : MergeGroupObject
-
+    41 : MergeGroupObject,
+    71 : SortGroup
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -95,13 +121,15 @@ expressions = make_table(ExpressionMethodWriter, {
     1 : 'get_string',
     9 : 'get_string',
     0 : 'get_value',
+    5 : 'get_value_index',
     13 : 'get_item_name',
     4 : 'get_item_name',
     12 : 'get_group_name',
     8 : 'get_value',
     20 : 'get_search_result_group',
     19 : 'get_search_count',
-    37 : 'get_item_part'
+    37 : 'get_item_part',
+    25 : 'as_string()'
 })
 
 def get_object():

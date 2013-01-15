@@ -34,6 +34,18 @@
 
 std::string newline_character("\r\n");
 
+template <typename A, typename B, typename C>
+inline typename A::iterator set_map_value(A & map, const B & key, 
+                                          const C & value)
+{
+
+    std::pair<A::iterator, bool> res = map.insert(std::make_pair(key, value));
+    A::iterator it = res.first;
+    if (!res.second)
+        it->second = value;
+    return it;
+}
+
 int randrange(int range)
 {
     if (range == 0)
@@ -64,15 +76,27 @@ int pick_random(int count, ...)
     return value;
 }
 
-std::vector<std::string> & split_string(const std::string &s, char delim, 
-                                        std::vector<std::string> &elems) 
+void split_string(const std::string &s, char delim, 
+                  std::vector<std::string> &elems)
 {
     std::stringstream ss(s);
     std::string item;
     while(std::getline(ss, item, delim)) {
         elems.push_back(item);
     }
-    return elems;
+}
+
+void split_string(const std::string & str, const std::string & delims,
+                  std::vector<std::string> &elems)
+{
+    std::string::size_type last_pos = str.find_first_not_of(delims, 0);
+    std::string::size_type pos = str.find_first_of(delims, last_pos);
+
+    while (std::string::npos != pos || std::string::npos != last_pos) {
+        elems.push_back(str.substr(last_pos, pos - last_pos));
+        last_pos = str.find_first_not_of(delims, pos);
+        pos = str.find_first_of(delims, last_pos);
+    }
 }
 
 // key helpers
@@ -122,6 +146,12 @@ inline std::string lowercase_string(std::string v)
     return v;
 }
 
+inline std::string uppercase_string(std::string v)
+{
+    std::transform(v.begin(), v.end(), v.begin(), toupper);
+    return v;
+}
+
 inline std::string mid_string(const std::string & v, size_t index, size_t count)
 {
     if (index > v.size())
@@ -136,25 +166,19 @@ inline std::string left_string(const std::string & v, size_t count)
 
 class Font
 {
+public:
     char * face;
     int size;
     bool bold;
     bool italic;
     bool underline;
-public:
+
     Font(char * face, int size, bool bold, bool italic, bool underline) :
         face(face), 
         size(size), 
         bold(bold), 
         italic(italic), 
         underline(underline) {}
-};
-
-class Sound
-{
-    char * name;
-public:
-    Sound(char * name) : name(name) {}
 };
 
 typedef std::vector<FrameObject*> ObjectList;
@@ -509,6 +533,9 @@ public:
     }
 };
 
+typedef std::map<std::string, bool> RunningLoops;
+typedef std::map<std::string, int> LoopIndexes;
+
 class Frame
 {
 public:
@@ -520,8 +547,8 @@ public:
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
     std::map<int, ObjectList> instance_classes;
-    std::map<std::string, int> loop_indexes;
-    std::map<std::string, bool> running_loops;
+    LoopIndexes loop_indexes;
+    RunningLoops running_loops;
     Color background_color;
     GlobalValues * global_values;
     GlobalStrings * global_strings;
@@ -610,6 +637,11 @@ public:
     void pause()
     {
 
+    }
+
+    void restart()
+    {
+        next_frame = 0;
     }
 
     void on_key(int key, int state)
@@ -732,16 +764,30 @@ public:
         return loop_indexes[name];
     }
 
+    void set_timer(double value)
+    {
+        frame_time = value;
+    }
+
     void set_display_center(int x = -1, int y = -1)
     {
-        if (x != -1) {
+        if (x != -1) 
             off_x = x - WINDOW_WIDTH / 2;
-        }
-        if (y != -1) {
+
+        if (y != -1)
             off_y = int_min(
                 int_max(0, y - WINDOW_HEIGHT / 2),
                 height - WINDOW_HEIGHT);
-        }
+    }
+
+    int frame_right()
+    {
+        return off_x + WINDOW_WIDTH;
+    }
+
+    int frame_bottom()
+    {
+        return off_y + WINDOW_HEIGHT;
     }
 
     void set_background_color(int color)
@@ -971,6 +1017,11 @@ int FrameObject::get_level()
     return frame->layers[layer_index]->get_level(this);
 }
 
+void FrameObject::move_back(FrameObject * other)
+{
+    set_level(other->get_level()+1);
+}
+
 void FrameObject::move_back()
 {
     set_level(0);
@@ -1155,6 +1206,11 @@ public:
         animation_frame = forced_frame;
         forced_frame = -1;
         update_frame();
+    }
+
+    void restore_speed()
+    {
+        forced_speed = -1;
     }
 
     void add_direction(int animation, int direction,
@@ -1405,6 +1461,7 @@ public:
     Color color;
     int alignment;
     CollisionBase * collision;
+    bool bold;
 
     Text(std::string name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), initialized(false), current_paragraph(0)
@@ -1479,6 +1536,16 @@ public:
     int get_count()
     {
         return paragraphs.size();
+    }
+
+    bool get_bold()
+    {
+        return bold;
+    }
+
+    void set_bold(bool value)
+    {
+        bold = value;
     }
 
     std::string get_paragraph(int index)
@@ -1768,6 +1835,27 @@ public:
         return get_value(current_group, item, def);
     }
 
+    double get_value_index(const std::string & group, unsigned int index)
+    {
+        SectionMap::const_iterator it = data.find(group);
+        if (it == data.end())
+            return 0.0;
+        OptionMap::const_iterator new_it = (*it).second.begin();
+        int current_index = 0;
+        while (new_it != (*it).second.end()) {
+            if (current_index == index)
+                return string_to_double((*new_it).second, 0.0);
+            new_it++;
+            current_index++;
+        }
+        return 0.0;
+    }
+
+    double get_value_index(unsigned int index)
+    {
+        return get_value_index(current_group, index);
+    }
+
     void set_value(const std::string & group, const std::string & item, 
                    int pad, double value)
     {
@@ -1848,6 +1936,13 @@ public:
         fp.open(filename.c_str());
         fp << out.rdbuf();
         fp.close();
+    }
+
+    std::string as_string()
+    {
+        std::stringstream out;
+        get_data(out);
+        return out.str();
     }
 
     void save_file(bool force = true)
@@ -1945,6 +2040,11 @@ public:
             }
         }
         save_auto();
+    }
+
+    void sort_group_by_name(const std::string & group)
+    {
+
     }
 
     void reset(bool save = true)
@@ -2055,6 +2155,28 @@ public:
 };
 
 std::map<std::string, SectionMap> INI::global_data;
+
+class StringTokenizer : public FrameObject
+{
+public:
+    std::vector<std::string> elements;
+
+    StringTokenizer(std::string name, int x, int y, int type_id) 
+    : FrameObject(name, x, y, type_id)
+    {
+    }
+
+    void split(const std::string & text, const std::string & delims)
+    {
+        elements.clear();
+        split_string(text, delims, elements);
+    }
+
+    const std::string & get(int index)
+    {
+        return elements[index];
+    }
+};
 
 #ifdef _WIN32
 #include "windows.h"
@@ -2575,6 +2697,21 @@ void pick_random(ObjectList & instances)
 {
     FrameObject * instance = instances[randrange(instances.size())];
     instances = make_single_list(instance);
+}
+
+void spread_value(ObjectList & instances, int alt, int start)
+{
+    ObjectList::const_iterator item;
+    for (item = instances.begin(); item != instances.end(); item++) {
+        FrameObject * object = *item;
+        object->values->set(alt, start);
+        start++;
+    }
+};
+
+void set_random_seed(int seed)
+{
+    srand(seed);
 }
 
 void open_process(std::string exe, std::string cmd, int pad)

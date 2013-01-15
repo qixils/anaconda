@@ -15,13 +15,6 @@ http://code.google.com/p/inih/
 #include <sstream>
 #include <istream>
 
-/* Nonzero to allow multi-line value parsing, in the style of Python's
-   ConfigParser. If allowed, ini_parse() will call the handler with the same
-   name for each subsequent line parsed. */
-#ifndef INI_ALLOW_MULTILINE
-#define INI_ALLOW_MULTILINE 1
-#endif
-
 /* Nonzero to allow a UTF-8 BOM sequence (0xEF 0xBB 0xBF) at the start of
    the file. See http://code.google.com/p/inih/issues/detail?id=21 */
 #ifndef INI_ALLOW_BOM
@@ -115,14 +108,6 @@ int ini_parse_stream(std::istream & input,
         if (*start == ';' || *start == '#') {
             /* Per Python ConfigParser, allow '#' comments at start of line */
         }
-#if INI_ALLOW_MULTILINE
-        else if (*prev_name && *start && start > line) {
-            /* Non-black line with leading whitespace, treat as continuation
-               of previous name's value (as per Python ConfigParser). */
-            if (!handler(user, section, prev_name, start) && !error)
-                error = lineno;
-        }
-#endif
         else if (*start == '[') {
             /* A "[section]" line */
             end = find_char_or_comment(start + 1, ']');

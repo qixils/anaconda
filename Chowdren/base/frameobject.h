@@ -57,6 +57,7 @@ public:
     void set_level(int index);
     int get_level();
     void move_back();
+    void move_back(FrameObject * other);
     void move_front();
     void move_front(FrameObject * other);
     void destroy();

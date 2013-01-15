@@ -190,14 +190,12 @@ public:
 
     void play(const std::string & filename, int channel = -1, int loop = 1)
     {
-        // std::cout << "Playing: " << filename << std::endl;
         SoundFile data(convert_path(filename));
         play(data, channel, loop);
     }
 
     void play_name(const std::string & name, int channel = -1, int loop = 1)
     {
-        // std::cout << "Playing: " << name << std::endl;
         play(*sounds[name], channel, loop);
     }
 
@@ -257,6 +255,13 @@ public:
         return channels[channel].set_position(pos);
     }
 
+    double get_channel_volume(unsigned int channel)
+    {
+        if (!is_channel_valid(channel))
+            return 0.0;
+        return channels[channel].volume;
+    }
+
     bool is_channel_playing(unsigned int channel)
     {
         if (!is_channel_valid(channel))
@@ -267,6 +272,11 @@ public:
     bool is_channel_valid(unsigned int channel)
     {
         return (channel >= 0 && channel < 32);
+    }
+
+    void add_cache(const std::string & name, const std::string & fn)
+    {
+        add_file(name, std::string("./sounds/") + fn);
     }
 
     void add_file(const std::string & name, const std::string & fn)

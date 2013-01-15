@@ -92,6 +92,13 @@ class IsOverlapping(ConditionWriter):
     def is_negated(self):
         return False
 
+class ObjectInvisible(ConditionWriter):
+    def write(self, writer):
+        writer.put('visible')
+
+    def is_negated(self):
+        return True
+
 class MouseOnObject(ConditionWriter):
     def get_object(self):
         data = self.data.items[0].loader
@@ -285,9 +292,14 @@ class SetPosition(ActionWriter):
 class MoveInFront(ActionWriter):
     def write(self, writer):
         object_info = self.parameters[0].loader.objectInfo
-        if object_info in self.converter.multiple_instances:
-            raise NotImplementedError
         writer.put('move_front(%s);' % (self.converter.get_object(object_info)))
+
+class MoveBehind(ActionWriter):
+    def write(self, writer):
+        object_info = self.parameters[0].loader.objectInfo
+        # if object_info in self.converter.multiple_instances:
+        #     raise NotImplementedError
+        writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
 
 class StartLoop(ActionWriter):
     def write(self, writer):
@@ -309,24 +321,29 @@ class StartLoop(ActionWriter):
             if exp.getName() == 'Long':
                 times = exp.loader.value
                 if times == -1:
-                    comparison = ''
+                    comparison = 'true'
         except ValueError:
             pass
         if times is None:
             times = self.convert_index(1)
         is_infinite = comparison is not None
         if not is_infinite:
-            comparison = 'i < times'
+            comparison = 'index_it->second < times'
         writer.start_brace()
         writer.putln('std::string name = %s;' % self.convert_index(0))
-        writer.putln('running_loops[name] = true;')
+        writer.putln('RunningLoops::iterator running_it '
+            '= set_map_value(running_loops, name, false);')
+        writer.putln('running_it->second = true;')
         if not is_infinite:
             writer.putln('int times = int(%s);' % times)
-        writer.putln('for (int i = 0; %s; i++) {' % comparison)
+        writer.putln('LoopIndexes::iterator index_it '
+            '= set_map_value(loop_indexes, name, 0);')
+        writer.putln('index_it->second = 0;')
+        writer.putln('while (%s) {' % comparison)
         writer.indent()
-        writer.putln('loop_indexes[name] = i;')
         writer.putln('%s;' % func_call)
-        writer.putln('if (!running_loops[name]) break;')
+        writer.putln('if (!running_it->second) break;')
+        writer.putln('index_it->second++;')
         writer.end_brace()
         writer.end_brace()
         self.converter.write_container_check(self.group, writer)
@@ -356,6 +373,13 @@ class StopLoop(ActionWriter):
         exp, = self.parameters[0].loader.items[:-1]
         name = exp.loader.value
         writer.putln(to_c('running_loops[%r] = false;', name))
+
+class SetLoopIndex(ActionWriter):
+    def write(self, writer):
+        exp, = self.parameters[0].loader.items[:-1]
+        name = exp.loader.value
+        value = self.convert_index(1)
+        writer.putln(to_c('loop_indexes[%r] = %s;', name, value))
 
 class ActivateGroup(ActionWriter):
     def write(self, writer):
@@ -395,6 +419,14 @@ class SetEffect(ActionWriter):
             shader_name = '&%s' % shader.get_name(name)
         writer.put('set_shader(%s);' % shader_name)
 
+class SpreadValue(ActionWriter):
+    custom = True
+    def write(self, writer):
+        alt = self.convert_index(0)
+        start = self.convert_index(1)
+        object_list = self.converter.get_object(self.data.objectInfo, True)
+        writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
+
 # expressions
 
 class ValueExpression(ExpressionWriter):
@@ -407,6 +439,8 @@ class ConstantExpression(ExpressionWriter):
 
 class StringExpression(ExpressionWriter):
     def get_string(self):
+        self.converter.start_clauses -= self.data.loader.value.count('(')
+        self.converter.end_clauses -= self.data.loader.value.count(')')
         return to_c('std::string(%r)', self.data.loader.value)
 
 class EndParenthesis(ConstantExpression):
@@ -454,11 +488,11 @@ class GlobalStringExpression(ExpressionWriter):
     def get_string(self):
         return 'global_strings->get(%s)' % self.data.loader.value
 
-# class NumberOfObjects(ExpressionWriter):
-#     has_object = False
-#     def get_string(self):
-#         return '%s.size()' % self.converter.get_object(
-#             self.data.loader.objectInfo)
+class ObjectCount(ExpressionWriter):
+    has_object = False
+    def get_string(self):
+        return '%s.size()' % self.converter.get_object(
+            self.data.objectInfo, True)
 
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
@@ -468,6 +502,7 @@ actions = make_table(ActionMethodWriter, {
     'SetY' : 'set_y',
     'SetAlterableValue' : 'values->set',
     'AddToAlterable' : 'values->add',
+    'SpreadValue' : SpreadValue,
     'SubtractFromAlterable' : 'values->sub',
     'SetAlterableString' : 'strings->set',
     'AddCounterValue' : 'add',
@@ -475,7 +510,9 @@ actions = make_table(ActionMethodWriter, {
     'SetGlobalString' : 'global_strings->set',
     'SetGlobalValue' : 'global_values->set',
     'AddGlobalValue' : 'global_values->add',
+    'SubtractGlobalValue' : 'global_values->sub',
     'SetString' : 'set_string',
+    'SetBold' : 'set_bold',
     'Hide' : 'set_visible(false)',
     'Show' : 'set_visible(true)',
     'SetParagraph' : 'set_paragraph(%s-1)',
@@ -485,6 +522,8 @@ actions = make_table(ActionMethodWriter, {
     'SetChannelPan' : 'media->set_channel_pan(%s-1, %s)',
     'SetChannelVolume' : 'media->set_channel_volume(%s-1, %s)',
     'PlayLoopingChannelFileSample' : 'media->play(%s, %s-1, %s)',
+    'PlayChannelFileSample' : 'media->play(%s, %s-1)',
+    'PlayChannelSample' : 'media->play_name("%s", %s-1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
     'SetRGBCoefficient' : 'set_blend_color',
@@ -493,6 +532,7 @@ actions = make_table(ActionMethodWriter, {
     'ActivateGroup' : ActivateGroup,
     'CenterDisplayY' : CenterDisplayY,
     'EndApplication' : EndApplication,
+    'RestartApplication' : 'restart',
     'SetPosition' : SetPosition,
     'ExecuteEvaluatedProgram' : 'open_process',
     'HideCursor' : 'set_cursor_visible(false)',
@@ -522,13 +562,18 @@ actions = make_table(ActionMethodWriter, {
     'AddBackdrop' : 'paste',
     'PasteActive' : 'paste',
     'MoveInFront' : MoveInFront,
+    'MoveBehind' : MoveBehind,
     'ForceDirection' : 'force_direction',
     'StopAnimation' : 'stop_animation',
     'StartAnimation' : 'start_animation',
+    'RestoreSpeed' : 'restore_speed',
     'SetMainVolume' : 'media->set_main_volume',
     'StopAllSamples' : 'media->stop_samples',
     'NextParagraph' : 'next_paragraph',
-    'PauseApplication' : 'pause'
+    'PauseApplication' : 'pause',
+    'SetRandomSeed' : 'set_random_seed',
+    'SetTimer' : 'set_timer',
+    'SetLoopIndex' : SetLoopIndex
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -541,6 +586,7 @@ conditions = make_table(ConditionMethodWriter, {
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
     'ObjectVisible' : '.visible',
+    'ObjectInvisible' : ObjectInvisible,
     'WhileMousePressed' : 'is_mouse_pressed',
     'MouseOnObject' : MouseOnObject,
     'Always' : Always,
@@ -563,7 +609,8 @@ conditions = make_table(ConditionMethodWriter, {
     'AnimationFrame' : make_comparison('get_frame()'),
     'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
     'Once' : OnceCondition,
-    'TimerEquals' : TimerEquals
+    'TimerEquals' : TimerEquals,
+    'IsBold' : 'get_bold'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
@@ -613,6 +660,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Find' : 'string_find',
     'ReverseFind' : 'string_rfind',
     'LowerString' : 'lowercase_string',
+    'UpperString' : 'uppercase_string',
     'MidString' : 'mid_string',
     'LeftString' : 'left_string',
     'FixedValue' : 'get_fixed()',
@@ -635,5 +683,9 @@ expressions = make_table(ExpressionMethodWriter, {
     'Ceil' : 'ceil',
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
-    'NewLine' : '.newline_character'
+    'GetChannelVolume' : '.media->get_channel_volume(-1 +',
+    'NewLine' : '.newline_character',
+    'XRightFrame' : 'frame_right()',
+    'YBottomFrame' : 'frame_bottom()',
+    'ObjectCount' : ObjectCount
 })

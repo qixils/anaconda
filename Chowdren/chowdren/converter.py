@@ -38,7 +38,7 @@ WRITE_FONTS = True
 WRITE_SOUNDS = True
 
 # enabled for porting
-NATIVE_EXTENSIONS = False
+NATIVE_EXTENSIONS = True
 
 if NATIVE_EXTENSIONS and sys.platform == 'win32':
     from mmfparser.extension import loadLibrary, LoadedExtension
@@ -527,12 +527,24 @@ class Converter(object):
         
         # sounds
         if WRITE_SOUNDS:
+            sounds_file = self.open_code('sounds.h')
+            sounds_file.putln('#include "common.h"')
+            sounds_file.start_guard('SOUNDS_H')
+            sounds_file.putln('')
+            sounds_file.putmeth('void setup_sounds', 'Media * media')
+
             if game.sounds:
                 for sound in game.sounds.items:
                     sound_type = sound.getType()
                     extension = {'OGG' : 'ogg', 'WAV' : 'wav'}[sound_type]
-                    self.open('sounds', '%s.%s' % (sound.name, extension)
-                        ).write(str(sound.data))
+                    filename = '%s.%s' % (sound.name, extension)
+                    self.open('sounds', filename).write(str(sound.data))
+                    sounds_file.putln(to_c('media->add_cache(%r, %r);', 
+                        sound.name, filename))
+            sounds_file.end_brace()
+            sounds_file.close_guard('SOUNDS_H')
+            sounds_file.putln('')
+            sounds_file.close()
         
         # objects
         objects_file = self.open_code('objects.h')
@@ -540,7 +552,6 @@ class Converter(object):
         objects_file.putln('#include "common.h"')
         objects_file.putln('#include "images.h"')
         objects_file.putln('#include "fonts.h"')
-        # objects_file.putln('#include "sounds.h"')
         objects_file.putln('')
         
         self.object_names = {}
@@ -619,7 +630,7 @@ class Converter(object):
                     shader_name = 'Add'
                 elif ink_effect == SEMITRANSPARENT_EFFECT:
                     objects_file.putln('blend_color = %s;' % make_color(
-                        (255, 255, 255, frameitem.inkEffectValue)))
+                        (255, 255, 255, 255 - frameitem.inkEffectValue)))
                 else:
                     raise NotImplementedError(
                         'unknown inkeffect: %s' % ink_effect)
@@ -1235,6 +1246,7 @@ class Converter(object):
     def convert_parameter(self, container):
         loader = container.loader
         out = ''
+        self.start_clauses = self.end_clauses = 0
         if loader.isExpression:
             self.expression_items = loader.items[:-1]
             self.item_index = 0
@@ -1251,6 +1263,7 @@ class Converter(object):
                         out += '%s->' % self.get_object(item.objectInfo)
                     except KeyError:
                         pass
+
                 self.last_out = out
                 out += expression_writer.get_string()
                 self.item_index += 1
@@ -1314,12 +1327,14 @@ class Converter(object):
             elif parameter_name == 'Extension':
                 return loader.get_reader()
             elif parameter_name in ('String', 'Filename'):
+                self.start_clauses -= loader.value.count('(')
+                self.end_clauses -= loader.value.count(')')
                 return to_c('%r', loader.value)
             else:
                 raise NotImplementedError('parameter: %s' % parameter_name)
-        start_clauses = out.count('(')
-        end_clauses = out.count(')')
-        for _ in xrange(start_clauses - end_clauses):
+        self.start_clauses += out.count('(')
+        self.end_clauses += out.count(')')
+        for _ in xrange(self.start_clauses - self.end_clauses):
             out += ')'
         return out
 

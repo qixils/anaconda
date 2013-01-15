@@ -50,6 +50,7 @@ GameManager * global_manager;
 #include "common.h"
 #include "images.h"
 #include "fonts.h"
+#include "sounds.h"
 
 #ifndef NDEBUG
 #define CHOWDREN_DEBUG
@@ -76,6 +77,7 @@ GameManager::GameManager()
     media = new Media;
 
     setup_globals(values, strings);
+    setup_sounds(media);
 
     // setup random generator from start
     srand((unsigned int)time(NULL));

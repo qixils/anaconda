@@ -42,8 +42,9 @@ class Active(ObjectWriter):
         writer.end_brace()
         flags = common.newFlags
         writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
-        if flags['AutomaticRotation']:
-            raise NotImplementedError
+        # if flags['AutomaticRotation']:
+        #     print 
+        #     raise NotImplementedError
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         writer.putln('initialize_active();')
 
@@ -94,8 +95,9 @@ class Text(ObjectWriter):
     class_name = 'Text'
 
     def initialize(self):
-        if self.is_background():
-            raise NotImplementedError
+        pass
+        # if self.is_background():
+        #     raise NotImplementedError
 
     def write_init(self, writer):
         text = self.common.text
@@ -106,6 +108,7 @@ class Text(ObjectWriter):
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('color = %s;' % make_color(text.items[0].color))
+        writer.putln('bold = font%s.bold;' % text.items[0].font)
         
         paragraph = text.items[0]
         flags = []

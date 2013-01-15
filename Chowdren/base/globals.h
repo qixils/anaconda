@@ -35,6 +35,11 @@ public:
     {
         set(index, get(index) + value);
     }
+
+    void sub(size_t index, T value)
+    {
+        set(index, get(index) - value);
+    }
 };
 
 typedef Globals<double> GlobalValues;

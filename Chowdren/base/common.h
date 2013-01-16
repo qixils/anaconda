@@ -1038,10 +1038,27 @@ void FrameObject::move_front(FrameObject * other)
     set_level(other->get_level());
 }
 
-double FrameObject::get_fixed()
+FixedValue FrameObject::get_fixed()
 {
-    int64_t v = int64_t(intptr_t(this));
+    return FixedValue(this);
+}
+
+FixedValue::FixedValue(FrameObject * object)
+: object(object)
+{
+
+}
+
+FixedValue::operator double() const
+{
+    int64_t v = int64_t(intptr_t(object));
     return *((double*)&v);
+}
+
+FixedValue::operator std::string() const
+{
+    intptr_t val = intptr_t(object);
+    return number_to_string(val);
 }
 
 enum AnimationIndex {
@@ -1462,7 +1479,7 @@ public:
     Color color;
     int alignment;
     CollisionBase * collision;
-    bool bold;
+    bool bold, italic;
 
     Text(std::string name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), initialized(false), current_paragraph(0)
@@ -1542,6 +1559,11 @@ public:
     bool get_bold()
     {
         return bold;
+    }
+
+    bool get_italic()
+    {
+        return italic;
     }
 
     void set_bold(bool value)

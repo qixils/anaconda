@@ -108,7 +108,9 @@ class Text(ObjectWriter):
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('color = %s;' % make_color(text.items[0].color))
-        writer.putln('bold = font%s.bold;' % text.items[0].font)
+        font = text.items[0].font
+        writer.putln('bold = font%s.bold;' % font)
+        writer.putln('italic = font%s.italic;' % font)
         
         paragraph = text.items[0]
         flags = []

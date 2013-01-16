@@ -13,6 +13,18 @@ class Image;
 
 typedef std::map<std::string, double> ShaderParameters;
 
+class FrameObject;
+
+class FixedValue
+{
+public:
+    FrameObject * object;
+
+    FixedValue(FrameObject * object);
+    operator double() const;
+    operator std::string() const;
+};
+
 class FrameObject
 {
 public:
@@ -61,7 +73,7 @@ public:
     void move_front();
     void move_front(FrameObject * other);
     void destroy();
-    double get_fixed();
+    FixedValue get_fixed();
     bool outside_playfield();
     void get_box(int box[4]);
     int get_box_index(int index);

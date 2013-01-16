@@ -14,6 +14,11 @@ inline double string_to_double(std::string in, double def = 0.0)
     return value;
 }
 
+inline const std::string & number_to_string(const std::string & value)
+{
+    return value;
+}
+
 template <class T>
 inline std::string number_to_string(T value)
 {

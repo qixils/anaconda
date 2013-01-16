@@ -137,7 +137,7 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
     image = read_png(filename, &width, &height, &has_alpha);
 
     if(image == NULL) {
-        printf("Could not load %s\n", filename.c_str());
+        printf("Could not load image \"%s\"\n", filename.c_str());
         return;
     }
 

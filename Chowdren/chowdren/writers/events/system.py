@@ -494,6 +494,14 @@ class ObjectCount(ExpressionWriter):
         return '%s.size()' % self.converter.get_object(
             self.data.objectInfo, True)
 
+class ToString(ExpressionWriter):
+    def get_string(self):
+        converter = self.converter
+        next = converter.expression_items[converter.item_index + 1].getName()
+        if next == 'FixedValue':
+            return 'std::string('
+        return 'number_to_string('
+
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
     'StartLoop' : StartLoop,
@@ -610,7 +618,8 @@ conditions = make_table(ConditionMethodWriter, {
     'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
     'Once' : OnceCondition,
     'TimerEquals' : TimerEquals,
-    'IsBold' : 'get_bold'
+    'IsBold' : 'get_bold',
+    'IsItalic' : 'get_italic'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
@@ -618,7 +627,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ToNumber' : 'string_to_double',
     'ToInt' : 'int',
     'Abs' : 'abs',
-    'ToString' : 'number_to_string',
+    'ToString' : ToString,
     'GetRGB' : 'make_color_int',
     'Long' : ValueExpression,
     'Double' : ValueExpression,

@@ -3,6 +3,11 @@
 
 // math helpers
 
+inline float mod(float a, float b)
+{
+    return a - b * floor(a / b);
+}
+
 template <class T>
 inline T rad(T x)
 {

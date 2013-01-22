@@ -61,6 +61,12 @@ class ObjectWriter(BaseWriter):
         except (AttributeError, KeyError):
             return True
 
+    def is_scrolling(self):
+        try:
+            return not self.common.flags['ScrollingIndependant']
+        except AttributeError:
+            return True
+
     def is_background(self):
         return self.common.isBackground()
 

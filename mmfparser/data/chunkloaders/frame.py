@@ -310,12 +310,11 @@ class ObjectInstance(DataLoader):
 
 class ObjectInstances(DataLoader):
     def initialize(self):
-        self.items = {}
+        self.items = []
         
     def read(self, reader):
         self.items = [self.new(ObjectInstance, reader)
             for _ in xrange(reader.readInt(True))]
-        
         reader.skipBytes(4) # XXX figure out
     
     def write(self, reader):

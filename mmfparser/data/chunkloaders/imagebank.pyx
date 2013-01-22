@@ -543,6 +543,11 @@ cdef class JavaImage(DataLoader):
         newImage.anchor_y = self.height - self.yHotspot
         return newImage
 
+    def getImageData(self, *arg, **kw):
+        from mmfparser.image import Image
+        img = Image(data = self.data)
+        return img.get_data()
+
 cdef class ImageBank(DataLoader):
     cdef public:
         dict itemDict

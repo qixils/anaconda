@@ -42,8 +42,9 @@ public:
     Shader * shader;
     ShaderParameters * shader_parameters;
     bool destroying;
+    bool scroll;
 
-    FrameObject(std::string name, int x, int y, int type_id);
+    FrameObject(const std::string & name, int x, int y, int type_id);
     virtual ~FrameObject();
     void set_position(int x, int y);
     void set_x(int x);

@@ -451,6 +451,8 @@ class Converter(object):
             game = exe.gameData
         elif filename.endswith('.ccn'):
             game = GameData(ByteReader(fp))
+        elif filename.endswith('.ccj'):
+            game = GameData(ByteReader(fp), java = True)
         else:
             raise NotImplementedError('invalid extension')
 
@@ -606,6 +608,9 @@ class Converter(object):
 
             if not object_writer.is_visible():
                 objects_file.putln('set_visible(false);')
+
+            if not object_writer.is_scrolling():
+                objects_file.putln('scroll = false;')
 
             object_writer.write_init(objects_file)
             
@@ -792,14 +797,12 @@ class Converter(object):
                             loader = action.items[0].loader
                             try:
                                 instances = self.current_frame.instances
-                                create_info = instances.fromHandle(
-                                    loader.objectInstance).objectInfo
+                                create_info = loader.objectInfo
                             except ValueError:
                                 create_info = loader.objectInfo
                             if create_info == 0xFFFF:
                                 # the case for DisplayText
                                 create_info = action.objectInfo
-                            loader.objectInfo = create_info
                             self.multiple_instances.add(create_info)
                         elif action_name in ('DeactivateGroup', 
                                              'ActivateGroup'):

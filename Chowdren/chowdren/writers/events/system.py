@@ -248,6 +248,9 @@ class CreateObject(ActionWriter):
             create_object = details['create_object']
         arguments = [x, y]
         list_name = self.converter.get_list_name(create_object)
+        if list_name.count('old_item_in_level_81_instances'):
+            import code
+            code.interact(local = locals())
         if is_shoot:
             create_method = '%s->shoot' % self.get_object(
                 action.objectInfo)

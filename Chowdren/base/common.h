@@ -431,6 +431,17 @@ public:
         }
     }
 
+    void scroll(int dx, int dy)
+    {
+        ObjectList::const_iterator it;
+        for (it = instances.begin(); it != instances.end(); it++) {
+            FrameObject * object = *it;
+            if (object->scroll)
+                continue;
+            object->set_position(object->x + dx, object->y + dy);
+        }
+    }
+
     void add_background_object(FrameObject * instance)
     {
         background_instances.push_back(instance);
@@ -563,7 +574,7 @@ public:
     unsigned int loop_count;
     double frame_time;
 
-    Frame(std::string name, int width, int height, Color background_color,
+    Frame(const std::string & name, int width, int height, Color background_color,
           int index, GameManager * manager)
     : name(name), width(width), height(height), index(index), 
       background_color(background_color), manager(manager),
@@ -760,7 +771,7 @@ public:
         object->layer_index = new_layer;
     }
 
-    int get_loop_index(std::string name)
+    int get_loop_index(const std::string & name)
     {
         return loop_indexes[name];
     }
@@ -772,6 +783,10 @@ public:
 
     void set_display_center(int x = -1, int y = -1)
     {
+        int old_off_x, old_off_y;
+        old_off_x = off_x;
+        old_off_y = off_y;
+
         if (x != -1) 
             off_x = x - WINDOW_WIDTH / 2;
 
@@ -779,6 +794,16 @@ public:
             off_y = int_min(
                 int_max(0, y - WINDOW_HEIGHT / 2),
                 height - WINDOW_HEIGHT);
+
+        int dx, dy;
+        dx = off_x - old_off_x;
+        dy = off_y - old_off_y;
+
+        std::vector<Layer*>::const_iterator it;
+        for (it = layers.begin(); it != layers.end(); it++) {
+            Layer * layer = *it;
+            layer->scroll(dx, dy);
+        }
     }
 
     int frame_right()
@@ -846,10 +871,10 @@ public:
 
 // object types
 
-FrameObject::FrameObject(std::string name, int x, int y, int type_id) 
-: name(name), x(x), y(y), id(type_id), visible(true), shader(NULL), 
+FrameObject::FrameObject(const std::string & name, int x, int y, int type_id) 
+: x(x), y(y), id(type_id), visible(true), shader(NULL), 
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
-  destroying(false)
+  destroying(false), scroll(true)
 {
 }
 
@@ -1154,7 +1179,7 @@ public:
     bool collision_box;
     bool stopped;
 
-    Active(std::string name, int x, int y, int type_id) 
+    Active(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), animation(),
       animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
       forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
@@ -1329,6 +1354,7 @@ public:
 
     void set_angle(double angle, int quality)
     {
+        angle = mod(angle, 360.0f);
         this->angle = angle;
         collision->set_angle(angle);
         update_action_point();
@@ -1481,7 +1507,7 @@ public:
     CollisionBase * collision;
     bool bold, italic;
 
-    Text(std::string name, int x, int y, int type_id) 
+    Text(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), initialized(false), current_paragraph(0)
     {
         create_alterables();
@@ -1591,7 +1617,7 @@ class Backdrop : public FrameObject
 public:
     Image * image;
 
-    Backdrop(Image * image, std::string name, int x, int y, int type_id) 
+    Backdrop(Image * image, const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), image(image)
     {
     }
@@ -1609,7 +1635,7 @@ public:
     Color color;
 
     QuickBackdrop(const Color & color, int width, int height, 
-                  std::string name, int x, int y, int type_id) 
+                  const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), color(color)
     {
         this->width = width;
@@ -1636,7 +1662,7 @@ public:
     double minimum, maximum;
     std::string cached_string;
 
-    Counter(int init, int min, int max, std::string name, 
+    Counter(int init, int min, int max, const std::string & name, 
             int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), minimum(min), maximum(max)
     {
@@ -1742,7 +1768,7 @@ public:
     std::string filename;
     std::string global_key;
 
-    INI(std::string name, int x, int y, int type_id) 
+    INI(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), overwrite(false), auto_save(false)
     {
         create_alterables();
@@ -1764,7 +1790,7 @@ public:
         data[section][name] = value;
     }
 
-    void set_group(std::string name, bool new_group)
+    void set_group(const std::string & name, bool new_group)
     {
         current_group = name;
     }
@@ -2184,7 +2210,7 @@ class StringTokenizer : public FrameObject
 public:
     std::vector<std::string> elements;
 
-    StringTokenizer(std::string name, int x, int y, int type_id) 
+    StringTokenizer(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id)
     {
     }
@@ -2303,7 +2329,7 @@ public:
     Workspace * current;
     DataStream stream;
 
-    BinaryArray(std::string name, int x, int y, int type_id) 
+    BinaryArray(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id)
     {
 
@@ -2381,7 +2407,7 @@ public:
     double * array;
     int x_size, y_size, z_size;
 
-    ArrayObject(std::string name, int x, int y, int type_id) 
+    ArrayObject(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), array(NULL)
     {
 
@@ -2421,7 +2447,7 @@ public:
     static bool sort_reverse;
     static double def;
 
-    LayerObject(std::string name, int x, int y, int type_id) 
+    LayerObject(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), current_layer(0)
     {
 
@@ -2489,7 +2515,7 @@ public:
     SpriteCollision * collision;
     static ImageCache image_cache;
 
-    ActivePicture(std::string name, int x, int y, int type_id) 
+    ActivePicture(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), image(NULL), horizontal_flip(false),
       scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
     {

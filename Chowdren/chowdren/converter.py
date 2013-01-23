@@ -38,7 +38,7 @@ WRITE_FONTS = True
 WRITE_SOUNDS = True
 
 # enabled for porting
-NATIVE_EXTENSIONS = True
+NATIVE_EXTENSIONS = False
 
 if NATIVE_EXTENSIONS and sys.platform == 'win32':
     from mmfparser.extension import loadLibrary, LoadedExtension

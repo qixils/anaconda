@@ -152,7 +152,14 @@ class NotAlways(ConditionWriter):
     def write(self, writer):
         event_break = self.converter.event_break
         name = 'not_always_%s' % id(self)
+        name2 = '%s_frame' % name
         writer.putln('static unsigned int %s = loop_count;' % name)
+        writer.putln('static unsigned int %s = frame_iteration;' % name2)
+        writer.putln('if (%s != frame_iteration) {' % name2)
+        writer.indent()
+        writer.putln('%s = frame_iteration;' % name2)
+        writer.putln('%s = loop_count;' % name)
+        writer.end_brace()
         writer.putln('if (%s > loop_count) {' % (name))
         writer.indent()
         writer.putln('%s = loop_count + 2;' % name)

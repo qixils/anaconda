@@ -289,18 +289,16 @@ void GameManager::set_frame(int index)
     if (frame != NULL) {
         frame->on_end();
     }
-    bool restart = index == -2;
-    if (restart)
+    if (index == -2) {
         index = 0;
+        reset_global_data();
+        reset_globals();
+    }
     frame = get_frames(this)[index];
     // set some necessary pointers
     frame->global_values = values;
     frame->global_strings = strings;
     frame->media = media;
-    if (restart) {
-        reset_global_data();
-        reset_globals();
-    }
     frame->on_start();
 }
 

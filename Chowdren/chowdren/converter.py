@@ -888,7 +888,7 @@ class Converter(object):
                 startup_images.update(object_writer.get_images())
 
             frame_file.putmeth('void on_start')
-
+            
             # load images on startup
             frame_file.putln('static bool images_initialized = false;')
             frame_file.putln('if (!images_initialized) {')

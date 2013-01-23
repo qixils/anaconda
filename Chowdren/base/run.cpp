@@ -51,6 +51,7 @@ GameManager * global_manager;
 #include "images.h"
 #include "fonts.h"
 #include "sounds.h"
+#include "crossrand.h"
 
 #ifndef NDEBUG
 #define CHOWDREN_DEBUG
@@ -80,7 +81,7 @@ GameManager::GameManager()
     setup_sounds(media);
 
     // setup random generator from start
-    srand((unsigned int)time(NULL));
+    cross_srand((unsigned int)time(NULL));
 
     fps_limit.set(FRAMERATE);
 

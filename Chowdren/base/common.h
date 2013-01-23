@@ -31,6 +31,7 @@
 #include "mathcommon.h"
 #include "path.h"
 #include "types.h"
+#include "crossrand.h"
 
 std::string newline_character("\r\n");
 
@@ -51,7 +52,7 @@ int randrange(int range)
 {
     if (range == 0)
         return 0;
-    return rand() / (RAND_MAX / range + 1);
+    return cross_rand() / (CROSS_RAND_MAX / range + 1);
 }
 
 bool random_chance(int a, int b)
@@ -2760,7 +2761,7 @@ void spread_value(ObjectList & instances, int alt, int start)
 
 void set_random_seed(int seed)
 {
-    srand(seed);
+    cross_srand(seed);
 }
 
 void open_process(std::string exe, std::string cmd, int pad)

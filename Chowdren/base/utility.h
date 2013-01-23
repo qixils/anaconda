@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <time.h>
+#include "crossrand.h"
 
 namespace Utility
 {
@@ -34,12 +35,12 @@ namespace Utility
 
     void SetRandomSeed(int Seed)
     {
-        srand(Seed);
+        cross_srand(Seed);
     }
 
     void SetRandomSeedToTimer()
     {
-        srand(time(NULL));
+        cross_srand(time(NULL));
     }
 
     // Useful Functions
@@ -51,7 +52,7 @@ namespace Utility
     // Float Expressions
     float GenerateRandom(float Minimum, float Maximum)
     {
-        return ((Maximum-Minimum)*((float)rand()/RAND_MAX))+Minimum;
+        return ((Maximum-Minimum)*((float)cross_rand()/CROSS_RAND_MAX))+Minimum;
     }
     float Limit(float Value, float Minimum, float Maximum)
     {

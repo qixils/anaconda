@@ -9,6 +9,7 @@ PLATFORM_STRING = 'Chowdren: Platform'
 FONT_STRING = 'Chowdren: Font'
 RESIZE_STRING = 'Chowdren: Window Resize'
 SHADERS_STRING = 'Chowdren: Shaders'
+SOUNDS_STRING = 'Chowdren: Sounds'
 
 SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING, 
     RESIZE_STRING, SHADERS_STRING])
@@ -45,6 +46,8 @@ class SetString(ActionWriter):
                 self.convert_index(0))))
         elif name == SHADERS_STRING:
             writer.put('set_shader_path(%s);' % self.convert_index(0))
+        elif name == SOUNDS_STRING:
+            writer.put('set_sounds_path(%s);' % self.convert_index(0))
 
 actions = {
     'SetString' : SetString

@@ -165,9 +165,9 @@ class OnceCondition(ConditionWriter):
     def write(self, writer):
         event_break = self.converter.event_break
         name = 'once_condition_%s' % id(self)
-        writer.putln('static Frame * %s = NULL;' % name)
-        writer.putln('if (%s == this) %s' % (name, event_break))
-        writer.putln('%s = this;' % (name))
+        writer.putln('static unsigned int %s = -1;' % name)
+        writer.putln('if (%s == frame_iteration) %s' % (name, event_break))
+        writer.putln('%s = frame_iteration;' % (name))
 
 class GroupActivated(ConditionWriter):
     def write(self, writer):

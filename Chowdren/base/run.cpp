@@ -38,6 +38,7 @@ public:
     void set_window(bool fullscreen);
     bool is_fullscreen();
     void run();
+    void reset_globals();
 };
 
 GameManager * global_manager;
@@ -64,7 +65,7 @@ void _on_mouse(int key, int state);
 
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
-  x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT)
+  x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL)
 {
     glfwInit();
 
@@ -73,11 +74,8 @@ GameManager::GameManager()
 #endif
 
     // application setup
-    values = new GlobalValues;
-    strings = new GlobalStrings;
+    reset_globals();
     media = new Media;
-
-    setup_globals(values, strings);
     setup_sounds(media);
 
     // setup random generator from start
@@ -86,6 +84,17 @@ GameManager::GameManager()
     fps_limit.set(FRAMERATE);
 
     set_frame(0);
+}
+
+void GameManager::reset_globals()
+{
+    if (values != NULL)
+        delete values;
+    if (strings != NULL)
+        delete strings;
+    values = new GlobalValues;
+    strings = new GlobalStrings;
+    setup_globals(values, strings);
 }
 
 inline bool check_opengl_extension(const char * name)
@@ -280,11 +289,18 @@ void GameManager::set_frame(int index)
     if (frame != NULL) {
         frame->on_end();
     }
+    bool restart = index == -2;
+    if (restart)
+        index = 0;
     frame = get_frames(this)[index];
     // set some necessary pointers
     frame->global_values = values;
     frame->global_strings = strings;
     frame->media = media;
+    if (restart) {
+        reset_global_data();
+        reset_globals();
+    }
     frame->on_start();
 }
 

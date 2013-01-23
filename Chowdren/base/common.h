@@ -574,19 +574,22 @@ public:
     int next_frame;
     unsigned int loop_count;
     double frame_time;
+    unsigned int frame_iteration;
 
     Frame(const std::string & name, int width, int height, Color background_color,
           int index, GameManager * manager)
     : name(name), width(width), height(height), index(index), 
       background_color(background_color), manager(manager),
       off_x(0), off_y(0), has_quit(false), last_key(-1), next_frame(-1),
-      loop_count(0), frame_time(0.0)
+      loop_count(0), frame_time(0.0), frame_iteration(0)
     {
         std::fill_n(key_presses, GLFW_KEY_LAST, false);
         std::fill_n(mouse_presses, GLFW_MOUSE_BUTTON_LAST, false);
     }
 
-    virtual void on_start() {}
+    virtual void on_start()
+    {
+    }
 
     void on_end() 
     {
@@ -606,6 +609,7 @@ public:
         off_x = 0;
         off_y = 0;
         frame_time = 0.0;
+        frame_iteration++;
     }
 
     virtual void handle_events() {}
@@ -654,7 +658,7 @@ public:
 
     void restart()
     {
-        next_frame = 0;
+        next_frame = -2;
     }
 
     void on_key(int key, int state)
@@ -1775,6 +1779,11 @@ public:
         create_alterables();
     }
 
+    static void reset_global_data()
+    {
+        global_data.clear();
+    }
+
     static int _parse_handler(void* user, const char* section, const char* name,
                              const char* value)
     {
@@ -2660,6 +2669,11 @@ ImageCache ActivePicture::image_cache;
 #ifdef CHOWDREN_PYTHON
 #include "python.h"
 #endif
+
+void reset_global_data()
+{
+    INI::reset_global_data();
+}
 
 // event helpers
 

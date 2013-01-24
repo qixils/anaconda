@@ -2137,7 +2137,7 @@ public:
 
     void set_global_data(const std::string & key)
     {
-        merge_map(global_data[key], true);
+        data = global_data[key];
         global_key = key;
     }
 
@@ -2209,6 +2209,7 @@ public:
     {
         if (global_key.empty())
             return;
+        global_data.erase(global_key);
         global_data[global_key] = data;
     }
 };

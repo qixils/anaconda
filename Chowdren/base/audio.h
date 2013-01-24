@@ -314,7 +314,6 @@ public:
             left_gain = get_pan_factor(clamp(1.0 - pan));
             right_gain = get_pan_factor(clamp(1.0 + pan));
             update_stereo_pan();
-
         } else
             al_check(alSource3f(source, AL_POSITION, pan, 
                                 -sqrt(1.0 - pan * pan), 0));

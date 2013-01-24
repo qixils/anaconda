@@ -77,8 +77,6 @@ public:
     void play(SoundData & data, int loop)
     {
         stop();
-        if (sound != NULL)
-            delete sound;
         data.load(&sound, &is_music);
         set_volume(volume);
         set_pan(pan);
@@ -98,6 +96,8 @@ public:
         if (is_invalid())
             return;
         sound->stop();
+        delete sound;
+        sound = NULL;
     }
 
     void set_volume(double value)

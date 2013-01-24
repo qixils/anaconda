@@ -879,7 +879,7 @@ public:
 FrameObject::FrameObject(const std::string & name, int x, int y, int type_id) 
 : x(x), y(y), id(type_id), visible(true), shader(NULL), 
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
-  destroying(false), scroll(true)
+  destroying(false), scroll(true), name(name)
 {
 }
 

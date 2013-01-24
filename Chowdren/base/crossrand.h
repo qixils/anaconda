@@ -5,16 +5,16 @@
 
 // portable rand functions
 
-static unsigned int seed = 0;
+static unsigned int cross_seed = 0;
 inline void cross_srand(unsigned int value)
 {
-    seed = value;
+    cross_seed = value;
 }
 
 inline unsigned int cross_rand()
 {
-    seed = seed * 214013 + 2531011;
-    return (seed >> 16) & 0x7FFF;
+    cross_seed = cross_seed * 214013 + 2531011;
+    return (cross_seed >> 16) & 0x7FFF;
 }
 
 #endif // CROSSRAND_H

@@ -58,6 +58,10 @@ GameManager * global_manager;
 #define CHOWDREN_DEBUG
 #endif
 
+//#ifdef CHOWDREN_DEBUG
+#define CHOWDREN_SHOW_DEBUGGER
+//#endif
+
 #define FRAMERATE 60
 
 void _on_key(int key, int state);
@@ -291,7 +295,7 @@ void GameManager::set_frame(int index)
     }
     if (index == -2) {
         index = 0;
-        reset_global_data();
+        // reset_global_data();
         reset_globals();
     }
     frame = get_frames(this)[index];
@@ -373,7 +377,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
 int main (int argc, char *argv[])
 #endif
 {
-#if defined(_WIN32) && defined(CHOWDREN_DEBUG)
+#if defined(_WIN32) && defined(CHOWDREN_SHOW_DEBUGGER)
     int outHandle, errHandle, inHandle;
     FILE *outFile, *errFile, *inFile;
     AllocConsole();

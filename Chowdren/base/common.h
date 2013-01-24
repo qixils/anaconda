@@ -2137,7 +2137,7 @@ public:
 
     void set_global_data(const std::string & key)
     {
-        data = global_data[key];
+        merge_map(global_data[key], true);
         global_key = key;
     }
 

@@ -2297,6 +2297,8 @@ public:
     }
 };
 
+#include "platform.h"
+
 class WindowControl
 {
 public:

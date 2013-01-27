@@ -1630,7 +1630,12 @@ public:
     void draw()
     {
         glColor4f(1.0, 1.0, 1.0, 1.0);
+        int hotspot_x = image->hotspot_x;
+        int hotspot_y = image->hotspot_y;
+        image->hotspot_x = image->hotspot_y = 0;
         image->draw(x, y);
+        image->hotspot_x = hotspot_x;
+        image->hotspot_y = hotspot_y;
     }
 };
 
@@ -2202,14 +2207,12 @@ public:
         if (index >= (int)elem.size())
             return def;
         return elem[index];
-
     }
 
     ~INI()
     {
         if (global_key.empty())
             return;
-        global_data.erase(global_key);
         global_data[global_key] = data;
     }
 };

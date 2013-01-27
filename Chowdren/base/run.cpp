@@ -57,9 +57,9 @@ GameManager * global_manager;
 #define CHOWDREN_DEBUG
 #endif
 
-//#ifdef CHOWDREN_DEBUG
+#ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-//#endif
+#endif
 
 #define FRAMERATE 60
 

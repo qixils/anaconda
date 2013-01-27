@@ -100,7 +100,7 @@ unsigned char * read_png(const std::string & filename, int * w, int * h,
 
 typedef std::vector<Image*> ImageList;
 
-static std::string image_path = std::string("./Sprites.dat");
+static std::string image_path("./Sprites.dat");
 
 void set_image_path(const std::string & filename)
 {

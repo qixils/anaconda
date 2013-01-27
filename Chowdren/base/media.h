@@ -7,9 +7,19 @@
 #include <fstream>
 #include "path.h"
 
+void setup_sounds(Media * media);
+
 double clamp_sound(double val)
 {
     return std::max<double>(0, std::min<double>(val, 100));
+}
+
+static std::string cache_path("./sounds/");
+
+void set_sounds_path(const std::string & path)
+{
+    std::cout << "Set sounds path: " << path << std::endl;
+    cache_path = path + std::string("/");
 }
 
 class SoundData
@@ -196,6 +206,11 @@ public:
 
     void play_name(const std::string & name, int channel = -1, int loop = 1)
     {
+        static bool cache_initialized = false;
+        if (!cache_initialized) {
+            cache_initialized = true;
+            setup_sounds(this);
+        }
         play(*sounds[name], channel, loop);
     }
 
@@ -276,7 +291,7 @@ public:
 
     void add_cache(const std::string & name, const std::string & fn)
     {
-        add_file(name, std::string("./sounds/") + fn);
+        add_file(name, cache_path + fn);
     }
 
     void add_file(const std::string & name, const std::string & fn)
@@ -304,3 +319,5 @@ public:
         ChowdrenAudio::Listener::set_volume(clamp_sound(volume) / 100.0);
     }
 };
+
+#include "sounds.h"

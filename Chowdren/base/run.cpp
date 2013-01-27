@@ -51,7 +51,6 @@ GameManager * global_manager;
 #include "common.h"
 #include "images.h"
 #include "fonts.h"
-#include "sounds.h"
 #include "crossrand.h"
 
 #ifndef NDEBUG
@@ -80,7 +79,6 @@ GameManager::GameManager()
     // application setup
     reset_globals();
     media = new Media;
-    setup_sounds(media);
 
     // setup random generator from start
     cross_srand((unsigned int)time(NULL));

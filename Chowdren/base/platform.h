@@ -12,7 +12,7 @@ inline void open_url(const std::string & name)
 
 inline void open_url(const std::string & name)
 {
-    CFStringRef str = CFStringCreateWithCString(0, url.c_str(), 0);
+    CFStringRef str = CFStringCreateWithCString(0, name.c_str(), 0);
     CFURLRef ref = CFURLCreateWithString(0, str, 0);
     LSOpenCFURLRef(ref, 0);
     CFRelease(ref);

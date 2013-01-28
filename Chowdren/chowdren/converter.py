@@ -436,8 +436,8 @@ class Converter(object):
     iterated_object = None
     debug = False
     def __init__(self, filename, outdir, image_file = 'Sprites.dat', 
-                 win_ico = None, company = None, version = None, 
-                 copyright = None):
+                 win_ico = None, mac_icns = None, company = None, 
+                 version = None, copyright = None):
         self.filename = filename
         self.outdir = outdir
 
@@ -460,6 +460,11 @@ class Converter(object):
         
         # shutil.rmtree(outdir, ignore_errors = True)
         copytree(os.path.join(os.getcwd(), 'base'), outdir)
+
+        if win_ico is not None:
+            shutil.copy(win_ico, self.get_filename('icon.ico'))
+        if mac_icns is not None:
+            shutil.copy(mac_icns, self.get_filename('icon.icns'))
 
         # application info
         company = company or game.author
@@ -529,6 +534,7 @@ class Converter(object):
         
         # sounds
         if WRITE_SOUNDS:
+            os.makedirs(self.get_filename('sounds'))
             sounds_file = self.open_code('sounds.h')
             sounds_file.putln('#include "common.h"')
             sounds_file.start_guard('SOUNDS_H')

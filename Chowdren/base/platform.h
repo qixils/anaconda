@@ -27,7 +27,7 @@ inline void open_url(const std::string & name)
 inline void open_url(const std::string & name)
 {
     std::string cmd("xdg-open '");
-    cmd += url;
+    cmd += name;
     cmd += "'";
     system(cmd.c_str());
 }

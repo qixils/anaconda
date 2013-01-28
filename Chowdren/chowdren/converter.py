@@ -432,6 +432,12 @@ class EventGroup(object):
         self.or_exit = self.action_label = None
         self.write_actions = True
 
+def makedirs(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        return
+
 class Converter(object):
     iterated_object = None
     debug = False
@@ -534,7 +540,7 @@ class Converter(object):
         
         # sounds
         if WRITE_SOUNDS:
-            os.makedirs(self.get_filename('sounds'))
+            makedirs(self.get_filename('sounds'))
             sounds_file = self.open_code('sounds.h')
             sounds_file.putln('#include "common.h"')
             sounds_file.start_guard('SOUNDS_H')

@@ -41,7 +41,7 @@ class Python(ObjectWriter):
             writer.putln('python_args = args;')
             writer.putln('python_returns = Py_None;')
             self.converter.begin_events()
-            self.converter.write_container_check(groups[0], writer)
+            # self.converter.write_container_check(groups[0], writer)
             for group in groups:
                 self.converter.write_event(writer, group, True)
             writer.putln('return python_returns;')
@@ -67,7 +67,8 @@ class CallGlobal(ActionMethodWriter):
     method = 'call_global'
 
     def write_post(self, writer):
-        self.converter.write_container_check(self.group, writer)
+        pass
+        # self.converter.write_container_check(self.group, writer)
 
 actions = make_table(ActionMethodWriter, {
     0 : 'run_string({0})',

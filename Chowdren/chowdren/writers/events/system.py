@@ -383,7 +383,7 @@ class StartLoop(ActionWriter):
         writer.putln('index_it->second++;')
         writer.end_brace()
         writer.end_brace()
-        self.converter.write_container_check(self.group, writer)
+        # self.converter.write_container_check(self.group, writer)
         self.converter.clear_selection()
 
 class DeactivateGroup(ActionWriter):
@@ -399,11 +399,12 @@ class DeactivateGroup(ActionWriter):
         return self.deactivated_container
 
     def write_post(self, writer):
-        container = self.get_deactivated_container()
-        if container in self.converter.container_tree:
-            writer.putln('goto %s;' % container.end_label)
-        elif self.container and container in self.container.tree:
-            pass
+        pass
+        # container = self.get_deactivated_container()
+        # if container in self.converter.container_tree:
+        #     writer.putln('goto %s;' % container.end_label)
+        # elif self.container and container in self.container.tree:
+        #     pass
 
 class StopLoop(ActionWriter):
     def write(self, writer):

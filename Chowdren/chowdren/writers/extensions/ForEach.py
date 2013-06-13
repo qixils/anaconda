@@ -36,7 +36,7 @@ class StartForObject(ActionWriter):
                 writer.putln('foreach_instance_%s = *selected;' % name)
             writer.putln('if (!%s((%s)*selected))) break;' % (func_call,
                 object_class))
-        self.converter.write_container_check(self.group, writer)
+        # self.converter.write_container_check(self.group, writer)
         writer.end_brace()
 
 class ForEach(ObjectWriter):

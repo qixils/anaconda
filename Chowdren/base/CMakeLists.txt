@@ -8,9 +8,15 @@ set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 set(SRCS run.cpp images.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)
 
-set(USE_BOX2D ON)
+option(USE_BOX2D OFF)
+option(USE_PYTHON ON)
+
+if (USE_PYTHON)
+    add_definitions(-DCHOWDREN_USE_PYTHON)
+endif()
 
 if (USE_BOX2D)
+    add_definitions(-DCHOWDREN_USE_BOX2D)
     set(BOX2D_DIR "${PROJECT_SOURCE_DIR}/include/Box2D")
     set(SRCS
         ${SRCS}

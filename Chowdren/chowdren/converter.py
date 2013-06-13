@@ -975,9 +975,34 @@ class Converter(object):
                     make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
             frame_file.end_brace()
             
+            # write 'always' event subfunctions
+            group_index = 0
+            while True:
+                try:
+                    group = always_groups[group_index]
+                except IndexError:
+                    break
+                if group.is_container_mark:
+                    group_index += 1
+                    continue
+                frame_file.putmeth('void event_func_%s' % group.global_id)
+                while True:
+                    try:
+                        new_group = always_groups[group_index]
+                    except IndexError:
+                        break
+                    if (new_group.is_container_mark or 
+                    new_group.global_id != group.global_id):
+                        break
+                    self.write_event(frame_file, new_group)
+                    group_index += 1
+                frame_file.end_brace()
+
+            # write main 'always' handler
             frame_file.putmeth('void handle_events')
-            end_markers = [] # for debug
+            end_markers = []
             self.begin_events()
+
             for group in always_groups:
                 if group.is_container_mark:
                     container = group.container
@@ -997,7 +1022,7 @@ class Converter(object):
                         # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
                         #     container.code_name, group.mark))
                     continue
-                self.write_event(frame_file, group)
+                frame_file.putln('event_func_%s();' % (group.global_id))
 
             for end_marker in end_markers:
                 frame_file.put_label(end_marker)
@@ -1146,7 +1171,7 @@ class Converter(object):
         has_container_check = False
         if container:
             is_static = all([item.is_static for item in container.tree])
-            has_container_check = (triggered and not is_static)
+            has_container_check = not is_static
         if triggered:
             conditions = conditions[1:]
         writer = CodeWriter()

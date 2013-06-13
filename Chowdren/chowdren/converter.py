@@ -523,20 +523,25 @@ class Converter(object):
         # images
 
         if image_file is not None:
-            image_data = open(self.get_filename(image_file), 'wb')
-            images_file = self.open_code('images.cpp')
-            images_file.putln('#include "image.h"')
-            images_file.putln('')
-            images_file.putln('static Image ** images = NULL;')
-            images_file.putln('')
-            images_file.putmeth('Image * get_internal_image', 'int i')
-            images_file.putln('if (images == NULL) {')
-            images_file.indent()
+            image_fp = open(self.get_filename(image_file), 'wb')
+            image_data = ByteReader()
+            image_header = ByteReader(image_fp)
             if game.images:
                 max_handle = max(game.images.items,
                                  key = lambda x: x.handle).handle + 1
-                images_file.putln('images = new Image*[%s];' % max_handle)
-                for image in game.images.items:
+                image_header.writeInt(max_handle, True)
+                header_size = 4 * (max_handle + 1)
+                for i in xrange(max_handle):
+                    try:
+                        image = game.images.itemDict[i]
+                    except KeyError:
+                        image_header.writeInt(0, True)
+                        continue
+                    image_header.writeInt(image_data.tell() + header_size, True)
+                    image_data.writeInt(image.xHotspot)
+                    image_data.writeInt(image.yHotspot)
+                    image_data.writeInt(image.actionX)
+                    image_data.writeInt(image.actionY)
                     handle = image.handle
                     pil_image = Image.fromstring('RGBA', (image.width, 
                         image.height), image.getImageData())
@@ -545,16 +550,8 @@ class Converter(object):
                     temp = temp.getvalue()
                     offset = image_data.tell()
                     image_data.write(temp)
-                    images_file.putln(to_c(
-                        'images[%s] = new Image(%s, %s, %s, %s, %s);',
-                        handle, offset, image.xHotspot, 
-                        image.yHotspot, image.actionX, image.actionY))
-            image_data.close()
-            images_file.end_brace()
-            images_file.putln('return images[i];')
-            images_file.end_brace()
-            images_file.putln('')
-            images_file.close()
+            image_header.writeReader(image_data)
+            image_fp.close()
         
         # sounds
         if WRITE_SOUNDS:
@@ -934,14 +931,14 @@ class Converter(object):
             frame_file.putmeth('void on_start')
             
             # load images on startup
-            frame_file.putln('static bool images_initialized = false;')
-            frame_file.putln('if (!images_initialized) {')
-            frame_file.indent()
-            frame_file.putln('images_initialized = true;')
-            for image_handle in startup_images:
-                frame_file.putln('%s.load();' % get_image_name(image_handle, 
-                    False))
-            frame_file.end_brace()
+            # frame_file.putln('static bool images_initialized = false;')
+            # frame_file.putln('if (!images_initialized) {')
+            # frame_file.indent()
+            # frame_file.putln('images_initialized = true;')
+            # for image_handle in startup_images:
+            #     img = game.images.itemDict[image_handle]
+            #     frame_file.putln('%s->load();' % get_image_name(image_handle))
+            # frame_file.end_brace()
 
             for container in containers.values():
                 if container.is_static:

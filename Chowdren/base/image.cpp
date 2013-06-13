@@ -110,10 +110,16 @@ void set_image_path(const std::string & filename)
 
 static FILE * image_file = NULL;
 
-Image::Image(int offset, int hot_x, int hot_y, int act_x, int act_y) 
-: offset(offset), hotspot_x(hot_x), hotspot_y(hot_y), 
-  action_x(act_x), action_y(act_y), tex(0), image(NULL), ref(NULL)
+void open_image_file()
 {
+    if (image_file == NULL)
+        image_file = fopen(image_path.c_str(), "rb");
+}
+
+Image::Image(int handle) 
+: handle(handle), tex(0), image(NULL), ref(NULL)
+{
+    load();
 }
 
 Image::~Image()
@@ -131,7 +137,7 @@ Image::~Image()
 Image::Image(const std::string & filename, int hot_x, int hot_y, 
              int act_x, int act_y, Color * color) 
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
-  tex(0), image(NULL), ref(NULL), offset(-1)
+  tex(0), image(NULL), ref(NULL), handle(-1)
 {
     bool has_alpha;
     image = read_png(filename, &width, &height, &has_alpha);
@@ -154,7 +160,7 @@ Image::Image(Image & img)
 : hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
   action_x(img.action_x), action_y(img.action_y),
   tex(img.tex), image(img.image), ref(&img), width(img.width), 
-  height(img.height), offset(-1)
+  height(img.height), handle(-1)
 {
 }
 
@@ -162,9 +168,15 @@ void Image::load()
 {
     if (image != NULL)
         return;
-    if (image_file == NULL)
-        image_file = fopen(image_path.c_str(), "rb");
+    open_image_file();
+    fseek(image_file, 4 + handle * 4, SEEK_SET);
+    unsigned int offset;
+    fread(&offset, 4, 1, image_file);
     fseek(image_file, offset, SEEK_SET);
+    fread(&hotspot_x, 4, 1, image_file);
+    fread(&hotspot_y, 4, 1, image_file);
+    fread(&action_x, 4, 1, image_file);
+    fread(&action_y, 4, 1, image_file);
     bool has_alpha; // may be useful later
     image = read_png(image_file, &width, &height, &has_alpha);
 }
@@ -258,4 +270,24 @@ void Image::draw(double x, double y, double angle,
     }
     glDisable(GL_TEXTURE_2D);
     glPopMatrix();
+}
+
+static Image ** internal_images = NULL;
+
+Image * get_internal_image(unsigned int i)
+{
+    if (internal_images == NULL) {
+        open_image_file();
+        unsigned int image_count;
+        fseek(image_file, 0, SEEK_SET);
+        fread(&image_count, 1, 4, image_file);
+        internal_images = new Image*[image_count];
+        for (unsigned int i2 = 0; i2 < image_count; i2++)
+            internal_images[i2] = NULL;
+    }
+
+    if (internal_images[i] == NULL)
+        internal_images[i] = new Image(i);
+
+    return internal_images[i];
 }

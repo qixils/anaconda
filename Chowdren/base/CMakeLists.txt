@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
 set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
-set(SRCS run.cpp images.cpp image.cpp glew.c
+set(SRCS run.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)
 
 option(USE_BOX2D OFF)
@@ -83,10 +83,7 @@ elseif(APPLE)
 endif()
 
 if(MSVC)
-    # /bigobj is required for MSVC because images.cpp can get too big on
-    # some applications
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
+    # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305")
 endif()
 

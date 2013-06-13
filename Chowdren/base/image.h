@@ -8,18 +8,19 @@
 
 const std::string & get_image_path();
 void set_image_path(const std::string & path);
+void initialize_images();
 
 class Image
 {
 public:
-    int offset;
+    int handle;
     int hotspot_x, hotspot_y, action_x, action_y;
     GLuint tex;
     unsigned char * image;
     int width, height;
     Image * ref;
 
-    Image(int offset, int hot_x, int hot_y, int act_x, int act_y);
+    Image(int handle);
     Image(const std::string & filename, int hot_x, int hot_y, 
           int act_x, int act_y, Color * color = NULL);
     Image(Image & image);
@@ -32,6 +33,6 @@ public:
     unsigned int & get(int x, int y);
 };
 
-Image * get_internal_image(int i);
+Image * get_internal_image(unsigned int i);
 
 #endif // CHOWDREN_IMAGE_H

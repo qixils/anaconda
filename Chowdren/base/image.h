@@ -32,4 +32,6 @@ public:
     unsigned int & get(int x, int y);
 };
 
+Image * get_internal_image(int i);
+
 #endif // CHOWDREN_IMAGE_H

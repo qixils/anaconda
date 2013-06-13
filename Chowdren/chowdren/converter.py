@@ -527,12 +527,17 @@ class Converter(object):
             images_file = self.open_code('images.cpp')
             images_file.putln('#include "image.h"')
             images_file.putln('')
-            all_images = []
+            images_file.putln('static Image ** images = NULL;')
+            images_file.putln('')
+            images_file.putmeth('Image * get_internal_image', 'int i')
+            images_file.putln('if (images == NULL) {')
+            images_file.indent()
             if game.images:
+                max_handle = max(game.images.items,
+                                 key = lambda x: x.handle).handle + 1
+                images_file.putln('images = new Image*[%s];' % max_handle)
                 for image in game.images.items:
                     handle = image.handle
-                    image_name = 'image%s' % handle
-                    all_images.append(image_name)
                     pil_image = Image.fromstring('RGBA', (image.width, 
                         image.height), image.getImageData())
                     temp = StringIO()
@@ -541,17 +546,15 @@ class Converter(object):
                     offset = image_data.tell()
                     image_data.write(temp)
                     images_file.putln(to_c(
-                        'Image %s(%s, %s, %s, %s, %s);',
-                        image_name, offset, image.xHotspot, 
+                        'images[%s] = new Image(%s, %s, %s, %s, %s);',
+                        handle, offset, image.xHotspot, 
                         image.yHotspot, image.actionX, image.actionY))
             image_data.close()
+            images_file.end_brace()
+            images_file.putln('return images[i];')
+            images_file.end_brace()
             images_file.putln('')
             images_file.close()
-            images_header = self.open_code('images.h')
-            images_header.start_guard('IMAGES_H')
-            images_header.putln('extern Image %s;' % ', '.join(all_images))
-            images_header.close_guard('IMAGES_H')
-            images_header.close()
         
         # sounds
         if WRITE_SOUNDS:

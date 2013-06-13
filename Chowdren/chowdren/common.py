@@ -76,9 +76,9 @@ def to_c(format_spec, *args):
     return format_spec % tuple(new_args)
 
 def get_image_name(value, pointer = True):
-    ret = 'image%s' % value
-    if pointer:
-        ret = '&' + ret
+    ret = 'get_internal_image(%s)' % value
+    if not pointer:
+        ret = '(*%s)' % ret
     return ret
 
 def make_color(value):

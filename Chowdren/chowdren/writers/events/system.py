@@ -2,7 +2,7 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     ExpressionWriter, ComparisonWriter, ActionMethodWriter, 
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
     make_expression, make_comparison, EmptyAction)
-from chowdren.common import get_method_name, to_c
+from chowdren.common import get_method_name, to_c, make_color
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
@@ -32,8 +32,15 @@ class SystemObject(ObjectWriter):
 
     def write_loops(self, writer):
         loops = defaultdict(list)
+        dynloops = []
         for loop_group in self.get_conditions('OnLoop'):
-            exp = loop_group.conditions[0].data.items[0].loader.items[0]
+            exps = loop_group.conditions[0].data.items[0].loader.items
+            exp = exps[0]
+
+            if len(exps) > 2 or exp.getName() != 'String':
+                dynloops.append((exps, loop_group))
+                continue
+
             name = exp.loader.value
             if name == 'Clear Filter':
                 # KU-specific hack
@@ -136,6 +143,26 @@ class TimerEquals(ConditionWriter):
     def write(self, writer):
         seconds = self.parameters[0].loader.timer / 1000.0
         writer.put('frame_time >= %s' % seconds)
+
+class TimerGreater(ConditionWriter):
+    is_always = True
+
+    def write(self, writer):
+        seconds = self.parameters[0].loader.timer / 1000.0
+        writer.put('frame_time >= %s' % seconds)
+
+class TimerEvery(ConditionWriter):
+    is_always = True
+    custom = True
+
+    def write(self, writer):
+        seconds = self.parameters[0].loader.delay / 1000.0
+        name = 'every_%s' % id(self)
+        writer.putln('static float %s = 0.0f;' % name)
+        event_break = self.converter.event_break
+        writer.putln('%s += float(manager->fps_limit.dt);' % name)
+        writer.putln('if (%s < %s) %s' % (name, seconds, event_break))
+        writer.putln('%s -= %s;' % (name, seconds))
 
 class OnGroupActivation(ConditionWriter):
     custom = True
@@ -241,9 +268,9 @@ class CreateObject(ActionWriter):
                 raise NotImplementedError
                 # arguments.append('use_direction = True')
             if details.get('transform_position_direction', False):
-                raise NotImplementedError
+                print 'transform position direction not implemented'
             if details.get('use_direction', False):
-                raise NotImplementedError
+                print 'use_direction not implemented'
             x = '%s->%s + %s' % (parent, parent_x, x)
             y = '%s->%s + %s' % (parent, parent_y, y)
             layer = '%s->layer_index' % parent
@@ -292,9 +319,9 @@ class SetPosition(ActionWriter):
             if details.get('set_direction', False):
                 raise NotImplementedError
             if details.get('transform_position_direction', False):
-                raise NotImplementedError
+                print 'transform position direction 2 not implemented'
             if details.get('use_direction', False):
-                raise NotImplementedError
+                print 'use direction 2 not implemented'
         arguments = [x, y]
         writer.put('set_position(%s); // %s' % (
             ', '.join(arguments), details))
@@ -411,14 +438,29 @@ class EndApplication(ActionWriter):
     def write(self, writer):
         writer.put('has_quit = true;')
 
-class JumpToFrame(ActionWriter):
+class SetFrameAction(ActionWriter):
+    def set_frame(self, writer, value):
+        writer.put('next_frame = %s;' % value)
+        writer.putln('')
+        fade = self.converter.current_frame.fadeOut
+        if not fade:
+            return
+        color = fade.color
+        writer.putln(to_c('manager->set_fade(%s, %s);', make_color(
+            color), 1.0 / (fade.duration / 1000.0)))
+
+class JumpToFrame(SetFrameAction):
     def write(self, writer):
         frame = self.parameters[0].loader
         if frame.isExpression:
             value = '%s-1' % self.convert_index(0)
         else:
             value = str(self.converter.game.frameHandles[frame.value])
-        writer.put('next_frame = %s;' % value)
+        self.set_frame(writer, value)
+
+class NextFrame(SetFrameAction):
+    def write(self, writer):
+        self.set_frame(writer, 'index + 1')
 
 class SetEffect(ActionWriter):
     def write(self, writer):
@@ -542,6 +584,7 @@ actions = make_table(ActionMethodWriter, {
     'PlayLoopingChannelFileSample' : 'media->play(%s, %s-1, %s)',
     'PlayChannelFileSample' : 'media->play(%s, %s-1)',
     'PlayChannelSample' : 'media->play_name("%s", %s-1)',
+    'PlayLoopingSample' : 'media->play_name("%s", -1, %s-1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
     'SetRGBCoefficient' : 'set_blend_color',
@@ -556,7 +599,7 @@ actions = make_table(ActionMethodWriter, {
     'HideCursor' : 'set_cursor_visible(false)',
     'ShowCursor' : 'set_cursor_visible(true)',
     'FullscreenMode' : 'set_fullscreen(true)',
-    'NextFrame' : '.next_frame = index + 1;',
+    'NextFrame' : NextFrame,
     'MoveToLayer' : 'set_layer(%s-1)',
     'JumpToFrame' : JumpToFrame,
     'SetAlphaCoefficient' : 'blend_color.set_alpha_coefficient(%s)',
@@ -591,7 +634,11 @@ actions = make_table(ActionMethodWriter, {
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
     'SetTimer' : 'set_timer',
-    'SetLoopIndex' : SetLoopIndex
+    'SetLoopIndex' : SetLoopIndex,
+    'IgnoreControls' : EmptyAction, # XXX fix
+    'RestoreControls' : EmptyAction, # XXX fix,
+    'ChangeControlType' : EmptyAction, # XXX fix,
+    'FlashDuring' : 'flash'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -627,7 +674,9 @@ conditions = make_table(ConditionMethodWriter, {
     'AnimationFrame' : make_comparison('get_frame()'),
     'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
     'Once' : OnceCondition,
+    'Every' : TimerEvery,
     'TimerEquals' : TimerEquals,
+    'TimerGreater' : TimerGreater,
     'IsBold' : 'get_bold',
     'IsItalic' : 'get_italic'
 })

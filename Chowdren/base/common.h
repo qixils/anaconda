@@ -32,6 +32,7 @@
 #include "path.h"
 #include "types.h"
 #include "crossrand.h"
+#include "keys.h"
 
 std::string newline_character("\r\n");
 
@@ -570,6 +571,7 @@ public:
     int off_x, off_y;
     int last_key;
     bool key_presses[GLFW_KEY_LAST + 1];
+    bool key_releases[GLFW_KEY_LAST + 1];
     bool mouse_presses[GLFW_MOUSE_BUTTON_LAST + 1];
     int next_frame;
     unsigned int loop_count;
@@ -644,6 +646,7 @@ public:
         last_key = -1;
 
         std::fill_n(key_presses, GLFW_KEY_LAST, false);
+        std::fill_n(key_releases, GLFW_KEY_LAST, false);
         std::fill_n(mouse_presses, GLFW_MOUSE_BUTTON_LAST, false);
 
         loop_count++;
@@ -666,6 +669,8 @@ public:
         if (state == GLFW_PRESS) {
             last_key = key;
             key_presses[key] = true;
+        } else {
+            key_releases[key] = true;
         }
     }
 
@@ -739,6 +744,7 @@ public:
 
     void add_object(FrameObject * object, int layer_index)
     {
+        layer_index = int_max(0, int_min(layer_index, layers.size() - 1));
         object->frame = this;
         object->layer_index = layer_index;
         instances.push_back(object);
@@ -853,6 +859,13 @@ public:
         return (bool)mouse_presses[key];
     }
 
+    bool is_key_released_once(int key)
+    {
+        if (key < 0)
+            return false;
+        return (bool)key_releases[key];
+    }
+
     bool is_key_pressed_once(int key)
     {
         if (key < 0)
@@ -872,6 +885,76 @@ public:
         return false;
     }
 
+    // joystick
+
+    static bool is_joystick_attached(int n)
+    {
+        return glfwGetJoystickParam(GLFW_JOYSTICK_1 - 1 + n, 
+                                    GLFW_PRESENT) == GLFW_PRESENT;
+    }
+
+    static bool is_joystick_pressed(int n, int button)
+    {
+        int num = glfwGetJoystickParam(GLFW_JOYSTICK_1 - 1 + n, GLFW_BUTTONS);
+        unsigned char * buttons = new unsigned char[num];
+        glfwGetJoystickButtons(GLFW_JOYSTICK_1 - 1 + n, buttons, num);
+        bool ret = buttons[button-1] == GLFW_PRESS;
+        delete buttons;
+        return ret;
+    }
+
+    static bool any_joystick_pressed(int n)
+    {
+        int num = glfwGetJoystickParam(GLFW_JOYSTICK_1 - 1 + n, GLFW_BUTTONS);
+        unsigned char * buttons = new unsigned char[num];
+        glfwGetJoystickButtons(GLFW_JOYSTICK_1 - 1 + n, buttons, num);
+        bool ret = false;
+        for (int i = 0; i < num; i++) {
+            if (buttons[i] == GLFW_PRESS) {
+                ret = true;
+                break;
+            }
+        }
+        delete buttons;
+        return ret;
+    }
+
+    static bool is_joystick_released(int n, int button)
+    {
+        int num = glfwGetJoystickParam(GLFW_JOYSTICK_1 - 1 + n, GLFW_BUTTONS);
+        unsigned char * buttons = new unsigned char[num];
+        glfwGetJoystickButtons(GLFW_JOYSTICK_1 - 1 + n, buttons, num);
+        bool ret = buttons[button-1] == GLFW_RELEASE;
+        delete buttons;
+        return ret;
+    }
+
+    static int get_joystick_direction(int n)
+    {
+        float pos[2];
+        glfwGetJoystickPos(GLFW_JOYSTICK_1 - 1 + n, pos, 2);
+        const static float threshold = 0.4f;
+        float x = pos[0];
+        float y = pos[1];
+        if (get_length(x, y) < 0.4f)
+            return 8; // center
+        return int_round(atan2d(y, x) / (90.0f / 2.0f));
+    }
+
+    static bool compare_joystick_direction(int n, int test_dir)
+    {
+        return get_joystick_direction(n) == test_dir;
+    }
+
+    static bool is_joystick_direction_changed(int n)
+    {
+        // hack for now
+        static int last_dir = get_joystick_direction(n);
+        int new_dir = get_joystick_direction(n);
+        bool ret = last_dir != new_dir;
+        last_dir = new_dir;
+        return ret;
+    }
 };
 
 // object types
@@ -1114,12 +1197,13 @@ class Direction
 {
 public:
     int index, min_speed, max_speed, back_to;
-    bool repeat;
+    int loop_count;
     std::vector<Image*> frames;
 
-    Direction(int index, int min_speed, int max_speed, bool repeat, int back_to)
-    : index(index), min_speed(min_speed), max_speed(max_speed), repeat(repeat),
-      back_to(back_to)
+    Direction(int index, int min_speed, int max_speed, int loop_count, 
+              int back_to)
+    : index(index), min_speed(min_speed), max_speed(max_speed), 
+      loop_count(loop_count), back_to(back_to)
     {
 
     }
@@ -1183,12 +1267,14 @@ public:
     int action_x, action_y;
     bool collision_box;
     bool stopped;
+    float flash_time;
+    float flash_interval;
 
     Active(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), animation(),
       animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
       forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
-      animation_direction(0), stopped(false)
+      animation_direction(0), stopped(false), flash_interval(0.0f)
     {
         create_alterables();
     }
@@ -1262,11 +1348,11 @@ public:
     }
 
     void add_direction(int animation, int direction,
-                       int min_speed, int max_speed, bool repeat,
+                       int min_speed, int max_speed, int loop_count,
                        int back_to)
     {
         (*animations)[animation].dirs[direction] = new Direction(direction, 
-            min_speed, max_speed, repeat, back_to);
+            min_speed, max_speed, loop_count, back_to);
     }
 
     void add_image(int animation, int direction, Image * image)
@@ -1301,13 +1387,20 @@ public:
     {
         if (forced_frame != -1 || stopped)
             return;
+        if (flash_interval != 0.0f) {
+            flash_time += dt;
+            if (flash_time >= flash_interval) {
+                flash_time = 0.0f;
+                visible = !visible;
+            }
+        }
         Direction * dir = get_direction_data();
         counter += get_speed();
         int old_frame = animation_frame;
         while (counter > 100) {
             animation_frame++;
             if (animation_frame >= (int)dir->frames.size()) {
-                if (!dir->repeat)
+                if (dir->loop_count != 0)
                     animation_frame--;
                 else
                     animation_frame = dir->back_to;
@@ -1473,6 +1566,12 @@ public:
     void start_animation()
     {
         stopped = false;
+    }
+
+    void flash(float value)
+    {
+        flash_interval = value;
+        flash_time = 0.0f;
     }
 };
 
@@ -2671,10 +2770,7 @@ public:
 
 ImageCache ActivePicture::image_cache;
 
-#define CHOWDREN_PYTHON
-#ifdef CHOWDREN_PYTHON
-#include "python.h"
-#endif
+#include "extensions.h"
 
 void reset_global_data()
 {
@@ -2777,7 +2873,7 @@ void spread_value(ObjectList & instances, int alt, int start)
         object->values->set(alt, start);
         start++;
     }
-};
+}
 
 void set_random_seed(int seed)
 {
@@ -2787,7 +2883,7 @@ void set_random_seed(int seed)
 void open_process(std::string exe, std::string cmd, int pad)
 {
 
-};
+}
 
 void set_cursor_visible(bool value)
 {

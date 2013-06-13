@@ -6,7 +6,9 @@
 #include <fcntl.h>
 #endif
 
+#include "include_gl.h"
 #include "globals.h"
+#include "color.h"
 
 class Frame;
 class Media;
@@ -27,6 +29,9 @@ public:
     GLuint screen_fbo;
     int off_x, off_y, x_size, y_size;
     int mouse_x, mouse_y;
+    Color fade_color;
+    float fade_dir;
+    float fade_value;
 
     GameManager();
     void on_key(int key, int state);
@@ -39,11 +44,11 @@ public:
     bool is_fullscreen();
     void run();
     void reset_globals();
+    void set_fade(const Color & color, float dir);
 };
 
 GameManager * global_manager;
 
-#include "include_gl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -68,7 +73,8 @@ void _on_mouse(int key, int state);
 
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
-  x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL)
+  x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
+  fade_value(0.0f), fade_dir(0.0f)
 {
     glfwInit();
 
@@ -198,11 +204,19 @@ void GameManager::on_mouse(int key, int state)
 int GameManager::update()
 {
     double dt = fps_limit.dt;
-    bool ret = frame->update((float)dt);
-    if (frame->next_frame != -1) {
-        set_frame(frame->next_frame);
-        return 2;
+    if (fade_dir != 0.0f) {
+        fade_value += fade_dir * (float)dt;
+        if (fade_value <= 0.0f || fade_value >= 1.0f) {
+            fade_dir = 0.0f;
+            fade_value = std::min(1.0f, std::max(0.0f, fade_value));
+            return 2;
+        }
+        return 1;
     }
+    if (frame->next_frame != -1 && fade_dir == 0.0f) {
+        set_frame(frame->next_frame);
+    }
+    bool ret = frame->update((float)dt);
     if (ret)
         return 1;
     else
@@ -228,6 +242,16 @@ void GameManager::draw()
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
     frame->draw();
+    if (fade_dir != 0.0f) {
+        glBegin(GL_QUADS);
+        glColor4ub(fade_color.r, fade_color.g, fade_color.b, 
+                   int(fade_value * 255));
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(WINDOW_WIDTH, 0.0f);
+        glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+        glVertex2f(0.0f, WINDOW_HEIGHT);
+        glEnd();
+    }
 
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
@@ -302,6 +326,16 @@ void GameManager::set_frame(int index)
     frame->global_strings = strings;
     frame->media = media;
     frame->on_start();
+}
+
+void GameManager::set_fade(const Color & color, float fade_dir)
+{
+    fade_color = color;
+    this->fade_dir = fade_dir;
+    if (fade_dir < 0.0f)
+        fade_value = 1.0f;
+    else
+        fade_value = 0.0f;
 }
 
 void GameManager::run()

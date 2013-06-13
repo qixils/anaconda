@@ -56,7 +56,7 @@ public:
         print_errors();
     }
 
-    PythonInterpreter(std::string name, int x, int y, int type_id) 
+    PythonInterpreter(const std::string & name, int x, int y, int type_id) 
     : FrameObject(name, x, y, type_id), parameters(NULL), returns(NULL)
     {
         initialize();

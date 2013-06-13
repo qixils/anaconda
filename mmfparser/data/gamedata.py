@@ -20,6 +20,8 @@ from mmfparser.loader import DataLoader
 GAME_HEADER = 'PAME'
 UNICODE_GAME_HEADER = 'PAMU'
 
+CNCV1_VERSION = 0x207
+
 products = {
     'MMF1' : 0x0300,
     'MMF1.5' : 0x0301,
@@ -80,7 +82,12 @@ class GameData(DataLoader):
             raise Exception('unicode not supported')
         elif header != GAME_HEADER:
             raise Exception('invalid game header')
-        self.runtimeVersion = reader.readShort()
+        first_short = reader.readShort()
+        if first_short == CNCV1_VERSION:
+            self.settings["cnc"] = True
+            self.read_cnc(reader)
+            return
+        self.runtimeVersion = first_short
         self.runtimeSubversion = reader.readShort()
         self.productVersion = reader.readInt()
         self.productBuild = reader.readInt()
@@ -265,6 +272,9 @@ class GameData(DataLoader):
         
     def setProduct(self, productName):
         self.runtimeVersion = products[productName]
+
+    def readCnc(self, reader):
+        pass
                 
     def write(self, reader):
         reader.write(GAME_HEADER) # PAME

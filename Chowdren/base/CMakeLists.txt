@@ -8,6 +8,58 @@ set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 set(SRCS run.cpp images.cpp image.cpp glew.c
     include/tinythread/tinythread.cpp)
 
+set(USE_BOX2D ON)
+
+if (USE_BOX2D)
+    set(BOX2D_DIR "${PROJECT_SOURCE_DIR}/include/Box2D")
+    set(SRCS
+        ${SRCS}
+        ${BOX2D_DIR}/Collision/b2BroadPhase.cpp
+        ${BOX2D_DIR}/Collision/b2CollideCircle.cpp
+        ${BOX2D_DIR}/Collision/b2CollidePoly.cpp
+        ${BOX2D_DIR}/Collision/b2Collision.cpp
+        ${BOX2D_DIR}/Collision/b2Distance.cpp
+        ${BOX2D_DIR}/Collision/b2PairManager.cpp
+        ${BOX2D_DIR}/Collision/b2TimeOfImpact.cpp
+        ${BOX2D_DIR}/Collision/Shapes/b2CircleShape.cpp
+        ${BOX2D_DIR}/Collision/Shapes/b2EdgeShape.cpp
+        ${BOX2D_DIR}/Collision/Shapes/b2PolygonShape.cpp
+        ${BOX2D_DIR}/Collision/Shapes/b2Shape.cpp
+        ${BOX2D_DIR}/Common/b2BlockAllocator.cpp
+        ${BOX2D_DIR}/Common/b2Math.cpp
+        ${BOX2D_DIR}/Common/b2Settings.cpp
+        ${BOX2D_DIR}/Common/b2StackAllocator.cpp
+        ${BOX2D_DIR}/Dynamics/b2Body.cpp
+        # ${BOX2D_DIR}/Dynamics/b2Body2.cpp
+        ${BOX2D_DIR}/Dynamics/b2ContactManager.cpp
+        ${BOX2D_DIR}/Dynamics/b2Island.cpp
+        ${BOX2D_DIR}/Dynamics/b2World.cpp
+        ${BOX2D_DIR}/Dynamics/b2WorldCallbacks.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2CircleContact.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2Contact.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2ContactSolver.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2EdgeAndCircleContact.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2PolyAndCircleContact.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2PolyAndEdgeContact.cpp
+        ${BOX2D_DIR}/Dynamics/Contacts/b2PolyContact.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2BuoyancyController.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2ConstantAccelController.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2ConstantForceController.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2Controller.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2GravityController.cpp
+        ${BOX2D_DIR}/Dynamics/Controllers/b2TensorDampingController.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2DistanceJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2GearJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2Joint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2LineJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2MaxMinJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2MouseJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2PrismaticJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2PulleyJoint.cpp
+        ${BOX2D_DIR}/Dynamics/Joints/b2RevoluteJoint.cpp
+    )
+endif()
+
 if(WIN32)
     set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/win32"
         ${CMAKE_LIBRARY_PATH})
@@ -73,11 +125,11 @@ if(NOT PYTHON_DEBUG_LIBRARIES)
 endif()
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
-    ${FREETYPE_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS})
+    ${FREETYPE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
+    ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS} ${BOX2D_INCLUDE_DIR})
 target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
-    ${FREETYPE_LIBRARIES} ${SNDFILE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
+    ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${PNG_LIBRARIES})
+    ${PNG_LIBRARIES} ${BOX2D_LIBRARY})
 
 include(CPack)

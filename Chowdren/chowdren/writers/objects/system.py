@@ -30,11 +30,11 @@ class Active(ObjectWriter):
             for direction_index, direction in directions.iteritems():
                 loop_count = direction.repeat
                 if loop_count not in (0, 1):
-                    raise NotImplementedError
+                    print 'loop count not supported:', loop_count
                 repeat = loop_count == 0
                 writer.putln(to_c('add_direction(%s, %s, %s, %s, %s, %s);',
                     animation_name, direction_index, direction.minSpeed,
-                    direction.maxSpeed, repeat, direction.backTo))
+                    direction.maxSpeed, loop_count, direction.backTo))
                 for image in direction.frames:
                     writer.putln('add_image(%s, %s, %s);' % (animation_name,
                         direction_index, get_image_name(image)))
@@ -62,7 +62,7 @@ class Backdrop(ObjectWriter):
     class_name = 'Backdrop'
     def get_parameters(self):
         if self.common.getObstacleType() != 'None':
-            raise NotImplementedError
+            print 'obstacle type', self.common.getObstacleType(), 'not supported'
         return [get_image_name(self.common.image)]
 
     def get_images(self):
@@ -131,6 +131,27 @@ class Text(ObjectWriter):
     def is_background(self):
         return False
 
+class RTFText(ObjectWriter):
+    class_name = 'Text'
+
+    def initialize(self):
+        pass
+
+    def write_init(self, writer):
+        text = self.common.rtf
+        writer.putln(to_c('add_line("");',))
+        # objects_file.putln('font = font%s' % text.items[0].font)
+        writer.putln('width = %s;' % text.width)
+        writer.putln('height = %s;' % text.height)
+        writer.putln('color = Color(0, 0, 0);')
+        writer.putln('bold = false;')
+        writer.putln('italic = false;')
+
+        writer.putln('alignment = ALIGN_HCENTER | ALIGN_VCENTER;')
+
+    def is_background(self):
+        return False
+
 class Counter(ObjectWriter):
     class_name = 'Counter'
 
@@ -182,5 +203,6 @@ system_objects = {
     BACKDROP : Backdrop,
     QUICKBACKDROP : QuickBackdrop,
     COUNTER : Counter,
+    RTF : RTFText,
     # SUBAPPLICATION : 'SubApplication',
 }

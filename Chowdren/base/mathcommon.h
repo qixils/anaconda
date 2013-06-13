@@ -35,6 +35,18 @@ inline double atan2d(double a, double b)
     return deg(atan2(a, b));
 }
 
+inline float get_length(float x, float y)
+{
+    return sqrt(x * x + y * y);
+}
+
+inline float get_distance(float x1, float y1, float x2, float y2)
+{
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    return get_length(dx, dy);
+}
+
 inline int int_round(double d)
 {
     int v = (int)floor(d + 0.5);

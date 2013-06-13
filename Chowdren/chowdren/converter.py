@@ -29,7 +29,7 @@ from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits, 
     to_c, make_color, get_image_name)
 from chowdren.writers.extensions import load_extension_module
-from chowdren.key import VK_TO_GLFW
+from chowdren.key import VK_TO_GLFW, VK_TO_NAME
 from chowdren import extra
 from chowdren import shader
 import platform
@@ -164,14 +164,6 @@ class CodeWriter(object):
     def putdef(self, name, value, wrap = False):
         new_value = '%r' % (value,)
         self.putln('%s = %s' % (name, new_value), wrap = wrap)
-    
-    def putfunc(self, name, *arg, **kw):
-        fullarg = list(arg)
-        if kw:
-            for k, v in kw.iteritems():
-                fullarg.append('%s = %s' % (k, v))
-        self.putln('def %s(%s):' % (name, ', '.join(fullarg)))
-        self.indent()
 
     def putmeth(self, name, *arg, **kw):
         fullarg = list(arg)
@@ -485,6 +477,29 @@ class Converter(object):
         self.format_file('resource.rc')
         self.format_file('CMakeLists.txt')
         
+        # write keys file
+        keys_file = self.open_code('keys.h')
+        keys_file.start_guard('CHOWDREN_KEYS_H')
+        keys_file.putmeth('int translate_key', 'int vk')
+        keys_file.putln('switch (vk) {')
+        keys_file.indent()
+        for vk, name in VK_TO_GLFW.iteritems():
+            keys_file.putln('case %s: return %s;' % (vk, name[0]))
+        keys_file.end_brace()
+        keys_file.putln('return -1;')
+        keys_file.end_brace()
+
+        keys_file.putmeth('int translate_key', 'const std::string & name')
+        for vk, name in VK_TO_GLFW.iteritems():
+            string_name = VK_TO_NAME[vk]
+            keys_file.putln(to_c('if (name == %r) return %s;', 
+                            string_name, name[0]))
+        keys_file.putln('return -1;')
+        keys_file.end_brace()
+
+        keys_file.close_guard('CHOWDREN_KEYS_H')
+        keys_file.close()
+
         # fonts
         if WRITE_FONTS:
             fonts_file = self.open_code('fonts.h')
@@ -573,6 +588,7 @@ class Converter(object):
         self.instance_names = {}
         self.name_to_item = {}
         self.object_types = {}
+        extension_includes = set()
 
         type_id = itertools.count(1)
         
@@ -594,8 +610,10 @@ class Converter(object):
                 continue
             self.all_objects[handle] = object_writer
             self.object_types[handle] = object_type
-            if object_writer.static or extra.is_special_object(name):
+            if (object_writer.static or extra.is_special_object(name)
+                or object_writer.class_name == 'Undefined'):
                 continue
+            extension_includes.update(object_writer.includes)
             common = object_writer.common
             subclass = object_writer.class_name
             self.object_names[handle] = class_name
@@ -680,10 +698,10 @@ class Converter(object):
             if hasattr(common, 'movements') and common.movements:
                 movements = common.movements.items
                 if len(movements) != 1:
-                    raise NotImplementedError
-                movement, = movements
+                    print 'unsupported number of movements:', len(movements)
+                movement = movements[0]
                 if movement.getName() != 'Static':
-                    raise NotImplementedError
+                    print 'movement', movement.getName(), 'not implemented'
                 start_direction = movement.directionAtStart
                 if start_direction != 0:
                     objects_file.putln('set_direction(%s);' % parse_direction(
@@ -708,11 +726,18 @@ class Converter(object):
             objects_file.putln('')
         objects_file.close_guard('OBJECTS_H')
         objects_file.close()
+
+        extensions_file = self.open_code('extensions.h')
+        extensions_file.start_guard('CHOWDREN_EXTENSIONS_H')
+        for include in extension_includes:
+            extensions_file.putln('#include "%s"' % include)
+        extensions_file.close_guard('CHOWDREN_EXTENSIONS_H')
+        extensions_file.close()
         
         processed_frames = []
         
         # frames
-        for frame_index, frame in enumerate(game.frames):
+        for frame_index, frame in enumerate(game.frames[:5]):
             frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
             frame.load()
             self.current_frame = frame
@@ -758,7 +783,13 @@ class Converter(object):
             current_container = None
             self.containers = containers = {}
             changed_containers = set()
-            for group_index, group in enumerate(events.items):
+
+            event_items = events.items
+
+            # if frame_index == 4:
+            #     event_items = event_items[:1]
+
+            for group_index, group in enumerate(event_items):
                 first_condition = group.conditions[0]
                 name = self.get_condition_name(first_condition)
                 if name == 'NewGroup':
@@ -805,13 +836,11 @@ class Converter(object):
 
                         action_name = self.get_action_name(action)
                         if action_name in ('CreateObject', 'Shoot', 
-                                           'DisplayText'):
-                            loader = action.items[0].loader
-                            try:
-                                instances = self.current_frame.instances
-                                create_info = loader.objectInfo
-                            except ValueError:
-                                create_info = loader.objectInfo
+                                           'DisplayText', 'Destroy'):
+                            if action_name == 'Destroy':
+                                create_info = action.objectInfo
+                            else:
+                                create_info = action.items[0].loader.objectInfo
                             if create_info == 0xFFFF:
                                 # the case for DisplayText
                                 create_info = action.objectInfo
@@ -940,6 +969,10 @@ class Converter(object):
             if start_groups:
                 for group in start_groups:
                     self.write_event(frame_file, group, True)
+            fade = frame.fadeIn
+            if fade:
+                frame_file.putln(to_c('manager->set_fade(%s, %s);',
+                    make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
             frame_file.end_brace()
             
             frame_file.putmeth('void handle_events')
@@ -975,7 +1008,7 @@ class Converter(object):
                 
             if generated_groups:
                 print 'unimplemented generated groups in %r: %r' % (
-                    frame.name, generated_groups)
+                    frame.name, generated_groups.keys())
 
         # general configuration
         header = game.header

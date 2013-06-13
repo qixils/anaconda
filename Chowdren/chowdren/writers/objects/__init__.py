@@ -5,6 +5,7 @@ class ObjectWriter(BaseWriter):
     common = None
     class_name = 'Undefined'
     static = False
+    includes = []
 
     def __init__(self, *arg, **kw):
         BaseWriter.__init__(self, *arg, **kw)

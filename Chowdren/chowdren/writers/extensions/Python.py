@@ -10,6 +10,7 @@ ON_FUNCTION = 2
 
 class Python(ObjectWriter):
     class_name = 'PythonInterpreter'
+    includes = ['python.h']
 
     def write_frame(self, writer):
         writer.putln('PyObject * python_args;')

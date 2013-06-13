@@ -4,4 +4,7 @@
 #include <GL/glew.h>
 #include <GL/glfw.h>
 
+#undef max
+#undef min
+
 #endif // INCLUDE_GL_H

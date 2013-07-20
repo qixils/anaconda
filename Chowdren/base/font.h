@@ -1,3 +1,18 @@
+// #define CHOWDREN_USE_FT2
+
+typedef enum
+{
+    ALIGN_LEFT = 0,
+    ALIGN_HCENTER = 1,
+    ALIGN_RIGHT = 2,
+    ALIGN_JUSTIFY = 3,
+    ALIGN_TOP = 4,
+    ALIGN_BOTTOM = 5,
+    ALIGN_VCENTER = 6
+} TextAlignment;
+
+#ifdef CHOWDREN_USE_FT2
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
@@ -7,6 +22,7 @@
 #include <set>
 #include <cassert>
 #include <cmath>
+#include "include_gl.h"
 
 #define FTASSERT(x) \
     if (!(x)) \
@@ -29,17 +45,6 @@ typedef enum
     RENDER_SIDE  = 0x0004,
     RENDER_ALL   = 0xffff
 } RenderMode;
-
-typedef enum
-{
-    ALIGN_LEFT = 0,
-    ALIGN_HCENTER = 1,
-    ALIGN_RIGHT = 2,
-    ALIGN_JUSTIFY = 3,
-    ALIGN_TOP = 4,
-    ALIGN_BOTTOM = 5,
-    ALIGN_VCENTER = 6
-} TextAlignment;
 
 template <typename FT_VECTOR_ITEM_TYPE>
 class FTVector
@@ -779,8 +784,6 @@ class FTCleanup
         std::set<FT_Face **> cleanupFT_FaceItems;
 };
 
-FTCleanup * FTCleanup::_instance = 0;
-
 class FTTextureGlyph : public FTGlyph
 {
     public:
@@ -1088,3 +1091,5 @@ inline void FTUnicodeStringItr<T>::readUTF16()
     }
     curChar = ch;
 }
+
+#endif // CHOWDREN_USE_FT2

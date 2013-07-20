@@ -10,7 +10,7 @@ ON_FUNCTION = 2
 
 class Python(ObjectWriter):
     class_name = 'PythonInterpreter'
-    includes = ['python.h']
+    includes = ['pythonext.h']
 
     def write_frame(self, writer):
         writer.putln('PyObject * python_args;')
@@ -39,7 +39,7 @@ class Python(ObjectWriter):
             writer.putmeth('PyObject * python_%s' % name, 
                 'PyObject * self', 'PyObject * args')
             writer.putln('python_args = args;')
-            writer.putln('python_returns = Py_None;')
+            writer.putln('python_returns = PythonInterpreter::get_none();')
             self.converter.begin_events()
             # self.converter.write_container_check(groups[0], writer)
             for group in groups:

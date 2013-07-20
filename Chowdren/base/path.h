@@ -3,32 +3,20 @@
 
 #include <string>
 #include <algorithm>
-// for some reason, "unix" is not defined on OS X
-#ifdef __APPLE__
-#define unix
-#endif
-#include <platformstl/platformstl.hpp>
-#include <platformstl/filesystem/path.hpp>
-#include <platformstl/filesystem/directory_functions.hpp>
 
 inline std::string get_app_path()
 {
     return "./";
 }
 
-inline std::string convert_path(std::string value)
+inline std::string get_app_drive()
 {
-#ifndef _WIN32
-    std::replace(value.begin(), value.end(), '\\', '/');
-#endif
-    return value;
+    return "";
 }
 
-inline void create_directories(const std::string & value)
+inline std::string get_app_dir()
 {
-    platformstl::path path(value);
-    path.pop();
-    platformstl::create_directory_recurse(path);
+    return get_app_path();
 }
 
 #endif // CHOWDREN_PATH_H

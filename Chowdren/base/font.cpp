@@ -1,5 +1,11 @@
 #include "font.h"
 
+#ifdef CHOWDREN_USE_FT2
+
+// FTCleanup
+
+FTCleanup * FTCleanup::_instance = 0;
+
 // FTLibrary
 
 const FTLibrary&  FTLibrary::Instance()
@@ -1546,3 +1552,5 @@ float FTSimpleLayout::GetLineSpacing() const
 {
     return lineSpacing;
 }
+
+#endif // CHOWDREN_USE_FT2

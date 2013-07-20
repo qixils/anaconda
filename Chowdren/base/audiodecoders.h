@@ -1,6 +1,7 @@
 #include <vorbis/vorbisfile.h>
 #include <string>
 #include "string.h"
+#include "filecommon.h"
 
 namespace ChowdrenAudio {
 
@@ -84,14 +85,14 @@ public:
     }
 };
 
-inline ALuint read_le32(std::ifstream & file)
+inline ALuint read_le32(FSFile & file)
 {
     ALubyte buffer[4];
     if(!file.read(reinterpret_cast<char*>(buffer), 4)) return 0;
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);
 }
 
-inline ALushort read_le16(std::ifstream & file)
+inline ALushort read_le16(FSFile & file)
 {
     ALubyte buffer[2];
     if(!file.read(reinterpret_cast<char*>(buffer), 2)) return 0;
@@ -101,7 +102,7 @@ inline ALushort read_le16(std::ifstream & file)
 class WavDecoder : public SoundDecoder 
 {
 private:
-    std::ifstream file;
+    FSFile file;
     int sample_size;
     int block_align;
     long data_start;
@@ -112,7 +113,7 @@ public:
     WavDecoder(const std::string & filename)
     : data_start(0)
     {
-        file.open(filename.c_str(), std::ios::binary);
+        file.open(filename.c_str(), "r");
         if (!file) {
             std::cerr << "Invalid file: " << filename << std::endl;
             return;
@@ -160,16 +161,16 @@ public:
 
             }
             else if(memcmp(tag, "data", 4) == 0) {
-                data_start = file.tellg();
+                data_start = file.tell();
                 data_len = rem_len = length;
             }
 
-            file.seekg(length, std::ios_base::cur);
+            file.seek(length, SEEK_CUR);
         }
 
         if(data_start > 0) {
             samples = data_len / (sample_size / 8);
-            file.seekg(data_start);
+            file.seek(data_start);
         }
     }
 
@@ -187,9 +188,7 @@ public:
     {
         unsigned int bytes = samples * (sample_size / 8);
         std::streamsize rem = ((rem_len >= bytes) ? bytes : rem_len) / block_align;
-        file.read(reinterpret_cast<char*>(data), rem*block_align);
-
-        std::streamsize got = file.gcount();
+        size_t got = file.read(reinterpret_cast<char*>(data), rem*block_align);
         got -= got%block_align;
         rem_len -= got;
 
@@ -200,9 +199,8 @@ public:
 
     void seek(double time)
     {
-        file.clear();
         std::size_t new_pos = time * sample_rate * (sample_size / 8) * channels;
-        if (file.seekg(data_start + new_pos))
+        if (file.seek(data_start + new_pos))
             rem_len = data_len - new_pos;
     }
 };

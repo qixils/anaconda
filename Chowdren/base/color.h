@@ -2,10 +2,16 @@
 #define CHOWDREN_COLOR_H
 
 #include <algorithm>
+#include "include_gl.h"
 
 inline unsigned char clamp_color_component(int v)
 {
     return (unsigned char)std::min<int>(std::max<int>(v, 0), 255);   
+}
+
+inline unsigned char clamp_color_component(float v)
+{
+    return (unsigned char)std::min<float>(std::max<float>(v, 0.0f), 1.0f);   
 }
 
 inline int make_color_int(unsigned char r, unsigned char g, unsigned char b,
@@ -61,6 +67,11 @@ public:
     void set_alpha_coefficient(int a)
     {
         set_alpha(255 - a);
+    }
+
+    void set_semi_transparency(int a)
+    {
+        set_alpha(((128 - a) * 255) / 128);
     }
 
     int get_alpha_coefficient()

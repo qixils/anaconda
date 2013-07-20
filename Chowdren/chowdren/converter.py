@@ -33,12 +33,13 @@ from chowdren.key import VK_TO_GLFW, VK_TO_NAME
 from chowdren import extra
 from chowdren import shader
 import platform
+import math
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 
 # enabled for porting
-NATIVE_EXTENSIONS = False
+NATIVE_EXTENSIONS = True
 
 if NATIVE_EXTENSIONS and sys.platform == 'win32':
     from mmfparser.extension import loadLibrary, LoadedExtension
@@ -62,6 +63,10 @@ LICENSE = ("""\
 // along with Chowdren.  If not, see <http://www.gnu.org/licenses/>.\
 """)
 
+def is_file_changed(src, dst):
+    diff = os.stat(src).st_mtime - os.stat(dst).st_mtime
+    return math.fabs(diff) > 0.01
+
 def copytree(src, dst):
     names = os.listdir(src)
     try:
@@ -75,7 +80,7 @@ def copytree(src, dst):
         try:
             if os.path.isdir(srcname):
                 copytree(srcname, dstname)
-            else:
+            elif is_file_changed(srcname, dstname):
                 shutil.copy2(srcname, dstname)
         # catch the Error from the recursive copytree so that we can
         # continue with other files
@@ -208,11 +213,14 @@ class CodeWriter(object):
         self.fp.close()
         if self.filename is None:
             return
-        # fp = open(self.filename, 'rb')
-        # original_data = fp.read()
-        # fp.close()
-        # if original_data == data:
-        #     return
+        try:
+            fp = open(self.filename, 'rb')
+            original_data = fp.read()
+            fp.close()
+            if original_data == data:
+                return
+        except IOError:
+            pass
         fp = open(self.filename, 'wb')
         fp.write(data)
         fp.close()
@@ -480,7 +488,9 @@ class Converter(object):
         # write keys file
         keys_file = self.open_code('keys.h')
         keys_file.start_guard('CHOWDREN_KEYS_H')
-        keys_file.putmeth('int translate_key', 'int vk')
+        keys_file.putln('#include <string>')
+        keys_file.putln('#include "keydef.h"')
+        keys_file.putmeth('inline int translate_key', 'int vk')
         keys_file.putln('switch (vk) {')
         keys_file.indent()
         for vk, name in VK_TO_GLFW.iteritems():
@@ -489,9 +499,12 @@ class Converter(object):
         keys_file.putln('return -1;')
         keys_file.end_brace()
 
-        keys_file.putmeth('int translate_key', 'const std::string & name')
+        keys_file.putmeth('inline int translate_key', 
+                          'const std::string & name')
         for vk, name in VK_TO_GLFW.iteritems():
-            string_name = VK_TO_NAME[vk]
+            string_name = VK_TO_NAME.get(vk, None)
+            if string_name is None:
+                continue
             keys_file.putln(to_c('if (name == %r) return %s;', 
                             string_name, name[0]))
         keys_file.putln('return -1;')
@@ -502,10 +515,12 @@ class Converter(object):
 
         # fonts
         if WRITE_FONTS:
-            fonts_file = self.open_code('fonts.h')
-            fonts_file.putln('#include "common.h"')
-            fonts_file.start_guard('FONTS_H')
-            fonts_file.putln('')
+            fonts_header = self.open_code('fonts.h')
+            fonts_header.putln('#include "common.h"')
+            fonts_header.start_guard('CHOWDREN_FONTS_H')
+
+            fonts_file = self.open_code('fonts.cpp')
+            fonts_file.putln('#include "fonts.h"')
             all_fonts = []
             if game.fonts:
                 for font in game.fonts.items:
@@ -516,9 +531,10 @@ class Converter(object):
                         font_name, logfont.faceName, logfont.getSize(), 
                         logfont.isBold(), bool(logfont.italic), 
                         bool(logfont.underline)))
-            fonts_file.close_guard('FONTS_H')
-            fonts_file.putln('')
+                    fonts_header.putln('extern Font %s;' % font_name)
+            fonts_header.close_guard('FONTS_H')
             fonts_file.close()
+            fonts_header.close()
         
         # images
 
@@ -565,7 +581,8 @@ class Converter(object):
             if game.sounds:
                 for sound in game.sounds.items:
                     sound_type = sound.getType()
-                    extension = {'OGG' : 'ogg', 'WAV' : 'wav'}[sound_type]
+                    extension = {'OGG' : 'ogg', 'WAV' : 'wav', 'MOD' : 'mp3'}[
+                        sound_type]
                     filename = '%s.%s' % (sound.name, extension)
                     self.open('sounds', filename).write(str(sound.data))
                     sounds_file.putln(to_c('media->add_cache(%r, %r);', 
@@ -576,10 +593,14 @@ class Converter(object):
             sounds_file.close()
         
         # objects
-        objects_file = self.open_code('objects.h')
-        objects_file.start_guard('OBJECTS_H')
+        objects_header = self.open_code('objects.h')
+        objects_header.start_guard('CHOWDREN_OBJECTS_H')
+        objects_header.putln('#include "frameobject.h"')
+        objects_header.putln('')
+
+        objects_file = self.open_code('objects.cpp')
+        objects_file.putln('#include "objects.h"')
         objects_file.putln('#include "common.h"')
-        objects_file.putln('#include "images.h"')
         objects_file.putln('#include "fonts.h"')
         objects_file.putln('')
         
@@ -619,12 +640,13 @@ class Converter(object):
             self.object_names[handle] = class_name
             self.instance_names[handle] = get_method_name(class_name)
             object_writer.write_pre(objects_file)
+            object_type_id = '%s_type' % class_name
+            objects_header.putln('#define %s %s' % 
+                (object_type_id, type_id.next()))
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
-            objects_file.putln('static const unsigned int type_id = %s;' % 
-                type_id.next())
             object_writer.write_constants(objects_file)
-            parameters = [to_c('%r', name), 'x', 'y', 'type_id']
+            parameters = [to_c('%r', name), 'x', 'y', object_type_id]
             extra_parameters = [str(item) 
                 for item in object_writer.get_parameters()]
             parameters = ', '.join(extra_parameters + parameters)
@@ -663,6 +685,10 @@ class Converter(object):
                         shader_name = shader_data.name
                 elif ink_effect == ADD_EFFECT:
                     shader_name = 'Add'
+                elif ink_effect == SUBTRACT_EFFECT:
+                    shader_name = 'Subtract'
+                elif ink_effect == MONOCHROME_EFFECT:
+                    shader_name = 'Monochrome'
                 elif ink_effect == SEMITRANSPARENT_EFFECT:
                     objects_file.putln('blend_color = %s;' % make_color(
                         (255, 255, 255, 255 - frameitem.inkEffectValue)))
@@ -670,27 +696,28 @@ class Converter(object):
                     raise NotImplementedError(
                         'unknown inkeffect: %s' % ink_effect)
             if shader_name is not None:
-                objects_file.putln('set_shader(&%s);' % shader.get_name(
+                objects_file.putln('set_shader(%s);' % shader.get_name(
                     shader_name))
             if ink_effect == SHADER_EFFECT:
                 shader_data = game.shaders.items[frameitem.shaderId]
                 parameters = shader_data.get_parameters()
                 values = frameitem.items
-                for index, parameter in enumerate(shader_data.parameters):
-                    reader = values[index]
-                    reader.seek(0)
-                    if parameter.type == INT:
-                        value = reader.readInt()
-                    elif parameter.type == FLOAT:
-                        value = reader.readFloat()
-                    elif parameter.type == INT_FLOAT4:
-                        value = make_color((reader.readByte(True), 
-                            reader.readByte(True),
-                            reader.readByte(True), 
-                            reader.readByte(True)))
-                    else:
-                        raise NotImplementedError
-                    parameters[parameter.name].value = value
+                if shader_data.parameters is not None:
+                    for index, parameter in enumerate(shader_data.parameters):
+                        reader = values[index]
+                        reader.seek(0)
+                        if parameter.type == INT:
+                            value = reader.readInt()
+                        elif parameter.type == FLOAT:
+                            value = reader.readFloat()
+                        elif parameter.type == INT_FLOAT4:
+                            value = make_color((reader.readByte(True), 
+                                reader.readByte(True),
+                                reader.readByte(True), 
+                                reader.readByte(True)))
+                        else:
+                            raise NotImplementedError
+                        parameters[parameter.name].value = value
                 for name, value in parameters.iteritems():
                     objects_file.putln(to_c('set_shader_parameter(%r, %s);',
                         name, value.value))
@@ -700,6 +727,16 @@ class Converter(object):
                 if len(movements) != 1:
                     print 'unsupported number of movements:', len(movements)
                 movement = movements[0]
+                movement_name = movement.getName()
+                movement_class = None
+                speed = None
+                if movement_name == 'Ball':
+                    movement_class = 'BallMovement'
+                    speed = movement.loader.speed
+                if movement_class is not None:
+                    objects_file.putln('movement = new %s(this);' % 
+                        movement_class)
+                    objects_file.putln('movement->set_speed(%s);' % speed)
                 if movement.getName() != 'Static':
                     print 'movement', movement.getName(), 'not implemented'
                 start_direction = movement.directionAtStart
@@ -719,13 +756,27 @@ class Converter(object):
             object_writer.write_class(objects_file)
             
             objects_file.end_brace(True)
-            objects_file.putln('static ObjectList %s_instances;' % 
-                get_method_name(class_name))
+
+            object_func = 'create_%s' % get_method_name(class_name)
+            object_instances = 'ObjectList %s_instances' % get_method_name(
+                class_name, True)
+
+            objects_header.putln('FrameObject * %s(int x, int y);' 
+                % object_func)
+            objects_header.putln('extern %s;' % object_instances)
+
+            objects_file.putmeth('FrameObject * %s' % object_func, 
+                'int x', 'int y')
+            objects_file.putln('return new %s(x, y);' % class_name)
+            objects_file.end_brace()
+            objects_file.putln('%s;' % object_instances)
+
             object_writer.write_post(objects_file)
 
             objects_file.putln('')
-        objects_file.close_guard('OBJECTS_H')
+        objects_header.close_guard('OBJECTS_H')
         objects_file.close()
+        objects_header.close()
 
         extensions_file = self.open_code('extensions.h')
         extensions_file.start_guard('CHOWDREN_EXTENSIONS_H')
@@ -737,13 +788,14 @@ class Converter(object):
         processed_frames = []
         
         # frames
-        for frame_index, frame in enumerate(game.frames[:5]):
+        for frame_index, frame in enumerate(game.frames[:3]):
             frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
             frame.load()
             self.current_frame = frame
             processed_frames.append(frame_index + 1)
-            frame_file = self.open_code('frame%s.h' % (frame_index + 1))
+            frame_file = self.open_code('frame%s.cpp' % (frame_index + 1))
             frame_file.putln('#include "common.h"')
+            frame_file.putln('#include "media.h"')
             frame_file.putln('#include "objects.h"')
             frame_file.putln('')
             
@@ -899,7 +951,7 @@ class Converter(object):
             self.qualifier_types = {}
             for qualifier in events.qualifiers.values():
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
-                object_names = ['%s::type_id' % self.object_names[item] 
+                object_names = ['%s_type' % self.object_names[item] 
                     for item in object_infos] + ['0']
                 class_name = 'qualifier_%s' % qualifier.qualifier
                 frame_file.putln('static unsigned int %s[] = '
@@ -920,6 +972,7 @@ class Converter(object):
                 frame_class_name, frame.name, frame.width, frame.height, 
                 make_color(frame.background), frame_index))
             frame_file.start_brace()
+            frame_file.putln('timer_base = %s;' % frame.movementTimer)
             frame_file.end_brace()
 
             startup_images = set()
@@ -957,9 +1010,11 @@ class Converter(object):
                     method = 'add_background_object'
                 else:
                     method = 'add_object'
-                frame_file.putln('%s(new %s(%s, %s), %s);' %
-                    (method, self.object_names[frameitem.handle], instance.x, 
-                    instance.y, instance.layer))
+                object_func = 'create_%s' % get_method_name(
+                    self.object_names[frameitem.handle])
+                frame_file.putln('%s(%s(%s, %s), %s);' %
+                    (method, object_func, instance.x, instance.y, 
+                     instance.layer))
 
             for object_writer in object_writers:
                 object_writer.write_start(frame_file)
@@ -985,7 +1040,8 @@ class Converter(object):
                 if group.is_container_mark:
                     group_index += 1
                     continue
-                frame_file.putmeth('void event_func_%s' % group.global_id)
+                frame_file.putmeth('inline void event_func_%s' 
+                    % group.global_id)
                 while True:
                     try:
                         new_group = always_groups[group_index]
@@ -1029,6 +1085,13 @@ class Converter(object):
             frame_file.end_brace()
             
             frame_file.end_brace(True) # end of frame
+
+            frame_func = 'create_frame_%s' % (frame_index + 1)
+            frame_file.putmeth('Frame * %s' % frame_func, 
+                'GameManager * manager')
+            frame_file.putln('return new %s(manager);' % frame_class_name)
+            frame_file.end_brace()
+
             frame_file.close()
                 
             if generated_groups:
@@ -1038,6 +1101,7 @@ class Converter(object):
         # general configuration
         header = game.header
         config_file = self.open_code('config.h')
+        config_file.start_guard("CHOWDREN_CONFIG_H")
 
         # small hack to make applications with Ultimate Fullscreen not open
         # a window before "Make Fullscreen" or "Make Windowed" are called
@@ -1053,45 +1117,48 @@ class Converter(object):
         config_file.putdefine('AUTHOR', game.author)
         config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
-        config_file.putdefine('RESIZABLE_WINDOW', 
-            not header.newFlags['NoThickFrame'])
+        config_file.putdefine('FRAMERATE', header.frameRate)
 
-        config_file.putln('')
-        config_file.putln('#include "common.h"')
-        frame_classes = []
+        config_file.close_guard("CHOWDREN_CONFIG_H")
+        config_file.close()
+
+        frames_file = self.open_code('frames.h')
+        frames_file.putln('')
+        frames_file.putln('#include "common.h"')
+        frame_funcs = []
         for frame_index in processed_frames:
-            frame_class_name = 'Frame%s' % frame_index
-            frame_classes.append(frame_class_name)
-            config_file.putln('#include "frame%s.h"' % frame_index)
-        config_file.putln('')
+            frame_func = 'create_frame_%s' % frame_index
+            frame_funcs.append(frame_func)
+            frames_file.putln('Frame * %s(GameManager * manager);' % frame_func)
+        frames_file.putln('')
         # config_file.putdef('BORDER_COLOR', header.borderColor)
         # config_file.putdefine('START_LIVES', header.initialLives)
-        config_file.putln('')
-        config_file.putln('static Frame ** frames = NULL;')
-        config_file.putmeth('Frame ** get_frames', 'GameManager * manager')
-        config_file.putln('if (frames) return frames;')
+        frames_file.putln('')
+        frames_file.putln('static Frame ** frames = NULL;')
+        frames_file.putmeth('Frame ** get_frames', 'GameManager * manager')
+        frames_file.putln('if (frames) return frames;')
 
-        config_file.putln('frames = new Frame*[%s];' % len(frame_classes))
+        frames_file.putln('frames = new Frame*[%s];' % len(frame_funcs))
 
-        for i, frame in enumerate(frame_classes):
-            config_file.putln('frames[%s] = new %s(manager);' % (i, frame))
+        for i, frame in enumerate(frame_funcs):
+            frames_file.putln('frames[%s] = %s(manager);' % (i, frame))
 
-        config_file.putln('return frames;')
+        frames_file.putln('return frames;')
 
-        config_file.end_brace()
+        frames_file.end_brace()
 
-        config_file.putmeth('void setup_globals',
+        frames_file.putmeth('void setup_globals',
             'GlobalValues * values', 'GlobalStrings * strings')
         if game.globalValues:
             for index, value in enumerate(game.globalValues.items):
-                config_file.putln('values->set(%s, %s);' % (index, value))
+                frames_file.putln('values->set(%s, %s);' % (index, value))
         if game.globalStrings:
             for index, value in enumerate(game.globalStrings.items):
-                config_file.putln(to_c('strings->set(%s, %r);', index, 
+                frames_file.putln(to_c('strings->set(%s, %r);', index, 
                     value))
-        config_file.end_brace()
+        frames_file.end_brace()
 
-        config_file.close()
+        frames_file.close()
 
         fp.close()
 
@@ -1479,13 +1546,13 @@ class Converter(object):
             return '%s' % self.object_names[handle]
 
     def get_list_name(self, object_name):
-        return '%s_instances' % get_method_name(object_name)
+        return '%s_instances' % get_method_name(object_name, True)
 
     def get_object_handle(self, handle):
         if is_qualifier(handle):
             return ('qualifier_%s' % get_qualifier(handle), True)
         else:
-            return ('%s::type_id' % self.object_names[handle], False)
+            return ('%s_type' % self.object_names[handle], False)
 
     def get_object_class(self, object_type = None, object_info = None, 
                          star = True):

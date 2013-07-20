@@ -12,7 +12,7 @@ COMPARISONS = [
 VALID_CHARACTERS = string.ascii_letters + string.digits
 DIGITS = string.digits
 
-def get_method_name(value, check_digits = False):
+def get_method_name(value, digit_underscore = False):
     new_name = ''
     add_underscore = False
     for c in value:
@@ -27,7 +27,7 @@ def get_method_name(value, check_digits = False):
             new_name += c
         else:
             add_underscore = True
-    if check_digits:
+    if digit_underscore:
         new_name = check_digits(new_name, 'meth_')
     return new_name
 
@@ -59,8 +59,22 @@ class StringWrapper(object):
         return self.value
 
     def __repr__(self):
-        return '"%s"' % self.value.replace('\\', '\\\\').replace('"', '\\"'
-            ).replace('\r', '\\r').replace('\n', '\\n')
+        new = ''
+        for c in self.value:
+            if c == '\\':
+                new += '\\\\'
+            elif c == '"':
+                new += '\\"'
+            elif c == '\r':
+                new += '\\r'
+            elif c == '\n':
+                new += '\\n'
+            elif ord(c) > 128:
+                new += '\\' + oct(ord(c))[1:]
+            else:
+                new += c
+        return '"%s"' % new
+
 
 def to_c(format_spec, *args):
     new_args = []

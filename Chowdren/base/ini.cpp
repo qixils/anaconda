@@ -11,7 +11,6 @@ http://code.google.com/p/inih/
 #include <ctype.h>
 #include <string.h>
 #include <string>
-#include <fstream>
 #include <sstream>
 #include <istream>
 
@@ -71,7 +70,28 @@ static char* strncpy0(char* dest, const char* src, size_t size)
     return dest;
 }
 
-int ini_parse_stream(std::istream & input,
+void get_line(std::istream & input, std::string & line)
+{
+    std::getline(input, line);
+}
+
+void get_line(FSFile & input, std::string & line)
+{
+    input.read_line(line);
+}
+
+bool at_end(std::istream & input)
+{
+    return !input;
+}
+
+bool at_end(FSFile & input)
+{
+    return input.at_end();
+}
+
+template <class T>
+int ini_parse_stream(T & input,
                      int (*handler)(void*, const char*, const char*,
                                     const char*),
                      void* user)
@@ -89,9 +109,9 @@ int ini_parse_stream(std::istream & input,
     int error = 0;
 
     /* Scan through file line by line */
-    while (input) {
+    while (!at_end(input)) {
         std::string newline;
-        std::getline(input, newline);
+        get_line(input, newline);
         line = (char*)newline.c_str();
         lineno++;
 
@@ -155,8 +175,8 @@ int ini_parse_file(const char* filename,
                    int (*handler)(void*, const char*, const char*, const char*),
                    void* user)
 {
-    std::ifstream fp(filename);
-    if (!fp)
+    FSFile fp(filename, "r");
+    if (!fp.is_open())
         return -1;
     int error = ini_parse_stream(fp, handler, user);
     fp.close();

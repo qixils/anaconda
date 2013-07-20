@@ -137,6 +137,10 @@ class ObjectClicked(ConditionWriter):
         writer.put('mouse_over() && '
                    'is_mouse_pressed_once(%s)' % self.convert_index(0))
 
+# class PlayerKeyDown(ConditionWriter):
+#     def write(self, writer):
+#         writer.put('is_player_key_pressed(%s, %r)' % )
+
 class TimerEquals(ConditionWriter):
     is_always = True
 
@@ -282,17 +286,15 @@ class CreateObject(ActionWriter):
             create_object = details['create_object']
         arguments = [x, y]
         list_name = self.converter.get_list_name(create_object)
-        if list_name.count('old_item_in_level_81_instances'):
-            import code
-            code.interact(local = locals())
+        obj_create_func = 'create_%s' % get_method_name(create_object)
         if is_shoot:
             create_method = '%s->shoot' % self.get_object(
                 action.objectInfo)
             arguments.append(str(details['shoot_speed']))
         else:
             create_method = 'create_object'
-        writer.put('%s = %s(new %s(%s), %s); // %s' % (
-            list_name, create_method, create_object, 
+        writer.put('%s = %s(%s(%s), %s); // %s' % (
+            list_name, create_method, obj_create_func, 
             ', '.join(arguments), layer, details))
         self.converter.has_selection[
             self.parameters[0].loader.objectInfo] = list_name
@@ -431,6 +433,10 @@ class ActivateGroup(ActionWriter):
         for name in check_names:
             writer.putln('%s = true;' % name)
 
+class CenterDisplayX(ActionWriter):
+    def write(self, writer):
+        writer.put('set_display_center(%s, -1);' % self.convert_index(0))
+
 class CenterDisplayY(ActionWriter):
     def write(self, writer):
         writer.put('set_display_center(-1, %s);' % self.convert_index(0))
@@ -459,9 +465,17 @@ class JumpToFrame(SetFrameAction):
             value = str(self.converter.game.frameHandles[frame.value])
         self.set_frame(writer, value)
 
+class RestartFrame(SetFrameAction):
+    def write(self, writer):
+        self.set_frame(writer, 'index')
+
 class NextFrame(SetFrameAction):
     def write(self, writer):
         self.set_frame(writer, 'index + 1')
+
+class PreviousFrame(SetFrameAction):
+    def write(self, writer):
+        self.set_frame(writer, 'index - 1')
 
 class SetEffect(ActionWriter):
     def write(self, writer):
@@ -469,7 +483,7 @@ class SetEffect(ActionWriter):
         if name == '':
             shader_name = 'NULL'
         else:
-            shader_name = '&%s' % shader.get_name(name)
+            shader_name = '%s' % shader.get_name(name)
         writer.put('set_shader(%s);' % shader_name)
 
 class SpreadValue(ActionWriter):
@@ -586,12 +600,14 @@ actions = make_table(ActionMethodWriter, {
     'PlayChannelFileSample' : 'media->play(%s, %s-1)',
     'PlayChannelSample' : 'media->play_name("%s", %s-1)',
     'PlayLoopingSample' : 'media->play_name("%s", -1, %s-1)',
+    'PlaySample' : 'media->play_name("%s", -1, 1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
     'SetRGBCoefficient' : 'set_blend_color',
     'SetAngle' : 'set_angle',
     'DeactivateGroup' : DeactivateGroup,
     'ActivateGroup' : ActivateGroup,
+    'CenterDisplayX' : CenterDisplayX,
     'CenterDisplayY' : CenterDisplayY,
     'EndApplication' : EndApplication,
     'RestartApplication' : 'restart',
@@ -601,13 +617,17 @@ actions = make_table(ActionMethodWriter, {
     'ShowCursor' : 'set_cursor_visible(true)',
     'FullscreenMode' : 'set_fullscreen(true)',
     'NextFrame' : NextFrame,
+    'PreviousFrame' : PreviousFrame,
     'MoveToLayer' : 'set_layer(%s-1)',
     'JumpToFrame' : JumpToFrame,
+    'RestartFrame' : RestartFrame,
     'SetAlphaCoefficient' : 'blend_color.set_alpha_coefficient(%s)',
+    'SetSemiTransparency' : 'blend_color.set_semi_transparency(%s)',
     'SetXScale' : 'set_x_scale({0})',
     'SetYScale' : 'set_y_scale({0})',
     'SetScale' : 'set_scale({0})',
     'ForceAnimation' : 'force_animation',
+    'RestoreAnimation' : 'restore_animation',
     'ForceFrame' : 'force_frame',
     'ForceSpeed' : 'force_speed',
     'RestoreFrame' : 'restore_frame',
@@ -639,7 +659,9 @@ actions = make_table(ActionMethodWriter, {
     'IgnoreControls' : EmptyAction, # XXX fix
     'RestoreControls' : EmptyAction, # XXX fix,
     'ChangeControlType' : EmptyAction, # XXX fix,
-    'FlashDuring' : 'flash'
+    'FlashDuring' : 'flash',
+    'Stop' : 'get_movement()->stop()',
+    'SelectMovement' : 'set_movement'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -658,6 +680,7 @@ conditions = make_table(ConditionMethodWriter, {
     'Always' : Always,
     'MouseClicked' : MouseClicked,
     'ObjectClicked' : ObjectClicked,
+    # 'PlayerKeyDown' : PlayerKeyDown,
     'KeyDown' : 'is_key_pressed',
     'KeyPressed' : 'is_key_pressed_once(%s)',
     'OnGroupActivation' : OnGroupActivation,
@@ -674,19 +697,21 @@ conditions = make_table(ConditionMethodWriter, {
     'NotAlways' : NotAlways,
     'AnimationFrame' : make_comparison('get_frame()'),
     'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
+    'SampleNotPlaying' : '!media->is_sample_playing("%s")',
     'Once' : OnceCondition,
     'Every' : TimerEvery,
     'TimerEquals' : TimerEquals,
     'TimerGreater' : TimerGreater,
     'IsBold' : 'get_bold',
-    'IsItalic' : 'get_italic'
+    'IsItalic' : 'get_italic',
+    'MovementStopped' : 'get_movement()->is_stopped()'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
     'String' : StringExpression,
     'ToNumber' : 'string_to_double',
     'ToInt' : 'int',
-    'Abs' : 'abs',
+    'Abs' : 'get_abs',
     'ToString' : ToString,
     'GetRGB' : 'make_color_int',
     'Long' : ValueExpression,
@@ -707,8 +732,8 @@ expressions = make_table(ExpressionMethodWriter, {
     'AlterableString' : AlterableStringExpression,
     'GlobalString' : GlobalStringExpression,
     'GlobalValue' : GlobalValueExpression,
-    'YPosition' : '.y',
-    'XPosition' : '.x',
+    'YPosition' : 'get_y()',
+    'XPosition' : 'get_x()',
     'ActionX' : 'get_action_x()',
     'ActionY' : 'get_action_y()',
     'GetParagraph' : 'get_paragraph',
@@ -756,5 +781,8 @@ expressions = make_table(ExpressionMethodWriter, {
     'NewLine' : '.newline_character',
     'XRightFrame' : 'frame_right()',
     'YBottomFrame' : 'frame_bottom()',
-    'ObjectCount' : ObjectCount
+    'ObjectCount' : ObjectCount,
+    'CounterMaximumValue' : '.maximum',
+    'ApplicationDirectory' : 'get_app_dir()',
+    'ApplicationDrive' : 'get_app_drive()'
 })

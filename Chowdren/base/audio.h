@@ -234,8 +234,6 @@ public:
     void remove_sound(Sound* sound);
 };
 
-#define AL_DIRECT_CHANNELS_SOFT 0x1033
-
 template <class T>
 inline T clamp(T value)
 {
@@ -251,6 +249,8 @@ double get_pan_factor(double pan)
     // directsound algorithmic scale, taken from wine sources
     return clamp(pow(2.0, (pan * 10000) / 600.0) / 65535.0);
 }
+
+#define AL_DIRECT_CHANNELS_SOFT 0x1033
 
 class SoundBase
 {

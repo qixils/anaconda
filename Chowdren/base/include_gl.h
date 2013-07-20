@@ -1,8 +1,16 @@
 #ifndef INCLUDE_GL_H
 #define INCLUDE_GL_H
 
+#ifdef _WIN32
+#include "windows.h"
+#endif
+
+#ifdef CHOWDREN_IS_DESKTOP
 #include <GL/glew.h>
-#include <GL/glfw.h>
+#include <GL/glfw3.h>
+#elif CHOWDREN_IS_WIIU
+#include "wiiu_gl.h"
+#endif
 
 #undef max
 #undef min

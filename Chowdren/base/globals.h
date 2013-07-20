@@ -17,15 +17,13 @@ public:
 
     T get(size_t index)
     {
-        if (index < 0 || index >= values.size())
+        if (index >= values.size())
             return T();
         return values[index];
     }
 
     void set(size_t index, T value)
     {
-        if (index < 0)
-            return;
         if (index >= values.size())
             values.resize(index + 1);
         values[index] = value;

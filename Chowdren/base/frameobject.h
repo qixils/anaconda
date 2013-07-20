@@ -1,10 +1,12 @@
-#ifndef FRAMEOBJECT_H
-#define FRAMEOBJECT_H
+#ifndef CHOWDREN_FRAMEOBJECT_H
+#define CHOWDREN_FRAMEOBJECT_H
 
 #include "alterables.h"
 #include "color.h"
 #include <map>
 #include <string>
+#include <vector>
+#include "movement.h"
 
 class CollisionBase;
 class Frame;
@@ -43,11 +45,14 @@ public:
     ShaderParameters * shader_parameters;
     bool destroying;
     bool scroll;
+    Movement * movement;
 
     FrameObject(const std::string & name, int x, int y, int type_id);
     virtual ~FrameObject();
     void set_position(int x, int y);
+    int get_x();
     void set_x(int x);
+    int get_y();
     void set_y(int y);
     void create_alterables();
     void set_visible(bool value);
@@ -79,6 +84,10 @@ public:
     void get_box(int box[4]);
     int get_box_index(int index);
     bool overlaps_background();
+    void set_movement(int i);
+    Movement * get_movement();
 };
 
-#endif // FRAMEOBJECT_H
+typedef std::vector<FrameObject*> ObjectList;
+
+#endif // CHOWDREN_FRAMEOBJECT_H

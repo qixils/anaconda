@@ -1,18 +1,12 @@
-#include "include_gl.h"
+#ifndef CHOWDREN_FPSLIMIT_H
+#define CHOWDREN_FPSLIMIT_H
+
+#include "platform.h"
 #include <iostream>
+#include <algorithm>
 
 #ifdef _WIN32
-// apparently, QueryPerformanceCounter sucks on Windows. use timeGetTime!
-
 #include "windows.h"
-
-double chowdren_get_time()
-{
-    return timeGetTime() / 1000.0;
-}
-
-#else
-#define chowdren_get_time glfwGetTime
 #endif
 
 class FPSLimiter
@@ -26,7 +20,7 @@ public:
 
     FPSLimiter() : framerate(-1)
     {
-        old_time = chowdren_get_time();
+        old_time = platform_get_time();
 #ifdef _WIN32
         timeBeginPeriod(1);
 #endif
@@ -46,7 +40,7 @@ public:
 
     void start()
     {
-        double current_time = chowdren_get_time();
+        double current_time = platform_get_time();
         next_update = current_time + 1.0 / framerate;
         dt = current_time - old_time;
         old_time = current_time;
@@ -59,7 +53,9 @@ public:
     {
         if (framerate >= 100)
             return;
-        glfwSleep(next_update - chowdren_get_time());
+        platform_sleep(next_update - platform_get_time());
     }
 
 };
+
+#endif // CHOWDREN_FPSLIMIT_H

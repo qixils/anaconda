@@ -1,80 +1,55 @@
+#ifndef CHOWDREN_DATASTREAM_H
+#define CHOWDREN_DATASTREAM_H
+
 #include <iostream>
 #include <istream>
+#include "platform.h"
 
-class DataStream
+class BaseStream
 {
 public:
-    std::iostream * stream;
-    bool big_endian;
-
-    DataStream(bool big_endian = false)
-    : big_endian(big_endian), stream(NULL)
+    BaseStream()
     {
 
     }
 
-    DataStream(std::iostream & stream, bool big_endian = false)
-    : big_endian(big_endian)
-    {
-        set_stream(stream);
-    }
-
-    DataStream(std::ifstream & stream, bool big_endian = false)
-    : big_endian(big_endian)
-    {
-        set_stream(stream);
-    }
-
-    void set_stream(std::iostream & stream)
-    {
-        this->stream = &stream;
-    }
-
-    void set_stream(std::ifstream & stream)
-    {
-        this->stream = &(std::iostream&)stream;
-    }
-
-    void read(std::string & str, size_t len)
+    void read_string(std::string & str, size_t len)
     {
         str.resize(len, 0);
-        stream->read(&str[0], len);
+        read(&str[0], len);
     }
 
     void read(std::stringstream & out, size_t len)
     {
         std::string data;
-        read(data, len);
+        read_string(data, len);
         out << data;
     }
 
-    DataStream & operator>>(char &v)
+    BaseStream & operator>>(char &v)
     {
         if (!ensure_size(1))
             v = 0;
         else
-            stream->read(&v, 1);
+            read(&v, 1);
         return *this;
     }
 
-    DataStream & operator>>(int &v)
+    BaseStream & operator>>(int &v)
     {
         if (!ensure_size(4)) {
             v = 0;
             return *this;
         }
         unsigned char data[4];
-        stream->read((char*)data, 4);
-        if (big_endian)
-            v = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-        else
-            v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+        read((char*)data, 4);
+        v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
         return *this;
     }
 
-    DataStream & operator>>(std::string & str)
+    BaseStream & operator>>(std::string & str)
     {
-        std::getline(*stream, str, '\0');
+        read_delim(str, '\0');
         return *this;
     }
 
@@ -83,28 +58,84 @@ public:
         return true;
     }
 
-    inline void seekg(size_t pos)
-    {
-        stream->seekg(pos);
-    }
-
-    inline bool eof()
-    {
-        return stream->eof();
-    }
-
-    inline bool at_end()
-    {
-        return stream->peek() == EOF && eof();
-    }
-
-    inline DataStream & operator>>(unsigned int &v)
+    inline BaseStream & operator>>(unsigned int &v)
     {
         return *this >> reinterpret_cast<int&>(v);
     }
 
-    inline DataStream & operator>>(unsigned char &v)
+    inline BaseStream & operator>>(unsigned char &v)
     {
         return *this >> reinterpret_cast<char&>(v);
     }
+
+    // subclasses implements this
+
+    virtual void read(char * data, size_t len) = 0;
+    virtual void read_delim(std::string & str, char delim) = 0;
+    virtual void seek(size_t pos) = 0;
+    virtual bool at_end() = 0;
 };
+
+class FileStream : public BaseStream
+{
+public:
+    FSFile & fp;
+
+    FileStream(FSFile & fp)
+    : BaseStream(), fp(fp)
+    {
+    }
+
+    void read(char * data, size_t len)
+    {
+        fp.read(data, len);
+    }
+
+    void read_delim(std::string & str, char delim)
+    {
+        fp.read_delim(str, delim);
+    }
+
+    void seek(size_t pos)
+    {
+        fp.seek(pos);
+    }
+
+    bool at_end()
+    {
+        return fp.at_end();
+    }
+};
+
+class DataStream : public BaseStream
+{
+public:
+    std::stringstream & stream;
+
+    DataStream(std::stringstream & stream)
+    : stream(stream)
+    {
+    }
+
+    void read(char * data, size_t len)
+    {
+        stream.read(data, len);
+    }
+
+    void read_delim(std::string & str, char delim)
+    {
+        std::getline(stream, str, delim);
+    }
+
+    void seek(size_t pos)
+    {
+        stream.seekg(pos);
+    }
+
+    bool at_end()
+    {
+        return stream.peek() == EOF;
+    }
+};
+
+#endif // CHOWDREN_DATASTREAM_H

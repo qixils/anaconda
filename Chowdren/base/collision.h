@@ -39,9 +39,9 @@ inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2,
     r_y1 = std::max<int>(a_y1, b_y1);
     r_x2 = std::min<int>(a_x2, b_x2);
     r_y2 = std::min<int>(a_y2, b_y2);
-};
+}
 
-bool collide(CollisionBase * a, CollisionBase * b)
+inline bool collide(CollisionBase * a, CollisionBase * b)
 {
     if (a == NULL || b == NULL)
         return false;
@@ -132,7 +132,7 @@ inline void transform_rect(int width, int height, double co, double si,
     y1 = int_min_4(0, top_right_y, bottom_left_y, bottom_right_y);
     x2 = int_max_4(0, top_right_x, bottom_left_x, bottom_right_x);
     y2 = int_max_4(0, top_right_y, bottom_left_y, bottom_right_y);
-};
+}
 
 class SpriteCollision : public CollisionBase
 {

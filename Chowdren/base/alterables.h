@@ -1,6 +1,10 @@
 #ifndef ALTERABLES_H
 #define ALTERABLES_H
 
+// for size_t
+#include <stdlib.h>
+#include <string>
+
 template <class T, size_t B>
 class Alterables
 {
@@ -16,14 +20,14 @@ public:
 
     T get(size_t index, T def = T())
     {
-        if (index < 0 || index >= B)
+        if (index >= B)
             return def;
         return values[index];
     }
 
     void set(size_t index, T value)
     {
-        if (index < 0 || index >= B)
+        if (index >= B)
             return;
         values[index] = value;
     }

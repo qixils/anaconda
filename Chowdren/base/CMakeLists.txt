@@ -5,14 +5,23 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
 set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
-set(SRCS run.cpp image.cpp glew.c
-    include/tinythread/tinythread.cpp)
+FILE(GLOB FRAMESRCS "frame*.cpp")
+
+set(SRCS run.cpp image.cpp glew.c desktop/platform.cpp font.cpp 
+    desktop/shaders.cpp ${FRAMESRCS} movement.cpp common.cpp media.cpp
+    objects.cpp fonts.cpp include/tinythread/tinythread.cpp)
 
 option(USE_BOX2D OFF)
 option(USE_PYTHON ON)
 
+add_definitions(-DCHOWDREN_IS_DESKTOP)
+
 if (USE_PYTHON)
     add_definitions(-DCHOWDREN_USE_PYTHON)
+    set(SRCS
+        ${SRCS}
+        pythonext.cpp
+    )
 endif()
 
 if (USE_BOX2D)
@@ -83,6 +92,10 @@ elseif(APPLE)
 endif()
 
 if(MSVC)
+    # /bigobj is required for MSVC because objects.cpp can get too big on
+    # some applications
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
     # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305")
 endif()
@@ -113,26 +126,19 @@ set(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
 add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
-find_package(GLFW REQUIRED)
+find_package(GLFW3 REQUIRED)
 find_package(Vorbis REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenALSoft REQUIRED)
 find_package(PythonLibs 2.7 REQUIRED)
-find_package(PNG REQUIRED)
-
-add_definitions(${PNG_DEFINITIONS})
-
-if(NOT PYTHON_DEBUG_LIBRARIES)
-    add_definitions(-DFORCE_PYTHON_RELEASE)
-endif()
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${PNG_INCLUDE_DIRS} ${BOX2D_INCLUDE_DIR})
+    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR})
 target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
     ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${PNG_LIBRARIES} ${BOX2D_LIBRARY})
+    ${BOX2D_LIBRARY})
 
 include(CPack)

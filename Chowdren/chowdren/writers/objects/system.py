@@ -25,6 +25,21 @@ class Active(ObjectWriter):
         writer.putln('initialized = true;')
         animations = common.animations.loadedAnimations
         for animation_index, animation in animations.iteritems():
+            writer.putln('init_anim_%s();' % animation_index)
+        writer.putln('initialize_animations();')
+        writer.end_brace()
+        flags = common.newFlags
+        writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
+        # if flags['AutomaticRotation']:
+        #     print 
+        #     raise NotImplementedError
+        writer.putln('animation = %s;' % get_animation_name(min(animations)))
+        writer.putln('initialize_active();')
+
+    def write_class(self, writer):
+        animations = self.common.animations.loadedAnimations
+        for animation_index, animation in animations.iteritems():
+            writer.putmeth('void init_anim_%s' % animation_index)
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
             for direction_index, direction in directions.iteritems():
@@ -38,15 +53,7 @@ class Active(ObjectWriter):
                 for image in direction.frames:
                     writer.putln('add_image(%s, %s, %s);' % (animation_name,
                         direction_index, get_image_name(image)))
-        writer.putln('initialize_animations();')
-        writer.end_brace()
-        flags = common.newFlags
-        writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
-        # if flags['AutomaticRotation']:
-        #     print 
-        #     raise NotImplementedError
-        writer.putln('animation = %s;' % get_animation_name(min(animations)))
-        writer.putln('initialize_active();')
+            writer.end_brace()
 
     def get_images(self):
         images = set()
@@ -166,13 +173,15 @@ class Counter(ObjectWriter):
                     writer.putln("images[%s] = %s;" % (char_index,
                         get_image_name(counters.frames[char_index])))
             elif display_type == HORIZONTAL_BAR:
+                print 'horizontal bar not implemented'
+                return
                 shape_object = counters.shape
                 shape = shape_object.shape
                 fill_type = shape_object.fillType
                 if shape != RECTANGLE_SHAPE:
                     raise NotImplementedError
-                writer.putdef('width', counters.width)
-                writer.putdef('height', counters.height)
+                writer.putln('width = %s;' % counters.width)
+                writer.putln('height = %s;' % counters.height)
                 if fill_type == GRADIENT_FILL:
                     writer.putdef('color1', shape_object.color1)
                     writer.putdef('color2', shape_object.color2)

@@ -1,102 +1,35 @@
 #include <string>
 #include "image.h"
-#include "png.h"
+#include "stb_image.c"
 #include "string.h"
 #include "color.h"
 #include <iostream>
 #include <stdio.h>
 #include <vector>
+#include "platform.h"
+#include "datastream.h"
 
-unsigned char * read_png(FILE *fp, int *w, int *h, bool * has_alpha)
+static int fsfile_read(void *user, char *data, int size)
 {
-    unsigned char *pixels;
-    png_bytep *row_pointers;
-    png_structp png_ptr;
-    png_infop info_ptr, end_info;
-    png_uint_32 width, height;
-    int i, bit_depth, color_type, interlace_type;
-
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, 
-        NULL);
-    if (png_ptr == NULL)
-        return NULL;
-
-    info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == NULL) {
-        png_destroy_read_struct(&png_ptr, NULL, NULL);
-        return NULL;
-    }
-
-    end_info = png_create_info_struct(png_ptr);
-    if (end_info == NULL) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-        return NULL;
-    }
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-        return NULL;
-    }
-
-    png_init_io(png_ptr, fp);
-    png_read_info(png_ptr, info_ptr);
-    png_get_IHDR(png_ptr, info_ptr, &width, &height,
-     &bit_depth, &color_type, &interlace_type,
-     NULL, NULL);
-    pixels = new unsigned char[width * height * 4];
-    row_pointers = new png_bytep[height];
-
-    for (i = 0; i < (int)height; i++)
-        row_pointers[i] = (pixels + width * 4 * i);
-
-    *has_alpha = true; // default
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE) {
-        *has_alpha = false;
-        png_set_palette_to_rgb(png_ptr);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
-        png_set_expand_gray_1_2_4_to_8(png_ptr);
-
-    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
-        png_set_tRNS_to_alpha(png_ptr);
-
-    if (bit_depth == 16)
-        png_set_strip_16(png_ptr);
-
-    if (bit_depth < 8)
-        png_set_packing(png_ptr);
-
-    if (color_type == PNG_COLOR_TYPE_RGB || 
-        color_type == PNG_COLOR_TYPE_GRAY) {
-        *has_alpha = false;
-        png_set_add_alpha(png_ptr, 0xFF, PNG_FILLER_AFTER);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY || 
-        color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
-        png_set_gray_to_rgb(png_ptr);
-
-    png_read_image(png_ptr, row_pointers);
-    png_read_end(png_ptr, end_info);
-    png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-    delete[] row_pointers;
-    *w = width;
-    *h = height;
-    return pixels;
+   return ((FSFile*)user)->read(data, size);
 }
 
-unsigned char * read_png(const std::string & filename, int * w, int * h,
-                         bool * has_alpha)
+static void fsfile_skip(void *user, unsigned n)
 {
-    FILE * fp = fopen(filename.c_str(), "rb");
-    if (!fp)
-        return NULL;
-    unsigned char * pixels = read_png(fp, w, h, has_alpha);
-    fclose(fp);
-    return pixels;
+   ((FSFile*)user)->seek(n, SEEK_CUR);
 }
+
+static int fsfile_eof(void *user)
+{
+   return ((FSFile*)user)->at_end();
+}
+
+static stbi_io_callbacks fsfile_callbacks =
+{
+   fsfile_read,
+   fsfile_skip,
+   fsfile_eof,
+};
 
 typedef std::vector<Image*> ImageList;
 
@@ -108,12 +41,12 @@ void set_image_path(const std::string & filename)
     std::cout << "Setting image file to: " << image_path << std::endl;
 }
 
-static FILE * image_file = NULL;
+static FSFile image_file;
 
 void open_image_file()
 {
-    if (image_file == NULL)
-        image_file = fopen(image_path.c_str(), "rb");
+    if (!image_file.is_open())
+        image_file.open(image_path.c_str(), "r");
 }
 
 Image::Image(int handle) 
@@ -127,7 +60,7 @@ Image::~Image()
     if (ref)
         return;
     if (image != NULL)
-        delete[] image;
+        stbi_image_free(image);
     if (tex != 0)
         glDeleteTextures(1, &tex);
     image = NULL;
@@ -139,15 +72,23 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 : hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
   tex(0), image(NULL), ref(NULL), handle(-1)
 {
-    bool has_alpha;
-    image = read_png(filename, &width, &height, &has_alpha);
+    int channels;
+    FSFile fp(filename.c_str(), "r");
+
+    if (!fp.is_open()) {
+        printf("Could not open image \"%s\"\n", filename.c_str());
+        return;
+    }
+
+    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp, 
+        &width, &height, &channels, 4);
 
     if(image == NULL) {
         printf("Could not load image \"%s\"\n", filename.c_str());
         return;
     }
 
-    if (!has_alpha && color != NULL) {
+    if ((channels == 1 || channels == 3) && color != NULL) {
         int trans_color = color->get_int();
         int * data = (int*)image;
         for (int i = 0; i < width * height; i++)
@@ -169,16 +110,18 @@ void Image::load()
     if (image != NULL)
         return;
     open_image_file();
-    fseek(image_file, 4 + handle * 4, SEEK_SET);
+    FileStream stream(image_file);
+    stream.seek(4 + handle * 4);
     unsigned int offset;
-    fread(&offset, 4, 1, image_file);
-    fseek(image_file, offset, SEEK_SET);
-    fread(&hotspot_x, 4, 1, image_file);
-    fread(&hotspot_y, 4, 1, image_file);
-    fread(&action_x, 4, 1, image_file);
-    fread(&action_y, 4, 1, image_file);
-    bool has_alpha; // may be useful later
-    image = read_png(image_file, &width, &height, &has_alpha);
+    stream >> offset;
+    image_file.seek(offset);
+    stream >> hotspot_x;
+    stream >> hotspot_y;
+    stream >> action_x;
+    stream >> action_y;
+    int channels;
+    image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file, 
+        &width, &height, &channels, 4);
 }
 
 void Image::upload_texture()
@@ -279,8 +222,9 @@ Image * get_internal_image(unsigned int i)
     if (internal_images == NULL) {
         open_image_file();
         unsigned int image_count;
-        fseek(image_file, 0, SEEK_SET);
-        fread(&image_count, 1, 4, image_file);
+        FileStream stream(image_file);
+        stream.seek(0);
+        stream >> image_count;
         internal_images = new Image*[image_count];
         for (unsigned int i2 = 0; i2 < image_count; i2++)
             internal_images[i2] = NULL;

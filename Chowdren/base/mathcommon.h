@@ -1,6 +1,9 @@
 #ifndef CHOWDREN_MATH_H
 #define CHOWDREN_MATH_H
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 // math helpers
 
 inline float mod(float a, float b)
@@ -70,6 +73,21 @@ template <class T>
 inline T clamp(T val)
 {
     return std::max<T>(0, std::min<T>(val, 1));
+}
+
+inline int get_abs(int v)
+{
+    return v;
+}
+
+inline float get_abs(float v)
+{
+    return fabs(v);
+}
+
+inline double get_abs(double v)
+{
+    return fabs(v);
 }
 
 #endif // CHOWDREN_MATH_H

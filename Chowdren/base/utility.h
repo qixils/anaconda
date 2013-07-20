@@ -1,3 +1,6 @@
+#ifndef CHOWDREN_UTILITY_H
+#define CHOWDREN_UTILITY_H
+
 #include <stdlib.h>
 #include <time.h>
 #include "crossrand.h"
@@ -5,7 +8,7 @@
 namespace Utility
 {
 
-    bool Compare(float First, float Second, int ComparisonType)
+    inline bool Compare(float First, float Second, int ComparisonType)
     {
         switch(ComparisonType)
         {
@@ -33,28 +36,28 @@ namespace Utility
     }
 
 
-    void SetRandomSeed(int Seed)
+    inline void SetRandomSeed(int Seed)
     {
         cross_srand(Seed);
     }
 
-    void SetRandomSeedToTimer()
+    inline void SetRandomSeedToTimer()
     {
         cross_srand(time(NULL));
     }
 
     // Useful Functions
-    int Round(float Value)
+    inline int Round(float Value)
     {
         return (Value > 0) ? (int)floor(Value + 0.5f) : (int)ceil(Value - 0.5f);
     }
 
     // Float Expressions
-    float GenerateRandom(float Minimum, float Maximum)
+    inline float GenerateRandom(float Minimum, float Maximum)
     {
         return ((Maximum-Minimum)*((float)cross_rand()/CROSS_RAND_MAX))+Minimum;
     }
-    float Limit(float Value, float Minimum, float Maximum)
+    inline float Limit(float Value, float Minimum, float Maximum)
     {
         if (Minimum < Maximum)
             return (Value < Minimum) ? (Minimum) : (Value > Maximum ? Maximum : Value);
@@ -62,14 +65,14 @@ namespace Utility
     }
 
 
-    float Nearest(float Value, float Minimum, float Maximum)
+    inline float Nearest(float Value, float Minimum, float Maximum)
     {
         return ((Minimum > Value) ? (Minimum - Value) : (Value - Minimum)) > 
             ((Maximum > Value) ? (Maximum - Value) : (Value - Maximum)) ?
             Maximum : Minimum;
     }
 
-    float Normalise(float Value, float Minimum, float Maximum, int LimitRange)
+    inline float Normalise(float Value, float Minimum, float Maximum, int LimitRange)
     {
         Value = (Value - Minimum) / (Maximum - Minimum);
 
@@ -78,7 +81,7 @@ namespace Utility
         return Value;
     }
 
-    float ModifyRange(float Value, float Minimum, float Maximum, float NewMinimum, float NewMaximum, int LimitRange)
+    inline float ModifyRange(float Value, float Minimum, float Maximum, float NewMinimum, float NewMaximum, int LimitRange)
     {
         Value = NewMinimum + (Value - Minimum) * (NewMaximum - NewMinimum) / (Maximum - Minimum);
 
@@ -86,17 +89,17 @@ namespace Utility
         return Value;
     }
 
-    float EuclideanMod(float Dividend, float Divisor)
+    inline float EuclideanMod(float Dividend, float Divisor)
     {
         return fmod((fmod(Dividend,Divisor)+Divisor),Divisor);
     }
 
-    float UberMod(float Dividend, float Lower, float Upper)
+    inline float UberMod(float Dividend, float Lower, float Upper)
     {
         return ModifyRange(EuclideanMod(Normalise(Dividend,Lower,Upper,0),1),0,1,Lower,Upper,0);
     }
 
-    float Interpolate(float Value, float From, float To, int LimitRange)
+    inline float Interpolate(float Value, float From, float To, int LimitRange)
     {
         Value = From+Value*(To-From);
 
@@ -104,7 +107,7 @@ namespace Utility
         return Value;
     }
 
-    float Mirror(float Value, float From, float To)
+    inline float Mirror(float Value, float From, float To)
     {
         if (From < To) {
             return From+fabs(EuclideanMod(Value-To,(To-From)*2)-(To-From));
@@ -113,7 +116,7 @@ namespace Utility
         }
     }
 
-    float Wave(int Waveform, float Value, float CycleStart, float CycleEnd, float Minimum, float Maximum)
+    inline float Wave(int Waveform, float Value, float CycleStart, float CycleEnd, float Minimum, float Maximum)
     {
         switch(Waveform)
         {
@@ -161,75 +164,75 @@ namespace Utility
         };
     }
 
-    float ExpressionCompare(float First, float Second, int ComparisonType, float ReturnIfTrue, float ReturnIfFalse)
+    inline float ExpressionCompare(float First, float Second, int ComparisonType, float ReturnIfTrue, float ReturnIfFalse)
     {
         if (Compare(First,Second,ComparisonType)) return ReturnIfTrue; else return ReturnIfFalse;
     }
 
-    float Approach(float Value, float Amount, float Target)
+    inline float Approach(float Value, float Amount, float Target)
     {
         return (Value<Target) ? std::min<float>(Value + Amount, Target) : std::max<float>(Value - Amount, Target);
     }
 
     // Integer versions of the float expressions
-    int IntGenerateRandom(float Minimum, float Maximum)
+    inline int IntGenerateRandom(float Minimum, float Maximum)
     {
         return Round(GenerateRandom(Minimum,Maximum));
     }
 
 
-    int IntLimit(float Value, float Minimum, float Maximum)
+    inline int IntLimit(float Value, float Minimum, float Maximum)
     {
         return Round(Limit(Value,Minimum,Maximum));
     }
-    int IntNearest(float Value, float Minimum, float Maximum)
+    inline int IntNearest(float Value, float Minimum, float Maximum)
     {
         return Round(Nearest(Value,Minimum,Maximum));
     }
-    int IntNormalise(float Value, float Minimum, float Maximum, int LimitRange)
+    inline int IntNormalise(float Value, float Minimum, float Maximum, int LimitRange)
     {
         return Round(Normalise(Value,Minimum,Maximum,LimitRange));
     }
 
-    int IntModifyRange(float Value, float Minimum, float Maximum, float NewMinimum, float NewMaximum, int LimitRange)
+    inline int IntModifyRange(float Value, float Minimum, float Maximum, float NewMinimum, float NewMaximum, int LimitRange)
     {
         return Round(ModifyRange(Value,Minimum,Maximum,NewMinimum,NewMaximum,LimitRange));
     }
 
-    int IntWave(int Waveform, float Value, float CycleStart, float CycleEnd, float Minimum, float Maximum)
+    inline int IntWave(int Waveform, float Value, float CycleStart, float CycleEnd, float Minimum, float Maximum)
     {
         return Round(Wave(Waveform,Value,CycleStart,CycleEnd,Minimum,Maximum));
     }
-    int IntEuclideanMod(float Dividend, float Divisor)
+    inline int IntEuclideanMod(float Dividend, float Divisor)
     {
         return Round(EuclideanMod(Dividend,Divisor));
     }
-    int IntUberMod(float Dividend, float Lower, float Upper)
+    inline int IntUberMod(float Dividend, float Lower, float Upper)
     {
         return Round(UberMod(Dividend,Lower,Upper));
     }
 
-    int IntInterpolate(float Value, float From, float To, int LimitRange)
+    inline int IntInterpolate(float Value, float From, float To, int LimitRange)
     {
         return Round(Interpolate(Value,From,To,LimitRange));
     }
-    int IntMirror(float Value, float From, float To)
+    inline int IntMirror(float Value, float From, float To)
     {
         return Round(Mirror(Value,From,To));
     }
 
-    int IntExpressionCompare(float First, float Second, int ComparisonType, float ReturnIfTrue, float ReturnIfFalse)
+    inline int IntExpressionCompare(float First, float Second, int ComparisonType, float ReturnIfTrue, float ReturnIfFalse)
     {
         return Round(ExpressionCompare(First, Second, ComparisonType, ReturnIfTrue, ReturnIfFalse));
     }
 
-    int IntApproach(float Value, float Amount, float Target)
+    inline int IntApproach(float Value, float Amount, float Target)
     {
         return Round(Approach(Value, Amount, Target));
     }
 
     // String expressions
-    std::string Substr(std::string String, int Start, int Length)
+    inline std::string Substr(std::string String, int Start, int Length)
     {
         if(Start < 0)
             Start = String.size() + Start;
@@ -240,7 +243,7 @@ namespace Utility
         return String.substr(Start, Length);
     }
 
-    const std::string & StrExpressionCompare(float First, float Second, 
+    inline const std::string & StrExpressionCompare(float First, float Second, 
         int ComparisonType, const std::string & ReturnIfTrue, 
         const std::string & ReturnIfFalse)
     {
@@ -250,3 +253,5 @@ namespace Utility
             return ReturnIfFalse;
     }
 }
+
+#endif // CHOWDREN_UTILITY_H

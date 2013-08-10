@@ -16,8 +16,8 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <algorithm>
-#include "string.h"
-#include "shaders.h"
+#include "stringcommon.h"
+#include "shader.h"
 #include "datastream.h"
 #include <cctype>
 #include "globals.h"
@@ -752,7 +752,10 @@ extern MathHelper math_helper;
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
-    return *((FrameObject**)&fixed);
+    int64_t v;
+    memcpy(&v, &fixed, sizeof(int64_t));
+    intptr_t p = intptr_t(v);
+    return (FrameObject*)p;
 }
 
 inline ObjectList make_single_list(FrameObject * item)

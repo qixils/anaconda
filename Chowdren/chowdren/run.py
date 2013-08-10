@@ -14,6 +14,8 @@ def main():
         default = 'Sprites.dat', help = 'destination file for images')
     parser.add_argument('--noimages', action='store_true',
         help = 'turns off image writing')
+    parser.add_argument('--base', action='store_true',
+        help = 'only copy base dir')
     parser.add_argument('--ico', type = str, action = 'store', default = None,
         help = 'icon to use for Windows')
     parser.add_argument('--icns', type = str, action = 'store', default = None,
@@ -31,7 +33,8 @@ def main():
         image_file = args.imagefile
     Converter(args.filename, args.outdir, image_file = image_file, 
               win_ico = args.ico, mac_icns = args.icns, version = args.version, 
-              company = args.company, copyright = args.copyright)
+              company = args.company, copyright = args.copyright,
+              base_only = args.base)
     
 if __name__ == '__main__':
     main()

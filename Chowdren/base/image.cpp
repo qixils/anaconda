@@ -89,11 +89,11 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
     }
 
     if ((channels == 1 || channels == 3) && color != NULL) {
-        int trans_color = color->get_int();
-        int * data = (int*)image;
-        for (int i = 0; i < width * height; i++)
-            if (data[i] == trans_color)
-                data[i] = data[i] & 0xFFFFFF;
+        for (int i = 0; i < width * height; i++) {
+            unsigned char * c = &image[i*4];
+            if (c[0] == color->r && c[1] == color->g && c[2] == color->b)
+                c[3] = 0;
+        }
     }
 }
 

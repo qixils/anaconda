@@ -1,8 +1,7 @@
 #ifndef CHOWDREN_DATASTREAM_H
 #define CHOWDREN_DATASTREAM_H
 
-#include <iostream>
-#include <istream>
+#include <sstream>
 #include "platform.h"
 
 class BaseStream

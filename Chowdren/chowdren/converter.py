@@ -64,30 +64,25 @@ LICENSE = ("""\
 """)
 
 def is_file_changed(src, dst):
+    return True
+    if not os.path.exists(dst):
+        return True
     diff = os.stat(src).st_mtime - os.stat(dst).st_mtime
     return math.fabs(diff) > 0.01
 
 def copytree(src, dst):
-    names = os.listdir(src)
     try:
         os.makedirs(dst)
     except OSError:
         pass
     errors = []
-    for name in names:
+    for name in os.listdir(src):
         srcname = os.path.join(src, name)
         dstname = os.path.join(dst, name)
-        try:
-            if os.path.isdir(srcname):
-                copytree(srcname, dstname)
-            elif is_file_changed(srcname, dstname):
-                shutil.copy2(srcname, dstname)
-        # catch the Error from the recursive copytree so that we can
-        # continue with other files
-        except shutil.Error, err:
-            errors.extend(err.args[0])
-        except EnvironmentError, why:
-            errors.append((srcname, dstname, str(why)))
+        if os.path.isdir(srcname):
+            copytree(srcname, dstname)
+        elif is_file_changed(srcname, dstname):
+            shutil.copy2(srcname, dstname)
     try:
         shutil.copystat(src, dst)
     except OSError, why:
@@ -443,9 +438,15 @@ class Converter(object):
     debug = False
     def __init__(self, filename, outdir, image_file = 'Sprites.dat', 
                  win_ico = None, mac_icns = None, company = None, 
-                 version = None, copyright = None):
+                 version = None, copyright = None, base_only = False):
         self.filename = filename
         self.outdir = outdir
+
+        # copy base
+        # shutil.rmtree(outdir, ignore_errors = True)
+        copytree(os.path.join(os.getcwd(), 'base'), outdir)
+        if base_only:
+            return
 
         self.has_single_selection = {}
         self.has_selection = {}
@@ -463,9 +464,6 @@ class Converter(object):
             raise NotImplementedError('invalid extension')
 
         self.game = game
-        
-        # shutil.rmtree(outdir, ignore_errors = True)
-        copytree(os.path.join(os.getcwd(), 'base'), outdir)
 
         if win_ico is not None:
             shutil.copy(win_ico, self.get_filename('icon.ico'))

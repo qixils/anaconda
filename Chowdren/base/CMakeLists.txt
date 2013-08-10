@@ -3,13 +3,14 @@ cmake_minimum_required (VERSION 2.6)
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/desktop")
 set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 FILE(GLOB FRAMESRCS "frame*.cpp")
 
-set(SRCS run.cpp image.cpp glew.c desktop/platform.cpp font.cpp 
-    desktop/shaders.cpp ${FRAMESRCS} movement.cpp common.cpp media.cpp
-    objects.cpp fonts.cpp include/tinythread/tinythread.cpp)
+set(SRCS run.cpp image.cpp glew.c desktop/platform.cpp shader.cpp font.cpp 
+    desktop/glslshader.cpp ${FRAMESRCS} movement.cpp common.cpp media.cpp
+    objects.cpp fonts.cpp fpslimit.cpp include/tinythread/tinythread.cpp)
 
 option(USE_BOX2D OFF)
 option(USE_PYTHON ON)

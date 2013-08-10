@@ -23,6 +23,7 @@ void platform_set_focus(bool v);
 void platform_show_mouse();
 void platform_get_mouse_pos(int * x, int * y);
 void platform_hide_mouse();
+void platform_begin_draw();
 void platform_swap_buffers();
 
 // joystick
@@ -61,5 +62,9 @@ public:
 // path
 
 std::string convert_path(const std::string & value);
+
+// shaders
+
+void init_shaders_platform();
 
 #endif // CHOWDREN_PLATFORM_H

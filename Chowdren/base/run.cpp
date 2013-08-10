@@ -71,9 +71,14 @@ void GameManager::set_window(bool fullscreen)
 
     platform_create_display(fullscreen);
 
+    // OpenGL settings
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     init_shaders();
 
     // for fullscreen or window resize
+#ifdef CHOWDREN_IS_DESKTOP
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
@@ -87,6 +92,7 @@ void GameManager::set_window(bool fullscreen)
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
         GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, screen_texture, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+#endif
 }
 
 bool GameManager::is_fullscreen()
@@ -137,15 +143,19 @@ void GameManager::draw()
         return;
 
     int window_width, window_height;
-
     platform_get_size(&window_width, &window_height);
     if (window_width <= 0 || window_height <= 0)
         // for some reason, GLFW sets these properties to 0 when minimized.
         return;
 
+    platform_begin_draw();
+
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
     frame->draw();
+
+#ifdef CHOWDREN_IS_DESKTOP
+
     if (fade_dir != 0.0f) {
         glBegin(GL_QUADS);
         glColor4ub(fade_color.r, fade_color.g, fade_color.b,
@@ -198,7 +208,7 @@ void GameManager::draw()
 
     glColor4f(1.0, 1.0, 1.0, 1.0);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, screen_texture);
+    glBindTexture(GL_TEXTURE_2D, screen_texture);   
     glDisable(GL_BLEND);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 1.0);
@@ -212,6 +222,10 @@ void GameManager::draw()
     glEnd();
     glEnable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
+
+#endif // CHOWDREN_IS_DESKTOP
+
+    platform_swap_buffers();
 }
 
 void GameManager::set_frame(int index)
@@ -286,8 +300,6 @@ void GameManager::run()
         double draw_time = platform_get_time();
 
         draw();
-
-        platform_swap_buffers();
 
         if (measure_fps)
             std::cout << "Draw took " << platform_get_time() - draw_time

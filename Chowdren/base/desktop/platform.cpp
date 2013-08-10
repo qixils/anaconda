@@ -4,14 +4,15 @@
 #include <fcntl.h>
 #endif
 
-#include "config.h"
-#include "platform.h"
-
-#include "include_gl.h"
-#include "manager.h"
-#include "mathcommon.h"
+#include "../config.h"
+#include "../platform.h"
+#include "../include_gl.h"
+#include "../manager.h"
+#include "../mathcommon.h"
 
 #include <tinythread/tinythread.h>
+
+#include <iostream>
 
 GLuint screen_texture;
 GLuint screen_fbo;
@@ -171,10 +172,6 @@ void platform_create_display(bool fullscreen)
     glfwSetKeyCallback(global_window, _on_key);
     glfwSetMouseButtonCallback(global_window, _on_mouse);
 
-    // OpenGL settings
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     // initialize OpenGL extensions
     glewInit();
 
@@ -185,6 +182,11 @@ void platform_create_display(bool fullscreen)
         exit(EXIT_FAILURE);
         return;
     }
+}
+
+void platform_begin_draw()
+{
+    
 }
 
 void platform_swap_buffers()
@@ -369,7 +371,7 @@ void open_url(const std::string & name)
 
 // file
 
-#include "filecommon.cpp"
+#include "../filecommon.cpp"
 
 void FSFile::open(const char * filename, const char * mode)
 {
@@ -440,4 +442,10 @@ std::string convert_path(const std::string & v)
 #else
     return v;
 #endif
+}
+
+// shaders
+
+void init_shaders_platform()
+{
 }

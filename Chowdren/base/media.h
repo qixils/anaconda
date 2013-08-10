@@ -5,12 +5,17 @@ void set_sounds_path(const std::string & path);
 
 class SoundData;
 
+namespace ChowdrenAudio
+{
+    class SoundBase;
+}
+
 class Channel
 {
 public:
     std::string name;
     bool locked;
-/*    ChowdrenAudio::SoundBase * sound;*/
+    ChowdrenAudio::SoundBase * sound;
     double volume, frequency, pan;
     bool is_music;
 

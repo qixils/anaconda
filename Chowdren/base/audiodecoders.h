@@ -1,7 +1,8 @@
 #include <vorbis/vorbisfile.h>
 #include <string>
-#include "string.h"
+#include "stringcommon.h"
 #include "filecommon.h"
+#include "platform.h"
 
 namespace ChowdrenAudio {
 
@@ -18,12 +19,47 @@ public:
     virtual ~SoundDecoder() {};
 };
 
+size_t read_func(void * ptr, size_t size, size_t nmemb, void *datasource)
+{
+    FSFile * fp = (FSFile*)datasource;
+    return fp->read(ptr, size*nmemb);
+}
+
+
+int seek_func(void *datasource, ogg_int64_t offset, int whence)
+{
+    FSFile * fp = (FSFile*)datasource;
+    fp->seek(offset, whence);
+    return 1;
+}
+
+int close_func(void *datasource)
+{
+    FSFile * fp = (FSFile*)datasource;
+    fp->close();
+    return 1;
+}
+
+long tell_func(void *datasource)
+{
+    FSFile * fp = (FSFile*)datasource;
+    return fp->tell();
+}
+
+ov_callbacks callbacks = {
+    read_func,
+    seek_func,
+    close_func,
+    tell_func
+};
+
 class OggDecoder : public SoundDecoder 
 {
 private:
     OggVorbis_File ogg_file;
     vorbis_info * ogg_info;
     int ogg_bitstream;
+    FSFile fp;
 
 public:
     double total_time;
@@ -31,7 +67,9 @@ public:
     OggDecoder(const std::string & filename)
     : ogg_info(NULL), ogg_bitstream(0)
     {
-        if (ov_fopen(filename.c_str(), &ogg_file) != 0)
+        fp.open(filename.c_str(), "r");
+
+        if (ov_open_callbacks((void*)&fp, &ogg_file, NULL, 0, callbacks) != 0)
             return;
 
         ogg_info = ov_info(&ogg_file, -1);
@@ -61,7 +99,7 @@ public:
     {
         if (!(sdata && samples))
             return 0;
-        ALuint got = 0;
+        unsigned int got = 0;
         int bytes = samples * 2;
         char * data = (char*)sdata;
         while(bytes > 0) {
@@ -85,16 +123,16 @@ public:
     }
 };
 
-inline ALuint read_le32(FSFile & file)
+inline unsigned int read_le32(FSFile & file)
 {
-    ALubyte buffer[4];
+    unsigned char buffer[4];
     if(!file.read(reinterpret_cast<char*>(buffer), 4)) return 0;
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);
 }
 
-inline ALushort read_le16(FSFile & file)
+inline unsigned short read_le16(FSFile & file)
 {
-    ALubyte buffer[2];
+    unsigned char buffer[2];
     if(!file.read(reinterpret_cast<char*>(buffer), 2)) return 0;
     return buffer[0] | (buffer[1]<<8);
 }
@@ -114,13 +152,13 @@ public:
     : data_start(0)
     {
         file.open(filename.c_str(), "r");
-        if (!file) {
+        if (!file.is_open()) {
             std::cerr << "Invalid file: " << filename << std::endl;
             return;
         }
 
-        ALubyte buffer[25];
-        ALuint length;
+        unsigned char buffer[25];
+        unsigned int length;
         if(!file.read(reinterpret_cast<char*>(buffer), 12) ||
            memcmp(buffer, "RIFF", 4) != 0 || memcmp(buffer+8, "WAVE", 4) != 0) {
             std::cerr << "Invalid header: " << filename << std::endl;
@@ -144,7 +182,7 @@ public:
 
                 channels = read_le16(file);
                 sample_rate = read_le32(file);
-                file.ignore(4);
+                file.seek(4, SEEK_CUR);
                 block_align = read_le16(file);
                 if(block_align == 0) {
                     std::cerr << "Invalid blockalign: " << filename 
@@ -200,8 +238,9 @@ public:
     void seek(double time)
     {
         std::size_t new_pos = time * sample_rate * (sample_size / 8) * channels;
-        if (file.seek(data_start + new_pos))
-            rem_len = data_len - new_pos;
+        if (true)//(file.seek(data_start + new_pos))
+        file.seek(data_start + new_pos);
+        rem_len = data_len - new_pos;
     }
 };
 

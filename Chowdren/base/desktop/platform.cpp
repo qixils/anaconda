@@ -375,7 +375,7 @@ void open_url(const std::string & name)
 
 bool platform_remove_file(const std::string & file)
 {
-    return remove(convert_path(path).c_str()) == 0;
+    return remove(convert_path(file).c_str()) == 0;
 }
 
 #include "../filecommon.cpp"

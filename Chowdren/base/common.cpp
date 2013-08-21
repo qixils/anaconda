@@ -14,24 +14,10 @@ Font::Font(char * face, int size, bool bold, bool italic, bool underline)
 
 }
 
-// BackgroundItem
-
-
-BackgroundItem::BackgroundItem(Image * img, int dest_x, int dest_y, 
-                               int src_x, int src_y,
-                               int src_width, int src_height,
-                               int collision_type)
-: dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
-  src_width(src_width), src_height(src_height), collision_type(collision_type),
-  image(img)
-{
-
-}
-
 // Background
 
 Background::Background()
-: mask(NULL), image(NULL), image_changed(true)
+: image(NULL), image_changed(true)
 {
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -45,24 +31,16 @@ Background::Background()
 
 Background::~Background()
 {
-    delete[] mask;
     delete[] image;
-    delete collision;
     glDeleteTextures(1, &tex);
 }
 
 void Background::reset(bool clear_items)
 {
-    if (mask != NULL) {
-        delete[] mask;
+    if (image != NULL) {
         delete[] image;
-        delete collision;
     }
-    mask = new unsigned char[(BACK_WIDTH + MASK_PAD * 2) * 
-                             (BACK_HEIGHT + MASK_PAD * 2)]();
     image = new unsigned char[BACK_WIDTH * BACK_HEIGHT * 4]();
-    collision = new MaskCollision(mask, -MASK_PAD, -MASK_PAD, 
-        BACK_WIDTH + MASK_PAD, BACK_HEIGHT + MASK_PAD);
     image_changed = true;
     items_changed = false;
     if (clear_items)
@@ -72,8 +50,7 @@ void Background::reset(bool clear_items)
 void Background::destroy_at(int x, int y)
 {
     std::vector<BackgroundItem>::iterator it = items.begin();
-    while (it != items.end())
-    {
+    while (it != items.end()) {
         BackgroundItem & item = (*it);
         if (collides(item.dest_x, item.dest_y, 
                      item.dest_x + item.src_width, 
@@ -111,65 +88,45 @@ void Background::paste(Image * img, int dest_x, int dest_y,
         items_changed = true;
         return;
     }
-    int x, y, dest_x2, dest_y2, src_x2, src_y2;
 
-    int min_x, max_x, min_y, max_y;
-    if (collision_type == 1) {
-        min_x = min_y = -MASK_PAD;
-        max_x = BACK_WIDTH + MASK_PAD;
-        max_y = BACK_HEIGHT + MASK_PAD;
-    } else {
-        min_x = min_y = 0;
-        max_x = BACK_WIDTH;
-        max_y = BACK_HEIGHT;
-    }
+    if (collision_type == 1)
+        return;
+
+    int x, y, dest_x2, dest_y2, src_x2, src_y2;
 
     for (x = 0; x < src_width; x++) {
         src_x2 = src_x + x;
         if (src_x2 < 0 || src_x2 >= img->width)
             continue;
         dest_x2 = dest_x + x;
-        if (dest_x2 < min_x || dest_x2 >= max_x)
+        if (dest_x2 < 0 || dest_x2 >= BACK_WIDTH)
             continue;
         for (y = 0; y < src_height; y++) {
             src_y2 = src_y + y;
             if (src_y2 < 0 || src_y2 >= img->height)
                 continue;
             dest_y2 = dest_y + y;
-            if (dest_y2 < min_y || dest_y2 >= max_y)
+            if (dest_y2 < 0 || dest_y2 >= BACK_HEIGHT)
                 continue;
             unsigned char * src_c = (unsigned char*)&img->get(
                 src_x2, src_y2);
             unsigned char & src_a = src_c[3];
-            if (collision_type == 1) {
-                unsigned char & m = get_mask(dest_x2, dest_y2);
-                m = src_a | m;
-/*                if (dest_x2 < 0 || dest_y2 < 0 || 
-                    dest_x2 >= BACK_WIDTH || dest_y2 >= BACK_HEIGHT)
-                    continue;
-                unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
-                    dest_y2);
-                dst_c[0] = src_c[0];
-                dst_c[1] = src_c[1];
-                dst_c[2] = src_c[2];
-                dst_c[3] = src_c[3];*/
-            } else {
-                unsigned char & src_r = src_c[0];
-                unsigned char & src_g = src_c[1];
-                unsigned char & src_b = src_c[2];
-                unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
-                    dest_y2);
-                unsigned char & dst_r = dst_c[0];
-                unsigned char & dst_g = dst_c[1];
-                unsigned char & dst_b = dst_c[2];
-                unsigned char & dst_a = dst_c[3];
-                float srcf_a = src_a / 255.0f;
-                float one_minus_src = 1.0f - srcf_a;
-                dst_r = srcf_a * src_r + one_minus_src * dst_r;
-                dst_g = srcf_a * src_g + one_minus_src * dst_g;
-                dst_b = srcf_a * src_b + one_minus_src * dst_b;
-                dst_a = (srcf_a + (dst_a / 255.0f) * one_minus_src) * 255;
-            }
+
+            unsigned char & src_r = src_c[0];
+            unsigned char & src_g = src_c[1];
+            unsigned char & src_b = src_c[2];
+            unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
+                dest_y2);
+            unsigned char & dst_r = dst_c[0];
+            unsigned char & dst_g = dst_c[1];
+            unsigned char & dst_b = dst_c[2];
+            unsigned char & dst_a = dst_c[3];
+            float srcf_a = src_a / 255.0f;
+            float one_minus_src = 1.0f - srcf_a;
+            dst_r = srcf_a * src_r + one_minus_src * dst_r;
+            dst_g = srcf_a * src_g + one_minus_src * dst_g;
+            dst_b = srcf_a * src_b + one_minus_src * dst_b;
+            dst_a = (srcf_a + (dst_a / 255.0f) * one_minus_src) * 255;
         }
     }
     image_changed = true;
@@ -202,9 +159,17 @@ void Background::draw()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-CollisionBase * Background::get_collision()
+bool Background::collide(CollisionBase * a)
 {
-    return collision;
+    std::vector<BackgroundItem>::reverse_iterator it;
+    for (it = items.rbegin(); it != items.rend(); it++) {
+        BackgroundItem & item = *it;
+        if (item.collision_type != 1)
+            continue;
+        if (::collide(a, &item))
+            return true;
+    }
+    return false;
 }
 
 // Layer
@@ -300,7 +265,8 @@ bool Layer::test_background_collision(int x, int y)
 {
     if (back == NULL)
         return false;
-    return back->get_mask(x, y) != 0;
+    PointCollision col(x, y);
+    return back->collide(&col);
 }
 
 void Layer::paste(Image * img, int dest_x, int dest_y, 
@@ -789,7 +755,7 @@ bool FrameObject::overlaps_background()
         return false;
     Background * back = frame->layers[layer_index]->back;
     back->update();
-    return collide(get_collision(), back->get_collision());
+    return back->collide(get_collision());
 }
 
 bool FrameObject::outside_playfield()
@@ -1431,6 +1397,7 @@ QuickBackdrop::QuickBackdrop(const Color & color, int width, int height,
 
 void QuickBackdrop::draw()
 {
+    glDisable(GL_TEXTURE_2D);
     glColor4ub(color.r, color.g, color.b, blend_color.a);
     glBegin(GL_QUADS);
     glVertex2f(x, y);
@@ -2048,7 +2015,7 @@ bool File::file_exists(const std::string & path)
 
 void File::delete_file(const std::string & path)
 {
-    if (remove(convert_path(path).c_str()) != 0)
+    if (!platform_remove_file(path))
         std::cout << "Could not remove " << path << std::endl;
 }
 
@@ -2100,6 +2067,13 @@ void BinaryArray::load_workspaces(const std::string & filename)
     switch_workspace(current);
 }
 
+BinaryArray::~BinaryArray()
+{
+    WorkspaceMap::const_iterator it;
+    for (it = workspaces.begin(); it != workspaces.end(); it++)
+        delete it->second;
+}
+
 void BinaryArray::create_workspace(const std::string & name)
 {
     if (workspaces.find(name) != workspaces.end())
@@ -2113,7 +2087,7 @@ void BinaryArray::switch_workspace(const std::string & name)
     WorkspaceMap::const_iterator it = workspaces.find(name);
     if (it == workspaces.end())
         return;
-    switch_workspace((*it).second);
+    switch_workspace(it->second);
 }
 
 void BinaryArray::switch_workspace(Workspace * workspace)
@@ -2182,10 +2156,14 @@ void ArrayObject::set_value(double value, int x, int y)
     get_value(x, y) = value;
 }
 
+ArrayObject::~ArrayObject()
+{
+    delete array;
+}
+
 void ArrayObject::clear()
 {
-    if (array != NULL)
-        delete array;
+    delete array;
     array = new double[x_size * y_size * z_size]();
 }
 
@@ -2280,9 +2258,8 @@ void ActivePicture::load(const std::string & fn)
         if (cached_image->image == NULL) {
             delete cached_image;
             cached_image = NULL;
-        } else {
-            image_cache[filename] = cached_image;
         }
+        image_cache[filename] = cached_image;
     } else {
         cached_image = it->second;
     }

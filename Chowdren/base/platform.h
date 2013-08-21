@@ -25,6 +25,10 @@ void platform_get_mouse_pos(int * x, int * y);
 void platform_hide_mouse();
 void platform_begin_draw();
 void platform_swap_buffers();
+bool platform_remove_file(const std::string & path);
+
+// debug
+void platform_print_stats();
 
 // joystick
 bool is_joystick_attached(int n);

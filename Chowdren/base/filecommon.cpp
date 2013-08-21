@@ -12,8 +12,7 @@ FSFile::FSFile(const char * filename, const char * mode)
 
 FSFile::~FSFile()
 {
-    if (is_open())
-        close();
+    close();
 }
 
 bool FSFile::is_open()

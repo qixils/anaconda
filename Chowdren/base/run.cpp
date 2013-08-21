@@ -263,10 +263,10 @@ void GameManager::run()
 
     while(true) {
         measure_time -= 1;
-        bool measure_fps = false;
+        bool show_stats = false;
         if (measure_time <= 0) {
             measure_time = 200;
-            measure_fps = true;
+            show_stats = true;
         }
 
         fps_limit.start();
@@ -277,7 +277,7 @@ void GameManager::run()
         mouse_x = (mouse_x - off_x) * (float(WINDOW_WIDTH) / x_size);
         mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
 
-        if (measure_fps)
+        if (show_stats)
             std::cout << "Framerate: " << fps_limit.current_framerate 
                 << std::endl;
 
@@ -285,7 +285,7 @@ void GameManager::run()
 
         int ret = update();
 
-        if (measure_fps)
+        if (show_stats)
             std::cout << "Event update took " << 
                 platform_get_time() - event_update_time << std::endl;
 
@@ -301,9 +301,12 @@ void GameManager::run()
 
         draw();
 
-        if (measure_fps)
+        if (show_stats) {
             std::cout << "Draw took " << platform_get_time() - draw_time
                 << std::endl;
+            platform_print_stats();
+        }
+
 
         fps_limit.finish();
     }

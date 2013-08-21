@@ -599,6 +599,7 @@ actions = make_table(ActionMethodWriter, {
     'PlayLoopingChannelFileSample' : 'media->play(%s, %s-1, %s)',
     'PlayChannelFileSample' : 'media->play(%s, %s-1)',
     'PlayChannelSample' : 'media->play_name("%s", %s-1)',
+    'PlayLoopingChannelSample' : 'media->play_name("%s", %s-1, %s)',
     'PlayLoopingSample' : 'media->play_name("%s", -1, %s-1)',
     'PlaySample' : 'media->play_name("%s", -1, 1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
@@ -784,5 +785,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ObjectCount' : ObjectCount,
     'CounterMaximumValue' : '.maximum',
     'ApplicationDirectory' : 'get_app_dir()',
-    'ApplicationDrive' : 'get_app_drive()'
+    'ApplicationDrive' : 'get_app_drive()',
+    'TimerValue' : '.frame_time * 1000.0',
+    'CounterValue': '.value'
 })

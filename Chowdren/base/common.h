@@ -163,28 +163,14 @@ public:
 
 #define BACK_WIDTH WINDOW_WIDTH
 #define BACK_HEIGHT WINDOW_HEIGHT
-#define MASK_PAD 32
-
-class BackgroundItem
-{
-public:
-    int dest_x, dest_y, src_x, src_y, src_width, src_height;
-    Image * image;
-    int collision_type;
-
-    BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y, 
-                   int src_width, int src_height, int collision_type);
-};
 
 class Background
 {
 public:
-    unsigned char * mask;
     unsigned char * image;
     bool image_changed;
     bool items_changed;
     GLuint tex;
-    CollisionBase * collision;
     std::vector<BackgroundItem> items;
 
     Background();
@@ -195,18 +181,12 @@ public:
     {
         return ((unsigned int*)image)[y * BACK_WIDTH + x];
     }
-    inline unsigned char & get_mask(int x, int y)
-    {
-        x += MASK_PAD;
-        y += MASK_PAD;
-        return mask[y * (BACK_WIDTH + MASK_PAD * 2) + x];
-    }
     void update();
     void paste(Image * img, int dest_x, int dest_y, 
                int src_x, int src_y, int src_width, int src_height, 
                int collision_type, bool save = true);
     void draw();
-    CollisionBase * get_collision();
+    bool collide(CollisionBase * a);
 };
 
 class Layer
@@ -622,6 +602,7 @@ public:
     Workspace * current;
 
     BinaryArray(const std::string & name, int x, int y, int type_id);
+    ~BinaryArray();
     void load_workspaces(const std::string & filename);
     void create_workspace(const std::string & name);
     void switch_workspace(const std::string & name);
@@ -639,6 +620,7 @@ public:
     int x_size, y_size, z_size;
 
     ArrayObject(const std::string & name, int x, int y, int type_id);
+    ~ArrayObject();
     void initialize(int x, int y, int z);
     void clear();
     double & get_value(int x, int y);

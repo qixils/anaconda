@@ -83,6 +83,8 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
     image = stbi_load_from_callbacks(&fsfile_callbacks, &fp, 
         &width, &height, &channels, 4);
 
+    fp.close();
+
     if(image == NULL) {
         printf("Could not load image \"%s\"\n", filename.c_str());
         return;

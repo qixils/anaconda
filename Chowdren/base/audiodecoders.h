@@ -3,15 +3,28 @@
 #include "stringcommon.h"
 #include "filecommon.h"
 #include "platform.h"
+#include "path.h"
+
+#ifndef CHOWDREN_IS_DESKTOP
+#define IS_BIG_ENDIAN
+#endif
 
 namespace ChowdrenAudio {
+
+template <typename T>
+void swap(T &val1, T &val2)
+{
+    val1 ^= val2;
+    val2 ^= val1;
+    val1 ^= val2;
+}
 
 class SoundDecoder
 {
 public:
     std::size_t samples;
-    unsigned int channels;
-    unsigned int sample_rate;
+    int channels;
+    int sample_rate;
 
     virtual bool is_valid() = 0;
     virtual std::size_t read(signed short * data, std::size_t samples) = 0;
@@ -25,19 +38,18 @@ size_t read_func(void * ptr, size_t size, size_t nmemb, void *datasource)
     return fp->read(ptr, size*nmemb);
 }
 
-
 int seek_func(void *datasource, ogg_int64_t offset, int whence)
 {
     FSFile * fp = (FSFile*)datasource;
     fp->seek(offset, whence);
-    return 1;
+    return 0;
 }
 
 int close_func(void *datasource)
 {
     FSFile * fp = (FSFile*)datasource;
     fp->close();
-    return 1;
+    return 0;
 }
 
 long tell_func(void *datasource)
@@ -88,6 +100,7 @@ public:
         if(ogg_info)
             ov_clear(&ogg_file);
         ogg_info = NULL;
+        fp.close();
     }
 
     bool is_valid()
@@ -103,9 +116,13 @@ public:
         int bytes = samples * 2;
         char * data = (char*)sdata;
         while(bytes > 0) {
-            // XXX support big-endian architectures?
+#ifdef IS_BIG_ENDIAN
+            int big_endian = 1;
+#else
+            int big_endian = 0;
+#endif 
             int res = ov_read(&ogg_file, &data[got], bytes, 
-                              0, 2, 1, &ogg_bitstream);
+                              big_endian, 2, 1, &ogg_bitstream);
             if(res <= 0)
                 break;
             bytes -= res;
@@ -117,9 +134,10 @@ public:
 
     void seek(double value)
     {
-        if(ov_time_seek(&ogg_file, value) == 0)
+        int ret = ov_time_seek(&ogg_file, value);
+        if(ret == 0)
             return;
-        std::cout << "Seek failed" << std::endl;
+        std::cout << "Seek failed: " << ret << std::endl;
     }
 };
 
@@ -226,11 +244,29 @@ public:
     {
         unsigned int bytes = samples * (sample_size / 8);
         std::streamsize rem = ((rem_len >= bytes) ? bytes : rem_len) / block_align;
-        size_t got = file.read(reinterpret_cast<char*>(data), rem*block_align);
+        size_t got = file.read((char*)data, rem*block_align);
         got -= got%block_align;
         rem_len -= got;
 
-        // XXX big-endian
+#ifdef IS_BIG_ENDIAN
+        unsigned char * datac = (unsigned char *)data;
+        if (sample_size == 16) {
+            for(std::streamsize i = 0; i < got; i+=2)
+                swap(datac[i], datac[i+1]);
+        } else if (sample_size == 32) {
+            for(std::streamsize i = 0; i < got; i+=4) {
+                swap(datac[i+0], datac[i+3]);
+                swap(datac[i+1], datac[i+2]);
+            }
+        } else if (sample_size == 64) {
+            for(std::streamsize i = 0; i < got; i+=8) {
+                swap(datac[i+0], datac[i+7]);
+                swap(datac[i+1], datac[i+6]);
+                swap(datac[i+2], datac[i+5]);
+                swap(datac[i+3], datac[i+4]);
+            }
+        }
+#endif
 
         return got / (sample_size / 8);
     }
@@ -246,11 +282,7 @@ public:
 
 SoundDecoder * create_decoder(const std::string & filename)
 {
-    std::string ext("wav");
-    std::string::size_type pos = filename.find_last_of(".");
-    if (pos != std::string::npos)
-        ext = filename.substr(pos + 1);
-    ext = to_lower(ext);
+    std::string ext = get_path_ext(filename);
     SoundDecoder * decoder;
     if (ext == "wav")
         decoder = new WavDecoder(filename);

@@ -20,10 +20,6 @@ http://code.google.com/p/inih/
 #define INI_ALLOW_BOM 1
 #endif
 
-#if !INI_USE_STACK
-#include <stdlib.h>
-#endif
-
 #define MAX_SECTION 50
 #define MAX_NAME 50
 

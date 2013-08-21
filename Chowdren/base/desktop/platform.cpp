@@ -371,6 +371,11 @@ void open_url(const std::string & name)
 
 // file
 
+bool platform_remove_file(const std::string & file)
+{
+    return remove(convert_path(path).c_str()) == 0;
+}
+
 #include "../filecommon.cpp"
 
 void FSFile::open(const char * filename, const char * mode)
@@ -448,4 +453,11 @@ std::string convert_path(const std::string & v)
 
 void init_shaders_platform()
 {
+}
+
+// debug
+
+void platform_print_stats()
+{
+
 }

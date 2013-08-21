@@ -57,8 +57,9 @@ public:
 
     void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
     {
-        // std::cout << "Loading " << filename << std::endl;
+        std::cout << "Playing (stream) " << filename << std::endl;
         *source = new ChowdrenAudio::SoundStream(filename);
+        // *source = NULL;
         *is_music = true;
     }
 };
@@ -76,6 +77,7 @@ public:
 
     void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
     {
+        std::cout << "Playing: " << name << std::endl;
         *source = new ChowdrenAudio::Sound(*buffer);
         *is_music = false;
     }
@@ -89,7 +91,7 @@ public:
 // Channel
 
 Channel::Channel() 
-: locked(false), volume(100), frequency(0), pan(0)//, sound(NULL)
+: locked(false), volume(100), frequency(0), pan(0), sound(NULL)
 {
 
 }
@@ -99,6 +101,10 @@ void Channel::play(SoundData * data, int loop)
     name = data->name;
     stop();
     data->load(&sound, &is_music);
+    if (sound == NULL) {
+        std::cout << "Ignored play" << std::endl;
+        return;
+    }
     set_volume(volume);
     set_pan(pan);
     if (frequency != 0)
@@ -115,7 +121,8 @@ void Channel::stop()
     if (is_invalid())
         return;
     sound->stop();
-    delete sound;
+    // delete sound;
+    sound->destroy();
     sound = NULL;
 }
 
@@ -213,7 +220,6 @@ void Media::play_name(const std::string & name, int channel, int loop)
         cache_initialized = true;
         setup_sounds(this);
     }
-    std::cout << "Play name: " << name << std::endl;
     play(sounds[name], channel, loop);
 }
 
@@ -308,6 +314,12 @@ void Media::add_cache(const std::string & name, const std::string & fn)
     add_file(name, cache_path + fn);
 }
 
+#ifdef CHOWDREN_IS_DESKTOP
+#define STREAM_THRESHOLD 0.5
+#else
+#define STREAM_THRESHOLD 1.0
+#endif
+
 void Media::add_file(const std::string & name, const std::string & fn)
 {
     std::string filename = convert_path(fn);
@@ -315,12 +327,13 @@ void Media::add_file(const std::string & name, const std::string & fn)
     if (it != sounds.end()) {
         delete it->second;
     }
-    SoundData * data;;
-    if (get_file_size(filename.c_str()) > 0.5 * 1024 * 1024) // 0.5 mb
+    SoundData * data;
+    if (get_path_ext(filename) == "wav")
+        data = new SoundMemory(name, filename);
+    else if (get_file_size(filename.c_str()) > STREAM_THRESHOLD * 1024 * 1024)
         data = new SoundFile(name, filename);
     else
         data = new SoundMemory(name, filename);
-    std::cout << "Add file: " << name << std::endl;
     sounds[name] = data;
 }
 

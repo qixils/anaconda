@@ -2,25 +2,27 @@
 #include <algorithm>
 #include "mathcommon.h"
 
+enum CollisionType
+{
+    INSTANCE_BOX,
+    SPRITE_COLLISION,
+    POINT_COLLISION,
+    BOUNDING_BOX,
+    BACKGROUND_ITEM
+};
+
 class CollisionBase
 {
 public:
+    CollisionType type;
     bool is_box;
 
-    CollisionBase(bool is_box) : is_box(is_box)
+    CollisionBase(CollisionType type, bool is_box) 
+    : is_box(is_box), type(type)
     {
-
     }
 
-    virtual void get_box(int v[4]) 
-    {
-        v[0] = v[1] = v[2] = v[3] = 0;
-    }
-
-    virtual bool get_bit(int x, int y)
-    {
-        return true;
-    }
+    virtual void get_box(int v[4]) = 0;
 };
 
 inline bool collides(int a_x1, int a_y1, int a_x2, int a_y2, 
@@ -41,44 +43,43 @@ inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2,
     r_y2 = std::min<int>(a_y2, b_y2);
 }
 
-inline bool collide(CollisionBase * a, CollisionBase * b)
+inline bool collide_line(int x1, int y1, int x2, int y2,
+                         int line_x1, int line_y1, int line_x2, int line_y2)
 {
-    if (a == NULL || b == NULL)
-        return false;
-    int v1[4];
-    a->get_box(v1);
-    int v2[4];
-    b->get_box(v2);
-    bool ret = collides(v1[0], v1[1], v1[2], v1[3], 
-                        v2[0], v2[1], v2[2], v2[3]);
-    if (!ret)
-        return false;
-    if (a->is_box && b->is_box)
-        return true;
-
-    // calculate the overlapping area
-    int x1, y1, x2, y2;
-    intersect(v1[0], v1[1], v1[2], v1[3], 
-              v2[0], v2[1], v2[2], v2[3],
-              x1, y1, x2, y2);
-
-    // figure out the offsets of the overlapping area in each
-    int offx1 = x1 - v1[0];
-    int offy1 = y1 - v1[1];
-    int offx2 = x1 - v2[0];
-    int offy2 = y1 - v2[1];
-    
-    int x, y;
-    bool c1, c2;
-    for (x = 0; x < x2 - x1; x++) {
-        for (y = 0; y < y2 - y1; y++) {
-            c1 = a->get_bit(offx1 + x, y + offy1);
-            c2 = b->get_bit(offx2 + x, y + offy2);
-            if (c1 && c2)
-                return true;
+    float delta;
+    if (line_x2 - line_x1 > line_y2 - line_y1) {
+        delta = float(line_y2 - line_y1) / (line_x2 - line_x1);
+        if (line_x2 > line_x1) {
+            if (x2 < line_x1 || x1 >= line_x2)
+                return false;
+        } else {
+            if (x2 < line_x2 || x1 >= line_x1)
+                return false;
         }
+        int y = delta * (x1 - line_x1) + line_y1;
+        if (y >= y1 && y < y2)
+            return true;
+        y = delta * (x2 - line_x1) + line_y1;
+        if (y >= y1 && y < y2)
+            return true;
+        return false;
+    } else {
+        delta = float(line_x2 - line_x1) / (line_y2 - line_y1);
+        if (line_y2 > line_y1) {
+            if (y2 < line_y1 || y2 >= line_y2)
+                return false;
+        } else {
+            if (y2 < line_y2 || y1 >= line_y1)
+                return false;
+        }
+        int x = delta * (y1 - line_y1) + x1;
+        if (x >= x1 && x < x2)
+            return true;
+        x = delta * (y2 - line_y1) + x1;
+        if (x >= x1 && x < x2)
+            return true;
+        return false;
     }
-    return false;
 }
 
 class InstanceBox : public CollisionBase
@@ -87,7 +88,7 @@ public:
     FrameObject * instance;
 
     InstanceBox(FrameObject * instance)
-    : CollisionBase(true), instance(instance)
+    : CollisionBase(INSTANCE_BOX, true), instance(instance)
     {
     }
 
@@ -144,13 +145,15 @@ public:
     // transformed variables
     bool transform;
     double co, si; // optimization
+    float co_divx, si_divx;
+    float co_divy, si_divy;
     int x1, y1, x2, y2; // transformed bounding box
     int width, height;
     int hotspot_x, hotspot_y;
 
     SpriteCollision(FrameObject * instance, Image * image)
-    : CollisionBase(false), instance(instance), image(image), transform(false),
-      angle(0.0), x_scale(1.0), y_scale(1.0)
+    : CollisionBase(SPRITE_COLLISION, false), instance(instance), 
+      image(image), transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
     {
     }
 
@@ -219,7 +222,11 @@ public:
         }
         transform = true;
         co = cos_deg(angle);
+        co_divx = float(co / x_scale);
+        co_divy = float(co / y_scale);
         si = sin_deg(angle);
+        si_divx = float(si / x_scale);
+        si_divy = float(si / y_scale);
         transform_rect(image->width, image->height, co, si, x_scale, y_scale, 
                        x1, y1, x2, y2);
         width = x2 - x1;
@@ -240,20 +247,19 @@ public:
         r_y = -(y1 - new_y);
     }
 
-    bool get_bit(int x, int y)
+    inline bool get_bit(int x, int y)
     {
         if (transform) {
-            double x2 = x + x1;
-            double y2 = y + y1;
-            x = int((x2 * co - y2 * si) / x_scale);
-            y = int((y2 * co + x2 * si) / y_scale);
+            int x2 = x + x1;
+            int y2 = y + y1;
+            x = int(x2 * co_divx - y2 * si_divx);
+            y = int(y2 * co_divy + x2 * si_divy);
             if (x < 0 || x >= image->width || y < 0 || y >= image->height)
                 return false;
         }
         if (is_box)
             return true;
         return ((unsigned char*)&image->get(x, y))[3] != 0;
-        
     }
 };
 
@@ -263,7 +269,7 @@ public:
     int x, y;
 
     PointCollision(int x, int y)
-    : CollisionBase(true), x(x), y(y)
+    : CollisionBase(POINT_COLLISION, true), x(x), y(y)
     {
     }
 
@@ -282,7 +288,7 @@ public:
     int x1, y1, x2, y2;
 
     BoundingBox(int x1, int y1, int x2, int y2)
-    : CollisionBase(true), x1(x1), y1(y1), x2(y2), y2(y2)
+    : CollisionBase(BOUNDING_BOX, true), x1(x1), y1(y1), x2(y2), y2(y2)
     {
     }
 
@@ -295,27 +301,89 @@ public:
     }
 };
 
-class MaskCollision : public CollisionBase
+class BackgroundItem : public CollisionBase
 {
 public:
-    unsigned char * mask;
-    int x1, y1, x2, y2;
+    int dest_x, dest_y, src_x, src_y, src_width, src_height;
+    Image * image;
+    int collision_type;
 
-    MaskCollision(unsigned char * mask, int x1, int y1, int x2, int y2)
-    : CollisionBase(false), x1(x1), y1(y1), x2(x2), y2(y2), mask(mask)
+    BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
+                   int src_width, int src_height, int type)
+    : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
+      src_width(src_width), src_height(src_height), collision_type(type),
+      image(img), CollisionBase(BACKGROUND_ITEM, false)
     {
     }
 
     void get_box(int v[4])
     {
-        v[0] = x1;
-        v[1] = y1;
-        v[2] = x2;
-        v[3] = y2;
+        v[0] = dest_x;
+        v[1] = dest_y;
+        v[2] = dest_x + src_width;
+        v[3] = dest_y + src_height;
     }
 
-    bool get_bit(int x, int y)
+    inline bool get_bit(int x, int y)
     {
-        return mask[x + y * (x2 - x1)] != 0;
+        x += src_x;
+        y += src_y;
+        return ((unsigned char*)&image->get(x, y))[3] != 0;
     }
 };
+
+inline bool get_bit(CollisionBase * a, int x, int y)
+{
+    switch (a->type) {
+        case INSTANCE_BOX:
+        case POINT_COLLISION:
+        case BOUNDING_BOX:
+            return true;
+        case SPRITE_COLLISION:
+            return ((SpriteCollision*)a)->get_bit(x, y);
+        case BACKGROUND_ITEM:
+            return ((BackgroundItem*)a)->get_bit(x, y);
+    }
+    return true;
+}
+
+inline bool collide(CollisionBase * a, CollisionBase * b)
+{
+    if (a == NULL || b == NULL)
+        return false;
+    int v1[4];
+    a->get_box(v1);
+    int v2[4];
+    b->get_box(v2);
+
+    if (!collides(v1[0], v1[1], v1[2], v1[3], 
+                  v2[0], v2[1], v2[2], v2[3]))
+        return false;
+
+    if (a->is_box && b->is_box)
+        return true;
+
+    // calculate the overlapping area
+    int x1, y1, x2, y2;
+    intersect(v1[0], v1[1], v1[2], v1[3], 
+              v2[0], v2[1], v2[2], v2[3],
+              x1, y1, x2, y2);
+
+    // figure out the offsets of the overlapping area in each
+    int offx1 = x1 - v1[0];
+    int offy1 = y1 - v1[1];
+    int offx2 = x1 - v2[0];
+    int offy2 = y1 - v2[1];
+    
+    int x, y;
+    bool c1, c2;
+    for (x = 0; x < x2 - x1; x++) {
+        for (y = 0; y < y2 - y1; y++) {
+            c1 = get_bit(a, offx1 + x, offy1 + y);
+            c2 = get_bit(b, offx2 + x, offy2 + y);
+            if (c1 && c2)
+                return true;
+        }
+    }
+    return false;
+}

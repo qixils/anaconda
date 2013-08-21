@@ -3,6 +3,7 @@
 
 #include <string>
 #include <algorithm>
+#include "stringcommon.h"
 
 #define PATH_SEP "\\/"
 
@@ -41,6 +42,16 @@ inline std::string get_path_basename(const std::string & path)
 {
     std::string path2 = get_path_filename(path);
     return path2.substr(0, path2.find_last_of("."));
+}
+
+inline std::string get_path_ext(const std::string & path)
+{
+    std::string ext;
+    std::string::size_type pos = path.find_last_of(".");
+    if (pos != std::string::npos)
+        ext = path.substr(pos + 1);
+    ext = to_lower(ext);
+    return ext;
 }
 
 #endif // CHOWDREN_PATH_H

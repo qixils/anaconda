@@ -50,9 +50,14 @@ class Python(ObjectWriter):
         self.function_names = functions.keys()
 
     def write_start(self, writer):
+        writer.putln('static bool python_initialized = false;')
+        writer.putln('if (!python_initialized) {')
+        writer.indent()
+        writer.putln('python_initialized = true;')
         for name in self.function_names:
             writer.putln(to_c('%s::add_function(%r, (void*)_python_%s);',
                 self.class_name, name, name))
+        writer.end_brace()
 
 class GetArgumentPointer(ExpressionMethodWriter):
     has_object = False

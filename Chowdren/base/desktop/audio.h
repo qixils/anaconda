@@ -367,6 +367,11 @@ public:
         al_check(alSourcei(source, AL_BUFFER, 0));
         al_check(alDeleteSources(1, &source));
     }
+
+    void destroy()
+    {
+        delete this;
+    }
 };
 
 class Sound : public SoundBase

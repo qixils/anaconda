@@ -37,6 +37,7 @@ import math
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
+PROFILE = True
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -786,7 +787,7 @@ class Converter(object):
         processed_frames = []
         
         # frames
-        for frame_index, frame in enumerate(game.frames[:3]):
+        for frame_index, frame in enumerate(game.frames):
             frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
             frame.load()
             self.current_frame = frame
@@ -1054,6 +1055,8 @@ class Converter(object):
 
             # write main 'always' handler
             frame_file.putmeth('void handle_events')
+            if PROFILE:
+                frame_file.putln('double profile_time, profile_dt;')
             end_markers = []
             self.begin_events()
 
@@ -1076,7 +1079,18 @@ class Converter(object):
                         # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
                         #     container.code_name, group.mark))
                     continue
+                if PROFILE:
+                    frame_file.putln('profile_time = platform_get_time();')
                 frame_file.putln('event_func_%s();' % (group.global_id))
+                if PROFILE:
+                    frame_file.putln('profile_dt = platform_get_time() '
+                                                  '- profile_time;')
+                    frame_file.putln('if (profile_dt > 0.01)')
+                    frame_file.indent()
+                    frame_file.putln(
+                        ('std::cout << "Event %s took " << '
+                         'profile_dt << std::endl;') % group.global_id)
+                    frame_file.dedent()
 
             for end_marker in end_markers:
                 frame_file.put_label(end_marker)

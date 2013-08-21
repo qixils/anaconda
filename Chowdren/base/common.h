@@ -32,6 +32,7 @@
 #include "types.h"
 #include "crossrand.h"
 #include "utility.h"
+#include <stdarg.h>
 
 extern std::string newline_character;
 

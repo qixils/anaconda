@@ -51,7 +51,7 @@ public:
     FSFile(const char * filename, const char * mode);
     ~FSFile();
     void open(const char * filename, const char * mode);
-    void seek(size_t v, int origin = SEEK_SET);
+    bool seek(size_t v, int origin = SEEK_SET);
     size_t tell();
     bool is_open();
     void read_line(std::string & line);

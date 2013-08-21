@@ -398,9 +398,9 @@ void FSFile::open(const char * filename, const char * mode)
     closed = false;
 }
 
-void FSFile::seek(size_t v, int origin)
+bool FSFile::seek(size_t v, int origin)
 {
-    fseek((FILE*)handle, v, origin);
+    return fseek((FILE*)handle, v, origin) == 0;
 }
 
 size_t FSFile::tell()

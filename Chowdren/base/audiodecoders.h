@@ -274,9 +274,8 @@ public:
     void seek(double time)
     {
         std::size_t new_pos = time * sample_rate * (sample_size / 8) * channels;
-        if (true)//(file.seek(data_start + new_pos))
-        file.seek(data_start + new_pos);
-        rem_len = data_len - new_pos;
+        if (file.seek(data_start + new_pos))
+            rem_len = data_len - new_pos;
     }
 };
 

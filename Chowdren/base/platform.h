@@ -2,6 +2,7 @@
 #define CHOWDREN_PLATFORM_H
 
 #include <string>
+#include <stdio.h>
 #include "color.h"
 
 void open_url(const std::string & name);

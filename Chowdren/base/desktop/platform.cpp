@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#else
+#include <sys/time.h>
 #endif
 
 #include "../config.h"

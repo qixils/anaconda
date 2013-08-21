@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <algorithm>
+#include <string.h>
 #include "stringcommon.h"
 #include "shader.h"
 #include "datastream.h"

@@ -6,7 +6,7 @@
 #include <tinythread/tinythread.h>
 #include <math.h>
 #include "../types.h"
-#include "audiodecoders.h"
+#include "../audiodecoders.h"
 
 namespace ChowdrenAudio {
 

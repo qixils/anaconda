@@ -13,13 +13,13 @@ public:
     void initialize();
     GLuint attach_source(const std::string & ext, GLenum type);
     GLuint get_background_texture();
-    void * get_uniform(const char * value);
+    int get_uniform(const char * value);
     virtual void initialize_parameters();
     void begin(FrameObject * instance, Image * image);
     virtual void set_parameters(FrameObject * instance);
     void end(FrameObject * instance);
     void set_float(FrameObject * instance, const std::string & name, 
-                   void * uniform);
+                   int uniform);
     void set_vec4(FrameObject * instance, const std::string & name,
-                  void * uniform);
+                  int uniform);
 };

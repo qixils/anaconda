@@ -63,9 +63,9 @@ public:
 class MixerShader : public GLSLShader
 {
 public:
-    void * r;
-    void * g;
-    void * b;
+    int r;
+    int g;
+    int b;
 
     MixerShader()
     : GLSLShader("colormixer")
@@ -91,7 +91,7 @@ public:
 class HueShader : public GLSLShader
 {
 public:
-    void * hue;
+    int hue;
 
     HueShader()
     : GLSLShader("hue")
@@ -113,8 +113,8 @@ public:
 class OffsetShader : public GLSLShader
 {
 public:
-    void * width;
-    void * height;
+    int width;
+    int height;
 
     OffsetShader()
     : GLSLShader("offset", true)
@@ -138,8 +138,8 @@ public:
 class DodgeBlurShader : public GLSLShader
 {
 public:
-    void * vertical;
-    void * radius;
+    int vertical;
+    int radius;
 
     DodgeBlurShader()
     : GLSLShader("dodgeblur", true)

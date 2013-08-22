@@ -7,8 +7,8 @@ set HASVCVARSALL=1
 python -m chowdren.run "Knytt Underground.exe" knyttsource --noimages
 if %errorlevel% neq 0 popd && exit /b %errorlevel%
 cd knyttsource\build
-devenv Chowdren.sln /Build Debug
+devenv Chowdren.sln /Build Release
 if %errorlevel% neq 0 popd && exit /b %errorlevel%
 cd ..
-build\Debug\Chowdren.exe
+build\Release\Chowdren.exe
 popd

@@ -427,6 +427,8 @@ size_t FSFile::write(void * data, size_t size)
 
 void FSFile::close()
 {
+    if (closed)
+        return;
     fclose((FILE*)handle);
     closed = true;
 }

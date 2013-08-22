@@ -2158,12 +2158,12 @@ void ArrayObject::set_value(double value, int x, int y)
 
 ArrayObject::~ArrayObject()
 {
-    delete array;
+    delete[] array;
 }
 
 void ArrayObject::clear()
 {
-    delete array;
+    delete[] array;
     array = new double[x_size * y_size * z_size]();
 }
 

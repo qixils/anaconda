@@ -4,6 +4,7 @@
 #include "filecommon.h"
 #include "platform.h"
 #include "path.h"
+#include <string.h>
 
 #ifndef CHOWDREN_IS_DESKTOP
 #define IS_BIG_ENDIAN

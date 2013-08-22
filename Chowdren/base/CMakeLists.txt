@@ -103,6 +103,8 @@ endif()
 
 add_definitions(-DGLEW_STATIC)
 
+
+
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)
     set(MACOSX_BUNDLE_BUNDLE_NAME "%(name)s")
@@ -127,7 +129,13 @@ set(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
 add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
-find_package(GLFW3 REQUIRED)
+if (UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_search_module(GLFW REQUIRED glfw3)
+    include_directories(${GLFW_INCLUDE_DIRS})
+else()
+    find_package(GLFW3 REQUIRED)
+endif()
 find_package(Vorbis REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(OpenGL REQUIRED)
@@ -136,10 +144,10 @@ find_package(PythonLibs 2.7 REQUIRED)
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR})
+    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS})
 target_link_libraries(Chowdren ${GLFW_LIBRARY} ${OPENGL_LIBRARY} 
     ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${BOX2D_LIBRARY})
+    ${BOX2D_LIBRARY} ${GLFW_LIBRARIES})
 
 include(CPack)

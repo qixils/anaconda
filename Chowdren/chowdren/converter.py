@@ -1031,11 +1031,13 @@ class Converter(object):
             
             # write 'always' event subfunctions
             group_index = 0
+            call_groups = []
             while True:
                 try:
                     group = always_groups[group_index]
                 except IndexError:
                     break
+                call_groups.append(group)
                 if group.is_container_mark:
                     group_index += 1
                     continue
@@ -1060,7 +1062,7 @@ class Converter(object):
             end_markers = []
             self.begin_events()
 
-            for group in always_groups:
+            for group in call_groups:
                 if group.is_container_mark:
                     container = group.container
                     if container.is_static:

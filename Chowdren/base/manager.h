@@ -26,6 +26,12 @@ public:
     Color fade_color;
     float fade_dir;
     float fade_value;
+#if CHOWDREN_IS_DEMO
+    bool idle_timer_started;
+    double idle_timer;
+    double global_time;
+    double show_build_timer;
+#endif
 
     GameManager();
     void on_key(int key, bool state);

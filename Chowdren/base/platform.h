@@ -73,4 +73,10 @@ std::string convert_path(const std::string & value);
 
 void init_shaders_platform();
 
+// demo
+
+#ifdef CHOWDREN_IS_DEMO
+bool platform_show_build_info();
+#endif
+
 #endif // CHOWDREN_PLATFORM_H

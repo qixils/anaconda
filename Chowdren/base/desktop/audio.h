@@ -1,5 +1,6 @@
 #include <string>
 #include <set>
+#include <vector>
 #include <algorithm>
 #include <al.h>
 #include <alc.h>

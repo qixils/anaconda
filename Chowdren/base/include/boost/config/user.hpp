@@ -121,5 +121,6 @@
 // #define BOOST_WHATEVER_NO_LIB
 
 // pretty sure this is the case on all the platforms
+#ifndef _WIN32
 #define BOOST_HAS_STDINT_H
-
+#endif

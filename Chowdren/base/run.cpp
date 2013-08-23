@@ -33,6 +33,10 @@ GameManager::GameManager()
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
   fade_value(0.0f), fade_dir(0.0f)
 {
+#ifdef CHOWDREN_IS_DEMO
+    global_time = show_build_timer = 0.0;
+#endif
+
     init_platform();
 
 #ifdef CHOWDREN_STARTUP_WINDOW
@@ -122,9 +126,24 @@ int GameManager::update()
         }
         return 1;
     }
+
     if (frame->next_frame != -1 && fade_dir == 0.0f) {
         set_frame(frame->next_frame);
     }
+
+#ifdef CHOWDREN_IS_DEMO
+    global_time += dt;
+    idle_timer += dt;
+    if (idle_timer >= 120) {
+        set_frame(-2);
+    }
+    if (global_time <= 20) {
+        show_build_timer -= dt;
+        if (platform_show_build_info())
+            show_build_timer = 3.0;
+    }
+#endif
+
     bool ret = frame->update((float)dt);
     if (ret)
         return 1;

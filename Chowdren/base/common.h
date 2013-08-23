@@ -33,6 +33,7 @@
 #include "crossrand.h"
 #include "utility.h"
 #include <stdarg.h>
+#include <boost/unordered_map.hpp>
 
 extern std::string newline_character;
 
@@ -220,8 +221,8 @@ public:
     void draw();
 };
 
-typedef std::map<std::string, bool> RunningLoops;
-typedef std::map<std::string, int> LoopIndexes;
+typedef boost::unordered_map<std::string, bool> RunningLoops;
+typedef boost::unordered_map<std::string, int> LoopIndexes;
 
 class Media;
 
@@ -235,7 +236,7 @@ public:
     ObjectList instances;
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
-    std::map<int, ObjectList> instance_classes;
+    boost::unordered_map<int, ObjectList> instance_classes;
     LoopIndexes loop_indexes;
     RunningLoops running_loops;
     Color background_color;
@@ -325,21 +326,27 @@ public:
     Direction();
 };
 
-typedef Direction* DirectionArray[32];
-
-struct DirectionArrayStruct
+class Animation
 {
-    DirectionArray dirs;
+public:
+    Direction * dirs[32];
 
-    DirectionArrayStruct();
+    Animation();
 };
 
-typedef std::map<int, DirectionArrayStruct> AnimationMap;
+class Animations
+{
+public:
+    int count;
+    Animation ** items;
+
+    Animations(int count);
+};
 
 class Active : public FrameObject
 {
 public:
-    AnimationMap * animations;
+    Animations * animations;
 
     int animation;
     int animation_direction, animation_frame;
@@ -472,7 +479,7 @@ typedef std::map<std::string, OptionMap> SectionMap;
 class INI : public FrameObject
 {
 public:
-    static std::map<std::string, SectionMap> global_data;
+    static boost::unordered_map<std::string, SectionMap> global_data;
     std::string current_group;
     SectionMap data;
     std::vector<std::pair<std::string, std::string> > search_results;
@@ -595,7 +602,7 @@ public:
     Workspace(const std::string & name);
 };
 
-typedef std::map<std::string, Workspace*> WorkspaceMap;
+typedef boost::unordered_map<std::string, Workspace*> WorkspaceMap;
 
 class BinaryArray : public FrameObject
 {
@@ -646,7 +653,7 @@ public:
     void sort_alt_decreasing(int index, double def);
 };
 
-typedef std::map<std::string, Image*> ImageCache;
+typedef boost::unordered_map<std::string, Image*> ImageCache;
 
 class ActivePicture : public FrameObject
 {

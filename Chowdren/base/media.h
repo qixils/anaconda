@@ -1,6 +1,8 @@
 #ifndef CHOWDREN_MEDIA_H
 #define CHOWDREN_MEDIA_H
 
+#include <boost/unordered_map.hpp>
+
 void set_sounds_path(const std::string & path);
 
 class SoundData;
@@ -31,7 +33,7 @@ public:
     bool is_stopped();
 };
 
-typedef std::map<std::string, SoundData*> SoundMap;
+typedef boost::unordered_map<std::string, SoundData*> SoundMap;
 
 class Media
 {

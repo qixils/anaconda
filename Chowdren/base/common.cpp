@@ -1,8 +1,8 @@
 #include "common.h"
 #include "movement.h"
 #include "filecommon.h"
-
 #include <string>
+#include <boost/unordered_map.hpp>
 
 std::string newline_character("\r\n");
 
@@ -336,6 +336,8 @@ void Frame::on_end()
     instances.clear();
     layers.clear();
     instance_classes.clear();
+    loop_indexes.clear();
+    running_loops.clear();
     next_frame = -1;
     loop_count = 0;
     off_x = 0;
@@ -894,13 +896,19 @@ Direction::Direction()
     
 }
 
-// DirectionArray
+// Animation
 
-DirectionArrayStruct::DirectionArrayStruct()
+Animation::Animation()
+: dirs()
 {
-    for (int i = 0; i < 32; i++) {
-        dirs[i] = NULL;
-    }
+}
+
+// Animations
+
+Animations::Animations(int count)
+: count(count)
+{
+    items = new Animation*[count]();
 }
 
 // Active
@@ -910,7 +918,7 @@ inline int direction_diff(int dir1, int dir2)
     return (((dir1 - dir2 + 540) % 360) - 180);
 }
 
-inline Direction * find_nearest_direction(int dir, DirectionArray & dirs)
+inline Direction * find_nearest_direction(int dir, Direction ** dirs)
 {
     int i = 0;
     Direction * check_dir;
@@ -948,14 +956,14 @@ Active::~Active()
 
 void Active::initialize_animations()
 {
-    AnimationMap::iterator it;
-    for (it = animations->begin(); it != animations->end(); it++) {
-        DirectionArray & current_dirs = it->second.dirs;
-        DirectionArray check_dirs;
-        memcpy(check_dirs, current_dirs, sizeof(DirectionArray));
+    for (int i = 0; i < animations->count; i++) {
+        Animation * anim = animations->items[i];
+        if (anim == NULL)
+            continue;
+        Animation check_anim = *anim;
         for (int i = 0; i < 32; i++) {
-            if (current_dirs[i] == NULL)
-                current_dirs[i] = find_nearest_direction(i, check_dirs);
+            if (anim->dirs[i] == NULL)
+                anim->dirs[i] = find_nearest_direction(i, check_anim.dirs);
         }
     }
 }
@@ -964,7 +972,8 @@ void Active::force_animation(int value)
 {
     if (value == animation)
         return;
-    if (animations->find(value) == animations->end())
+    Animation * anim = animations->items[value];
+    if (anim == NULL)
         std::cout << "Invalid animation: " << value 
             << " (" << name << ")" << std::endl;
     animation = value;
@@ -1011,13 +1020,19 @@ void Active::add_direction(int animation, int direction,
                    int min_speed, int max_speed, int loop_count,
                    int back_to)
 {
-    (*animations)[animation].dirs[direction] = new Direction(direction, 
-        min_speed, max_speed, loop_count, back_to);
+    Animation * anim = animations->items[animation];
+    if (anim == NULL) {
+        anim = new Animation;
+        animations->items[animation] = anim;
+    }
+    anim->dirs[direction] = new Direction(direction, min_speed, max_speed, 
+                                          loop_count, back_to);
 }
 
 void Active::add_image(int animation, int direction, Image * image)
 {
-    (*animations)[animation].dirs[direction]->frames.push_back(image);
+    Animation * anim = animations->items[animation];
+    anim->dirs[direction]->frames.push_back(image);
 }
 
 void Active::update_frame()
@@ -1084,13 +1099,12 @@ void Active::draw()
 
 inline Image * Active::get_image()
 {
-    AnimationMap::const_iterator it = animations->find(animation);
-    if (it == animations->end()) {
+    Animation * anim = animations->items[animation];
+    if (anim == NULL) {
         std::cout << "Invalid animation: " << animation << std::endl;
         return NULL;
     }
-    const DirectionArray & dirs = it->second.dirs;
-    const Direction * dir = dirs[get_animation_direction()];
+    Direction * dir = anim->dirs[get_animation_direction()];
     if (get_frame() >= (int)dir->frames.size()) {
         std::cout << "Invalid frame: " << get_frame() << " " <<
             dir->frames.size() << " " <<
@@ -1139,9 +1153,8 @@ int Active::get_speed()
 
 Direction * Active::get_direction_data(int & dir)
 {
-    AnimationMap & ref = *animations;
-    DirectionArray & array = ref[get_animation()].dirs;
-    return array[dir];
+    Animation * anim = animations->items[get_animation()];
+    return anim->dirs[dir];
 }
 
 Direction * Active::get_direction_data()
@@ -1236,14 +1249,14 @@ void Active::flash(float value)
 
 // Text
 
-/*
-static FTTextureFont * default_font = NULL;*/
+
+static FTTextureFont * default_font = NULL;
 
 void set_font_path(const char * path)
 {
-/*    if (default_font != NULL)
+    if (default_font != NULL)
         return;
-    default_font = new FTTextureFont(path, false);*/
+    default_font = new FTTextureFont(path, false);
 }
 
 void set_font_path(const std::string & path)
@@ -1257,7 +1270,7 @@ void init_font()
     if (initialized)
         return;
     set_font_path("Arial.ttf"); // default font, could be set already
-/*    default_font->FaceSize(12, 96);*/
+    default_font->FaceSize(12, 96);
     initialized = true;
 }
 
@@ -1285,7 +1298,7 @@ void Text::add_line(std::string text)
 
 void Text::draw()
 {
-/*        init_font();
+    init_font();
     color.apply();
     glPushMatrix();
     FTBBox box = default_font->BBox(text.c_str(), text.size(), FTPoint());
@@ -1308,7 +1321,7 @@ void Text::draw()
     glScalef(1, -1, 1);
     default_font->Render(text.c_str(), text.size(), FTPoint(),
         FTPoint(), RENDER_ALL);
-    glPopMatrix();*/
+    glPopMatrix();
 }
 
 void Text::set_string(std::string value)
@@ -1944,7 +1957,7 @@ INI::~INI()
     global_data[global_key] = data;
 }
 
-std::map<std::string, SectionMap> INI::global_data;
+boost::unordered_map<std::string, SectionMap> INI::global_data;
 
 // StringTokenizer
 

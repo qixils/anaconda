@@ -1,6 +1,3 @@
-#include <vector>
-#include <map>
-
 #ifdef CHOWDREN_IS_DESKTOP
 #include "desktop/audio.h"
 #else
@@ -57,7 +54,7 @@ public:
 
     void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
     {
-        std::cout << "Playing (stream) " << filename << std::endl;
+        // std::cout << "Playing (stream) " << filename << std::endl;
         *source = new ChowdrenAudio::SoundStream(filename);
         // *source = NULL;
         *is_music = true;
@@ -77,7 +74,7 @@ public:
 
     void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
     {
-        std::cout << "Playing: " << name << std::endl;
+        // std::cout << "Playing: " << name << std::endl;
         *source = new ChowdrenAudio::Sound(*buffer);
         *is_music = false;
     }

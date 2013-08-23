@@ -33,30 +33,24 @@ public:
     virtual ~SoundDecoder() {};
 };
 
-size_t read_func(void * ptr, size_t size, size_t nmemb, void *datasource)
+static size_t read_func(void * ptr, size_t size, size_t nmemb, void *fp)
 {
-    FSFile * fp = (FSFile*)datasource;
-    return fp->read(ptr, size*nmemb);
+    return fsfile_fread(ptr, size, nmemb, (FSFile*)fp);
 }
 
-int seek_func(void *datasource, ogg_int64_t offset, int whence)
+static int seek_func(void *fp, ogg_int64_t offset, int whence)
 {
-    FSFile * fp = (FSFile*)datasource;
-    fp->seek(offset, whence);
-    return 0;
+    return fsfile_fseek((FSFile*)fp, offset, whence);
 }
 
-int close_func(void *datasource)
+static int close_func(void *fp)
 {
-    FSFile * fp = (FSFile*)datasource;
-    fp->close();
-    return 0;
+    return fsfile_fclose((FSFile*)fp);
 }
 
-long tell_func(void *datasource)
+static long tell_func(void *fp)
 {
-    FSFile * fp = (FSFile*)datasource;
-    return fp->tell();
+    return fsfile_ftell((FSFile*)fp);
 }
 
 ov_callbacks callbacks = {

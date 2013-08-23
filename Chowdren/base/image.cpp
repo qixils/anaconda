@@ -9,26 +9,26 @@
 #include "platform.h"
 #include "datastream.h"
 
-static int fsfile_read(void *user, char *data, int size)
+static int read_func(void *user, char *data, int size)
 {
    return ((FSFile*)user)->read(data, size);
 }
 
-static void fsfile_skip(void *user, unsigned n)
+static void skip_func(void *user, unsigned n)
 {
    ((FSFile*)user)->seek(n, SEEK_CUR);
 }
 
-static int fsfile_eof(void *user)
+static int eof_func(void *user)
 {
    return ((FSFile*)user)->at_end();
 }
 
 static stbi_io_callbacks fsfile_callbacks =
 {
-   fsfile_read,
-   fsfile_skip,
-   fsfile_eof,
+   read_func,
+   skip_func,
+   eof_func,
 };
 
 typedef std::vector<Image*> ImageList;

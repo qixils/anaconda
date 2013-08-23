@@ -4,6 +4,7 @@
 #include <string>
 #include <stdio.h>
 #include "color.h"
+#include "fileio.h"
 
 void open_url(const std::string & name);
 void init_platform();

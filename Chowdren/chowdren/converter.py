@@ -37,7 +37,7 @@ import math
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-PROFILE = True
+PROFILE = False
 
 # enabled for porting
 NATIVE_EXTENSIONS = True

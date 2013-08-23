@@ -1,4 +1,7 @@
-// #define CHOWDREN_USE_FT2
+#ifndef CHOWDREN_FONT_H
+#define CHOWDREN_FONT_H
+
+#define CHOWDREN_USE_FT2
 
 typedef enum
 {
@@ -687,7 +690,7 @@ public:
     virtual float LineHeight() const;
     virtual bool FaceSize(const unsigned int size,
                           const unsigned int res);
-    virtual unsigned int FaceSize() const;
+    unsigned int FaceSize() const;
     virtual FTBBox BBox(const char *s, const int len = -1, 
                         FTPoint position = FTPoint(), 
                         FTPoint spacing = FTPoint());
@@ -722,6 +725,59 @@ public:
     template <typename T>
     inline FTPoint RenderI(const T *s, const int len,
                            FTPoint position, FTPoint spacing, int mode);
+};
+
+class FTTextureFont : public FTFont
+{
+public:
+    GLsizei maximumGLTextureSize;
+    GLsizei textureWidth;
+    GLsizei textureHeight;
+    FTVector<GLuint> textureIDList;
+    int glyphHeight;
+    int glyphWidth;
+    unsigned int padding;
+    unsigned int numGlyphs;
+    unsigned int remGlyphs;
+    int xOffset;
+    int yOffset;
+    bool stroke;
+
+    FTTextureFont(const char* fontFilePath, bool stroke);
+    ~FTTextureFont();
+    FTGlyph* MakeGlyph(FT_GlyphSlot ftGlyph);
+    void CalculateTextureSize();
+    GLuint CreateTexture();
+    bool FaceSize(const unsigned int size, const unsigned int res);
+
+    template <typename T>
+    inline FTPoint RenderI(const T* string, const int len,
+                           FTPoint position, FTPoint spacing,
+                           int renderMode)
+    {
+        // Protect GL_TEXTURE_2D
+        glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
+                     GL_TEXTURE_ENV_MODE);
+
+        glEnable(GL_TEXTURE_2D);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+        FTTextureGlyph::ResetActiveTexture();
+
+        FTPoint tmp = FTFont::Render(string, len,
+                                     position, spacing, renderMode);
+
+        glPopAttrib();
+
+        return tmp;
+    }
+
+    FTPoint Render(const char * string, const int len,
+                   FTPoint position, FTPoint spacing,
+                   int renderMode);
+    FTPoint Render(const wchar_t * string, const int len,
+                   FTPoint position, FTPoint spacing,
+                   int renderMode);
 };
 
 typedef void* FTCleanupObject;
@@ -1093,3 +1149,5 @@ inline void FTUnicodeStringItr<T>::readUTF16()
 }
 
 #endif // CHOWDREN_USE_FT2
+
+#endif // CHOWDREN_FONT_H

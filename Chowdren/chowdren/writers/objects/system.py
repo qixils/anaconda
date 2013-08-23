@@ -16,14 +16,14 @@ class Active(ObjectWriter):
 
     def write_init(self, writer):
         common = self.common
-        writer.putln('static AnimationMap * saved_animations = '
-                     'new AnimationMap;')
+        animations = common.animations.loadedAnimations
+        writer.putln('static Animations * saved_animations = '
+                     'new Animations(%s);' % (max(animations)+1))
         writer.putln('this->animations = saved_animations;')
         writer.putln('static bool initialized = false;')
         writer.putln('if (!initialized) {')
         writer.indent()
         writer.putln('initialized = true;')
-        animations = common.animations.loadedAnimations
         for animation_index, animation in animations.iteritems():
             writer.putln('init_anim_%s();' % animation_index)
         writer.putln('initialize_animations();')

@@ -2,6 +2,8 @@
 
 #ifdef CHOWDREN_USE_FT2
 
+#include <wctype.h>
+
 // FTCleanup
 
 FTCleanup * FTCleanup::_instance = 0;
@@ -676,190 +678,149 @@ static inline GLuint ClampSize(GLuint in, GLuint maxTextureSize)
     return in < maxTextureSize ? in : maxTextureSize;
 }
 
-class FTTextureFont : public FTFont
+//
+// FTTextureFont
+//
+
+FTTextureFont::FTTextureFont(const char* fontFilePath, bool stroke)
+: FTFont(fontFilePath), maximumGLTextureSize(0), textureWidth(0),
+  textureHeight(0), glyphHeight(0), glyphWidth(0), xOffset(0), yOffset(0),
+  padding(3), stroke(stroke)
 {
-public:
-    GLsizei maximumGLTextureSize;
-    GLsizei textureWidth;
-    GLsizei textureHeight;
-    FTVector<GLuint> textureIDList;
-    int glyphHeight;
-    int glyphWidth;
-    unsigned int padding;
-    unsigned int numGlyphs;
-    unsigned int remGlyphs;
-    int xOffset;
-    int yOffset;
-    bool stroke;
+    load_flags = FT_LOAD_FORCE_AUTOHINT;
+    remGlyphs = numGlyphs = face.GlyphCount();
+    if (stroke) {
+        padding += 4;
+    }
+}
 
-    FTTextureFont(const char* fontFilePath, bool stroke)
-    :   FTFont(fontFilePath),
-        maximumGLTextureSize(0),
-        textureWidth(0),
-        textureHeight(0),
-        glyphHeight(0),
-        glyphWidth(0),
-        xOffset(0),
-        yOffset(0),
-        padding(3),
-        stroke(stroke)
+
+FTTextureFont::~FTTextureFont()
+{
+    if(textureIDList.size())
     {
-        load_flags = FT_LOAD_FORCE_AUTOHINT;
-        remGlyphs = numGlyphs = face.GlyphCount();
-        if (stroke) {
-            padding += 4;
-        }
+        glDeleteTextures((GLsizei)textureIDList.size(),
+                         (const GLuint*)&textureIDList[0]);
+    }
+}
+
+
+FTGlyph* FTTextureFont::MakeGlyph(FT_GlyphSlot ftGlyph)
+{
+    glyphHeight = static_cast<int>(charSize.Height() + 0.5f);
+    glyphWidth = static_cast<int>(charSize.Width() + 0.5f);
+
+    if(glyphHeight < 1) glyphHeight = 1;
+    if(glyphWidth < 1) glyphWidth = 1;
+
+    if(textureIDList.empty())
+    {
+        textureIDList.push_back(CreateTexture());
+        xOffset = yOffset = padding;
     }
 
-
-    ~FTTextureFont()
+    if(xOffset > (textureWidth - glyphWidth))
     {
-        if(textureIDList.size())
-        {
-            glDeleteTextures((GLsizei)textureIDList.size(),
-                             (const GLuint*)&textureIDList[0]);
-        }
-    }
+        xOffset = padding;
+        yOffset += glyphHeight;
 
-
-    FTGlyph* MakeGlyph(FT_GlyphSlot ftGlyph)
-    {
-        glyphHeight = static_cast<int>(charSize.Height() + 0.5f);
-        glyphWidth = static_cast<int>(charSize.Width() + 0.5f);
-
-        if(glyphHeight < 1) glyphHeight = 1;
-        if(glyphWidth < 1) glyphWidth = 1;
-
-        if(textureIDList.empty())
+        if(yOffset > (textureHeight - glyphHeight))
         {
             textureIDList.push_back(CreateTexture());
-            xOffset = yOffset = padding;
+            yOffset = padding;
         }
-
-        if(xOffset > (textureWidth - glyphWidth))
-        {
-            xOffset = padding;
-            yOffset += glyphHeight;
-
-            if(yOffset > (textureHeight - glyphHeight))
-            {
-                textureIDList.push_back(CreateTexture());
-                yOffset = padding;
-            }
-        }
-
-        FTTextureGlyph* tempGlyph = new FTTextureGlyph(ftGlyph, textureIDList[textureIDList.size() - 1],
-                                                       xOffset, yOffset, textureWidth, textureHeight,
-                                                       stroke);
-        xOffset += static_cast<int>(tempGlyph->BBox().Upper().X() - tempGlyph->BBox().Lower().X() + padding + 0.5);
-
-        --remGlyphs;
-
-        return tempGlyph;
     }
 
+    FTTextureGlyph* tempGlyph = new FTTextureGlyph(ftGlyph, textureIDList[textureIDList.size() - 1],
+                                                   xOffset, yOffset, textureWidth, textureHeight,
+                                                   stroke);
+    xOffset += static_cast<int>(tempGlyph->BBox().Upper().X() - tempGlyph->BBox().Lower().X() + padding + 0.5);
 
-    void CalculateTextureSize()
+    --remGlyphs;
+
+    return tempGlyph;
+}
+
+
+void FTTextureFont::CalculateTextureSize()
+{
+    if(!maximumGLTextureSize)
     {
-        if(!maximumGLTextureSize)
-        {
-            maximumGLTextureSize = 1024;
-            glGetIntegerv(GL_MAX_TEXTURE_SIZE, (GLint*)&maximumGLTextureSize);
-            assert(maximumGLTextureSize); // Indicates an invalid OpenGL context
-        }
-
-        // Texture width required for numGlyphs glyphs. Will probably not be
-        // large enough, but we try to fit as many glyphs in one line as possible
-        textureWidth = ClampSize(glyphWidth * numGlyphs + padding * 2,
-                                 maximumGLTextureSize);
-
-        // Number of lines required for that many glyphs in a line
-        int tmp = (textureWidth - (padding * 2)) / glyphWidth;
-        tmp = tmp > 0 ? tmp : 1;
-        tmp = (numGlyphs + (tmp - 1)) / tmp; // round division up
-
-        // Texture height required for tmp lines of glyphs
-        textureHeight = ClampSize(glyphHeight * tmp + padding * 2,
-                                  maximumGLTextureSize);
+        maximumGLTextureSize = 1024;
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, (GLint*)&maximumGLTextureSize);
+        assert(maximumGLTextureSize); // Indicates an invalid OpenGL context
     }
 
+    // Texture width required for numGlyphs glyphs. Will probably not be
+    // large enough, but we try to fit as many glyphs in one line as possible
+    textureWidth = ClampSize(glyphWidth * numGlyphs + padding * 2,
+                             maximumGLTextureSize);
 
-    GLuint CreateTexture()
+    // Number of lines required for that many glyphs in a line
+    int tmp = (textureWidth - (padding * 2)) / glyphWidth;
+    tmp = tmp > 0 ? tmp : 1;
+    tmp = (numGlyphs + (tmp - 1)) / tmp; // round division up
+
+    // Texture height required for tmp lines of glyphs
+    textureHeight = ClampSize(glyphHeight * tmp + padding * 2,
+                              maximumGLTextureSize);
+}
+
+
+GLuint FTTextureFont::CreateTexture()
+{
+    CalculateTextureSize();
+
+    int totalMemory = textureWidth * textureHeight;
+    unsigned char* textureMemory = new unsigned char[totalMemory];
+    memset(textureMemory, 0, totalMemory);
+
+    GLuint textID;
+    glGenTextures(1, (GLuint*)&textID);
+
+    glBindTexture(GL_TEXTURE_2D, textID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, textureWidth, textureHeight,
+                 0, GL_ALPHA, GL_UNSIGNED_BYTE, textureMemory);
+
+    delete [] textureMemory;
+
+    return textID;
+}
+
+
+bool FTTextureFont::FaceSize(const unsigned int size, const unsigned int res)
+{
+    if(!textureIDList.empty())
     {
-        CalculateTextureSize();
-
-        int totalMemory = textureWidth * textureHeight;
-        unsigned char* textureMemory = new unsigned char[totalMemory];
-        memset(textureMemory, 0, totalMemory);
-
-        GLuint textID;
-        glGenTextures(1, (GLuint*)&textID);
-
-        glBindTexture(GL_TEXTURE_2D, textID);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, textureWidth, textureHeight,
-                     0, GL_ALPHA, GL_UNSIGNED_BYTE, textureMemory);
-
-        delete [] textureMemory;
-
-        return textID;
+        glDeleteTextures((GLsizei)textureIDList.size(),
+                         (const GLuint*)&textureIDList[0]);
+        textureIDList.clear();
+        remGlyphs = numGlyphs = face.GlyphCount();
     }
 
-
-    bool FaceSize(const unsigned int size, const unsigned int res)
-    {
-        if(!textureIDList.empty())
-        {
-            glDeleteTextures((GLsizei)textureIDList.size(), (const GLuint*)&textureIDList[0]);
-            textureIDList.clear();
-            remGlyphs = numGlyphs = face.GlyphCount();
-        }
-
-        return FTFont::FaceSize(size, res);
-    }
+    return FTFont::FaceSize(size, res);
+}
 
 
-    template <typename T>
-    inline FTPoint RenderI(const T* string, const int len,
-                                          FTPoint position, FTPoint spacing,
-                                          int renderMode)
-    {
-        // Protect GL_TEXTURE_2D
-        glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_TEXTURE_ENV_MODE);
-
-        glEnable(GL_TEXTURE_2D);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-        FTTextureGlyph::ResetActiveTexture();
-
-        FTPoint tmp = FTFont::Render(string, len,
-                                     position, spacing, renderMode);
-
-        glPopAttrib();
-
-        return tmp;
-    }
+FTPoint FTTextureFont::Render(const char * string, const int len,
+                              FTPoint position, FTPoint spacing,
+                              int renderMode)
+{
+    return RenderI(string, len, position, spacing, renderMode);
+}
 
 
-    FTPoint Render(const char * string, const int len,
-                                      FTPoint position, FTPoint spacing,
-                                      int renderMode)
-    {
-        return RenderI(string, len, position, spacing, renderMode);
-    }
-
-
-    FTPoint Render(const wchar_t * string, const int len,
-                                      FTPoint position, FTPoint spacing,
-                                      int renderMode)
-    {
-        return RenderI(string, len, position, spacing, renderMode);
-    }
-};
+FTPoint FTTextureFont::Render(const wchar_t * string, const int len,
+                              FTPoint position, FTPoint spacing,
+                              int renderMode)
+{
+    return RenderI(string, len, position, spacing, renderMode);
+}
 
 //
 //  FTTextureGlyph

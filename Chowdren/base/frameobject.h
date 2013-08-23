@@ -3,17 +3,17 @@
 
 #include "alterables.h"
 #include "color.h"
-#include <map>
 #include <string>
 #include <vector>
 #include "movement.h"
+#include <boost/unordered_map.hpp>
 
 class CollisionBase;
 class Frame;
 class Shader;
 class Image;
 
-typedef std::map<std::string, double> ShaderParameters;
+typedef boost::unordered_map<std::string, double> ShaderParameters;
 
 class FrameObject;
 

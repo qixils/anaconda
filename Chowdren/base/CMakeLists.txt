@@ -32,8 +32,16 @@ if (USE_STEAM)
     if (ENABLE_STEAM)
         add_definitions(-DCHOWDREN_ENABLE_STEAM)
         include_directories("${PROJECT_SOURCE_DIR}/steam")
-        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-            "${PROJECT_SOURCE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
+        if (WIN32)
+            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+                "${PROJECT_SOURCE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
+        elseif (APPLE)
+            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+                "${PROJECT_SOURCE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
+        else()
+            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+                "${PROJECT_SOURCE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
+        endif()
     endif()
     set(SRCS
         ${SRCS}

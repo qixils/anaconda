@@ -6,8 +6,10 @@ class ObjectWriter(BaseWriter):
     class_name = 'Undefined'
     static = False
     includes = []
+    event_callbacks = None
 
     def __init__(self, *arg, **kw):
+        self.event_callbacks = {}
         BaseWriter.__init__(self, *arg, **kw)
         self.common = self.data.properties.loader
         self.initialize()
@@ -73,3 +75,11 @@ class ObjectWriter(BaseWriter):
 
     def get_images(self):
         return []
+
+    def add_event_callback(self, name):
+        wrapper_name = '%s_%s' % (name, id(self))
+        event_id = self.converter.event_callback_ids.next()
+        self.event_callbacks[(name, wrapper_name)] = event_id
+        return wrapper_name
+
+

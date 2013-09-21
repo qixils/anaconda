@@ -1,15 +1,16 @@
-#ifndef _userdata_h_
-#define _userdata_h_
+#ifndef CHOWDREN_BOX2D_USERDATA_H
+#define CHOWDREN_BOX2D_USERDATA_H
 
 class Box2D;
+class FrameObject;
 
 struct Attachment
 {
 	Attachment();
 	~Attachment();
 
-	Box2D* obj;
-	int objectNum;
+	Box2D* rdPtr;
+    FrameObject * obj;
 	float rotOff;
 	b2Vec2 offset;
 	char rotation;
@@ -22,15 +23,16 @@ struct bodyUserData
 {
 	bodyUserData();
 
-	void AddObject(int id, b2Vec2 offset, int rot, int dest, float roff);
-	void RemObject(int id);
-	Attachment* GetAttachment(int id);
+	void AddObject(FrameObject * obj, b2Vec2 offset, int rot, int dest,
+                   float roff);
+	void RemObject(FrameObject * obj);
+	Attachment* GetAttachment(FrameObject * obj);
 	void RemAttachment(Attachment* &a);
 	void BodyDie();
 
 	Attachment* attachment;
 
-	Box2D* obj;
+	Box2D* rdPtr;
 	int numJoints;
 	int numShapes;
 	int ID;
@@ -51,7 +53,7 @@ struct shapeUserData
 {
 	shapeUserData();
 
-	Box2D* obj;
+	Box2D* rdPtr;
 	char collType;
 	int body;
 	int ID;
@@ -66,4 +68,4 @@ struct rayUserData
 	short mask;
 };
 
-#endif
+#endif // CHOWDREN_BOX2D_USERDATA_H

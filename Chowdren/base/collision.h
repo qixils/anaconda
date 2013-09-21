@@ -151,10 +151,16 @@ public:
     int width, height;
     int hotspot_x, hotspot_y;
 
-    SpriteCollision(FrameObject * instance, Image * image)
+    SpriteCollision(FrameObject * instance, Image * image = NULL)
     : CollisionBase(SPRITE_COLLISION, false), instance(instance), 
       image(image), transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
     {
+        if (image == NULL)
+            return;
+        width = image->width;
+        height = image->height;
+        hotspot_x = image->hotspot_x;
+        hotspot_y = image->hotspot_y;
     }
 
     void set_image(Image * image)

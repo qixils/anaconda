@@ -28,6 +28,7 @@ void platform_hide_mouse();
 void platform_begin_draw();
 void platform_swap_buffers();
 bool platform_remove_file(const std::string & path);
+const std::string & platform_get_appdata_dir();
 
 // debug
 void platform_print_stats();
@@ -77,6 +78,7 @@ void init_shaders_platform();
 
 #ifdef CHOWDREN_IS_DEMO
 bool platform_show_build_info();
+bool platform_should_reset();
 #endif
 
 #endif // CHOWDREN_PLATFORM_H

@@ -14,6 +14,8 @@ set(SRCS run.cpp image.cpp glew.c desktop/platform.cpp shader.cpp font.cpp
 
 option(USE_BOX2D OFF)
 option(USE_PYTHON ON)
+option(USE_STEAM OFF)
+option(ENABLE_STEAM ON)
 
 add_definitions(-DCHOWDREN_IS_DESKTOP)
 
@@ -25,11 +27,26 @@ if (USE_PYTHON)
     )
 endif()
 
+if (USE_STEAM)
+    add_definitions(-DCHOWDREN_USE_STEAM)
+    if (ENABLE_STEAM)
+        add_definitions(-DCHOWDREN_ENABLE_STEAM)
+        include_directories("${PROJECT_SOURCE_DIR}/steam")
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${PROJECT_SOURCE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
+    endif()
+    set(SRCS
+        ${SRCS}
+        steamext.cpp
+    )
+endif()
+
 if (USE_BOX2D)
     add_definitions(-DCHOWDREN_USE_BOX2D)
     set(BOX2D_DIR "${PROJECT_SOURCE_DIR}/include/Box2D")
     set(SRCS
         ${SRCS}
+        box2d/box2dext.cpp
         ${BOX2D_DIR}/Collision/b2BroadPhase.cpp
         ${BOX2D_DIR}/Collision/b2CollideCircle.cpp
         ${BOX2D_DIR}/Collision/b2CollidePoly.cpp
@@ -82,14 +99,14 @@ if(WIN32)
     set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include/win32"
         ${CMAKE_INCLUDE_PATH})
     set(SRCS ${SRCS} resource.rc)
-    set(PLATFORM_LIBRARIES winmm)
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} winmm)
 elseif(APPLE)
     set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/osx"
         ${CMAKE_LIBRARY_PATH})
     set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/include/osx"
         ${CMAKE_INCLUDE_PATH})
     find_library(CARBON_LIBRARY Carbon)
-    set(PLATFORM_LIBRARIES ${CARBON_LIBRARY})
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} ${CARBON_LIBRARY})
 endif()
 
 if(MSVC)
@@ -102,8 +119,6 @@ if(MSVC)
 endif()
 
 add_definitions(-DGLEW_STATIC)
-
-
 
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)

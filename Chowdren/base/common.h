@@ -214,6 +214,7 @@ public:
     void create_background();
     void destroy_backgrounds();
     void destroy_backgrounds(int x, int y, bool fine);
+    bool test_background_collision(CollisionBase * a);
     bool test_background_collision(int x, int y);
     void paste(Image * img, int dest_x, int dest_y, 
                int src_x, int src_y, int src_width, int src_height, 
@@ -257,6 +258,7 @@ public:
 
     Frame(const std::string & name, int width, int height, 
           Color background_color, int index, GameManager * manager);
+    virtual void event_callback(int id);
     virtual void on_start();
     void on_end();
     virtual void handle_events();
@@ -273,13 +275,15 @@ public:
     void add_layer(double scroll_x, double scroll_y, bool visible);
     void add_object(FrameObject * object, int layer_index);
     void add_background_object(FrameObject * object, int layer_index);
-    ObjectList create_object(FrameObject * object, int layer_index);
+    FrameObject * create_object(FrameObject * object, int layer_index);
     void destroy_object(FrameObject * object);
     void set_object_layer(FrameObject * object, int new_layer);
     int get_loop_index(const std::string & name);
     void set_timer(double value);
     void set_display_center(int x = -1, int y = -1);
+    int frame_left();
     int frame_right();
+    int frame_top();
     int frame_bottom();
     void set_background_color(int color);
     void get_mouse_pos(int * x, int * y);
@@ -360,6 +364,8 @@ public:
     bool stopped;
     float flash_time;
     float flash_interval;
+    unsigned int flags;
+    int animation_finished;
 
     Active(const std::string & name, int x, int y, int type_id);
     void initialize_active();
@@ -383,7 +389,7 @@ public:
     Image * get_image();
     int get_action_x();
     int get_action_y();
-    void set_angle(double angle, int quality);
+    void set_angle(double angle, int quality = 0);
     double get_angle();
     int & get_frame();
     int get_speed();
@@ -403,6 +409,12 @@ public:
     void stop_animation();
     void start_animation();
     void flash(float value);
+    void enable_flag(int index);
+    void disable_flag(int index);
+    bool is_flag_on(int index);
+    bool is_flag_off(int index);
+    bool is_near_border(int border);
+    bool is_animation_finished(int anim);
 };
 
 void set_font_path(const char * path);
@@ -441,19 +453,29 @@ class Backdrop : public FrameObject
 {
 public:
     Image * image;
+    CollisionBase * collision;
 
-    Backdrop(Image * image, const std::string & name, int x, int y, 
-             int type_id);
+    Backdrop(const std::string & name, int x, int y, int type_id);
+    ~Backdrop();
+    CollisionBase * get_collision();
     void draw();
 };
+
+#define NONE_GRADIENT 0
+#define VERTICAL_GRADIENT 1
+#define HORIZONTAL_GRADIENT 2
 
 class QuickBackdrop : public FrameObject
 {
 public:
     Color color;
+    int gradient_type;
+    Color color2;
+    CollisionBase * collision;
 
-    QuickBackdrop(const Color & color, int width, int height, 
-                  const std::string & name, int x, int y, int type_id);
+    QuickBackdrop(const std::string & name, int x, int y, int type_id);
+    ~QuickBackdrop();
+    CollisionBase * get_collision();
     void draw();
 };
 
@@ -469,12 +491,17 @@ public:
             int x, int y, int type_id);
     Image * get_image(char c);
     void add(double value);
+    void subtract(double value);
+    void set_max(double value);
+    void set_min(double value);
     void set(double value);
     void draw();
 };
 
-typedef std::map<std::string, std::string> OptionMap;
-typedef std::map<std::string, OptionMap> SectionMap;
+/*typedef std::map<std::string, std::string> OptionMap;
+typedef std::map<std::string, OptionMap> SectionMap;*/
+typedef boost::unordered_map<std::string, std::string> OptionMap;
+typedef boost::unordered_map<std::string, OptionMap> SectionMap;
 
 class INI : public FrameObject
 {
@@ -580,7 +607,7 @@ public:
 class File
 {
 public:
-    static std::string get_appdata_directory();
+    static const std::string & get_appdata_directory();
     static bool file_exists(const std::string & path);
     static void delete_file(const std::string & path);
 };
@@ -653,6 +680,86 @@ public:
     void sort_alt_decreasing(int index, double def);
 };
 
+class Viewport : public FrameObject
+{
+public:
+    int center_x, center_y;
+    int src_width, src_height;
+
+    Viewport(const std::string & name, int x, int y, int type_id);
+    void set_source(int center_x, int center_y, int width, int height);
+    void set_width(int w);
+    void set_height(int h);
+    void draw();
+};
+
+class AdvancedDirection : public FrameObject
+{
+public:
+    FrameObject * closest;
+
+    AdvancedDirection(const std::string & name, int x, int y, int type_id);
+    void find_closest(ObjectList instances, int x, int y);
+    FixedValue get_closest(int n);
+};
+
+class TextBlitter : public FrameObject
+{
+public:
+    std::string text;
+    int char_width, char_height;
+    Image * image;
+    int * charmap;
+
+    TextBlitter(const std::string & name, int x, int y, int type_id);
+    void initialize(const std::string & charmap);
+    void set_text(const std::string & text);
+    void draw();
+};
+
+typedef void (*ObstacleOverlapCallback)();
+typedef void (*PlatformOverlapCallback)();
+
+class PlatformObject : public FrameObject
+{
+public:
+    FrameObject * instance;
+    bool left, right;
+    bool paused;
+
+    int x_vel, y_vel;
+    int max_x_vel, max_y_vel;
+    int add_x_vel, add_y_vel;
+    int x_move_count, y_move_count;
+    int x_accel, x_decel;
+    int gravity;
+    int jump_strength;
+    int jump_hold_height;
+    int step_up;
+    int slope_correction;
+    bool on_ground;
+    bool jump_through, through_collision_top;
+
+    bool obstacle_collision;
+    bool platform_collision;
+
+    ObstacleOverlapCallback obstacle_callback;
+    PlatformOverlapCallback platform_callback;
+
+    PlatformObject(const std::string & name, int x, int y, int type_id);
+    void set_object(FrameObject * instance);
+    virtual void call_overlaps_obstacle() = 0;
+    virtual void call_overlaps_platform() = 0;
+    bool overlaps_obstacle();
+    bool overlaps_platform();
+    bool is_falling();
+    bool is_jumping();
+    bool is_moving();
+    void jump();
+    void jump_in_air();
+    void update(float dt);
+};
+
 typedef boost::unordered_map<std::string, Image*> ImageCache;
 
 class ActivePicture : public FrameObject
@@ -679,7 +786,7 @@ public:
     void flip_horizontal();
     void set_scale(double value);
     void set_zoom(double value);
-    void set_angle(double value);
+    void set_angle(double value, int quality = 0);
     double get_zoom_x();
     int get_width();
     int get_height();

@@ -285,6 +285,42 @@ void create_directories(const std::string & value)
     platformstl::create_directory_recurse(path);
 }
 
+#ifdef _WIN32
+#include "windows.h"
+#include "shlobj.h"
+#elif __APPLE__
+#include <CoreServices/CoreServices.h>
+#include <limits.h>
+#elif __linux
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
+
+const std::string & platform_get_appdata_dir()
+{
+    static bool initialized = false;
+    static std::string dir;
+    if (!initialized) {
+#ifdef _WIN32
+        TCHAR path[MAX_PATH];
+        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
+        dir = path;
+#elif __APPLE__
+        FSRef ref;
+        OSType folderType = kApplicationSupportFolderType;
+        char path[PATH_MAX];
+        FSFindFolder(kUserDomain, folderType, kCreateFolder, &ref);
+        FSRefMakePath(&ref, (UInt8*)&path, PATH_MAX);
+        dir = path;
+#elif __linux
+        struct passwd *pw = getpwuid(getuid());
+        dir = pw->pw_dir;
+#endif
+    }
+    return dir;
+}
+
 // joystick
 
 inline int joy_num(int n)
@@ -301,7 +337,10 @@ bool is_joystick_pressed(int n, int button)
 {
     int count;
     const unsigned char * buttons = glfwGetJoystickButtons(joy_num(n), &count);
-    return buttons[button-1] == GLFW_PRESS;
+    button -= 1;
+    if (button >= count)
+        return false;
+    return buttons[button] == GLFW_PRESS;
 }
 
 bool any_joystick_pressed(int n)
@@ -318,13 +357,18 @@ bool is_joystick_released(int n, int button)
 {
     int count;
     const unsigned char * buttons = glfwGetJoystickButtons(joy_num(n), &count);
-    return buttons[button-1] == GLFW_RELEASE;
+    button -= 1;
+    if (button >= count)
+        return true;
+    return buttons[button] == GLFW_RELEASE;
 }
 
 int get_joystick_direction(int n)
 {
     int count;
     const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
+    if (count < 2)
+        return 8;
     const static float threshold = 0.4f;
     float x = axes[0];
     float y = axes[1];
@@ -373,71 +417,304 @@ void open_url(const std::string & name)
 
 // file
 
+#ifdef CHOWDREN_ENABLE_STEAM
+#include "sdk/public/steam/steam_api.h"
+#include "sdk/public/steam/steamtypes.h"
+#include <sstream>
+#include "../path.h"
+#endif
+
 bool platform_remove_file(const std::string & file)
 {
+#ifdef CHOWDREN_ENABLE_STEAM
+    std::string base = get_path_filename(file);
+    const char * base_c = base.c_str();
+    if (SteamRemoteStorage()->FileExists(base_c)) {
+        return SteamRemoteStorage()->FileDelete(base_c);
+    }
+#endif
     return remove(convert_path(file).c_str()) == 0;
 }
 
 #include "../filecommon.cpp"
 
+#ifdef CHOWDREN_ENABLE_STEAM
+#define HANDLE_BASE FileHandle
+
+class FileHandle
+{
+public:
+    virtual ~FileHandle()
+    {
+    }
+
+    virtual size_t write(void * data, size_t size)
+    {
+        return 0;
+    }
+
+    virtual bool seek(size_t v, int origin)
+    {
+        return false;
+    }
+
+    virtual size_t tell()
+    {
+        return 0;
+    }
+
+    virtual int getc()
+    {
+        return EOF;
+    }
+
+    virtual size_t read(void * data, size_t size)
+    {
+        return 0;
+    }
+
+    virtual void close()
+    {
+    }
+
+    virtual bool at_end()
+    {
+        return true;
+    }
+};
+
+class SteamWriteFile : public FileHandle
+{
+public:
+    std::string filename;
+    std::ostringstream stream;
+
+    SteamWriteFile(const std::string & filename)
+    {
+        std::cout << "Opening Steam write: " << filename << std::endl;
+        this->filename = filename;
+    }
+
+    size_t write(void * data, size_t size)
+    {
+        stream.write((const char*)data, size);
+        return size;
+    }
+
+    bool seek(size_t v, int origin)
+    {
+        if (origin == SEEK_CUR)
+            stream.seekp(v, std::ios_base::cur);
+        else if (origin == SEEK_END)
+            stream.seekp(v, std::ios_base::end);
+        else
+            stream.seekp(v, std::ios_base::beg);
+        return !stream.fail();
+    }
+
+    size_t tell()
+    {
+        return stream.tellp();
+    }
+
+    void close()
+    {
+        stream.seekp(0, std::ios_base::end);
+        std::string v = stream.str();
+        SteamRemoteStorage()->FileWrite(filename.c_str(), &v[0], v.size());
+    }
+
+    bool at_end()
+    {
+        return false;
+    }
+};
+
+class SteamReadFile : public FileHandle
+{
+public:
+    std::istringstream stream;
+
+    SteamReadFile(const char * filename)
+    {
+        int32 size = SteamRemoteStorage()->GetFileSize(filename);
+        std::string v;
+        v.resize(size, 0);
+        SteamRemoteStorage()->FileRead(filename, &v[0], size);
+        stream.str(v);
+    }
+
+    size_t read(void * data, size_t size)
+    {
+        stream.read((char*)data, size);
+        return stream.gcount();
+    }
+
+    bool seek(size_t v, int origin)
+    {
+        if (origin == SEEK_CUR)
+            stream.seekg(v, std::ios_base::cur);
+        else if (origin == SEEK_END)
+            stream.seekg(v, std::ios_base::end);
+        else
+            stream.seekg(v, std::ios_base::beg);
+        return !stream.fail();
+    }
+
+    size_t tell()
+    {
+        return stream.tellg();
+    }
+
+    void close()
+    {
+    }
+
+    int getc()
+    {
+        return stream.get();
+    }
+
+    bool at_end()
+    {
+        int c = getc();
+        stream.unget();
+        return c == EOF;
+    }
+};
+
+class StandardFile : public FileHandle
+#else
+#define HANDLE_BASE StandardFile
+
+class StandardFile
+#endif
+{
+public:
+    FILE * fp;
+
+    StandardFile(FSFile * parent, const char * filename, bool is_read)
+    {
+        const char * real_mode;
+        if (is_read)
+            real_mode = "rb";
+        else
+            real_mode = "wb";
+        fp = fopen(filename, real_mode);
+        parent->closed = fp == NULL;
+    }
+
+    bool seek(size_t v, int origin)
+    {
+        return fseek(fp, v, origin) == 0;
+    }
+
+    size_t tell()
+    {
+        return ftell(fp);
+    }
+
+    int getc()
+    {
+        return fgetc(fp);
+    }
+
+    size_t read(void * data, size_t size)
+    {
+        return fread(data, 1, size, fp);
+    }
+
+    size_t write(void * data, size_t size)
+    {
+        return fwrite(data, 1, size, fp);
+    }
+
+    void close()
+    {
+        fclose(fp);
+    }
+
+    bool at_end()
+    {
+        int c = getc();
+        ungetc(c, fp);
+        return c == EOF;
+    }
+};
+
 void FSFile::open(const char * filename, const char * mode)
 {
-    const char * real_mode;
+    bool is_read;
     switch (*mode) {
         case 'r':
-            real_mode = "rb";
+            is_read = true;
             break;
         case 'w':
-            real_mode = "wb";
+            is_read = false;
             break;
     }
-    FILE * fp = fopen(filename, real_mode);
-    if (fp == NULL) {
-        closed = true;
-        return;
+#ifdef CHOWDREN_ENABLE_STEAM
+    HANDLE_BASE * new_handle = NULL;
+    std::string base = get_path_filename(filename);
+    if (is_read) {
+        const char * base_c = base.c_str();
+        if (SteamRemoteStorage()->FileExists(base_c))
+            new_handle = new SteamReadFile(base_c);
+    } else {
+        new_handle = new SteamWriteFile(base);
     }
-    handle = (void*)fp;
+    if (new_handle == NULL) {
+        new_handle = new StandardFile(this, filename, is_read);
+        if (closed)
+            return;
+    }
+#else
+    HANDLE_BASE * new_handle = new StandardFile(this, filename, is_read);
+    if (closed)
+        return;
+#endif
+    handle = (void*)new_handle;
     closed = false;
 }
 
 bool FSFile::seek(size_t v, int origin)
 {
-    return fseek((FILE*)handle, v, origin) == 0;
+    return ((HANDLE_BASE*)handle)->seek(v, origin);
 }
 
 size_t FSFile::tell()
 {
-    return ftell((FILE*)handle);
+    return ((HANDLE_BASE*)handle)->tell();
 }
 
 int FSFile::getc()
 {
-    return fgetc((FILE*)handle);
+    return ((HANDLE_BASE*)handle)->getc();
 }
 
 size_t FSFile::read(void * data, size_t size)
 {
-    return fread(data, 1, size, (FILE*)handle);
+    return ((HANDLE_BASE*)handle)->read(data, size);
 }
 
 size_t FSFile::write(void * data, size_t size)
 {
-    return fwrite(data, 1, size, (FILE*)handle);
+    return ((HANDLE_BASE*)handle)->write(data, size);
+}
+
+bool FSFile::at_end()
+{
+    return ((HANDLE_BASE*)handle)->at_end();
 }
 
 void FSFile::close()
 {
     if (closed)
         return;
-    fclose((FILE*)handle);
+    HANDLE_BASE * h = (HANDLE_BASE*)handle;
+    h->close();
+    delete h;
     closed = true;
-}
-
-bool FSFile::at_end()
-{
-    int c = getc();
-    ungetc(c, (FILE*)handle);
-    return c == EOF;
 }
 
 // path

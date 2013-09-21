@@ -31,6 +31,8 @@ public:
     double idle_timer;
     double global_time;
     double show_build_timer;
+    double reset_timer;
+    double manual_reset_timer;
 #endif
 
     GameManager();

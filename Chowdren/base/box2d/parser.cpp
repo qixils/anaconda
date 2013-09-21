@@ -1,4 +1,4 @@
-#include "common.h"
+#include "box2dext.h"
 #include "parser.h"
 
 using namespace Parser;
@@ -86,7 +86,7 @@ bool Parser::parseInteger(char* &buf, int &val)
 	return true;
 }
 
-bool Parser::parseShape(char* &buf, b2ShapeDef* &def, LPRDATA rdPtr)
+bool Parser::parseShape(char* &buf, b2ShapeDef* &def, Box2D* rdPtr)
 {
 	switch(*buf)
 	{
@@ -148,7 +148,7 @@ bool Parser::parseShape(char* &buf, b2ShapeDef* &def, LPRDATA rdPtr)
 	return false;
 }
 
-bool Parser::parseShapeDefault(char* &buf, b2ShapeDef* def, LPRDATA rdPtr)
+bool Parser::parseShapeDefault(char* &buf, b2ShapeDef* def, Box2D* rdPtr)
 {
 	switch(*buf)
 	{
@@ -268,7 +268,7 @@ bool Parser::parseShapeDefault(char* &buf, b2ShapeDef* def, LPRDATA rdPtr)
 	}
 }
 
-bool Parser::parseShapeCircle(char* &buf, b2CircleDef* def, LPRDATA rdPtr)
+bool Parser::parseShapeCircle(char* &buf, b2CircleDef* def, Box2D* rdPtr)
 {
 	if(parseType[*buf] != type_start) return false;
 	if(!nextElement(buf)) return false;
@@ -321,7 +321,7 @@ bool Parser::parseShapeCircle(char* &buf, b2CircleDef* def, LPRDATA rdPtr)
 	return true;
 }
 
-bool Parser::parseShapePoly(char* &buf, b2PolygonDef* def, LPRDATA rdPtr)
+bool Parser::parseShapePoly(char* &buf, b2PolygonDef* def, Box2D* rdPtr)
 {
 	if(parseType[*buf] != type_start) return false;
 	if(!nextElement(buf)) return false;
@@ -359,7 +359,7 @@ bool Parser::parseShapePoly(char* &buf, b2PolygonDef* def, LPRDATA rdPtr)
 	return true;
 }
 
-bool Parser::parseShapeEdge(char* &buf, b2EdgeChainDef* def, LPRDATA rdPtr)
+bool Parser::parseShapeEdge(char* &buf, b2EdgeChainDef* def, Box2D* rdPtr)
 {
 	if(parseType[*buf] != type_start) return false;
 	if(!nextElement(buf)) return false;
@@ -410,7 +410,7 @@ bool Parser::parseShapeEdge(char* &buf, b2EdgeChainDef* def, LPRDATA rdPtr)
 	return true;
 }
 
-bool Parser::parseBodySub(char* &buf, b2BodyDef* def, LPRDATA rdPtr)
+bool Parser::parseBodySub(char* &buf, b2BodyDef* def, Box2D* rdPtr)
 {
 	if(parseType[*buf] != type_start) return false;
 	if(!nextElement(buf)) return false;
@@ -549,7 +549,7 @@ bool Parser::parseBodySub(char* &buf, b2BodyDef* def, LPRDATA rdPtr)
 	return true;
 }
 
-bool Parser::parseBody(char* &buf, b2BodyDef* &def, LPRDATA rdPtr)
+bool Parser::parseBody(char* &buf, b2BodyDef* &def, Box2D* rdPtr)
 {
 	b2BodyDef* def2 = new b2BodyDef;
 

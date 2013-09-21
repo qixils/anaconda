@@ -23,6 +23,8 @@ public:
 
     Channel();
     void play(SoundData * data, int loop);
+    void resume();
+    void pause();
     void stop();
     void set_volume(double value);
     void set_frequency(double value);
@@ -50,7 +52,12 @@ public:
     void set_channel_volume(unsigned int channel, double volume);
     void set_channel_frequency(unsigned int channel, double freq);
     void set_channel_pan(unsigned int channel, double pan);
+    void resume_channel(unsigned int channel);
+    void pause_channel(unsigned int channel);
     void stop_channel(unsigned int channel);
+    Channel * get_sample(const std::string & name);
+    void set_sample_volume(const std::string & name, double volume);
+    void stop_sample(const std::string & name);
     void stop_samples();
     double get_channel_position(unsigned int channel);
     void set_channel_position(unsigned int channel, double pos);

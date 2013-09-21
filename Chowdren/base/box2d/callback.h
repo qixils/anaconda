@@ -1,12 +1,12 @@
 #ifndef _callback_h_
 #define _callback_h_
 
-struct tagRDATA;
+class Box2D;
 
 class Callback
 {
 public:
-	virtual void Do(tagRDATA* rdPtr);
+	virtual void Do(Box2D* rdPtr);
 	Callback():Next(NULL){}
 	virtual ~Callback(){}
 
@@ -16,35 +16,35 @@ public:
 class BoundaryCallback : public Callback
 {
 public:
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 	int bodyID;
 };
 
 class LostAttachmentCallback : public Callback
 {
 public:
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 	int bodyID;
 };
 
 class SleepCallback : public Callback
 {
 public:
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 	int bodyID;
 };
 
 class WakeCallback : public Callback
 {
 public:
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 	int bodyID;
 };
 
 class JointDieCallback : public Callback
 {
 public:
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 	int jointID;
 };
 
@@ -84,12 +84,12 @@ class CollideCallback : public Callback
 {
 public:
 	CollideCallback(int cnd){cndOffset = cnd;}
-	void Do(tagRDATA* rdPtr);
+	void Do(Box2D* rdPtr);
 
 	CollData data;
 	int cndOffset;
 };
 
-void addCallback(Callback* c, tagRDATA* rdPtr);
+void addCallback(Callback* c, Box2D* rdPtr);
 
 #endif

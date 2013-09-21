@@ -113,6 +113,20 @@ void Channel::play(SoundData * data, int loop)
     sound->play();
 }
 
+void Channel::resume()
+{
+    if (is_invalid())
+        return;
+    sound->play();
+}
+
+void Channel::pause()
+{
+    if (is_invalid())
+        return;
+    sound->pause();
+}
+
 void Channel::stop()
 {
     if (is_invalid())
@@ -253,6 +267,46 @@ void Media::stop_channel(unsigned int channel)
     if (!is_channel_valid(channel))
         return;
     channels[channel].stop();
+}
+
+void Media::resume_channel(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return;
+    channels[channel].resume();
+}
+
+void Media::pause_channel(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return;
+    channels[channel].pause();
+}
+
+Channel * Media::get_sample(const std::string & name)
+{
+    for (int i = 0; i < 32; i++) {
+        if (channels[i].name != name)
+            continue;
+        return &channels[i];
+    }
+    return NULL;
+}
+
+void Media::set_sample_volume(const std::string & name, double volume)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return;
+    channel->set_volume(volume);
+}
+
+void Media::stop_sample(const std::string & name)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return;
+    channel->stop();
 }
 
 void Media::stop_samples()

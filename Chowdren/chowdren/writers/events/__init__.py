@@ -61,6 +61,18 @@ class EmptyAction(ActionWriter):
     def write(self, writer):
         pass
 
+class TrueCondition(ConditionWriter):
+    has_object = False
+
+    def write(self, writer):
+        writer.put('true')
+
+class FalseCondition(ConditionWriter):
+    has_object = False
+
+    def write(self, writer):
+        writer.put('false')
+
 class ComparisonWriter(ConditionWriter):
     def write(self, writer):
         comparison = self.get_comparison()
@@ -126,6 +138,8 @@ def get_method_out(writer):
     meth = writer.method
 
     if meth.count('%s'):
+        if meth.startswith('.'):
+            meth = meth[1:]
         return meth % parameters
     elif meth.count('{'):
         return meth.format(*parameters)

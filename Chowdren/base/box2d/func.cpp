@@ -1,131 +1,137 @@
-#include "common.h"
-
 #include "func.h"
 
-bool hasAttachment(LPRO obj, LPRDATA rdPtr)
+bool hasAttachment(FrameObject * obj, Box2D* rdPtr)
 {
-	return rdPtr->AttachedObjectIDs[obj->roHo.hoNumber] >= 0;
+    return obj->body >= 0;
 }
 
-void removeAttachment(LPRO obj, LPRDATA rdPtr)
+void removeAttachment(FrameObject * obj, Box2D* rdPtr)
 {
-	if(rdPtr->bodies[rdPtr->AttachedObjectIDs[obj->roHo.hoNumber]])
-		rdPtr->bodies[rdPtr->AttachedObjectIDs[obj->roHo.hoNumber]]->GetUserData()->RemObject(obj->roHo.hoNumber);
-	rdPtr->AttachedObjectIDs[obj->roHo.hoNumber] = -1;
+	if(rdPtr->bodies[obj->body])
+		rdPtr->bodies[obj->body]->GetUserData()->RemObject(obj);
+    obj->body = -1;
 }
 
-int getNullBody(LPRDATA rdPtr)
+int getNullBody(Box2D* rdPtr)
 {
-	for(int i = 0; i < rdPtr->maxBodies; i++)
-	{
-		if(!rdPtr->bodies[i]) return i;
+	for(int i = 0; i < rdPtr->maxBodies; i++) {
+		if(!rdPtr->bodies[i])
+            return i;
 	}
 	return -1;
 }
 
-int getNullJoint(LPRDATA rdPtr)
+int getNullJoint(Box2D* rdPtr)
 {
-	for(int i = 0; i < rdPtr->maxJoints; i++)
-	{
-		if(!rdPtr->joints[i]) return i;
+	for(int i = 0; i < rdPtr->maxJoints; i++) {
+		if(!rdPtr->joints[i])
+            return i;
 	}
 	return -1;
 }
 
-int getNullController(LPRDATA rdPtr)
+int getNullController(Box2D* rdPtr)
 {
-	for(int i = 0; i < rdPtr->maxControllers; i++)
-	{
-		if(!rdPtr->controllers[i]) return i;
+	for(int i = 0; i < rdPtr->maxControllers; i++) {
+		if(!rdPtr->controllers[i])
+            return i;
 	}
 	return -1;
 }
 
-b2Body* getBody(int i, LPRDATA rdPtr)
+b2Body* getBody(int i, Box2D* rdPtr)
 {
-	if(i == -1)
-	{
-		if(rdPtr->lastBody < 0) return NULL;
+	if(i == -1) {
+		if(rdPtr->lastBody < 0)
+            return NULL;
 		return rdPtr->bodies[rdPtr->lastBody];
 	}
-	if(i < 0 || i >= rdPtr->maxBodies) return NULL;
+	if (i < 0 || i >= rdPtr->maxBodies)
+        return NULL;
 	return rdPtr->bodies[i];
 }
 
-b2Joint* getJoint(int i, LPRDATA rdPtr)
+b2Joint* getJoint(int i, Box2D* rdPtr)
 {
-	if(i == -1)
-	{
-		if(rdPtr->lastJoint < 0) return NULL;
+	if(i == -1) {
+		if(rdPtr->lastJoint < 0)
+            return NULL;
 		return rdPtr->joints[rdPtr->lastJoint];
 	}
-	if(i == -1) return rdPtr->joints[rdPtr->lastJoint];
-	if(i < 0 || i >= rdPtr->maxJoints) return NULL;
+	if(i == -1)
+        return rdPtr->joints[rdPtr->lastJoint];
+	if(i < 0 || i >= rdPtr->maxJoints)
+        return NULL;
 	return rdPtr->joints[i];
 }
 
-b2BodyDef* getBodyDef(int i, LPRDATA rdPtr)
+b2BodyDef* getBodyDef(int i, Box2D* rdPtr)
 {
-	if(i < 0 || i >= rdPtr->maxBodyDefs) return NULL;
+	if(i < 0 || i >= rdPtr->maxBodyDefs)
+        return NULL;
 	return rdPtr->bDefs[i];
 }
 
-b2JointDef* getJointDef(int i, LPRDATA rdPtr)
+b2JointDef* getJointDef(int i, Box2D* rdPtr)
 {
-	if(i < 0 || i >= rdPtr->maxJointDefs) return NULL;
+	if(i < 0 || i >= rdPtr->maxJointDefs)
+        return NULL;
 	return rdPtr->jDefs[i];
 }
 
-b2ShapeDef* getShapeDef(int i, LPRDATA rdPtr)
+b2ShapeDef* getShapeDef(int i, Box2D* rdPtr)
 {
-	if(i < 0 || i >= rdPtr->maxShapeDefs) return NULL;
+	if(i < 0 || i >= rdPtr->maxShapeDefs)
+        return NULL;
 	return rdPtr->sDefs[i];
 }
 
-b2Controller* getController(int i, LPRDATA rdPtr)
+b2Controller* getController(int i, Box2D* rdPtr)
 {
-	if(i == -1)
-	{
-		if(rdPtr->lastController < 0) return NULL;
+	if (i == -1) {
+		if(rdPtr->lastController < 0)
+            return NULL;
 		return rdPtr->controllers[rdPtr->lastController];
 	}
-	if(i < 0 || i >= rdPtr->maxControllers) return NULL;
+	if (i < 0 || i >= rdPtr->maxControllers)
+        return NULL;
 	return rdPtr->controllers[i];
 }
 
-bool isBody(int i, LPRDATA rdPtr)
+bool isBody(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxBodies;
 }
 
-bool isJoint(int i, LPRDATA rdPtr)
+bool isJoint(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxJoints;
 }
 
-bool isBodyDef(int i, LPRDATA rdPtr)
+bool isBodyDef(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxBodyDefs;
 }
 
-bool isJointDef(int i, LPRDATA rdPtr)
+bool isJointDef(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxJointDefs;
 }
 
-bool isShapeDef(int i, LPRDATA rdPtr)
+bool isShapeDef(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxShapeDefs;
 }
 
-bool isController(int i, LPRDATA rdPtr)
+bool isController(int i, Box2D* rdPtr)
 {
 	return i >= 0 && i < rdPtr->maxControllers;
 }
 
 b2Shape* getShape(b2Body* b, int n)
 {
-	if(n < 0 || n >= b->GetUserData()->numShapes) return NULL;
+	if(n < 0 || n >= b->GetUserData()->numShapes)
+        return NULL;
 
 	b2Shape* s = b->GetShapeList();
 
@@ -164,39 +170,39 @@ b2Controller* getController(b2Body* b, int n)
 
 b2Body* getBody(b2Controller* c, int n)
 {
-	if(n < 0) return NULL;
+	if(n < 0)
+        return NULL;
 
 	b2ControllerEdge* e = c->GetBodyList();
 
-	for(int i = 0; i < n; i++)
-	{
-		if(!e) return NULL;
+	for(int i = 0; i < n; i++) {
+		if(!e)
+            return NULL;
 		e = e->nextBody;
 	}
 
 	return e->body;
 }
 
-float* parseString(LPCSTR string, int &num)
+float* parseString(const char * string, int &num)
 {
 	int len = strlen(string);
 
 	num = 1;
 
-	for(int i = 0; i < len; i++)
-	{
+	for(int i = 0; i < len; i++) {
 		if(string[i] < 0) continue;
 		if(parseDelim[string[i]] == 1) num++;
 	}
-	if(num % 2 == 1) return NULL; //Invalid Vertice Count
+	if(num % 2 == 1)
+        return NULL; //Invalid Vertice Count
 	float* coord = new float[num];
 	int c = 0;
 	sscanf(string,"%f",coord + c++);
-	for(int i = 0; i < len; i++)
-	{
-		if(string[i] < 0) continue;
-		if(parseDelim[string[i]] == 1)
-		{
+	for(int i = 0; i < len; i++) {
+		if(string[i] < 0)
+            continue;
+		if(parseDelim[string[i]] == 1) {
 			sscanf(string+i+1,"%f",coord + c++);
 		}
 	}
@@ -279,7 +285,7 @@ void copyDef(b2JointDef* src, b2JointDef* &dest)
 }
 
 
-bool setJointDefAnchor(b2JointDef* d, LPRDATA rdPtr)
+bool setJointDefAnchor(b2JointDef* d, Box2D* rdPtr)
 {
 	b2Body* b = d->body1;
 	b2Body* b2 = d->body2;
@@ -567,146 +573,3 @@ bool setJointDefAnchor(b2JointDef* d, LPRDATA rdPtr)
 	return true;
 }
 
-long ProcessCondition(LPRDATA rdPtr, long param1, long param2, long (*myFunc)(LPRDATA, LPHO, long))
-{
-	short p1 = ((eventParam*)param1)->evp.evpW.evpW0;
-	
-	LPRH rhPtr = rdPtr->rHo.hoAdRunHeader;      //get a pointer to the mmf runtime header
-	LPOBL objList = rhPtr->rhObjectList;     //get a pointer to the mmf object list
-	LPOIL oiList = rhPtr->rhOiList;             //get a pointer to the mmf object info list
-	LPQOI qualToOiList = rhPtr->rhQualToOiList; //get a pointer to the mmf qualifier to Oi list
-	
-	if ( p1 & 0x8000 ) // dealing with a qualifier...
-	{
-		LPQOI qualToOiStart = (LPQOI)(((char*)qualToOiList) + (p1 & 0x7FFF));
-		LPQOI qualToOi = qualToOiStart;
-		bool passed = false;
-		
-		for(qualToOi; qualToOi->qoiOiList >= 0; qualToOi = (LPQOI)(((char*)qualToOi) + 4))
-		{
-			LPOIL curOi = oiList + qualToOi->qoiOiList;
-			
-			if(curOi->oilNObjects <= 0) continue;	//No Objects
-
-			bool hasSelection = curOi->oilEventCount == rhPtr->rh2.rh2EventCount;
-			if(hasSelection && curOi->oilNumOfSelected <= 0) continue; //No selected objects
-			
-			LPHO curObj = NULL;
-			LPHO prevSelected = NULL;
-			int count = 0;
-			int selected = 0;
-			if(hasSelection) //Already has selected objects
-			{
-				curObj = objList[curOi->oilListSelected].oblOffset;
-				count = curOi->oilNumOfSelected;
-			}
-			else //No previously selected objects
-			{
-				curObj = objList[curOi->oilObject].oblOffset;
-				count = curOi->oilNObjects;
-				curOi->oilEventCount = rhPtr->rh2.rh2EventCount; //tell mmf that the object selection is relevant to this event
-			}
-			
-			for(int i = 0; i < count; i++)
-			{
-				//Check here
-				if(myFunc(rdPtr,curObj,param2))
-				{
-					if(selected++ == 0)
-					{
-						curOi->oilListSelected = curObj->hoNumber;
-					}
-					else
-					{
-						prevSelected->hoNextSelected = curObj->hoNumber;
-					}
-					prevSelected = curObj;
-				}
-				if(hasSelection)
-				{
-					if(curObj->hoNextSelected >= 0) curObj = objList[curObj->hoNextSelected].oblOffset;
-					else break;
-				}
-				else
-				{
-					if(curObj->hoNumNext >= 0) curObj = objList[curObj->hoNumNext].oblOffset;
-					else break;
-				}
-			}
-			curOi->oilNumOfSelected = selected;
-			if ( selected > 0 )
-			{
-				prevSelected->hoNextSelected = -1;
-				passed = true;
-			}
-			else
-			{
-				curOi->oilListSelected = -32768;
-			}
-		}
-		
-		return passed;
-	}
-	else	// Not a qualifier
-	{
-		LPOIL curOi = oiList + p1;
-		if(curOi->oilNObjects <= 0) return false;	//No Objects
-
-		bool hasSelection = curOi->oilEventCount == rhPtr->rh2.rh2EventCount;
-		if(hasSelection && curOi->oilNumOfSelected <= 0) return false; //No selected objects
-		
-		LPHO curObj = NULL;
-		LPHO prevSelected = NULL;
-		int count = 0;
-		int selected = 0;
-		if(hasSelection) //Already has selected objects
-		{
-			curObj = objList[curOi->oilListSelected].oblOffset;
-			count = curOi->oilNumOfSelected;
-		}
-		else //No previously selected objects
-		{
-			curObj = objList[curOi->oilObject].oblOffset;
-			count = curOi->oilNObjects;
-			curOi->oilEventCount = rhPtr->rh2.rh2EventCount; //tell mmf that the object selection is relevant to this event
-		}
-
-		for(int i = 0; i < count; i++)
-		{
-			//Check here
-			if(myFunc(rdPtr,curObj,param2))
-			{
-				if(selected++ == 0)
-				{
-					curOi->oilListSelected = curObj->hoNumber;
-				}
-				else
-				{
-					prevSelected->hoNextSelected = curObj->hoNumber;
-				}
-				prevSelected = curObj;
-			}
-			if(hasSelection)
-			{
-				if(curObj->hoNextSelected < 0) break;
-				else curObj = objList[curObj->hoNextSelected].oblOffset;
-			}
-			else
-			{
-				if(curObj->hoNumNext < 0) break;
-				else curObj = objList[curObj->hoNumNext].oblOffset;
-			}
-		}
-		curOi->oilNumOfSelected = selected;
-		if ( selected > 0 )
-		{
-			prevSelected->hoNextSelected = -1;
-			return true;
-		}
-		else
-		{
-			curOi->oilListSelected = -32768;
-		}
-		return false;
-	}
-}

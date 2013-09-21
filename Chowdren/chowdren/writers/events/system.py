@@ -31,6 +31,7 @@ class SystemObject(ObjectWriter):
             self.group_activations[container].append(check_name)
 
     def write_loops(self, writer):
+        self.loop_names = set()
         loops = defaultdict(list)
         dynloops = []
         for loop_group in self.get_conditions('OnLoop'):
@@ -45,6 +46,7 @@ class SystemObject(ObjectWriter):
             if name == 'Clear Filter':
                 # KU-specific hack
                 continue
+            self.loop_names.add(name.lower())
             loops[name].append(loop_group)
 
         if not loops:
@@ -155,6 +157,13 @@ class TimerGreater(ConditionWriter):
         seconds = self.parameters[0].loader.timer / 1000.0
         writer.put('frame_time >= %s' % seconds)
 
+class TimerLess(ConditionWriter):
+    is_always = True
+
+    def write(self, writer):
+        seconds = self.parameters[0].loader.timer / 1000.0
+        writer.put('frame_time <= %s' % seconds)
+
 class TimerEvery(ConditionWriter):
     is_always = True
     custom = True
@@ -167,6 +176,12 @@ class TimerEvery(ConditionWriter):
         writer.putln('%s += float(manager->fps_limit.dt);' % name)
         writer.putln('if (%s < %s) %s' % (name, seconds, event_break))
         writer.putln('%s -= %s;' % (name, seconds))
+
+class AnimationFinished(ConditionWriter):
+    is_always = True
+
+    def write(self, writer):
+        writer.put('is_animation_finished(%s)' % self.convert_index(0))
 
 class OnGroupActivation(ConditionWriter):
     custom = True
@@ -254,20 +269,35 @@ class FacingInDirection(ConditionWriter):
 
 # actions
 
-class CreateObject(ActionWriter):
+class CreateBase(ActionWriter):
+    custom = True
     def write(self, writer):
-        is_shoot = False # action_name == 'Shoot'
+        writer.start_brace()
+        end_name = 'create_%s_end' % id(self)
+        is_shoot = self.is_shoot
         details = self.convert_index(0)
         x = str(details['x'])
         y = str(details['y'])
         parent = details.get('parent', None)
-        if parent and not is_shoot:
+        if parent is not None and not is_shoot:
+            writer.putln('int parent_x, parent_y, layer_index;')
+            parent_list = 'parent_instances'
+            writer.putln('FrameObject * parent = %s;' % (
+                self.converter.get_object(parent)))
+            writer.putln('if (parent == NULL) parent_x = parent_y = '
+                         'layer_index = 0;')
+            writer.putln('else {')
+            writer.indent()
             if details.get('use_action_point', False):
                 parent_x = 'get_action_x()'
                 parent_y = 'get_action_y()'
             else:
                 parent_x = 'x'
                 parent_y = 'y'
+            writer.putln('parent_x = parent->%s;' % parent_x)
+            writer.putln('parent_y = parent->%s;' % parent_y)
+            writer.putln('layer_index = parent->layer_index;')
+            writer.end_brace()
             if details.get('set_direction', False):
                 raise NotImplementedError
                 # arguments.append('use_direction = True')
@@ -275,9 +305,9 @@ class CreateObject(ActionWriter):
                 print 'transform position direction not implemented'
             if details.get('use_direction', False):
                 print 'use_direction not implemented'
-            x = '%s->%s + %s' % (parent, parent_x, x)
-            y = '%s->%s + %s' % (parent, parent_y, y)
-            layer = '%s->layer_index' % parent
+            x = 'parent_x + %s' % (x)
+            y = 'parent_y + %s' % (y)
+            layer = 'layer_index'
         else:
             layer = details['layer']
         if is_shoot:
@@ -285,23 +315,34 @@ class CreateObject(ActionWriter):
         else:
             create_object = details['create_object']
         arguments = [x, y]
-        list_name = self.converter.get_list_name(create_object)
         obj_create_func = 'create_%s' % get_method_name(create_object)
+        create_method = 'create_object'
+        writer.putln('FrameObject * new_obj = %s(%s(%s), %s); // %s' % (
+            create_method, obj_create_func, ', '.join(arguments), layer,
+            details))
+        object_info = self.parameters[0].loader.objectInfo
+        try:
+            list_name = self.converter.has_selection[object_info]
+            writer.putln('%s.push_back(new_obj);' % (list_name))
+        except KeyError:
+            list_name = self.converter.get_list_name(create_object)
+            writer.putln('%s = make_single_list(new_obj);' % (list_name))
+            self.converter.has_selection[object_info] = list_name
         if is_shoot:
-            create_method = '%s->shoot' % self.get_object(
-                action.objectInfo)
-            arguments.append(str(details['shoot_speed']))
-        else:
-            create_method = 'create_object'
-        writer.put('%s = %s(%s(%s), %s); // %s' % (
-            list_name, create_method, obj_create_func, 
-            ', '.join(arguments), layer, details))
-        self.converter.has_selection[
-            self.parameters[0].loader.objectInfo] = list_name
-        if False:#action_name == 'DisplayText':
+            writer.putln('%s->shoot(new_obj, %s);' % (
+                self.converter.get_object(object_info),
+                details['shoot_speed']))
+        writer.end_brace()
+        if False: # action_name == 'DisplayText':
             paragraph = parameters[1].loader.value
             if paragraph != 0:
                 raise NotImplementedError
+
+class CreateObject(CreateBase):
+    is_shoot = False
+
+class ShootObject(CreateBase):
+    is_shoot = True
 
 class SetPosition(ActionWriter):
     def write(self, writer):
@@ -309,7 +350,8 @@ class SetPosition(ActionWriter):
         x = str(details['x'])
         y = str(details['y'])
         parent = details.get('parent', None)
-        if parent:
+        if parent is not None:
+            parent = self.converter.get_object(parent)
             if details.get('use_action_point', False):
                 parent_x = 'get_action_x()'
                 parent_y = 'get_action_y()'
@@ -327,6 +369,22 @@ class SetPosition(ActionWriter):
         arguments = [x, y]
         writer.put('set_position(%s); // %s' % (
             ', '.join(arguments), details))
+
+class LookAt(ActionWriter):
+    def write(self, writer):
+        object_info, object_type = self.get_object()
+        instance = self.converter.get_object(object_info)
+        details = self.convert_index(0)
+        x = str(details['x'])
+        y = str(details['y'])
+        parent = details.get('parent', None)
+        if not parent:
+            raise NotImplementedError()
+        parent = self.converter.get_object(parent)
+        x = '%s->x + %s' % (parent, x)
+        y = '%s->y + %s' % (parent, y)
+        writer.put('set_direction(get_direction_int(%s->x, %s->y, %s, %s));' 
+            % (instance, instance, x, y))
 
 class MoveInFront(ActionWriter):
     def write(self, writer):
@@ -346,13 +404,15 @@ class StartLoop(ActionWriter):
         try:
             exp, = self.parameters[0].loader.items[:-1]
             real_name = exp.loader.value
+            loop_names = self.converter.system_object.loop_names
+            if real_name.lower() not in loop_names:
+                if real_name == 'Clear Filter':
+                    self.converter.clear_selection()
+                return
             name = get_method_name(real_name)
             func_call = 'loop_%s()' % name
         except ValueError:
             func_call = 'call_dynamic_loop(name)'
-        if real_name == 'Clear Filter':
-            self.converter.clear_selection()
-            return
         comparison = None
         times = None
         try:
@@ -483,7 +543,7 @@ class SetEffect(ActionWriter):
         if name == '':
             shader_name = 'NULL'
         else:
-            shader_name = '%s' % shader.get_name(name)
+            shader_name = shader.get_name(name)
         writer.put('set_shader(%s);' % shader_name)
 
 class SpreadValue(ActionWriter):
@@ -571,6 +631,7 @@ class ToString(ExpressionWriter):
 
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
+    'Shoot' : ShootObject,
     'StartLoop' : StartLoop,
     'StopLoop' : StopLoop,
     'SetX' : 'set_x',
@@ -581,7 +642,10 @@ actions = make_table(ActionMethodWriter, {
     'SubtractFromAlterable' : 'values->sub',
     'SetAlterableString' : 'strings->set',
     'AddCounterValue' : 'add',
+    'SubtractCounterValue' : 'subtract',
     'SetCounterValue' : 'set',
+    'SetMaximumValue' : 'set_max',
+    'SetMinimumValue' : 'set_min',
     'SetGlobalString' : 'global_strings->set',
     'SetGlobalValue' : 'global_values->set',
     'AddGlobalValue' : 'global_values->add',
@@ -593,6 +657,8 @@ actions = make_table(ActionMethodWriter, {
     'SetParagraph' : 'set_paragraph(%s-1)',
     'LockChannel' : 'media->lock(%s-1)',
     'StopChannel' : 'media->stop_channel(%s-1)',
+    'ResumeChannel' : 'media->resume_channel(%s-1)',
+    'PauseChannel' : 'media->pause_channel(%s-1)',
     'SetChannelPosition' : 'media->set_channel_position(%s-1, %s)',
     'SetChannelPan' : 'media->set_channel_pan(%s-1, %s)',
     'SetChannelVolume' : 'media->set_channel_volume(%s-1, %s)',
@@ -612,6 +678,7 @@ actions = make_table(ActionMethodWriter, {
     'CenterDisplayY' : CenterDisplayY,
     'EndApplication' : EndApplication,
     'RestartApplication' : 'restart',
+    'LookAt' : LookAt,
     'SetPosition' : SetPosition,
     'ExecuteEvaluatedProgram' : 'open_process',
     'HideCursor' : 'set_cursor_visible(false)',
@@ -652,6 +719,8 @@ actions = make_table(ActionMethodWriter, {
     'RestoreSpeed' : 'restore_speed',
     'SetMainVolume' : 'media->set_main_volume',
     'StopAllSamples' : 'media->stop_samples',
+    'StopSample' : 'media->stop_sample("%s")',
+    'SetSampleVolume' : 'media->set_sample_volume("%s", %s)',
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
@@ -661,8 +730,17 @@ actions = make_table(ActionMethodWriter, {
     'RestoreControls' : EmptyAction, # XXX fix,
     'ChangeControlType' : EmptyAction, # XXX fix,
     'FlashDuring' : 'flash',
+    'SetMaximumSpeed' : 'get_movement()->set_max_speed',
+    'SetSpeed' : 'get_movement()->set_speed',
+    'Bounce' : 'get_movement()->bounce()',
+    'Start' : 'get_movement()->start()',
     'Stop' : 'get_movement()->stop()',
-    'SelectMovement' : 'set_movement'
+    'SetDirections' : 'get_movement()->set_directions',
+    'GoToNode' : 'get_movement()->set_node',
+    'SelectMovement' : 'set_movement',
+    'EnableFlag' : 'enable_flag',
+    'DisableFlag' : 'disable_flag',
+    'ReplaceColor' : EmptyAction # XXX fix,
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -670,10 +748,12 @@ conditions = make_table(ConditionMethodWriter, {
     'CompareAlterableString' : make_comparison('strings->get(%s)'),
     'CompareGlobalValue' : make_comparison('global_values->get(%s)'),
     'CompareGlobalString' : make_comparison('global_strings->get(%s)'),
+    'CompareCounter' : make_comparison('value'),
     'CompareX' : make_comparison('x'),
     'CompareY' : make_comparison('y'),
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
+    'OnCollision' : IsOverlapping,
     'ObjectVisible' : '.visible',
     'ObjectInvisible' : ObjectInvisible,
     'WhileMousePressed' : 'is_mouse_pressed',
@@ -692,6 +772,7 @@ conditions = make_table(ConditionMethodWriter, {
     'OutsidePlayfield' : 'outside_playfield',
     'IsObstacle' : 'test_background_collision',
     'IsOverlappingBackground' : 'overlaps_background',
+    'OnBackgroundCollision' : 'overlaps_background',
     'PickRandom' : PickRandom,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
@@ -703,12 +784,22 @@ conditions = make_table(ConditionMethodWriter, {
     'Every' : TimerEvery,
     'TimerEquals' : TimerEquals,
     'TimerGreater' : TimerGreater,
+    'TimerLess' : TimerLess,
     'IsBold' : 'get_bold',
     'IsItalic' : 'get_italic',
-    'MovementStopped' : 'get_movement()->is_stopped()'
+    'MovementStopped' : 'get_movement()->is_stopped()',
+    'PathFinished' : 'get_movement()->is_path_finished',
+    'NodeReached' : 'get_movement()->is_node_reached',
+    'CompareSpeed' : make_comparison('get_movement()->get_speed()'),
+    'FlagOn' : 'is_flag_on',
+    'FlagOff' : 'is_flag_off',
+    'NearWindowBorder' : 'is_near_border',
+    'AnimationFinished' : AnimationFinished,
+    'StartOfFrame' : '.loop_count <= 1'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    'Speed' : 'get_movement()->get_speed()',
     'String' : StringExpression,
     'ToNumber' : 'string_to_double',
     'ToInt' : 'int',
@@ -780,6 +871,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
     'NewLine' : '.newline_character',
+    'XLeftFrame' : 'frame_left()',
     'XRightFrame' : 'frame_right()',
     'YBottomFrame' : 'frame_bottom()',
     'ObjectCount' : ObjectCount,

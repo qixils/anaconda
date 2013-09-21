@@ -18,7 +18,6 @@ def get_method_name(value, digit_underscore = False):
     for c in value:
         if c.isupper():
             c = c.lower()
-            add_underscore = True
         if c in VALID_CHARACTERS:
             if add_underscore:
                 if new_name:

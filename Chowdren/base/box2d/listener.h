@@ -1,7 +1,9 @@
-#ifndef _listener_h_
-#define _listener_h_
+#ifndef CHOWDREN_BOX2D_LISTENER_H
+#define CHOWDREN_BOX2D_LISTENER_H
 
-struct tagRDATA;
+#include "Box2D.h"
+
+class Box2D;
 
 class DestructionListener : public b2DestructionListener
 {
@@ -9,7 +11,7 @@ public:
 	void SayGoodbye(b2Shape * shape);
 	void SayGoodbye(b2Joint* joint);
 
-	tagRDATA* rdPtr;
+	Box2D* rdPtr;
 };
 
 class BoundaryListener : public b2BoundaryListener	
@@ -17,7 +19,7 @@ class BoundaryListener : public b2BoundaryListener
 public:
 	void Violation(b2Body* body);
 
-	tagRDATA* rdPtr;
+	Box2D* rdPtr;
 };
 
 class ContactListener : public b2ContactListener
@@ -30,7 +32,7 @@ public:
 	void ContactPointRemove(b2Contact* contact, const b2ContactPoint* point);
 	void ContactPointResponse(b2Contact* contact, const b2ContactResult* point);
 
-	tagRDATA* rdPtr;
+	Box2D* rdPtr;
 };
 
 class ContactFilter : public b2ContactFilter
@@ -39,12 +41,14 @@ public:
 	bool ShouldCollide(b2Shape* shape1, b2Shape* shape2);
 	bool RayCollide(rayUserData* userData, b2Shape* b2Shape);
 	
-	tagRDATA* rdPtr;
+	Box2D* rdPtr;
 };
 
 class DebugDraw : public b2DebugDraw
 {
 public:
+    Box2D* rdPtr;
+    
 	DebugDraw() {}
 	~DebugDraw() {}
 	void DrawPolygon(const b2Vec2* vertices, int32 vertexCount, const b2Color& color);
@@ -55,4 +59,4 @@ public:
 	void DrawXForm(const b2XForm& xf);
 };
 
-#endif
+#endif // CHOWDREN_BOX2D_LISTENER_H

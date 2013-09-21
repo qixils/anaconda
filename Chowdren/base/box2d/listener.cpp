@@ -1,5 +1,6 @@
-#include "common.h"
 #include "func.h"
+#include "callback.h"
+#include "box2dext.h"
 
 void DestructionListener::SayGoodbye(b2Joint *joint)
 {
@@ -42,8 +43,7 @@ bool ContactListener::ContactStart(b2Contact* contact)
 
 	if(contact->GetShape1()->IsSensor() || contact->GetShape2()->IsSensor()) rdPtr->collMode = 1;
 
-	if(cr == 1)
-	{
+	if(cr == 1) {
 		CollideCallback* c = new CollideCallback(12);
 		
 		c->data.body1 = u1->body;
@@ -54,12 +54,12 @@ bool ContactListener::ContactStart(b2Contact* contact)
 		c->data.type1 = u1->collType;
 		c->data.type2 = u2->collType;
 
-		addCallback(c,rdPtr);
+		addCallback(c, rdPtr);
 
 		rdPtr->collData = c->data;
-		rdPtr->rRd->GenerateEvent(18);
-		rdPtr->rRd->GenerateEvent(19);
-		rdPtr->rRd->GenerateEvent(20);
+		rdPtr->generate_event(18);
+		rdPtr->generate_event(19);
+		rdPtr->generate_event(20);
 
 		rdPtr->collData.body1 = c->data.body2;
 		rdPtr->collData.body2 = c->data.body1;
@@ -68,8 +68,8 @@ bool ContactListener::ContactStart(b2Contact* contact)
 		rdPtr->collData.type1 = c->data.type2;
 		rdPtr->collData.type2 = c->data.type1;
 		
-		rdPtr->rRd->GenerateEvent(19);
-		rdPtr->rRd->GenerateEvent(20);
+		rdPtr->generate_event(19);
+		rdPtr->generate_event(20);
 	}
 	return rdPtr->collMode == 0;
 }
@@ -80,8 +80,7 @@ void ContactListener::ContactStop(b2Contact* contact)
 	
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
-	if(cr == 1)
-	{
+	if(cr == 1) {
 		CollideCallback* c = new CollideCallback(15);
 		
 		c->data.body1 = u1->body;

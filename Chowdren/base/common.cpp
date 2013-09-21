@@ -110,23 +110,15 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                 continue;
             unsigned char * src_c = (unsigned char*)&img->get(
                 src_x2, src_y2);
-            unsigned char & src_a = src_c[3];
-
-            unsigned char & src_r = src_c[0];
-            unsigned char & src_g = src_c[1];
-            unsigned char & src_b = src_c[2];
             unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
                 dest_y2);
-            unsigned char & dst_r = dst_c[0];
-            unsigned char & dst_g = dst_c[1];
-            unsigned char & dst_b = dst_c[2];
-            unsigned char & dst_a = dst_c[3];
-            float srcf_a = src_a / 255.0f;
+
+            float srcf_a = src_c[3] / 255.0f;
             float one_minus_src = 1.0f - srcf_a;
-            dst_r = srcf_a * src_r + one_minus_src * dst_r;
-            dst_g = srcf_a * src_g + one_minus_src * dst_g;
-            dst_b = srcf_a * src_b + one_minus_src * dst_b;
-            dst_a = (srcf_a + (dst_a / 255.0f) * one_minus_src) * 255;
+            dst_c[0] = srcf_a * src_c[0] + one_minus_src * dst_c[0];
+            dst_c[1] = srcf_a * src_c[1] + one_minus_src * dst_c[1];
+            dst_c[2] = srcf_a * src_c[2] + one_minus_src * dst_c[2];
+            dst_c[3] = (srcf_a + (dst_c[3] / 255.0f) * one_minus_src) * 255;
         }
     }
     image_changed = true;
@@ -261,17 +253,31 @@ void Layer::destroy_backgrounds(int x, int y, bool fine)
     back->destroy_at(x, y);
 }
 
+bool Layer::test_background_collision(CollisionBase * a)
+{
+    if (back != NULL && back->collide(a))
+        return true;
+    ObjectList::const_iterator it;
+    for (it = background_instances.begin(); it != background_instances.end();
+         it++) {
+        CollisionBase * col = (*it)->get_collision();
+        if (col == NULL)
+            continue;
+        if (collide(a, col))
+            return true;
+    }
+    return false;
+}
+
 bool Layer::test_background_collision(int x, int y)
 {
-    if (back == NULL)
-        return false;
     PointCollision col(x, y);
-    return back->collide(&col);
+    return test_background_collision(&col);
 }
 
 void Layer::paste(Image * img, int dest_x, int dest_y, 
-           int src_x, int src_y, int src_width, int src_height, 
-           int collision_type)
+                  int src_x, int src_y, int src_width, int src_height, 
+                  int collision_type)
 {
     create_background();
     back->paste(img, dest_x, dest_y, src_x, src_y, 
@@ -317,6 +323,10 @@ Frame::Frame(const std::string & name, int width, int height,
 {
     std::fill_n(key_presses, CHOWDREN_KEY_LAST, false);
     std::fill_n(mouse_presses, CHOWDREN_MOUSE_BUTTON_LAST, false);
+}
+
+void Frame::event_callback(int id)
+{
 }
 
 void Frame::on_start()
@@ -459,16 +469,20 @@ ObjectList Frame::get_instances(unsigned int qualifier[])
 FrameObject * Frame::get_instance(int object_id)
 {
     ObjectList & instances = instance_classes[object_id];
-    if (instances.size() == 0)
-        std::cout << "Fatal error: invalid instance count" << std::endl;
+    if (instances.size() == 0) {
+        std::cout << "Warning: invalid instance count" << std::endl;
+        return NULL;
+    }
     return instances[0];
 }
 
 FrameObject * Frame::get_instance(unsigned int qualifier[])
 {
     ObjectList list = get_instances(qualifier);
-    if (list.size() == 0)
-        std::cout << "Fatal error: invalid instance count" << std::endl;
+    if (list.size() == 0) {
+        std::cout << "Warning: invalid instance count" << std::endl;
+        return NULL;
+    }
     return list[0];
 }
 
@@ -494,12 +508,10 @@ void Frame::add_background_object(FrameObject * object, int layer_index)
     layers[layer_index]->add_background_object(object);
 }
 
-ObjectList Frame::create_object(FrameObject * object, int layer_index)
+FrameObject * Frame::create_object(FrameObject * object, int layer_index)
 {
     add_object(object, layer_index);
-    ObjectList new_list;
-    new_list.push_back(object);
-    return new_list;
+    return object;
 }
 
 void Frame::destroy_object(FrameObject * object)
@@ -552,9 +564,19 @@ void Frame::set_display_center(int x, int y)
     }
 }
 
+int Frame::frame_left()
+{
+    return off_x;
+}
+
 int Frame::frame_right()
 {
     return off_x + WINDOW_WIDTH;
+}
+
+int Frame::frame_top()
+{
+    return off_y;
 }
 
 int Frame::frame_bottom()
@@ -642,6 +664,9 @@ FrameObject::FrameObject(const std::string & name, int x, int y, int type_id)
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
   destroying(false), scroll(true), name(name), movement(NULL)
 {
+#ifdef CHOWDREN_USE_BOX2D
+    body = -1;
+#endif
 }
 
 FrameObject::~FrameObject()
@@ -755,9 +780,11 @@ bool FrameObject::overlaps_background()
 {
     if (destroying)
         return false;
-    Background * back = frame->layers[layer_index]->back;
-    back->update();
-    return back->collide(get_collision());
+    Layer * layer = frame->layers[layer_index];
+    Background * back = layer->back;
+    if (back != NULL)
+        back->update();
+    return layer->test_background_collision(get_collision());
 }
 
 bool FrameObject::outside_playfield()
@@ -824,7 +851,13 @@ int FrameObject::get_level()
 
 void FrameObject::move_back(FrameObject * other)
 {
-    set_level(other->get_level()+1);
+    if (other->layer_index != layer_index)
+        return;
+    int level = get_level();
+    int level2 = other->get_level();
+    if (level < level2)
+        return;
+    set_level(level2);
 }
 
 void FrameObject::move_back()
@@ -839,7 +872,13 @@ void FrameObject::move_front()
 
 void FrameObject::move_front(FrameObject * other)
 {
-    set_level(other->get_level());
+    if (other->layer_index != layer_index)
+        return;
+    int level = get_level();
+    int level2 = other->get_level();
+    if (level > level2)
+        return;
+    set_level(level2);
 }
 
 FixedValue FrameObject::get_fixed()
@@ -857,6 +896,33 @@ Movement * FrameObject::get_movement()
     if (movement == NULL)
         movement = new StaticMovement(this);
     return movement;
+}
+
+int FrameObject::get_action_x()
+{
+    return x;
+}
+
+int FrameObject::get_action_y()
+{
+    return y;
+}
+
+void FrameObject::shoot(FrameObject * other, int speed)
+{
+    other->set_position(get_action_x(), get_action_y());
+    delete other->movement;
+    other->movement = new ShootMovement(other);
+    other->movement->set_speed(speed);
+}
+
+double FrameObject::get_angle()
+{
+    return 0.0;
+}
+
+void FrameObject::set_angle(double angle, int quality)
+{
 }
 
 // FixedValue
@@ -884,7 +950,7 @@ FixedValue::operator std::string() const
 // Direction
 
 Direction::Direction(int index, int min_speed, int max_speed, int loop_count, 
-          int back_to)
+                     int back_to)
 : index(index), min_speed(min_speed), max_speed(max_speed), 
   loop_count(loop_count), back_to(back_to)
 {
@@ -937,14 +1003,15 @@ Active::Active(const std::string & name, int x, int y, int type_id)
 : FrameObject(name, x, y, type_id), animation(),
   animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
   forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
-  animation_direction(0), stopped(false), flash_interval(0.0f)
+  animation_direction(0), stopped(false), flash_interval(0.0f),
+  animation_finished(-1)
 {
     create_alterables();
 }
 
 void Active::initialize_active()
 {
-    collision = new SpriteCollision(this, NULL);
+    collision = new SpriteCollision(this);
     collision->is_box = collision_box;
     update_frame();
 }
@@ -1001,7 +1068,6 @@ void Active::force_direction(int value)
 
 void Active::restore_animation()
 {
-
 }
 
 void Active::restore_frame()
@@ -1060,6 +1126,8 @@ void Active::update_action_point()
 
 void Active::update(float dt)
 {
+    animation_finished = -1;
+
     if (forced_frame != -1 || stopped)
         return;
     if (flash_interval != 0.0f) {
@@ -1075,9 +1143,10 @@ void Active::update(float dt)
     while (counter > 100) {
         animation_frame++;
         if (animation_frame >= (int)dir->frames.size()) {
-            if (dir->loop_count != 0)
+            if (dir->loop_count != 0) {
+                animation_finished = animation;
                 animation_frame--;
-            else
+            } else
                 animation_frame = dir->back_to;
         }
         counter -= 100;
@@ -1247,10 +1316,54 @@ void Active::flash(float value)
     flash_time = 0.0f;
 }
 
+void Active::enable_flag(int index)
+{
+    flags |= 1 << index;
+}
+
+void Active::disable_flag(int index)
+{
+    flags &= ~(1 << index);
+}
+
+bool Active::is_flag_on(int index)
+{
+    return (flags & (1 << index)) != 0;
+}
+
+bool Active::is_flag_off(int index)
+{
+    return (flags & (1 << index)) == 0;
+}
+
+bool Active::is_near_border(int border)
+{
+    int box[4];
+    get_box(box);
+
+    if (box[0] <= frame->frame_left() + border)
+        return true;
+
+    if (box[2] >= frame->frame_right() - border)
+        return true;
+
+    if (box[1] <= frame->frame_top() + border)
+        return true;
+
+    if (box[3] >= frame->frame_bottom() - border)
+        return true;
+
+    return false;
+}
+
+bool Active::is_animation_finished(int anim)
+{
+    return animation_finished == anim;
+}
+
 // Text
 
-
-static FTTextureFont * default_font = NULL;
+FTTextureFont * default_font = NULL;
 
 void set_font_path(const char * path)
 {
@@ -1381,42 +1494,75 @@ CollisionBase * Text::get_collision()
 
 // Backdrop
 
-Backdrop::Backdrop(Image * image, const std::string & name, int x, int y,
-                   int type_id) 
-: FrameObject(name, x, y, type_id), image(image)
+Backdrop::Backdrop(const std::string & name, int x, int y, int type_id) 
+: FrameObject(name, x, y, type_id), collision(NULL)
 {
+}
+
+Backdrop::~Backdrop()
+{
+    delete image;
+    delete collision;
+}
+
+CollisionBase * Backdrop::get_collision()
+{
+    return collision;
 }
 
 void Backdrop::draw()
 {
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    int hotspot_x = image->hotspot_x;
-    int hotspot_y = image->hotspot_y;
-    image->hotspot_x = image->hotspot_y = 0;
     image->draw(x, y);
-    image->hotspot_x = hotspot_x;
-    image->hotspot_y = hotspot_y;
 }
 
 // QuickBackdrop
 
-QuickBackdrop::QuickBackdrop(const Color & color, int width, int height, 
-              const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), color(color)
+QuickBackdrop::QuickBackdrop(const std::string & name, int x, int y,
+                             int type_id) 
+: FrameObject(name, x, y, type_id), collision(NULL)
 {
-    this->width = width;
-    this->height = height;
+}
+
+QuickBackdrop::~QuickBackdrop()
+{
+    delete collision;
+}
+
+CollisionBase * QuickBackdrop::get_collision()
+{
+    return collision;
 }
 
 void QuickBackdrop::draw()
 {
     glDisable(GL_TEXTURE_2D);
-    glColor4ub(color.r, color.g, color.b, blend_color.a);
     glBegin(GL_QUADS);
-    glVertex2f(x, y);
-    glVertex2f(x + width, y);
-    glVertex2f(x + width, y + height);
-    glVertex2f(x, y + height);
+    switch (gradient_type) {
+        case NONE_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, blend_color.a);
+            glVertex2f(x, y);
+            glVertex2f(x + width, y);
+            glVertex2f(x + width, y + height);
+            glVertex2f(x, y + height);
+            break;
+        case VERTICAL_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, blend_color.a);
+            glVertex2f(x, y);
+            glVertex2f(x + width, y);
+            glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
+            glVertex2f(x + width, y + height);
+            glVertex2f(x, y + height);
+            break;
+        case HORIZONTAL_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, blend_color.a);
+            glVertex2f(x, y + height);
+            glVertex2f(x, y);
+            glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
+            glVertex2f(x + width, y);
+            glVertex2f(x + width, y + height);
+            break;
+    }
     glEnd();
 }
 
@@ -1464,6 +1610,11 @@ void Counter::add(double value)
     set(this->value + value);
 }
 
+void Counter::subtract(double value)
+{
+    set(this->value - value);
+}
+
 void Counter::set(double value)
 {
     value = std::max<double>(std::min<double>(value, maximum), minimum);
@@ -1472,6 +1623,18 @@ void Counter::set(double value)
     std::ostringstream str;
     str << value;
     cached_string = str.str();
+}
+
+void Counter::set_max(double value)
+{
+    maximum = value;
+    set(this->value);
+}
+
+void Counter::set_min(double value)
+{
+    minimum = value;
+    set(this->value);
 }
 
 void Counter::draw()
@@ -1981,43 +2144,9 @@ const std::string & StringTokenizer::get(int index)
 
 // File
 
-#ifdef _WIN32
-#include "windows.h"
-#include "shlobj.h"
-#elif __APPLE__
-#include <CoreServices/CoreServices.h>
-#include <limits.h>
-#elif __linux
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#endif
-
-
-std::string File::get_appdata_directory()
+const std::string & File::get_appdata_directory()
 {
-    static bool initialized = false;
-    static std::string dir;
-    if (!initialized) {
-#ifdef _WIN32
-        TCHAR path[MAX_PATH];
-        SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
-        dir = path;
-#elif __APPLE__
-        FSRef ref;
-        OSType folderType = kApplicationSupportFolderType;
-        char path[PATH_MAX];
-        FSFindFolder(kUserDomain, folderType, kCreateFolder, &ref);
-        FSRefMakePath(&ref, (UInt8*)&path, PATH_MAX);
-        dir = path;
-#elif __linux
-        struct passwd *pw = getpwuid(getuid());
-        dir = pw->pw_dir;
-#else
-        dir = ".";
-#endif
-    }
-    return dir;
+    return platform_get_appdata_dir();
 }
 
 bool File::file_exists(const std::string & path)
@@ -2233,6 +2362,282 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     std::sort(instances.begin(), instances.end(), sort_func);
 }
 
+// Viewport
+
+Viewport::Viewport(const std::string & name, int x, int y, int type_id) 
+: FrameObject(name, x, y, type_id)
+{
+
+}
+
+void Viewport::set_source(int center_x, int center_y, int width, int height)
+{
+    this->center_x = center_x;
+    this->center_y = center_y;
+    src_width = width;
+    src_height = height;
+}
+
+void Viewport::set_width(int w)
+{
+    width = w;
+}
+
+void Viewport::set_height(int h)
+{
+    height = h;
+}
+
+void Viewport::draw()
+{
+    int src_x = center_x - src_width / 2;
+    int src_y = center_y - src_height / 2;
+    // XXX finish
+}
+
+// AdvancedDirection
+
+AdvancedDirection::AdvancedDirection(const std::string & name, int x, int y,
+                                     int type_id)
+: FrameObject(name, x, y, type_id)
+{
+}
+
+void AdvancedDirection::find_closest(ObjectList instances, int x, int y)
+{
+    ObjectList::const_iterator it;
+    float lowest_dist;
+    closest = NULL;
+    for (it = instances.begin(); it != instances.end(); it++) {
+        FrameObject * instance = *it;
+        float dist = get_distance(x, y, instance->x, instance->y);
+        if (closest != NULL && dist > lowest_dist)
+            continue;
+        closest = instance;
+        lowest_dist = dist;
+    }
+}
+
+FixedValue AdvancedDirection::get_closest(int n)
+{
+    return closest->get_fixed();
+}
+
+// TextBlitter
+
+TextBlitter::TextBlitter(const std::string & name, int x, int y, int type_id)
+: FrameObject(name, x, y, type_id)
+{
+    create_alterables();
+}
+
+void TextBlitter::initialize(const std::string & map_string)
+{
+    for (int i = 0; i < 256; i++) {
+        charmap[i] = -1;
+    }
+
+    for (unsigned int i = 0; i < map_string.size(); i++) {
+        unsigned char c = (unsigned char)map_string[i];
+        charmap[c] = i;
+    }
+}
+
+void TextBlitter::set_text(const std::string & value)
+{
+    text = value;
+}
+
+void TextBlitter::draw()
+{
+    image->load();
+    image->upload_texture();
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, image->tex);
+
+    std::string::const_iterator it;
+    int xx = x;
+    int yy = y;
+    for (it = text.begin(); it != text.end(); it++) {
+        unsigned char c = (unsigned char)(*it);
+        int i = charmap[c];
+        int img_x = (i * char_width) % image->width;
+        int img_y = ((i * char_width) / image->width) * char_height;
+
+        float t_x1 = float(img_x) / float(image->width);
+        float t_x2 = float(img_x+char_width) / float(image->width);
+        float t_y1 = float(img_y) / float(image->height);
+        float t_y2 = float(img_y+char_height) / float(image->height);
+
+        glBegin(GL_QUADS);
+        glTexCoord2f(t_x1, t_y1);
+        glVertex2i(xx, yy);
+        glTexCoord2f(t_x2, t_y1);
+        glVertex2i(xx + char_width, yy);
+        glTexCoord2f(t_x2, t_y2);
+        glVertex2i(xx + char_width, yy + char_height);
+        glTexCoord2f(t_x1, t_y2);
+        glVertex2i(xx, yy + char_height);
+        glEnd();
+
+        if (c == '\n') {
+            xx = x;
+            yy += char_height;
+        } else
+            xx += char_width;
+    }
+
+    glDisable(GL_TEXTURE_2D);
+}
+
+// PlatformObject
+
+PlatformObject::PlatformObject(const std::string & name, int x, int y, 
+                               int type_id) 
+: FrameObject(name, x, y, type_id), instance(NULL), paused(false),
+  add_x_vel(0), add_y_vel(0), x_move_count(0), y_move_count(0), x_vel(0),
+  y_vel(0), left(false), right(false), obstacle_collision(false),
+  platform_collision(false), on_ground(false), through_collision_top(false),
+  jump_through(false)
+{
+    create_alterables();
+}
+
+void PlatformObject::update(float dt)
+{
+    bool l = left;
+    bool r = right;
+    left = right = false;
+    
+    if (instance == NULL || paused || instance->destroying)
+        return;
+
+    if (r && !l)
+        x_vel += x_accel;
+    if (l && !r)
+        x_vel -= x_accel;
+    if (x_vel != 0 && ((!l && !r) || (l && r))) {
+        x_vel -= (x_vel / get_abs(x_vel)) * x_decel;
+        if (x_vel <= x_decel && x_vel >= 0 - x_decel)
+            x_vel = 0;
+    }
+
+    x_vel = std::min(std::max(x_vel, 0 - max_x_vel), max_x_vel);
+    y_vel = std::min(std::max(y_vel + gravity, 0 - max_y_vel), max_y_vel);
+    int x_vel_2 = x_vel + add_x_vel;
+    int y_vel_2 = y_vel + add_y_vel;
+    x_move_count += get_abs(x_vel_2);
+    y_move_count += get_abs(y_vel_2);
+    
+    while (x_move_count > 100) {
+        if (!overlaps_obstacle())
+            instance->set_x(instance->x + x_vel_2 / get_abs(x_vel_2));
+        if (overlaps_obstacle()) {
+            for (int i = 0; i < step_up; i++) {
+                instance->set_y(instance->y - 1);
+                if (!overlaps_obstacle())
+                    break;
+            }
+            if (overlaps_obstacle()) {
+                instance->set_position(
+                    instance->x - x_vel_2 / get_abs(x_vel_2),
+                    instance->y + step_up);
+                x_vel = x_move_count = 0;
+            }
+        }
+        x_move_count -= 100;
+    }
+    
+    while (y_move_count > 100) {
+        if (!overlaps_obstacle()) {
+            instance->set_y(instance->y + y_vel_2 / get_abs(y_vel_2));
+            on_ground = false;
+        }
+        if (overlaps_obstacle()) {
+            instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+            if (y_vel_2 > 0)
+                on_ground = true;
+            y_vel = y_move_count = 0;
+        }
+        if (overlaps_platform() && y_vel_2 > 0) {
+            if (through_collision_top) {
+                instance->set_y(instance->y - 1);
+                if (!overlaps_platform()) {
+                    instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+                    y_vel = y_move_count = 0;
+                    on_ground = true;
+                }
+                instance->set_y(instance->y + 1);
+            } else {
+                instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+                y_vel = y_move_count = 0;
+                on_ground = true;
+            }
+        }
+        y_move_count -= 100;
+    }
+
+    if (slope_correction > 0 && y_vel_2 >= 0) {
+        bool tmp = false;
+        for (int i = 0; i < slope_correction; i++) {
+            instance->set_y(instance->y + 1);
+            if (overlaps_obstacle()) {
+                instance->set_y(instance->y - 1);
+                on_ground = true;
+                tmp = true;
+                break;
+            }
+        }
+        if (!tmp)
+            instance->set_y(instance->y - slope_correction);
+    }
+}
+
+bool PlatformObject::overlaps_obstacle()
+{
+    obstacle_collision = false;
+    call_overlaps_obstacle();
+    return obstacle_collision;
+}
+
+bool PlatformObject::overlaps_platform()
+{
+    platform_collision = false;
+    call_overlaps_platform();
+    return platform_collision;
+}
+
+void PlatformObject::set_object(FrameObject * instance)
+{
+    this->instance = instance;
+}
+
+bool PlatformObject::is_falling()
+{
+    return !on_ground && y_vel > 0;
+}
+
+bool PlatformObject::is_jumping()
+{
+    return !on_ground && y_vel <= 0;
+}
+
+bool PlatformObject::is_moving()
+{
+    return get_abs(x_vel) > 0;
+}
+
+void PlatformObject::jump_in_air()
+{
+    y_vel -= jump_hold_height;
+}
+
+void PlatformObject::jump()
+{
+    y_vel = 0 - jump_strength;
+}
+
 // ActivePicture
 
 ActivePicture::ActivePicture(const std::string & name, int x, int y, 
@@ -2241,7 +2646,7 @@ ActivePicture::ActivePicture(const std::string & name, int x, int y,
   scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
 {
     create_alterables();
-    collision = new SpriteCollision(this, NULL);
+    collision = new SpriteCollision(this);
 }
 
 ActivePicture::~ActivePicture()
@@ -2323,7 +2728,7 @@ void ActivePicture::set_zoom(double value)
     set_scale(value / 100.0);
 }
 
-void ActivePicture::set_angle(double value)
+void ActivePicture::set_angle(double value, int quality)
 {
     collision->set_angle(value);
     angle = value;

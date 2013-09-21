@@ -34,7 +34,8 @@ GameManager::GameManager()
   fade_value(0.0f), fade_dir(0.0f)
 {
 #ifdef CHOWDREN_IS_DEMO
-    global_time = show_build_timer = 0.0;
+    idle_timer_started = false;
+    global_time = show_build_timer = reset_timer = manual_reset_timer = 0.0;
 #endif
 
     init_platform();
@@ -106,6 +107,10 @@ bool GameManager::is_fullscreen()
 
 void GameManager::on_key(int key, bool state)
 {
+#ifdef CHOWDREN_IS_DEMO
+    idle_timer_started = true;
+    idle_timer = 0.0;
+#endif
     frame->on_key(key, state);
 }
 
@@ -133,11 +138,23 @@ int GameManager::update()
 
 #ifdef CHOWDREN_IS_DEMO
     global_time += dt;
-    idle_timer += dt;
-    if (idle_timer >= 120) {
+    if (idle_timer_started) {
+        idle_timer += dt;
+        reset_timer += dt;
+    }
+    if (platform_should_reset())
+        manual_reset_timer += dt;
+    else
+        manual_reset_timer = 0.0;
+    if (idle_timer >= 60 || manual_reset_timer >= 3.0) {
         set_frame(-2);
     }
-    if (global_time <= 20) {
+    if (reset_timer >= 60*10) {
+        reset_timer = -10.0;
+        media->stop_samples();
+        set_frame(5);
+    }
+    if (global_time <= 60) {
         show_build_timer -= dt;
         if (platform_show_build_info())
             show_build_timer = 3.0;
@@ -156,6 +173,11 @@ void GameManager::set_framerate(int framerate)
     fps_limit.set(framerate);
 }
 
+#ifdef CHOWDREN_IS_DEMO
+#include "font.h"
+extern FTTextureFont * default_font;
+#endif
+
 void GameManager::draw()
 {
     if (!window_created)
@@ -172,6 +194,21 @@ void GameManager::draw()
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
     frame->draw();
+
+#ifdef CHOWDREN_IS_DEMO
+    if (show_build_timer > 0.0) {
+        std::string date(__DATE__);
+        std::string tim(__TIME__);
+        std::string val = date + " " + tim;
+        glPushMatrix();
+        glTranslatef(50, 50, 0);
+        glScalef(5, -5, 5);
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        default_font->Render(val.c_str(), val.size(), FTPoint(),
+                             FTPoint(), RENDER_ALL);
+        glPopMatrix();
+    }
+#endif
 
 #ifdef CHOWDREN_IS_DESKTOP
 
@@ -249,10 +286,22 @@ void GameManager::draw()
 
 void GameManager::set_frame(int index)
 {
+#ifdef CHOWDREN_IS_DEMO
+    idle_timer = 0.0;
+    idle_timer_started = false;
+#endif
+
     if (frame != NULL) {
         frame->on_end();
     }
     if (index == -2) {
+        media->stop_samples();
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        platform_swap_buffers();
+#ifdef CHOWDREN_IS_DEMO
+        reset_timer = 0.0;
+#endif
         index = 0;
         // reset_global_data();
         reset_globals();
@@ -325,7 +374,6 @@ void GameManager::run()
                 << std::endl;
             platform_print_stats();
         }
-
 
         fps_limit.finish();
     }

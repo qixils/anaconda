@@ -1,48 +1,73 @@
-#ifndef _func_h_
-#define _func_h_
+#ifndef CHOWDREN_BOX2D_FUNC_H
+#define CHOWDREN_BOX2D_FUNC_H
 
-struct tagRDATA;
-typedef tagRDATA* LPRDATA;
+inline FrameObject* oParam()
+{
+    return NULL;
+}
 
-#define oParam() (LPRO)Param(-1);
-#define uParam() Param(-1);
-#define lParam() Param(TYPE_INT);
-inline float gfParam(LPRDATA rdPtr, int param1) {int f = CNC_GetFloatParameter(rdPtr); return *(float*)&f;}
-#define fParam() gfParam(rdPtr,param1);
-#define sParam() (LPCSTR)Param(TYPE_STRING);
+inline int uParam()
+{
+    return 0;
+}
 
-#define xlParam() ExParam(TYPE_INT);
-#define xsParam() (LPCSTR)ExParam(TYPE_STRING);
-inline float xgfParam(LPRDATA rdPtr, int param1) {int f = ExParam(TYPE_FLOAT); return *(float*)&f;}
-#define xfParam() xgfParam(rdPtr,param1);
+inline int lParam()
+{
+    return 0;
+}
 
-bool hasAttachment(LPRO obj, LPRDATA rdPtr);
-void removeAttachment(LPRO obj, LPRDATA rdPtr);
+inline float fParam()
+{
+    return 0.0f;
+}
 
-int getNullBody(LPRDATA rdPtr);
-int getNullJoint(LPRDATA rdPtr);
-int getNullController(LPRDATA rdPtr);
+inline const std::string sParam()
+{
+    return "";
+}
 
-b2Body* getBody(int i, LPRDATA rdPtr);
-b2Joint* getJoint(int i, LPRDATA rdPtr);
-b2BodyDef* getBodyDef(int i, LPRDATA rdPtr);
-b2JointDef* getJointDef(int i, LPRDATA rdPtr);
-b2ShapeDef* getShapeDef(int i, LPRDATA rdPtr);
-b2Controller* getController(int i, LPRDATA rdPtr);
+inline int xlParam()
+{
+    return 0;
+}
 
-bool isBody(int i, LPRDATA rdPtr);
-bool isJoint(int i, LPRDATA rdPtr);
-bool isBodyDef(int i, LPRDATA rdPtr);
-bool isJointDef(int i, LPRDATA rdPtr);
-bool isShapeDef(int i, LPRDATA rdPtr);
-bool isController(int i, LPRDATA rdPtr);
+inline std::string xsParam()
+{
+    return "";
+}
+
+inline float xfParam()
+{
+    return 0.0;
+}
+
+bool hasAttachment(FrameObject* obj, Box2D* rdPtr);
+void removeAttachment(FrameObject* obj, Box2D* rdPtr);
+
+int getNullBody(Box2D* rdPtr);
+int getNullJoint(Box2D* rdPtr);
+int getNullController(Box2D* rdPtr);
+
+b2Body* getBody(int i, Box2D* rdPtr);
+b2Joint* getJoint(int i, Box2D* rdPtr);
+b2BodyDef* getBodyDef(int i, Box2D* rdPtr);
+b2JointDef* getJointDef(int i, Box2D* rdPtr);
+b2ShapeDef* getShapeDef(int i, Box2D* rdPtr);
+b2Controller* getController(int i, Box2D* rdPtr);
+
+bool isBody(int i, Box2D* rdPtr);
+bool isJoint(int i, Box2D* rdPtr);
+bool isBodyDef(int i, Box2D* rdPtr);
+bool isJointDef(int i, Box2D* rdPtr);
+bool isShapeDef(int i, Box2D* rdPtr);
+bool isController(int i, Box2D* rdPtr);
 
 b2Shape* getShape(b2Body* b, int n);
 b2Joint* getJoint(b2Body* b, int n);
 b2Controller* getController(b2Body* b, int n);
 b2Body* getBody(b2Controller* c, int n);
 
-bool setJointDefAnchor(b2JointDef* d, LPRDATA rdPtr);
+bool setJointDefAnchor(b2JointDef* d, Box2D* rdPtr);
 
 void updateShapes(b2Body* b);
 
@@ -94,6 +119,4 @@ struct extendedParam
 	};
 };
 
-long ProcessCondition(tagRDATA* rdPtr, long param1, long param2, long (*myFunc)(tagRDATA*, LPHO, long));
-
-#endif
+#endif // CHOWDREN_BOX2D_FUNC_H

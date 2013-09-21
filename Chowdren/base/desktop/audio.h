@@ -356,6 +356,7 @@ public:
         return get_pitch() * get_sample_rate();
     }
 
+    virtual void pause() = 0;
     virtual void play() = 0;
     virtual void stop() = 0;
     virtual int get_sample_rate() = 0;
@@ -718,7 +719,8 @@ public:
 
 // audio device implementation
 
-AudioDevice::AudioDevice() : closing(false)
+AudioDevice::AudioDevice()
+: closing(false), streaming_thread(NULL), device(NULL), context(NULL)
 {
     device = alcOpenDevice(NULL);
     if(!device) {
@@ -752,11 +754,15 @@ AudioDevice::AudioDevice() : closing(false)
 void AudioDevice::close()
 {
     closing = true;
-    streaming_thread->join();
+    if (streaming_thread != NULL)
+        streaming_thread->join();
 
-    alcMakeContextCurrent(NULL);
-    alcDestroyContext(context);
-    alcCloseDevice(device);
+    if (device != NULL) {
+        alcMakeContextCurrent(NULL);
+        if (context != NULL)
+            alcDestroyContext(context);
+        alcCloseDevice(device);
+    }
 }
 
 void AudioDevice::stream_update()

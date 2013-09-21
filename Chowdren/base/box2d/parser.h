@@ -1,7 +1,9 @@
-#ifndef _parser_h_
-#define _parser_h_
+#ifndef CHOWDREN_BOX2D_PARSER_H
+#define CHOWDREN_BOX2D_PARSER_H
 
-#include	"Include\Box2D.h"
+#include "Box2D.h"
+
+class Box2D;
 
 namespace Parser
 {
@@ -33,17 +35,17 @@ namespace Parser
 	bool compare(char* buf, char* cmp);
 
 	bool parseVertices(char* &buf, b2Vec2* &dest, int &count, int minVerts);
-	bool parseShape(char* &buf, b2ShapeDef* &def, LPRDATA rdPtr);
-	bool parseBody(char* &buf, b2BodyDef* &def, LPRDATA rdPtr);
+	bool parseShape(char* &buf, b2ShapeDef* &def, Box2D* rdPtr);
+	bool parseBody(char* &buf, b2BodyDef* &def, Box2D* rdPtr);
 
-	bool parseShapeCircle(char* &buf, b2CircleDef* def, LPRDATA rdPtr);
-	bool parseShapePoly(char* &buf, b2PolygonDef* def, LPRDATA rdPtr);
-	bool parseShapeEdge(char* &buf, b2EdgeChainDef* def, LPRDATA rdPtr);
-	bool parseShapeDefault(char* &buf, b2ShapeDef* def, LPRDATA rdPtr);
-	bool parseBodySub(char* &buf, b2BodyDef* def, LPRDATA rdPtr);
+	bool parseShapeCircle(char* &buf, b2CircleDef* def, Box2D* rdPtr);
+	bool parseShapePoly(char* &buf, b2PolygonDef* def, Box2D* rdPtr);
+	bool parseShapeEdge(char* &buf, b2EdgeChainDef* def, Box2D* rdPtr);
+	bool parseShapeDefault(char* &buf, b2ShapeDef* def, Box2D* rdPtr);
+	bool parseBodySub(char* &buf, b2BodyDef* def, Box2D* rdPtr);
 
 	bool parseFloat(char* &buf, float &flt);
 	bool parseInteger(char* &buf, int &val);
 }
 
-#endif
+#endif // CHOWDREN_BOX2D_PARSER_H

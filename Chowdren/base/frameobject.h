@@ -46,6 +46,9 @@ public:
     bool destroying;
     bool scroll;
     Movement * movement;
+#ifdef CHOWDREN_USE_BOX2D
+    int body;
+#endif
 
     FrameObject(const std::string & name, int x, int y, int type_id);
     virtual ~FrameObject();
@@ -54,6 +57,10 @@ public:
     void set_x(int x);
     int get_y();
     void set_y(int y);
+    virtual int get_action_x();
+    virtual int get_action_y();
+    virtual double get_angle();
+    virtual void set_angle(double angle, int quality = 0);
     void create_alterables();
     void set_visible(bool value);
     void set_blend_color(int color);
@@ -86,6 +93,7 @@ public:
     bool overlaps_background();
     void set_movement(int i);
     Movement * get_movement();
+    void shoot(FrameObject * other, int speed);
 };
 
 typedef std::vector<FrameObject*> ObjectList;

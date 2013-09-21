@@ -50,6 +50,16 @@ inline float get_distance(float x1, float y1, float x2, float y2)
     return get_length(dx, dy);
 }
 
+inline double get_direction(int x1, int y1, int x2, int y2)
+{
+    return atan2d(y2 - y1, x2 - x1) / -11.25;
+}
+
+inline int get_direction_int(int x1, int y1, int x2, int y2)
+{
+    return int(get_direction(x1, y1, x2, y2));
+}
+
 inline int int_round(double d)
 {
     int v = (int)floor(d + 0.5);
@@ -77,7 +87,7 @@ inline T clamp(T val)
 
 inline int get_abs(int v)
 {
-    return v;
+    return abs(v);
 }
 
 inline float get_abs(float v)

@@ -6,7 +6,7 @@ from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP,
 from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES, 
     ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR, 
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
-    GRADIENT_FILL)
+    GRADIENT_FILL, FINE_COLLISION)
 
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
@@ -67,10 +67,25 @@ class Active(ObjectWriter):
 
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'
-    def get_parameters(self):
-        if self.common.getObstacleType() != 'None':
-            print 'obstacle type', self.common.getObstacleType(), 'not supported'
-        return [get_image_name(self.common.image)]
+
+    def initialize(self):
+        obstacle = self.common.getObstacleType()
+        if obstacle not in ('None', 'Solid'):
+            print 'obstacle type', obstacle, 'not supported'
+            raise NotImplementedError
+
+    def write_init(self, writer):
+        image = get_image_name(self.common.image, False)
+        writer.putln('image = new Image(%s);' % image)
+        writer.putln('image->hotspot_x = image->hotspot_y = 0;')
+        if self.common.getObstacleType() != 'Solid':
+            return
+        writer.putln('width = image->width;')
+        writer.putln('height = image->height;')
+        if self.common.collisionMode == FINE_COLLISION:
+            writer.putln('collision = new SpriteCollision(this, image);')
+        else:
+            writer.putln('collision = new InstanceBox(this);')
 
     def get_images(self):
         return [self.common.image]
@@ -79,19 +94,53 @@ class QuickBackdrop(ObjectWriter):
     class_name = 'QuickBackdrop'
 
     def initialize(self):
-        if self.common.getObstacleType() != 'None':
+        obstacle = self.common.getObstacleType()
+        if obstacle not in ('Solid', 'None'):
+            print 'obstacle type', obstacle, 'not supported'
             raise NotImplementedError
         shape = self.common.shape
         if shape.getShape() != 'Rectangle':
+            print 'shape', shape.getShape(), 'not supported'
             raise NotImplementedError
-        if shape.getFill() != 'Solid':
+        fill = shape.getFill()
+        if fill not in ('Solid', 'Gradient'):
+            print 'fill', shape.getFill(), 'not supported'
             raise NotImplementedError
-        if shape.borderSize != 0:
+        border = shape.borderColor
+        color1 = shape.color1
+        color2 = shape.color2
+        has_color2 = color2 is not None
+        border_size = shape.borderSize
+        if border_size != 0 and (fill == 'None' or border != color1
+                                 or (has_color2 and border != color2)):
+            print fill, color1, color2, border
+            print 'border size', shape.borderSize, 'not supported'
             raise NotImplementedError
 
-    def get_parameters(self):
+    def write_init(self, writer):
         shape = self.common.shape
-        return [make_color(shape.color1), self.common.width, self.common.height]
+        color1 = shape.color1
+        color2 = shape.color2
+
+        writer.putln('width = %s;' % self.common.width)
+        writer.putln('height = %s;' % self.common.height)
+        writer.putln('color = %s;' % make_color(color1))
+        fill = shape.getFill()
+        if fill == 'Gradient':
+            gradient = shape.getGradientType()
+            if gradient == 'Horizontal':
+                writer.putln('gradient_type = HORIZONTAL_GRADIENT;')
+            else:
+                writer.putln('gradient_type = VERTICAL_GRADIENT;')
+            writer.putln('color2 = %s;' % make_color(color2))
+        elif color2 is not None:
+            raise NotImplementedError
+        else:
+            writer.putln('gradient_type = NONE_GRADIENT;')
+
+        if self.common.getObstacleType() == 'Solid':
+            writer.putln('collision = new InstanceBox(this);')
+
         # objects_file.putln('const static int obstacle_type = %s;' % 
         #     common.getObstacleType())
         # objects_file.putdef('collision_mode', 

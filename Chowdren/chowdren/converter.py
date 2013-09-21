@@ -32,6 +32,7 @@ from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_GLFW, VK_TO_NAME
 from chowdren import extra
 from chowdren import shader
+from chowdren import hacks
 import platform
 import math
 
@@ -258,7 +259,7 @@ EXTENSION_ALIAS = {
 }
 
 IGNORE_EXTENSIONS = set([
-    'kcwctrl'
+    'kcwctrl', 'SteamChowdren'
 ])
 
 def load_native_extension(name):
@@ -367,7 +368,8 @@ class EventContainer(object):
         else:
             self.tree = parent.tree + [self]
         names = [item.name for item in self.tree]
-        self.code_name = 'group_' + get_method_name('_'.join(names))
+        self.code_name = 'group_%s_%s' % (get_method_name('_'.join(names)),
+                                          id(self))
         self.inactive = inactive
         self.always_groups = []
         self.parent = parent
@@ -398,6 +400,7 @@ class EventGroup(object):
     write_actions = True
     action_label = None
     is_container_mark = False
+
     def __init__(self, conditions, actions, container, global_id, 
                  or_index, or_len, not_always):
         self.conditions = conditions
@@ -609,6 +612,7 @@ class Converter(object):
         self.name_to_item = {}
         self.object_types = {}
         extension_includes = set()
+        self.event_callback_ids = itertools.count()
 
         type_id = itertools.count(1)
         
@@ -753,7 +757,14 @@ class Converter(object):
                             value))
             objects_file.end_brace()
             object_writer.write_class(objects_file)
-            
+            # write event callbacks
+            if object_writer.event_callbacks:
+                for k, v in object_writer.event_callbacks.iteritems():
+                    name, wrapper = k
+                    objects_file.putmeth('void %s' % name)
+                    objects_file.putln('frame->event_callback(%s);' % v)
+                    objects_file.end_brace()
+
             objects_file.end_brace(True)
 
             object_func = 'create_%s' % get_method_name(class_name)
@@ -825,6 +836,8 @@ class Converter(object):
                         self.multiple_instances.add(frameitem.handle)
                     startup_set.add(frameitem)
                     startup_instances.append((instance, frameitem))
+                if not create_startup:
+                    self.multiple_instances.add(frameitem.handle)
 
             events = frame.events
 
@@ -864,7 +877,7 @@ class Converter(object):
                 not_always = False
                 for condition in group.conditions:
                     name = condition.getName()
-                    if name == 'OrLogical':
+                    if name in ('OrLogical', 'OrFiltered'):
                         condition_groups.append(conditions)
                         conditions = []
                     else:
@@ -1027,6 +1040,27 @@ class Converter(object):
             if fade:
                 frame_file.putln(to_c('manager->set_fade(%s, %s);',
                     make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
+            frame_file.end_brace()
+
+            # write event callbacks
+            event_callbacks = {}
+            for object_writer in object_writers:
+                if not object_writer.event_callbacks:
+                    continue
+                event_callbacks.update(object_writer.event_callbacks)
+
+            frame_file.putmeth('void event_callback', 'int id')
+            if event_callbacks:
+                frame_file.putln('switch (id) {')
+                frame_file.indent()
+                for k, v in event_callbacks.iteritems():
+                    name, wrapper = k
+                    frame_file.putln('case %s:' % v)
+                    frame_file.indent()
+                    frame_file.putln('%s();' % wrapper)
+                    frame_file.putln('break;')
+                    frame_file.dedent()
+                frame_file.end_brace()
             frame_file.end_brace()
             
             # write 'always' event subfunctions
@@ -1260,6 +1294,7 @@ class Converter(object):
         event_break = self.event_break = 'goto %s_end;' % group.name
         collisions = defaultdict(list)
         writer.start_brace() # new scope
+        hacks.write_pre(self, writer, group)
         if conditions or has_container_check:
             if has_container_check:
                 condition = self.get_container_check(container)
@@ -1417,7 +1452,6 @@ class Converter(object):
                         out += '%s->' % self.get_object(item.objectInfo)
                     except KeyError:
                         pass
-
                 self.last_out = out
                 out += expression_writer.get_string()
                 self.item_index += 1
@@ -1425,7 +1459,7 @@ class Converter(object):
             parameter_name = type(container.loader).__name__
             parameter_type = container.getName()
             if parameter_name == 'Object':
-                return self.get_object_name(loader.objectInfo)
+                return self.get_object(loader.objectInfo)
             elif parameter_name == 'Sample':
                 return loader.name
             elif parameter_name in ('Position', 'Shoot', 'Create'):
@@ -1438,7 +1472,8 @@ class Converter(object):
                         loader.objectInfo)
                 elif parameter_name == 'Create':
                     create_info = loader.objectInfo
-                    details['create_object'] = self.get_object_name(create_info)
+                    details['create_object'] = self.get_object_name(
+                        create_info)
                 if parameter_name in ('Shoot', 'Create'):
                     position = loader.position
                 flags = position.flags
@@ -1448,10 +1483,8 @@ class Converter(object):
                     details['transform_position_direction'] = True
                 if flags['InitialDirection']:
                     details['use_direction'] = True
-                parent = None
                 if position.objectInfoParent != 0xFFFF:
-                    parent = self.get_object(position.objectInfoParent)
-                    details['parent'] = parent
+                    details['parent'] = position.objectInfoParent
                 details['layer'] = position.layer
                 details['x'] = position.x
                 details['y'] = position.y

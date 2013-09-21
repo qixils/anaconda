@@ -146,8 +146,10 @@ add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
 if (UNIX)
     find_package(PkgConfig REQUIRED)
-    pkg_search_module(GLFW REQUIRED glfw3)
-    include_directories(${GLFW_INCLUDE_DIRS})
+    pkg_search_module(PC_GLFW REQUIRED glfw3)
+    set(GLFW_INCLUDE_DIR ${PC_GLFW_INCLUDE_DIRS})
+    find_library(GLFW_LIBRARIES NAMES ${PC_GLFW_LIBRARIES}
+                 HINTS ${PC_GLFW_LIBRARY_DIRS})
 else()
     find_package(GLFW3 REQUIRED)
 endif()

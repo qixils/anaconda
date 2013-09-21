@@ -727,6 +727,25 @@ public:
                            FTPoint position, FTPoint spacing, int mode);
 };
 
+class FTTextureGlyph : public FTGlyph
+{
+    public:
+        FTTextureGlyph(FT_GlyphSlot glyph, int id, int xOffset,
+                       int yOffset, int width, int height, bool stroke);
+
+        virtual ~FTTextureGlyph();
+        virtual const FTPoint& Render(const FTPoint& pen, int renderMode);
+        static void ResetActiveTexture() { activeTextureID = 0; }
+
+    private:
+        int destWidth;
+        int destHeight;
+        FTPoint corner;
+        FTPoint uv[2];
+        int glTextureID;
+        static GLint activeTextureID;
+};
+
 class FTTextureFont : public FTFont
 {
 public:
@@ -838,25 +857,6 @@ class FTCleanup
 
     private:
         std::set<FT_Face **> cleanupFT_FaceItems;
-};
-
-class FTTextureGlyph : public FTGlyph
-{
-    public:
-        FTTextureGlyph(FT_GlyphSlot glyph, int id, int xOffset,
-                       int yOffset, int width, int height, bool stroke);
-
-        virtual ~FTTextureGlyph();
-        virtual const FTPoint& Render(const FTPoint& pen, int renderMode);
-        static void ResetActiveTexture() { activeTextureID = 0; }
-
-    private:
-        int destWidth;
-        int destHeight;
-        FTPoint corner;
-        FTPoint uv[2];
-        int glTextureID;
-        static GLint activeTextureID;
 };
 
 class FTLayout

@@ -24,7 +24,7 @@ class End(Empty):
 
 cdef class String(DataLoader):
     cdef public:
-        str value
+        bytes value
     
     cpdef read(self, ByteReader reader):
         self.value = reader.readString()

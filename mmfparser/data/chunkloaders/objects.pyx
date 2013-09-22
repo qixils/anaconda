@@ -603,7 +603,7 @@ cdef class Paragraph(DataLoader):
         int font
         object flags
         object color
-        str value
+        bytes value
 
     cpdef initialize(self):
         self.flags = PARAGRAPH_FLAGS.copy()
@@ -676,7 +676,7 @@ cdef class RTFObject(DataLoader):
         tuple backColor
         int width
         int height
-        str value
+        bytes value
 
     cpdef initialize(self):
         self.options = RTF_FLAGS.copy()
@@ -746,7 +746,7 @@ cdef class SubApplication(DataLoader):
         int startFrame
         object options
         int iconOffset
-        str name
+        bytes name
     cpdef initialize(self):
         self.options = SUBAPPLICATION_FLAGS.copy()
     

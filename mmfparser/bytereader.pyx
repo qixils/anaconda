@@ -244,7 +244,7 @@ cdef class ByteReader:
             return <unsigned int>value
         return value
         
-    cpdef str readString(self, size = None):
+    cpdef bytes readString(self, size = None):
         IF LOG_POSITION:
             self.lastPosition = self.tell()
         if size is not None:

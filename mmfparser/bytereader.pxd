@@ -36,7 +36,7 @@ cdef class ByteReader:
     cpdef float readFloat(self)
     cpdef double readDouble(self)
     cpdef readInt(self, bint asUnsigned = ?)
-    cpdef str readString(self, size = ?)
+    cpdef bytes readString(self, size = ?)
     cpdef unicode readUnicodeString(self)
     cpdef tuple readColor(self)
     cpdef ByteReader readReader(self, size_t size)

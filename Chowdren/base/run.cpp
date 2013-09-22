@@ -362,7 +362,7 @@ void GameManager::run()
         else if (ret == 2)
             continue;
 
-        if (platform_display_closed())
+        if (window_created && platform_display_closed())
             break;
 
         double draw_time = platform_get_time();

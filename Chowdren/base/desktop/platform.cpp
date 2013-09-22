@@ -136,6 +136,8 @@ void platform_sleep(double t)
 
 bool platform_display_closed()
 {
+    if (global_window == NULL)
+        return true;
     return glfwWindowShouldClose(global_window) == GL_TRUE;
 }
 

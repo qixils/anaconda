@@ -20,6 +20,7 @@ GLuint screen_texture;
 GLuint screen_fbo;
 
 GLFWwindow * global_window = NULL;
+bool is_fullscreen = false;
 
 inline bool check_opengl_extension(const char * name)
 {
@@ -155,6 +156,8 @@ void platform_get_mouse_pos(int * x, int * y)
 
 void platform_create_display(bool fullscreen)
 {
+    is_fullscreen = fullscreen;
+
     glfwWindowHint(GLFW_SAMPLES, 0);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     int width, height;
@@ -205,6 +208,11 @@ void platform_get_size(int * width, int * height)
 
 bool platform_has_focus()
 {
+#ifdef __APPLE__
+    // GLFW bug
+    if (is_fullscreen)
+        return true;
+#endif
     return glfwGetWindowAttrib(global_window, GLFW_FOCUSED) == GL_TRUE;
 }
 

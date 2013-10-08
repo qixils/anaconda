@@ -49,13 +49,17 @@ inline bool check_opengl_extensions()
 void _on_key(GLFWwindow * window, int key, int scancode, int action,
              int mods)
 {
-#ifdef __APPLE__
-    if (is_fullscreen && action == GLFW_PRESS && mods & GLFW_MOD_SUPER
-            && key == GLFW_KEY_TAB)
-        glfwIconifyWindow(window);
-#endif
     if (action == GLFW_REPEAT)
         return;
+#ifdef __APPLE__
+    if (is_fullscreen && action == GLFW_PRESS) {
+        bool iconify = (mods & GLFW_MOD_SUPER && key == GLFW_KEY_M) ||
+                       (mods & GLFW_MOD_CTRL && key == GLFW_KEY_TAB) ||
+                       (mods & GLFW_MOD_ALT && key == GLFW_KEY_TAB);
+        if (iconify)
+            glfwIconifyWindow(window);
+    }
+#endif
     global_manager->on_key(key, action == GLFW_PRESS);
 }
 

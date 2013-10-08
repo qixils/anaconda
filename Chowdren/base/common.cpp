@@ -43,13 +43,15 @@ void Background::reset(bool clear_items)
     image = new unsigned char[BACK_WIDTH * BACK_HEIGHT * 4]();
     image_changed = true;
     items_changed = false;
-    if (clear_items)
+    if (clear_items) {
+        col_items.clear();
         items.clear();
+    }
 }
 
 void Background::destroy_at(int x, int y)
 {
-    std::vector<BackgroundItem>::iterator it = items.begin();
+    BackgroundItems::iterator it = items.begin();
     while (it != items.end()) {
         BackgroundItem & item = (*it);
         if (collides(item.dest_x, item.dest_y, 
@@ -58,6 +60,17 @@ void Background::destroy_at(int x, int y)
                      x, y, x, y)) {
             it = items.erase(it);
             items_changed = true;
+        } else
+            ++it;
+    }
+    it = col_items.begin();
+    while (it != col_items.end()) {
+        BackgroundItem & item = (*it);
+        if (collides(item.dest_x, item.dest_y, 
+                     item.dest_x + item.src_width, 
+                     item.dest_y + item.src_height,
+                     x, y, x, y)) {
+            it = col_items.erase(it);
         } else
             ++it;
     }
@@ -82,15 +95,18 @@ void Background::paste(Image * img, int dest_x, int dest_y,
            int collision_type, bool save)
 {
     if (save) {
-        items.push_back(BackgroundItem(
-            img, dest_x, dest_y, src_x, src_y, src_width, src_height, 
-            collision_type));
-        items_changed = true;
+        if (collision_type == 1) {
+            col_items.push_back(BackgroundItem(
+                img, dest_x, dest_y, src_x, src_y, src_width, src_height, 
+                collision_type));
+        } else {
+            items_changed = true;
+            items.push_back(BackgroundItem(
+                img, dest_x, dest_y, src_x, src_y, src_width, src_height, 
+                collision_type));
+        }
         return;
     }
-
-    if (collision_type == 1)
-        return;
 
     int x, y, dest_x2, dest_y2, src_x2, src_y2;
 
@@ -112,7 +128,6 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                 src_x2, src_y2);
             unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
                 dest_y2);
-
             float srcf_a = src_c[3] / 255.0f;
             float one_minus_src = 1.0f - srcf_a;
             dst_c[0] = srcf_a * src_c[0] + one_minus_src * dst_c[0];
@@ -153,11 +168,9 @@ void Background::draw()
 
 bool Background::collide(CollisionBase * a)
 {
-    std::vector<BackgroundItem>::reverse_iterator it;
-    for (it = items.rbegin(); it != items.rend(); it++) {
+    std::vector<BackgroundItem>::iterator it;
+    for (it = col_items.begin(); it != col_items.end(); it++) {
         BackgroundItem & item = *it;
-        if (item.collision_type != 1)
-            continue;
         if (::collide(a, &item))
             return true;
     }
@@ -170,7 +183,11 @@ Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
   index(index)
 {
+#ifdef CHOWDREN_IS_WIIU
+    remote = CHOWDREN_TV_TARGET;
+#endif
 
+    scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
 }
 
 Layer::~Layer()
@@ -312,6 +329,13 @@ void Layer::draw()
     }
 }
 
+#ifdef CHOWDREN_IS_WIIU
+void Layer::set_remote(int value)
+{
+    remote = value;
+}
+#endif
+
 // Frame
 
 Frame::Frame(const std::string & name, int width, int height, 
@@ -346,8 +370,8 @@ void Frame::on_end()
     instances.clear();
     layers.clear();
     instance_classes.clear();
-    loop_indexes.clear();
-    running_loops.clear();
+    // loop_indexes.clear();
+    // running_loops.clear();
     next_frame = -1;
     loop_count = 0;
     off_x = 0;
@@ -426,7 +450,7 @@ void Frame::on_mouse(int key, bool state)
     }
 }
 
-void Frame::draw()
+void Frame::draw(int remote)
 {
     // first, draw the actual window contents
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -434,18 +458,44 @@ void Frame::draw()
     glLoadIdentity();
     glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
     glMatrixMode(GL_MODELVIEW);
-    glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
-                 background_color.b / 255.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+#ifdef CHOWDREN_IS_WIIU
+    if (remote == CHOWDREN_REMOTE_TARGET)
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    else
+#endif
+    {
+        glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
+                     background_color.b / 255.0f, 1.0f);
+    }
+#ifdef CHOWDREN_IS_WIIU
+    if (remote != CHOWDREN_REMOTE_ONLY)
+#endif
+    {
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 
-    int index = 0;
-    for (std::vector<Layer*>::const_iterator iter = layers.begin(); 
-         iter != layers.end(); iter++) {
+    std::vector<Layer*>::const_iterator it;
+    for (it = layers.begin(); it != layers.end(); it++) {
+        Layer * layer = *it;
+#ifdef CHOWDREN_IS_WIIU
+        if (remote == CHOWDREN_HYBRID_TARGET) {
+            if (layer->remote == CHOWDREN_REMOTE_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_REMOTE_TARGET) {
+            if (layer->remote == CHOWDREN_TV_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_TV_TARGET) {
+            if (layer->remote != CHOWDREN_TV_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_REMOTE_ONLY) {
+            if (layer->remote != CHOWDREN_REMOTE_TARGET)
+                continue;
+        }
+#endif
         glLoadIdentity();
-        glTranslatef(floor(-off_x * (*iter)->scroll_x),
-                     floor(-off_y * (*iter)->scroll_y), 0.0);
-        (*iter)->draw();
-        index++;
+        glTranslatef(floor(-off_x * layer->scroll_x),
+                     floor(-off_y * layer->scroll_y), 0.0);
+        layer->draw();
     }
 }
 
@@ -460,6 +510,7 @@ ObjectList Frame::get_instances(unsigned int qualifier[])
     int index = 0;
     while (qualifier[index] != 0) {
         ObjectList & b = get_instances(qualifier[index]);
+        list.reserve(list.size() + b.size());
         list.insert(list.end(), b.begin(), b.end());
         index++;
     }
@@ -531,7 +582,8 @@ void Frame::set_object_layer(FrameObject * object, int new_layer)
 
 int Frame::get_loop_index(const std::string & name)
 {
-    return loop_indexes[name];
+    return 0;
+    // return loop_indexes[name];
 }
 
 void Frame::set_timer(double value)
@@ -662,8 +714,12 @@ bool Frame::is_joystick_direction_changed(int n)
 FrameObject::FrameObject(const std::string & name, int x, int y, int type_id) 
 : x(x), y(y), id(type_id), visible(true), shader(NULL), 
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
-  destroying(false), scroll(true), name(name), movement(NULL)
+  destroying(false), scroll(true), movement(NULL)
 {
+#ifndef NDEBUG
+    this->name = name;
+#endif
+
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
 #endif
@@ -705,6 +761,8 @@ void FrameObject::set_x(int x)
 int FrameObject::get_x()
 {
     Layer * layer = frame->layers[layer_index];
+    if (!layer->scroll_active)
+        return x;
     return x + frame->off_x * (1 - layer->scroll_x);
 }
 
@@ -716,6 +774,8 @@ void FrameObject::set_y(int y)
 int FrameObject::get_y()
 {
     Layer * layer = frame->layers[layer_index];
+    if (!layer->scroll_active)
+        return y;
     return y + frame->off_y * (1 - layer->scroll_y);
 }
 
@@ -781,9 +841,6 @@ bool FrameObject::overlaps_background()
     if (destroying)
         return false;
     Layer * layer = frame->layers[layer_index];
-    Background * back = layer->back;
-    if (back != NULL)
-        back->update();
     return layer->test_background_collision(get_collision());
 }
 
@@ -925,6 +982,16 @@ void FrameObject::set_angle(double angle, int quality)
 {
 }
 
+const std::string & FrameObject::get_name()
+{
+#ifdef NDEBUG
+    static const std::string v("Unspecified");
+    return v;
+#else
+    return name;
+#endif
+}
+
 // FixedValue
 
 FixedValue::FixedValue(FrameObject * object)
@@ -1040,9 +1107,10 @@ void Active::force_animation(int value)
     if (value == animation)
         return;
     Animation * anim = animations->items[value];
-    if (anim == NULL)
+    if (anim == NULL) {
         std::cout << "Invalid animation: " << value 
-            << " (" << name << ")" << std::endl;
+            << " (" << get_name() << ")" << std::endl;
+    }
     animation = value;
     if (forced_frame == -1)
         animation_frame = 0;
@@ -1159,7 +1227,7 @@ void Active::draw()
 {
     Image * img = get_image();
     if (img == NULL) {
-        std::cout << "Invalid image draw (" << name << ")" << std::endl;
+        std::cout << "Invalid image draw (" << get_name() << ")" << std::endl;
         return;
     }
     blend_color.apply();
@@ -1177,7 +1245,7 @@ inline Image * Active::get_image()
     if (get_frame() >= (int)dir->frames.size()) {
         std::cout << "Invalid frame: " << get_frame() << " " <<
             dir->frames.size() << " " <<
-            "(" << name << ")" << std::endl;
+            "(" << get_name() << ")" << std::endl;
         return NULL;
     }
     return dir->frames[get_frame()];
@@ -1383,7 +1451,11 @@ void init_font()
     if (initialized)
         return;
     set_font_path("Arial.ttf"); // default font, could be set already
-    default_font->FaceSize(12, 96);
+// #ifdef CHOWDREN_IS_WIIU
+    default_font->FaceSize(24, 96);
+// #else
+    // default_font->FaceSize(12, 96);
+// #endif
     initialized = true;
 }
 
@@ -1497,6 +1569,9 @@ CollisionBase * Text::get_collision()
 Backdrop::Backdrop(const std::string & name, int x, int y, int type_id) 
 : FrameObject(name, x, y, type_id), collision(NULL)
 {
+#ifdef CHOWDREN_IS_WIIU
+    remote = CHOWDREN_HYBRID_TARGET;
+#endif
 }
 
 Backdrop::~Backdrop()
@@ -1512,6 +1587,12 @@ CollisionBase * Backdrop::get_collision()
 
 void Backdrop::draw()
 {
+#ifdef CHOWDREN_IS_WIIU
+    int current_remote = platform_get_remote_value();
+    if (remote == CHOWDREN_REMOTE_TARGET &&
+        current_remote != CHOWDREN_HYBRID_TARGET)
+        return;
+#endif
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     image->draw(x, y);
 }
@@ -1853,7 +1934,8 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
     filename = convert_path(fn);
     if (!merge)
         reset(false);
-    std::cout << "Loading " << filename << " (" << name << ")" << std::endl;
+    std::cout << "Loading " << filename << " (" << get_name() << ")" 
+        << std::endl;
     create_directories(filename);
     int e = ini_parse_file(filename.c_str(), _parse_handler, this);
     std::cout << "Done loading" << std::endl;
@@ -2665,8 +2747,22 @@ void ActivePicture::remove_image()
 
 void ActivePicture::load(const std::string & fn)
 {
-    remove_image();
+#ifdef CHOWDREN_IS_WIIU
+    // small hack to load language-specific files for menu
+    size_t dir_end = fn.find_last_of(PATH_SEP);
+    size_t dir_start = fn.find_last_of(PATH_SEP, dir_end-1);
+    std::string dir = fn.substr(dir_start+1, dir_end-dir_start-1);
+    if (dir == "Menu") {
+        std::string name = fn.substr(dir_end + 1);
+        filename = convert_path(fn.substr(0, dir_end+1) + 
+                                platform_get_language() + "/" + name);
+
+    } else
+        filename = convert_path(fn);
+#else
     filename = convert_path(fn);
+#endif
+    remove_image();
     ImageCache::const_iterator it = image_cache.find(filename);
     if (it == image_cache.end()) {
         Color * transparent = NULL;

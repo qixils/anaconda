@@ -48,6 +48,10 @@ inline bool check_opengl_extensions()
 void _on_key(GLFWwindow * window, int key, int scancode, int action,
              int mods)
 {
+#ifdef __APPLE
+    if (is_fullscreen && mods & GLFW_MOD_SUPER && key == GLFW_KEY_TAB)
+        glfwIconifyWindow(window);
+#endif
     if (action == GLFW_REPEAT)
         return;
     global_manager->on_key(key, action == GLFW_PRESS);
@@ -58,9 +62,14 @@ void _on_mouse(GLFWwindow * window, int button, int action, int mods)
     global_manager->on_mouse(button, action == GLFW_PRESS);
 }
 
-void init_platform()
+void platform_init()
 {
     glfwInit();
+}
+
+void platform_exit()
+{
+
 }
 
 void platform_poll_events()
@@ -234,6 +243,12 @@ void platform_hide_mouse()
     glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
+const std::string & platform_get_language()
+{
+    static std::string language("English");
+    return language;
+}
+
 // time
 
 #ifdef _WIN32
@@ -385,6 +400,24 @@ int get_joystick_direction(int n)
     if (get_length(x, y) < 0.4f)
         return 8; // center
     return int_round(atan2d(y, x) / (90.0f / 2.0f));
+}
+
+float get_joystick_x(int n)
+{
+    int count;
+    const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
+    if (count < 2)
+        return 0.0f;
+    return axes[0] * 1000.0f;
+}
+
+float get_joystick_y(int n)
+{
+    int count;
+    const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
+    if (count < 2)
+        return 0.0f;
+    return axes[1] * -1000.0f;
 }
 
 // url open
@@ -751,4 +784,18 @@ void init_shaders_platform()
 void platform_print_stats()
 {
 
+}
+
+// wiiu dummies
+
+void platform_set_remote_setting(const std::string & v)
+{
+
+}
+
+static std::string remote_string("Hybrid");
+
+const std::string & platform_get_remote_setting()
+{
+    return remote_string;
 }

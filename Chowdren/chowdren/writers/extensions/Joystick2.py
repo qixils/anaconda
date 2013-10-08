@@ -33,6 +33,8 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : 'get_joystick_x',
+    1 : 'get_joystick_y'
 })
 
 def get_object():

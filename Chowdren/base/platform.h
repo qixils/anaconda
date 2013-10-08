@@ -7,7 +7,8 @@
 #include "fileio.h"
 
 void open_url(const std::string & name);
-void init_platform();
+void platform_init();
+void platform_exit();
 void platform_poll_events();
 bool platform_display_closed();
 void platform_create_display(bool fullscreen);
@@ -29,6 +30,7 @@ void platform_begin_draw();
 void platform_swap_buffers();
 bool platform_remove_file(const std::string & path);
 const std::string & platform_get_appdata_dir();
+const std::string & platform_get_language();
 
 // debug
 void platform_print_stats();
@@ -41,6 +43,8 @@ bool is_joystick_released(int n, int button);
 int get_joystick_direction(int n);
 bool compare_joystick_direction(int n, int test_dir);
 bool is_joystick_direction_changed(int n);
+float get_joystick_x(int n);
+float get_joystick_y(int n);
 
 // file
 
@@ -80,5 +84,17 @@ void init_shaders_platform();
 bool platform_show_build_info();
 bool platform_should_reset();
 #endif
+
+// wiiu
+
+#define CHOWDREN_TV_TARGET 0
+#define CHOWDREN_REMOTE_TARGET 1
+#define CHOWDREN_HYBRID_TARGET 2
+#define CHOWDREN_REMOTE_ONLY 3
+void platform_clone_buffers();
+void platform_set_display_target(int value);
+void platform_set_remote_setting(const std::string & v);
+const std::string & platform_get_remote_setting();
+int platform_get_remote_value();
 
 #endif // CHOWDREN_PLATFORM_H

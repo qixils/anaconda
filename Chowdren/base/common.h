@@ -167,6 +167,8 @@ public:
 #define BACK_WIDTH WINDOW_WIDTH
 #define BACK_HEIGHT WINDOW_HEIGHT
 
+typedef std::vector<BackgroundItem> BackgroundItems;
+
 class Background
 {
 public:
@@ -174,7 +176,8 @@ public:
     bool image_changed;
     bool items_changed;
     GLuint tex;
-    std::vector<BackgroundItem> items;
+    BackgroundItems items;
+    BackgroundItems col_items;
 
     Background();
     ~Background();
@@ -201,6 +204,7 @@ public:
     double scroll_x, scroll_y;
     Background * back;
     int index;
+    bool scroll_active;
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
     ~Layer();
@@ -220,10 +224,15 @@ public:
                int src_x, int src_y, int src_width, int src_height, 
                int collision_type);
     void draw();
+
+#ifdef CHOWDREN_IS_WIIU
+    int remote;
+    void set_remote(int value);
+#endif
 };
 
-typedef boost::unordered_map<std::string, bool> RunningLoops;
-typedef boost::unordered_map<std::string, int> LoopIndexes;
+// typedef boost::unordered_map<std::string, bool> RunningLoops;
+// typedef boost::unordered_map<std::string, int> LoopIndexes;
 
 class Media;
 
@@ -238,8 +247,8 @@ public:
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
     boost::unordered_map<int, ObjectList> instance_classes;
-    LoopIndexes loop_indexes;
-    RunningLoops running_loops;
+    // LoopIndexes loop_indexes;
+    // RunningLoops running_loops;
     Color background_color;
     GlobalValues * global_values;
     GlobalStrings * global_strings;
@@ -267,7 +276,7 @@ public:
     void restart();
     void on_key(int key, bool state);
     void on_mouse(int key, bool state);
-    void draw();
+    void draw(int remote);
     ObjectList & get_instances(int object_id);
     ObjectList get_instances(unsigned int qualifier[]);
     FrameObject * get_instance(int object_id);
@@ -454,6 +463,9 @@ class Backdrop : public FrameObject
 public:
     Image * image;
     CollisionBase * collision;
+#ifdef CHOWDREN_IS_WIIU
+    int remote;
+#endif
 
     Backdrop(const std::string & name, int x, int y, int type_id);
     ~Backdrop();
@@ -930,11 +942,10 @@ inline void open_process(std::string exe, std::string cmd, int pad)
 
 inline void set_cursor_visible(bool value)
 {
-    return; // debug
-/*    if (value)
+    if (value)
         platform_show_mouse();
     else
-        platform_hide_mouse();*/
+        platform_hide_mouse();
 }
 
 inline std::string get_platform()

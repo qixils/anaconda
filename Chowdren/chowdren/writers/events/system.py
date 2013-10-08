@@ -7,6 +7,14 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
 
+def get_loop_running_name(name):
+    return 'loop_%s_running' % get_method_name(name)
+
+def get_loop_index_name(name):
+    return 'loop_%s_index' % get_method_name(name)
+
+PROFILE_LOOPS = set([])
+
 class SystemObject(ObjectWriter):
     def __init__(self, converter):
         self.converter = converter
@@ -20,6 +28,11 @@ class SystemObject(ObjectWriter):
         for container, names in self.group_activations.iteritems():
             for name in names:
                 writer.putln(to_c('%s = true;', name))
+        for name in self.loops.keys():
+            running_name = get_loop_running_name(name)
+            index_name = get_loop_index_name(name)
+            writer.putln('%s = false;' % running_name)
+            writer.putln('%s = 0;' % index_name)
 
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
@@ -32,7 +45,7 @@ class SystemObject(ObjectWriter):
 
     def write_loops(self, writer):
         self.loop_names = set()
-        loops = defaultdict(list)
+        loops = self.loops = defaultdict(list)
         dynloops = []
         for loop_group in self.get_conditions('OnLoop'):
             exps = loop_group.conditions[0].data.items[0].loader.items
@@ -52,17 +65,39 @@ class SystemObject(ObjectWriter):
         if not loops:
             return
 
+        for name in loops.keys():
+            running_name = get_loop_running_name(name)
+            index_name = get_loop_index_name(name)
+            writer.putln('bool %s;' % running_name)
+            writer.putln('int %s;' % index_name)
+
         self.converter.begin_events()
         for name, groups in loops.iteritems():
+            profile = name in PROFILE_LOOPS
             loop_name = get_method_name(name)
             writer.putmeth('bool loop_%s' % loop_name)
             self.converter.current_loop_name = name
+
+            if profile:
+                writer.putln('double profile_time, profile_dt;')
+
             for index, group in enumerate(groups):
+                if profile:
+                    writer.putln('profile_time = platform_get_time();')
                 self.converter.write_event(writer, group, True)
+                if profile:
+                    writer.putln('profile_dt = platform_get_time() '
+                                              '- profile_time;')
+                    writer.putln('if (profile_dt > 0.0001)')
+                    writer.indent()
+                    writer.putln(
+                        ('std::cout << "Event %s took " << '
+                         'profile_dt << std::endl;') % group.global_id)
+                    writer.dedent()
             writer.putln('return true;')
             writer.end_brace()
 
-        writer.putmeth('bool call_dynamic_loop', 'std::string name')
+        writer.putmeth('bool call_dynamic_loop', 'const std::string & name')
         for name in loops.keys():
             writer.putln(to_c('if (name == %r) return loop_%s();', 
                 name, get_method_name(name)))
@@ -426,23 +461,33 @@ class StartLoop(ActionWriter):
         if times is None:
             times = self.convert_index(1)
         is_infinite = comparison is not None
+        is_dynamic = real_name is None
+        if is_dynamic:
+            raise NotImplementedError
+        running_name = get_loop_running_name(real_name)
+        index_name = get_loop_index_name(real_name)
         if not is_infinite:
-            comparison = 'index_it->second < times'
+            comparison = '%s < times' % index_name
         writer.start_brace()
-        writer.putln('std::string name = %s;' % self.convert_index(0))
-        writer.putln('RunningLoops::iterator running_it '
-            '= set_map_value(running_loops, name, false);')
-        writer.putln('running_it->second = true;')
+        # writer.putln('static const std::string name = %s;' %
+        #              self.convert_index(0))
+        writer.putln('%s = true;' % running_name)
+        # writer.putln('RunningLoops::iterator running_it '
+        #     '= set_map_value(running_loops, name, false);')
+        # writer.putln('running_it->second = true;')
         if not is_infinite:
             writer.putln('int times = int(%s);' % times)
-        writer.putln('LoopIndexes::iterator index_it '
-            '= set_map_value(loop_indexes, name, 0);')
-        writer.putln('index_it->second = 0;')
+        writer.putln('%s = 0;' % index_name)
+        # writer.putln('LoopIndexes::iterator index_it '
+        #     '= set_map_value(loop_indexes, name, 0);')
+        # writer.putln('index_it->second = 0;')
         writer.putln('while (%s) {' % comparison)
         writer.indent()
         writer.putln('%s;' % func_call)
-        writer.putln('if (!running_it->second) break;')
-        writer.putln('index_it->second++;')
+        # writer.putln('if (!running_it->second) break;')
+        writer.putln('if (!%s) break;' % running_name)
+        # writer.putln('index_it->second++;')
+        writer.putln('%s++;' % index_name)
         writer.end_brace()
         writer.end_brace()
         # self.converter.write_container_check(self.group, writer)
@@ -472,14 +517,17 @@ class StopLoop(ActionWriter):
     def write(self, writer):
         exp, = self.parameters[0].loader.items[:-1]
         name = exp.loader.value
-        writer.putln(to_c('running_loops[%r] = false;', name))
+        running_name = get_loop_running_name(name)
+        writer.putln('%s = false;' % running_name)
 
 class SetLoopIndex(ActionWriter):
     def write(self, writer):
         exp, = self.parameters[0].loader.items[:-1]
         name = exp.loader.value
+        index_name = get_loop_index_name(name)
         value = self.convert_index(1)
-        writer.putln(to_c('loop_indexes[%r] = %s;', name, value))
+        # writer.putln(to_c('loop_indexes[%r] = %s;', name, value))
+        writer.putln('%s = %s;' % index_name, value)
 
 class ActivateGroup(ActionWriter):
     def write(self, writer):
@@ -628,6 +676,15 @@ class ToString(ExpressionWriter):
         if next == 'FixedValue':
             return 'std::string('
         return 'number_to_string('
+
+class GetLoopIndex(ExpressionWriter):
+    def get_string(self):
+        converter = self.converter
+        next_exp = converter.expression_items[converter.item_index + 1]
+        converter.item_index += 2
+        name = next_exp.loader.value
+        index_name = get_loop_index_name(name)
+        return index_name
 
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
@@ -831,7 +888,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetParagraph' : 'get_paragraph',
     'ParagraphCount' : 'get_count()',
     'CurrentParagraphIndex' : 'get_index()+1',
-    'LoopIndex' : 'get_loop_index',
+    'LoopIndex' : GetLoopIndex,
     'CurrentText' : '.text',
     'XMouse' : 'get_mouse_x()',
     'YMouse' : 'get_mouse_y()',

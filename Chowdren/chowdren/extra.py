@@ -11,9 +11,12 @@ RESIZE_STRING = 'Chowdren: Window Resize'
 SHADERS_STRING = 'Chowdren: Shaders'
 SOUNDS_STRING = 'Chowdren: Sounds'
 STEAM_STRING = 'Chowdren: Steam'
+LANGUAGE_STRING = 'Chowdren: Language'
+REMOTE_STRING = 'Chowdren: Remote'
 
 SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING, 
-    RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING])
+    RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING,
+    LANGUAGE_STRING, REMOTE_STRING])
 
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
@@ -33,6 +36,10 @@ class GetString(ExpressionWriter):
         name = self.converter.all_objects[self.data.objectInfo].data.name
         if name == PLATFORM_STRING:
             return 'get_platform()'
+        elif name == LANGUAGE_STRING:
+            return 'platform_get_language()'
+        elif name == REMOTE_STRING:
+            return 'platform_get_remote_setting()'
 
 class SetString(ActionWriter):
     has_object = False
@@ -52,6 +59,9 @@ class SetString(ActionWriter):
         elif name == STEAM_STRING:
             v = convert_repr_bool(self.convert_index(0))
             # writer.put(to_c('SteamObject::set_enabled(%s);', v))
+        elif name == REMOTE_STRING:
+            v = self.convert_index(0)
+            writer.put('platform_set_remote_setting(%s);' % v)
 
 actions = {
     'SetString' : SetString

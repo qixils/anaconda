@@ -78,6 +78,10 @@ class Backdrop(ObjectWriter):
         image = get_image_name(self.common.image, False)
         writer.putln('image = new Image(%s);' % image)
         writer.putln('image->hotspot_x = image->hotspot_y = 0;')
+        if self.data.name.endswith('(DRC)'):
+            writer.putraw('#ifdef CHOWDREN_IS_WIIU')
+            writer.putln('remote = CHOWDREN_REMOTE_TARGET;')
+            writer.putraw('#endif')
         if self.common.getObstacleType() != 'Solid':
             return
         writer.putln('width = image->width;')

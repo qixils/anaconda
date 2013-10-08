@@ -24,9 +24,9 @@ GameManager * global_manager;
 #define CHOWDREN_DEBUG
 #endif
 
-#ifdef CHOWDREN_DEBUG
+// #ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-#endif
+// #endif
 
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -38,7 +38,7 @@ GameManager::GameManager()
     global_time = show_build_timer = reset_timer = manual_reset_timer = 0.0;
 #endif
 
-    init_platform();
+    platform_init();
 
 #ifdef CHOWDREN_STARTUP_WINDOW
     set_window(false);
@@ -193,7 +193,25 @@ void GameManager::draw()
 
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
 
-    frame->draw();
+#ifdef CHOWDREN_IS_WIIU
+    int remote_setting = platform_get_remote_value();
+    if (remote_setting == CHOWDREN_HYBRID_TARGET) {
+        platform_set_display_target(CHOWDREN_REMOTE_TARGET);
+        frame->draw(CHOWDREN_REMOTE_TARGET);
+        platform_set_display_target(CHOWDREN_TV_TARGET);
+        frame->draw(CHOWDREN_TV_TARGET);
+    } else {
+        platform_set_display_target(CHOWDREN_TV_TARGET);
+        frame->draw(CHOWDREN_HYBRID_TARGET);
+        if (remote_setting == CHOWDREN_REMOTE_TARGET) {
+            platform_clone_buffers();
+            platform_set_display_target(CHOWDREN_REMOTE_TARGET);
+            frame->draw(CHOWDREN_REMOTE_ONLY);
+        }
+    }
+#else
+    frame->draw(CHOWDREN_TV_TARGET);
+#endif
 
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
@@ -378,6 +396,7 @@ void GameManager::run()
         fps_limit.finish();
     }
     delete media;
+    platform_exit();
 }
 
 #ifdef _WIN32

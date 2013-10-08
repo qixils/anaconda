@@ -96,7 +96,7 @@ class ForEach(ObjectWriter):
                 if profile:
                     writer.putln('profile_dt = platform_get_time() '
                                               '- profile_time;')
-                    writer.putln('if (profile_dt > 0.001)')
+                    writer.putln('if (profile_dt > 0.0001)')
                     writer.indent()
                     writer.putln(
                         ('std::cout << "Event %s took " << '

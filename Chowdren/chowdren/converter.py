@@ -39,6 +39,7 @@ import math
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 PROFILE = False
+PROFILE_TIME = 0.01
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -116,6 +117,12 @@ class CodeWriter(object):
             if indent:
                 line = self.format_line(line)
             self.fp.write(line + '\n')
+
+    def putraw(self, *arg, **kw):
+        indentation = self.indentation
+        self.indentation = 0
+        self.putln(*arg, **kw)
+        self.indentation = indentation
 
     def putdefine(self, name, value):
         if value is None:
@@ -1016,6 +1023,18 @@ class Converter(object):
                     layer.xCoefficient, layer.yCoefficient, 
                     not layer.flags['ToHide']))
 
+            frame_file.putraw('#ifdef CHOWDREN_IS_WIIU')
+            for layer_index, layer in enumerate(frame.layers.items):
+                if layer.name.endswith('(DRC)'):
+                    remote_type = 'CHOWDREN_REMOTE_TARGET'
+                elif layer.name.endswith('(Hybrid)'):
+                    remote_type = 'CHOWDREN_HYBRID_TARGET'
+                else:
+                    continue
+                frame_file.putln('layers[%s]->set_remote(%s);' % (layer_index,
+                    remote_type))
+            frame_file.putraw('#endif')
+
             for instance, frameitem in startup_instances:
                 object_writer = self.all_objects[frameitem.handle]
                 if object_writer.is_background():
@@ -1121,7 +1140,7 @@ class Converter(object):
                 if PROFILE:
                     frame_file.putln('profile_dt = platform_get_time() '
                                                   '- profile_time;')
-                    frame_file.putln('if (profile_dt > 0.01)')
+                    frame_file.putln('if (profile_dt > %s)' % PROFILE_TIME)
                     frame_file.indent()
                     frame_file.putln(
                         ('std::cout << "Event %s took " << '

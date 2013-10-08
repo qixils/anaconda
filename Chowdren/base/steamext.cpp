@@ -85,21 +85,33 @@ SteamObject::SteamObject(const std::string & name, int x, int y, int type_id)
 
 bool SteamObject::is_ready()
 {
+#ifdef CHOWDREN_ENABLE_STEAM
     return steam.is_ready();
+#else
+    return true;
+#endif
 }
 
 void SteamObject::update(float dt)
 {
+#ifdef CHOWDREN_ENABLE_STEAM
     steam.update();
+#endif
 }
 
 void SteamObject::unlock_achievement(const std::string & name)
 {
+#ifdef CHOWDREN_ENABLE_STEAM
     steam.unlock_achievement(name);
+#endif
 }
 
 bool SteamObject::is_achievement_unlocked(const std::string & name)
 {
+#ifdef CHOWDREN_ENABLE_STEAM
     return steam.is_achievement_unlocked(name);
+#else
+    return false;
+#endif
 }
 

@@ -33,16 +33,6 @@ inline bool collides(int a_x1, int a_y1, int a_x2, int a_y2,
     return true;
 }
 
-inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2, 
-                      int b_x1, int b_y1, int b_x2, int b_y2,
-                      int & r_x1, int & r_y1, int & r_x2, int & r_y2)
-{
-    r_x1 = std::max<int>(a_x1, b_x1);
-    r_y1 = std::max<int>(a_y1, b_y1);
-    r_x2 = std::min<int>(a_x2, b_x2);
-    r_y2 = std::min<int>(a_y2, b_y2);
-}
-
 inline bool collide_line(int x1, int y1, int x2, int y2,
                          int line_x1, int line_y1, int line_x2, int line_y2)
 {
@@ -338,19 +328,58 @@ public:
     }
 };
 
-inline bool get_bit(CollisionBase * a, int x, int y)
+inline bool collide_sprite_background(CollisionBase * a, CollisionBase * b,
+                                      int w, int h, int offx1, int offy1,
+                                      int offx2, int offy2)
 {
-    switch (a->type) {
-        case INSTANCE_BOX:
-        case POINT_COLLISION:
-        case BOUNDING_BOX:
-            return true;
-        case SPRITE_COLLISION:
-            return ((SpriteCollision*)a)->get_bit(x, y);
-        case BACKGROUND_ITEM:
-            return ((BackgroundItem*)a)->get_bit(x, y);
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
+            bool c2 = ((BackgroundItem*)b)->get_bit(offx2 + x, offy2 + y);
+            if (c1 && c2)
+                return true;
+        }
     }
-    return true;
+    return false;
+}
+
+inline bool collide_background_box(CollisionBase * a, int w, int h,
+                                   int offx, int offy)
+{
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if (((BackgroundItem*)a)->get_bit(offx + x, offy + y))
+                return true;
+        }
+    }
+    return false;
+}
+
+inline bool collide_sprite_box(CollisionBase * a, int w, int h,
+                               int offx, int offy)
+{
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if (((SpriteCollision*)a)->get_bit(offx + x, offy + y))
+                return true;
+        }
+    }
+    return false;
+}
+
+inline bool collide_sprite_sprite(CollisionBase * a, CollisionBase * b,
+                                  int w, int h, int offx1, int offy1,
+                                  int offx2, int offy2)
+{
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
+            bool c2 = ((SpriteCollision*)b)->get_bit(offx2 + x, offy2 + y);
+            if (c1 && c2)
+                return true;
+        }
+    }
+    return false;
 }
 
 inline bool collide(CollisionBase * a, CollisionBase * b)
@@ -380,16 +409,38 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     int offy1 = y1 - v1[1];
     int offx2 = x1 - v2[0];
     int offy2 = y1 - v2[1];
+
+    int w = x2 - x1;
+    int h = y2 - y1;
     
-    int x, y;
-    bool c1, c2;
-    for (x = 0; x < x2 - x1; x++) {
-        for (y = 0; y < y2 - y1; y++) {
-            c1 = get_bit(a, offx1 + x, offy1 + y);
-            c2 = get_bit(b, offx2 + x, offy2 + y);
-            if (c1 && c2)
-                return true;
-        }
+    switch (a->type) {
+        case SPRITE_COLLISION:
+            switch (b->type) {
+                case SPRITE_COLLISION:
+                    return collide_sprite_sprite(a, b, w, h, offx1, offy1,
+                                                 offx2, offy2);
+                case BACKGROUND_ITEM:
+                    return collide_sprite_background(a, b, w, h, offx1, offy1,
+                                                     offx2, offy2);
+                default:
+                    return collide_sprite_box(a, w, h, offx1, offy1);
+            }
+        case BACKGROUND_ITEM:
+            switch (b->type) {
+                case SPRITE_COLLISION:
+                    return collide_sprite_background(b, a, w, h, offx2, offy2,
+                                                     offx1, offy1);
+                default:
+                    return collide_background_box(a, w, h, offx1, offy1);
+            }
+        default:
+            switch (b->type) {
+                case SPRITE_COLLISION:
+                    return collide_sprite_box(b, w, h, offx2, offy2);
+                case BACKGROUND_ITEM:
+                    return collide_background_box(b, w, h, offx2, offy2);
+                default:
+                    return true;
+            }
     }
-    return false;
 }

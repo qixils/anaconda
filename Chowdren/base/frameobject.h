@@ -30,7 +30,9 @@ public:
 class FrameObject
 {
 public:
+#ifndef NDEBUG
     std::string name;
+#endif
     int x, y;
     int width, height;
     int direction;
@@ -94,6 +96,7 @@ public:
     void set_movement(int i);
     Movement * get_movement();
     void shoot(FrameObject * other, int speed);
+    const std::string & get_name();
 };
 
 typedef std::vector<FrameObject*> ObjectList;

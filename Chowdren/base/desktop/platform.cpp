@@ -49,8 +49,9 @@ inline bool check_opengl_extensions()
 void _on_key(GLFWwindow * window, int key, int scancode, int action,
              int mods)
 {
-#ifdef __APPLE
-    if (is_fullscreen && mods & GLFW_MOD_SUPER && key == GLFW_KEY_TAB)
+#ifdef __APPLE__
+    if (is_fullscreen && action == GLFW_PRESS && mods & GLFW_MOD_SUPER
+            && key == GLFW_KEY_TAB)
         glfwIconifyWindow(window);
 #endif
     if (action == GLFW_REPEAT)
@@ -248,7 +249,7 @@ void platform_show_mouse()
 
 void platform_hide_mouse()
 {
-    hide_cursor = false;
+    hide_cursor = true;
     if (global_window == NULL)
         return;
     glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);

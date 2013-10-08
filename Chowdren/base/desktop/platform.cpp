@@ -54,7 +54,7 @@ void _on_key(GLFWwindow * window, int key, int scancode, int action,
 #ifdef __APPLE__
     if (is_fullscreen && action == GLFW_PRESS) {
         bool iconify = (mods & GLFW_MOD_SUPER && key == GLFW_KEY_M) ||
-                       (mods & GLFW_MOD_CTRL && key == GLFW_KEY_TAB) ||
+                       (mods & GLFW_MOD_CONTROL && key == GLFW_KEY_TAB) ||
                        (mods & GLFW_MOD_ALT && key == GLFW_KEY_TAB);
         if (iconify)
             glfwIconifyWindow(window);

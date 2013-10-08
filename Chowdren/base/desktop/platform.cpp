@@ -52,12 +52,9 @@ void _on_key(GLFWwindow * window, int key, int scancode, int action,
     if (action == GLFW_REPEAT)
         return;
 #ifdef __APPLE__
-    if (is_fullscreen && action == GLFW_PRESS) {
-        bool iconify = (mods & GLFW_MOD_SUPER && key == GLFW_KEY_M) ||
-                       (mods & GLFW_MOD_CONTROL && key == GLFW_KEY_TAB) ||
-                       (mods & GLFW_MOD_ALT && key == GLFW_KEY_TAB);
-        if (iconify)
-            glfwIconifyWindow(window);
+    if (is_fullscreen && action == GLFW_PRESS && mods & GLFW_MOD_SUPER
+            && key == GLFW_KEY_M) {
+        glfwIconifyWindow(window);
     }
 #endif
     global_manager->on_key(key, action == GLFW_PRESS);

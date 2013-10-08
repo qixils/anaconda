@@ -21,6 +21,7 @@ GLuint screen_fbo;
 
 GLFWwindow * global_window = NULL;
 bool is_fullscreen = false;
+bool hide_cursor = false;
 
 inline bool check_opengl_extension(const char * name)
 {
@@ -198,6 +199,10 @@ void platform_create_display(bool fullscreen)
         exit(EXIT_FAILURE);
         return;
     }
+
+    // if the cursor was hidden before the window was created, hide it now
+    if (hide_cursor)
+        platform_hide_mouse();
 }
 
 void platform_begin_draw()
@@ -235,11 +240,17 @@ void platform_set_focus(bool value)
 
 void platform_show_mouse()
 {
+    hide_cursor = false;
+    if (global_window == NULL)
+        return;
     glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 void platform_hide_mouse()
 {
+    hide_cursor = false;
+    if (global_window == NULL)
+        return;
     glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 

@@ -1451,11 +1451,11 @@ void init_font()
     if (initialized)
         return;
     set_font_path("Arial.ttf"); // default font, could be set already
-// #ifdef CHOWDREN_IS_WIIU
+#ifdef CHOWDREN_IS_WIIU
     default_font->FaceSize(24, 96);
-// #else
-    // default_font->FaceSize(12, 96);
-// #endif
+#else
+    default_font->FaceSize(12, 96);
+#endif
     initialized = true;
 }
 

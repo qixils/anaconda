@@ -49,8 +49,8 @@ void Debug(float d)
 
 // Box2D
 
-Box2D::Box2D(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id)
+Box2D::Box2D(int x, int y, int type_id) 
+: FrameObject(x, y, type_id)
 {
     create_alterables();
 }

@@ -38,7 +38,7 @@ import math
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-PROFILE = False
+PROFILE = True
 PROFILE_TIME = 0.01
 
 # enabled for porting
@@ -449,7 +449,8 @@ class Converter(object):
     debug = False
     def __init__(self, filename, outdir, image_file = 'Sprites.dat', 
                  win_ico = None, mac_icns = None, company = None, 
-                 version = None, copyright = None, base_only = False):
+                 version = None, copyright = None, base_only = False,
+                 wiiu=False):
         self.filename = filename
         self.outdir = outdir
 
@@ -546,6 +547,8 @@ class Converter(object):
             fonts_header.close()
         
         # images
+
+        print 'Image count:', len(game.images.items)
 
         if image_file is not None:
             image_fp = open(self.get_filename(image_file), 'wb')
@@ -656,7 +659,7 @@ class Converter(object):
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
             object_writer.write_constants(objects_file)
-            parameters = [to_c('%r', name), 'x', 'y', object_type_id]
+            parameters = ['x', 'y', object_type_id]
             extra_parameters = [str(item) 
                 for item in object_writer.get_parameters()]
             parameters = ', '.join(extra_parameters + parameters)
@@ -667,6 +670,9 @@ class Converter(object):
             objects_file.putln(to_c('%s(int x, int y) : %s', class_name, 
                 init_list))
             objects_file.start_brace()
+            objects_file.putraw('#ifndef NDEBUG')
+            objects_file.putln(to_c('name = %r;', name))
+            objects_file.putraw('#endif')
 
             if not object_writer.is_visible():
                 objects_file.putln('set_visible(false);')
@@ -791,6 +797,9 @@ class Converter(object):
             object_writer.write_post(objects_file)
 
             objects_file.putln('')
+
+        self.max_type_id = type_id.next()
+
         objects_header.close_guard('OBJECTS_H')
         objects_file.close()
         objects_header.close()
@@ -1000,17 +1009,21 @@ class Converter(object):
                 object_writer.write_frame(frame_file)
                 startup_images.update(object_writer.get_images())
 
+            print 'Startup images:', len(startup_images)
+
             frame_file.putmeth('void on_start')
             
             # load images on startup
-            # frame_file.putln('static bool images_initialized = false;')
-            # frame_file.putln('if (!images_initialized) {')
-            # frame_file.indent()
-            # frame_file.putln('images_initialized = true;')
-            # for image_handle in startup_images:
-            #     img = game.images.itemDict[image_handle]
-            #     frame_file.putln('%s->load();' % get_image_name(image_handle))
-            # frame_file.end_brace()
+            if False:
+                frame_file.putln('static bool images_initialized = false;')
+                frame_file.putln('if (!images_initialized) {')
+                frame_file.indent()
+                frame_file.putln('images_initialized = true;')
+                for image_handle in startup_images:
+                    img = game.images.itemDict[image_handle]
+                    frame_file.putln('%s->load(true);' % 
+                                     get_image_name(image_handle))
+                frame_file.end_brace()
 
             for container in containers.values():
                 if container.is_static:
@@ -1185,6 +1198,7 @@ class Converter(object):
         config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
         config_file.putdefine('FRAMERATE', header.frameRate)
+        config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
 
         config_file.close_guard("CHOWDREN_CONFIG_H")
         config_file.close()

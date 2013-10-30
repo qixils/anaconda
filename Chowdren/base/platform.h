@@ -96,5 +96,8 @@ void platform_set_display_target(int value);
 void platform_set_remote_setting(const std::string & v);
 const std::string & platform_get_remote_setting();
 int platform_get_remote_value();
+unsigned int & platform_get_texture_pixel(unsigned int tex, int x, int y);
+void platform_set_border(bool value);
+bool platform_has_error();
 
 #endif // CHOWDREN_PLATFORM_H

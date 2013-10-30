@@ -106,7 +106,7 @@ public:
     char collMode;
     char* tempdata;
 
-    Box2D(const std::string & name, int x, int y, int type_id);
+    Box2D(int x, int y, int type_id);
     ~Box2D();
     void initialize_box2d();
     void generate_event(int id);

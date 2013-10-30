@@ -18,7 +18,7 @@ public:
 
     static void initialize();
     static void add_function(const char * name, void * fp);
-    PythonInterpreter(const std::string & name, int x, int y, int type_id);
+    PythonInterpreter(int x, int y, int type_id);
     static void print_errors();
     void run_string(std::string str);
     void add_parameter(PyObject * v);

@@ -52,7 +52,7 @@ public:
     int body;
 #endif
 
-    FrameObject(const std::string & name, int x, int y, int type_id);
+    FrameObject(int x, int y, int type_id);
     virtual ~FrameObject();
     void set_position(int x, int y);
     int get_x();

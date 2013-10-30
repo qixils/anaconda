@@ -3,6 +3,7 @@
 #include "filecommon.h"
 #include <string>
 #include <boost/unordered_map.hpp>
+#include "config.h"
 
 std::string newline_character("\r\n");
 
@@ -18,6 +19,9 @@ Font::Font(char * face, int size, bool bold, bool italic, bool underline)
 
 Background::Background()
 : image(NULL), image_changed(true)
+#ifdef USE_COL_TREE
+, tree(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, MAX_TREE_LEVEL)
+#endif
 {
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -29,10 +33,22 @@ Background::Background()
     reset();
 }
 
+void clear_back_vec(BackgroundItems & items)
+{
+    BackgroundItems::iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        BackgroundItem * item = *it;
+        delete item;
+    }
+    items.clear();
+}
+
 Background::~Background()
 {
     delete[] image;
     glDeleteTextures(1, &tex);
+    clear_back_vec(col_items);
+    clear_back_vec(items);
 }
 
 void Background::reset(bool clear_items)
@@ -44,8 +60,11 @@ void Background::reset(bool clear_items)
     image_changed = true;
     items_changed = false;
     if (clear_items) {
-        col_items.clear();
-        items.clear();
+        clear_back_vec(col_items);
+        clear_back_vec(items);
+#ifdef USE_COL_TREE
+        tree.clear();
+#endif
     }
 }
 
@@ -53,11 +72,13 @@ void Background::destroy_at(int x, int y)
 {
     BackgroundItems::iterator it = items.begin();
     while (it != items.end()) {
-        BackgroundItem & item = (*it);
-        if (collides(item.dest_x, item.dest_y, 
-                     item.dest_x + item.src_width, 
-                     item.dest_y + item.src_height,
+        BackgroundItem * item = *it;
+        if (collides(item->dest_x, item->dest_y, 
+                     item->dest_x + item->src_width, 
+                     item->dest_y + item->src_height,
                      x, y, x, y)) {
+            // tree.remove(item.tree_item);
+            delete item;
             it = items.erase(it);
             items_changed = true;
         } else
@@ -65,11 +86,15 @@ void Background::destroy_at(int x, int y)
     }
     it = col_items.begin();
     while (it != col_items.end()) {
-        BackgroundItem & item = (*it);
-        if (collides(item.dest_x, item.dest_y, 
-                     item.dest_x + item.src_width, 
-                     item.dest_y + item.src_height,
+        BackgroundItem * item = *it;
+        if (collides(item->dest_x, item->dest_y, 
+                     item->dest_x + item->src_width, 
+                     item->dest_y + item->src_height,
                      x, y, x, y)) {
+#ifdef USE_COL_TREE
+            tree.remove(&item->tree_item);
+#endif
+            delete item;
             it = col_items.erase(it);
         } else
             ++it;
@@ -81,12 +106,12 @@ void Background::update()
     if (!items_changed)
         return;
     reset(false);
-    std::vector<BackgroundItem>::const_iterator it;
+    BackgroundItems::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
-        const BackgroundItem & item = (*it);
-        paste(item.image, item.dest_x, item.dest_y, 
-              item.src_x, item.src_y, item.src_width, item.src_height,
-              item.collision_type, false);
+        BackgroundItem * item = *it;
+        paste(item->image, item->dest_x, item->dest_y, 
+              item->src_x, item->src_y, item->src_width, item->src_height,
+              item->collision_type, false);
     }
 }
 
@@ -95,15 +120,20 @@ void Background::paste(Image * img, int dest_x, int dest_y,
            int collision_type, bool save)
 {
     if (save) {
+        BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
+                                                   src_x, src_y,
+                                                   src_width, src_height,
+                                                   collision_type);
         if (collision_type == 1) {
-            col_items.push_back(BackgroundItem(
-                img, dest_x, dest_y, src_x, src_y, src_width, src_height, 
-                collision_type));
+            col_items.push_back(item);
+#ifdef USE_COL_TREE
+            int x2 = dest_x + src_width;
+            int y2 = dest_y + src_height;
+            tree.add(&item->tree_item, dest_x, dest_y, x2, y2);
+#endif
         } else {
             items_changed = true;
-            items.push_back(BackgroundItem(
-                img, dest_x, dest_y, src_x, src_y, src_width, src_height, 
-                collision_type));
+            items.push_back(item);
         }
         return;
     }
@@ -168,12 +198,28 @@ void Background::draw()
 
 bool Background::collide(CollisionBase * a)
 {
-    std::vector<BackgroundItem>::iterator it;
-    for (it = col_items.begin(); it != col_items.end(); it++) {
-        BackgroundItem & item = *it;
-        if (::collide(a, &item))
+#ifdef USE_COL_TREE
+    TreeItems tree_items;
+    int box[4];
+    a->get_box(box);
+    tree.get(box[0], box[1], box[2], box[3], tree_items);
+
+    TreeItems::iterator it;
+
+    for (it = tree_items.begin(); it != tree_items.end(); it++) {
+        TreeItem * tree_item = *it;
+        BackgroundItem * item = (BackgroundItem*)tree_item->data;
+        if (::collide(a, item))
             return true;
     }
+#else
+    BackgroundItems::iterator it;
+    for (it = col_items.begin(); it != col_items.end(); it++) {
+        BackgroundItem * item = *it;
+        if (::collide(a, item))
+            return true;
+    }
+#endif
     return false;
 }
 
@@ -272,6 +318,8 @@ void Layer::destroy_backgrounds(int x, int y, bool fine)
 
 bool Layer::test_background_collision(CollisionBase * a)
 {
+    if (a == NULL)
+        return false;
     if (back != NULL && back->collide(a))
         return true;
     ObjectList::const_iterator it;
@@ -336,6 +384,32 @@ void Layer::set_remote(int value)
 }
 #endif
 
+// InstanceMap
+
+InstanceMap::InstanceMap(size_t v)
+{
+    num = v;
+    items = new ObjectList*[num]();
+}
+
+ObjectList & InstanceMap::get(int id)
+{
+    ObjectList * item = items[id];
+    if (item == NULL) {
+        item = new ObjectList;
+        items[id] = item;
+    }
+    return *item;
+}
+
+void InstanceMap::clear()
+{
+    for (int i = 0; i < num; i++) {
+        delete items[i];
+        items[i] = NULL;
+    }
+}
+
 // Frame
 
 Frame::Frame(const std::string & name, int width, int height, 
@@ -343,7 +417,8 @@ Frame::Frame(const std::string & name, int width, int height,
 : name(name), width(width), height(height), index(index), 
   background_color(background_color), manager(manager),
   off_x(0), off_y(0), has_quit(false), last_key(-1), next_frame(-1),
-  loop_count(0), frame_time(0.0), frame_iteration(0)
+  loop_count(0), frame_time(0.0), frame_iteration(0),
+  instance_classes(MAX_OBJECT_ID)
 {
     std::fill_n(key_presses, CHOWDREN_KEY_LAST, false);
     std::fill_n(mouse_presses, CHOWDREN_MOUSE_BUTTON_LAST, false);
@@ -402,7 +477,7 @@ bool Frame::update(float dt)
         instances.erase(
             std::remove(instances.begin(), instances.end(), instance), 
             instances.end());
-        ObjectList & class_instances = instance_classes[instance->id];
+        ObjectList & class_instances = instance_classes.get(instance->id);
         class_instances.erase(
             std::remove(class_instances.begin(), class_instances.end(), 
             instance), class_instances.end());
@@ -501,7 +576,7 @@ void Frame::draw(int remote)
 
 ObjectList & Frame::get_instances(int object_id)
 {
-    return instance_classes[object_id];
+    return instance_classes.get(object_id);
 }
 
 ObjectList Frame::get_instances(unsigned int qualifier[])
@@ -519,7 +594,7 @@ ObjectList Frame::get_instances(unsigned int qualifier[])
 
 FrameObject * Frame::get_instance(int object_id)
 {
-    ObjectList & instances = instance_classes[object_id];
+    ObjectList & instances = instance_classes.get(object_id);
     if (instances.size() == 0) {
         std::cout << "Warning: invalid instance count" << std::endl;
         return NULL;
@@ -548,7 +623,7 @@ void Frame::add_object(FrameObject * object, int layer_index)
     object->frame = this;
     object->layer_index = layer_index;
     instances.push_back(object);
-    instance_classes[object->id].push_back(object);
+    instance_classes.get(object->id).push_back(object);
     layers[layer_index]->add_object(object);
 }
 
@@ -711,15 +786,11 @@ bool Frame::is_joystick_direction_changed(int n)
 
 // FrameObject
 
-FrameObject::FrameObject(const std::string & name, int x, int y, int type_id) 
+FrameObject::FrameObject(int x, int y, int type_id) 
 : x(x), y(y), id(type_id), visible(true), shader(NULL), 
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
   destroying(false), scroll(true), movement(NULL)
 {
-#ifndef NDEBUG
-    this->name = name;
-#endif
-
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
 #endif
@@ -1066,8 +1137,8 @@ inline Direction * find_nearest_direction(int dir, Direction ** dirs)
     }
 }
 
-Active::Active(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), animation(),
+Active::Active(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), animation(),
   animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
   forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
   animation_direction(0), stopped(false), flash_interval(0.0f),
@@ -1460,8 +1531,9 @@ void init_font()
 }
 
 
-Text::Text(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), initialized(false), current_paragraph(0)
+Text::Text(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), initialized(false), current_paragraph(0),
+  draw_text_set(false)
 {
     create_alterables();
     collision = new InstanceBox(this);
@@ -1483,10 +1555,26 @@ void Text::add_line(std::string text)
 
 void Text::draw()
 {
+    if (!draw_text_set) {
+        // convert from windows-1252 to utf-8
+        draw_text_set = true;
+        std::string::const_iterator it;
+        draw_text.clear();
+        for (it = text.begin(); it != text.end(); it++) {
+            char c = *it;
+            if (c < 128)
+                draw_text.push_back(c);
+            else {
+                draw_text.push_back(0xC2 + (c > 0xBF));
+                draw_text.push_back(c & 0x3F + 0x80);
+            }
+        }
+    }
     init_font();
     color.apply();
     glPushMatrix();
-    FTBBox box = default_font->BBox(text.c_str(), text.size(), FTPoint());
+    FTBBox box = default_font->BBox(draw_text.c_str(), draw_text.size(),
+                                    FTPoint());
     double box_w = box.Upper().X() - box.Lower().X();
     double box_h = box.Upper().Y() - box.Lower().Y();
     double off_x = x;
@@ -1504,7 +1592,7 @@ void Text::draw()
 
     glTranslated((int)off_x, (int)off_y, 0.0);
     glScalef(1, -1, 1);
-    default_font->Render(text.c_str(), text.size(), FTPoint(),
+    default_font->Render(draw_text.c_str(), draw_text.size(), FTPoint(),
         FTPoint(), RENDER_ALL);
     glPopMatrix();
 }
@@ -1512,6 +1600,7 @@ void Text::draw()
 void Text::set_string(std::string value)
 {
     text = value;
+    draw_text_set = false;
 }
 
 void Text::set_paragraph(unsigned int index)
@@ -1566,8 +1655,8 @@ CollisionBase * Text::get_collision()
 
 // Backdrop
 
-Backdrop::Backdrop(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), collision(NULL)
+Backdrop::Backdrop(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), collision(NULL)
 {
 #ifdef CHOWDREN_IS_WIIU
     remote = CHOWDREN_HYBRID_TARGET;
@@ -1599,9 +1688,8 @@ void Backdrop::draw()
 
 // QuickBackdrop
 
-QuickBackdrop::QuickBackdrop(const std::string & name, int x, int y,
-                             int type_id) 
-: FrameObject(name, x, y, type_id), collision(NULL)
+QuickBackdrop::QuickBackdrop(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), collision(NULL)
 {
 }
 
@@ -1649,9 +1737,8 @@ void QuickBackdrop::draw()
 
 // Counter
 
-Counter::Counter(int init, int min, int max, const std::string & name, 
-                 int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), minimum(min), maximum(max)
+Counter::Counter(int init, int min, int max, int x, int y, int type_id) 
+: FrameObject(x, y, type_id), minimum(min), maximum(max)
 {
     for (int i = 0; i < 14; i++)
         images[i] = NULL;
@@ -1762,8 +1849,8 @@ inline bool match_wildcard(const std::string & pattern,
     return value == pattern;
 }
 
-INI::INI(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), overwrite(false), auto_save(false)
+INI::INI(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), overwrite(false), auto_save(false)
 {
     create_alterables();
 }
@@ -2206,9 +2293,8 @@ boost::unordered_map<std::string, SectionMap> INI::global_data;
 
 // StringTokenizer
 
-StringTokenizer::StringTokenizer(const std::string & name, int x, int y, 
-                                 int type_id) 
-: FrameObject(name, x, y, type_id)
+StringTokenizer::StringTokenizer(int x, int y, int type_id) 
+: FrameObject(x, y, type_id)
 {
 }
 
@@ -2272,8 +2358,8 @@ Workspace::Workspace(const std::string & name)
 
 // BinaryArray
 
-BinaryArray::BinaryArray(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), current(NULL)
+BinaryArray::BinaryArray(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), current(NULL)
 {
 
 }
@@ -2354,8 +2440,8 @@ size_t BinaryArray::get_size()
 
 // ArrayObject
 
-ArrayObject::ArrayObject(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), array(NULL)
+ArrayObject::ArrayObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), array(NULL)
 {
 
 }
@@ -2397,8 +2483,8 @@ int LayerObject::sort_index;
 bool LayerObject::sort_reverse;
 double LayerObject::def;
 
-LayerObject::LayerObject(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id), current_layer(0)
+LayerObject::LayerObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), current_layer(0)
 {
 
 }
@@ -2446,8 +2532,8 @@ void LayerObject::sort_alt_decreasing(int index, double def)
 
 // Viewport
 
-Viewport::Viewport(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id)
+Viewport::Viewport(int x, int y, int type_id) 
+: FrameObject(x, y, type_id)
 {
 
 }
@@ -2479,9 +2565,8 @@ void Viewport::draw()
 
 // AdvancedDirection
 
-AdvancedDirection::AdvancedDirection(const std::string & name, int x, int y,
-                                     int type_id)
-: FrameObject(name, x, y, type_id)
+AdvancedDirection::AdvancedDirection(int x, int y, int type_id)
+: FrameObject(x, y, type_id)
 {
 }
 
@@ -2507,8 +2592,8 @@ FixedValue AdvancedDirection::get_closest(int n)
 
 // TextBlitter
 
-TextBlitter::TextBlitter(const std::string & name, int x, int y, int type_id)
-: FrameObject(name, x, y, type_id)
+TextBlitter::TextBlitter(int x, int y, int type_id)
+: FrameObject(x, y, type_id)
 {
     create_alterables();
 }
@@ -2575,9 +2660,8 @@ void TextBlitter::draw()
 
 // PlatformObject
 
-PlatformObject::PlatformObject(const std::string & name, int x, int y, 
-                               int type_id) 
-: FrameObject(name, x, y, type_id), instance(NULL), paused(false),
+PlatformObject::PlatformObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), instance(NULL), paused(false),
   add_x_vel(0), add_y_vel(0), x_move_count(0), y_move_count(0), x_vel(0),
   y_vel(0), left(false), right(false), obstacle_collision(false),
   platform_collision(false), on_ground(false), through_collision_top(false),
@@ -2722,9 +2806,8 @@ void PlatformObject::jump()
 
 // ActivePicture
 
-ActivePicture::ActivePicture(const std::string & name, int x, int y, 
-                             int type_id) 
-: FrameObject(name, x, y, type_id), image(NULL), horizontal_flip(false),
+ActivePicture::ActivePicture(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
   scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
 {
     create_alterables();
@@ -2877,9 +2960,8 @@ ImageCache ActivePicture::image_cache;
 
 // ListObject
 
-ListObject::ListObject(const std::string & name, int x, int y, 
-                       int type_id) 
-: FrameObject(name, x, y, type_id)
+ListObject::ListObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id)
 {
 
 }

@@ -24,9 +24,9 @@ GameManager * global_manager;
 #define CHOWDREN_DEBUG
 #endif
 
-// #ifdef CHOWDREN_DEBUG
+#ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-// #endif
+#endif
 
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -367,21 +367,23 @@ void GameManager::run()
             std::cout << "Framerate: " << fps_limit.current_framerate 
                 << std::endl;
 
-        double event_update_time = platform_get_time();
+        if (!platform_has_error()) {
+            double event_update_time = platform_get_time();
 
-        int ret = update();
+            int ret = update();
 
-        if (show_stats)
-            std::cout << "Event update took " << 
-                platform_get_time() - event_update_time << std::endl;
+            if (show_stats)
+                std::cout << "Event update took " << 
+                    platform_get_time() - event_update_time << std::endl;
 
-        if (ret == 0)
-            break;
-        else if (ret == 2)
-            continue;
+            if (ret == 0)
+                break;
+            else if (ret == 2)
+                continue;
 
-        if (window_created && platform_display_closed())
-            break;
+            if (window_created && platform_display_closed())
+                break;
+        }
 
         double draw_time = platform_get_time();
 
@@ -389,6 +391,8 @@ void GameManager::run()
 
         if (show_stats) {
             std::cout << "Draw took " << platform_get_time() - draw_time
+                << std::endl;
+            std::cout << "Instance count: " << frame->instances.size()
                 << std::endl;
             platform_print_stats();
         }

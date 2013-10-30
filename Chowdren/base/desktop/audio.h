@@ -372,6 +372,7 @@ public:
 
     void destroy()
     {
+        stop();
         delete this;
     }
 };

@@ -14,6 +14,8 @@ def main():
         default = 'Sprites.dat', help = 'destination file for images')
     parser.add_argument('--noimages', action='store_true',
         help = 'turns off image writing')
+    parser.add_argument('--wiiu', action='store_true',
+        help = 'turns on generation of Wii U-specific data')
     parser.add_argument('--base', action='store_true',
         help = 'only copy base dir')
     parser.add_argument('--ico', type = str, action = 'store', default = None,

@@ -107,8 +107,12 @@ Image::Image(Image & img)
 {
 }
 
-void Image::load()
+void Image::load(bool upload)
 {
+#ifdef CHOWDREN_IS_WIIU
+    if (tex != 0)
+        return;
+#endif
     if (image != NULL)
         return;
     open_image_file();
@@ -124,6 +128,8 @@ void Image::load()
     int channels;
     image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file, 
         &width, &height, &channels, 4);
+    if (upload)
+        upload_texture();
 }
 
 void Image::upload_texture()
@@ -146,10 +152,20 @@ void Image::upload_texture()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+#ifdef CHOWDREN_IS_WIIU
+    // for memory reasons, we delete the image and access the texture directly
+    delete image;
+    image = NULL;
+#endif
 }
 
 unsigned int & Image::get(int x, int y)
 {
+#ifdef CHOWDREN_IS_WIIU
+    if (tex != 0)
+        return platform_get_texture_pixel(tex, x, y);
+#endif
     return ((unsigned int*)image)[y * width + x];
 }
 

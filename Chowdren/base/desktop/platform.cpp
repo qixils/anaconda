@@ -179,6 +179,10 @@ void platform_create_display(bool fullscreen)
         const GLFWvidmode * desktop_mode = glfwGetVideoMode(monitor);
         width = desktop_mode->width;
         height = desktop_mode->height;
+        glfwWindowHint(GLFW_REFRESH_RATE, desktop_mode->refreshRate);
+        glfwWindowHint(GLFW_RED_BITS, desktop_mode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, desktop_mode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, desktop_mode->blueBits);
     } else {
         width = WINDOW_WIDTH;
         height = WINDOW_HEIGHT;
@@ -811,4 +815,9 @@ static std::string remote_string("Hybrid");
 const std::string & platform_get_remote_setting()
 {
     return remote_string;
+}
+
+bool platform_has_error()
+{
+    return false;
 }

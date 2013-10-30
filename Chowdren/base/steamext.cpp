@@ -78,8 +78,8 @@ static SteamGlobal steam;
 
 // SteamObject
 
-SteamObject::SteamObject(const std::string & name, int x, int y, int type_id) 
-: FrameObject(name, x, y, type_id)
+SteamObject::SteamObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id)
 {
 }
 

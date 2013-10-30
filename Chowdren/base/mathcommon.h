@@ -110,4 +110,12 @@ inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2,
     r_y2 = std::min<int>(a_y2, b_y2);
 }
 
+inline bool collides(int a_x1, int a_y1, int a_x2, int a_y2, 
+                     int b_x1, int b_y1, int b_x2, int b_y2)
+{
+    if (a_x2 <= b_x1 || a_y2 <= b_y1 || a_x1 >= b_x2 || a_y1 >= b_y2)
+        return false;
+    return true;
+}
+
 #endif // CHOWDREN_MATH_H

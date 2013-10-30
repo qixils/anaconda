@@ -46,9 +46,8 @@ void PythonInterpreter::add_function(const char * name, void * fp)
     print_errors();
 }
 
-PythonInterpreter::PythonInterpreter(const std::string & name, int x, int y,
-                                     int type_id) 
-: FrameObject(name, x, y, type_id), parameters(NULL), returns(NULL)
+PythonInterpreter::PythonInterpreter(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), parameters(NULL), returns(NULL)
 {
     initialize();
 }

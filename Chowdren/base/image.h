@@ -25,7 +25,7 @@ public:
           int act_x, int act_y, Color * color = NULL);
     Image(Image & image);
     ~Image();
-    void load();
+    void load(bool upload = false);
     void upload_texture();
     void draw(double x, double y, double angle = 0.0, 
               double scale_x = 1.0, double scale_y = 1.0,

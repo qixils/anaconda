@@ -1,6 +1,7 @@
 #include "frameobject.h"
 #include <algorithm>
 #include "mathcommon.h"
+#include "coltree.h"
 
 enum CollisionType
 {
@@ -22,16 +23,13 @@ public:
     {
     }
 
+    virtual ~CollisionBase()
+    {
+
+    }
+
     virtual void get_box(int v[4]) = 0;
 };
-
-inline bool collides(int a_x1, int a_y1, int a_x2, int a_y2, 
-                     int b_x1, int b_y1, int b_x2, int b_y2)
-{
-    if (a_x2 <= b_x1 || a_y2 <= b_y1 || a_x1 >= b_x2 || a_y1 >= b_y2)
-        return false;
-    return true;
-}
 
 inline bool collide_line(int x1, int y1, int x2, int y2,
                          int line_x1, int line_y1, int line_x2, int line_y2)
@@ -304,11 +302,18 @@ public:
     Image * image;
     int collision_type;
 
+#ifdef USE_COL_TREE
+    TreeItem tree_item;
+#endif
+
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
                    int src_width, int src_height, int type)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), collision_type(type),
       image(img), CollisionBase(BACKGROUND_ITEM, false)
+#ifdef USE_COL_TREE
+      , tree_item(this)
+#endif
     {
     }
 

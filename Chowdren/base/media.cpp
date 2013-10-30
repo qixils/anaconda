@@ -106,9 +106,8 @@ void Channel::play(SoundData * data, int loop)
     set_pan(pan);
     if (frequency != 0)
         set_frequency(frequency);
-    if (loop == 0) {
-        sound->set_loop(true);
-    } else if (loop > 1)
+    sound->set_loop(loop == 0);
+    if (loop > 1)
         std::cout << "Invalid number of loops (" << loop << ")" << std::endl;
     sound->play();
 }
@@ -131,8 +130,6 @@ void Channel::stop()
 {
     if (is_invalid())
         return;
-    sound->stop();
-    // delete sound;
     sound->destroy();
     sound = NULL;
 }
@@ -368,7 +365,7 @@ void Media::add_cache(const std::string & name, const std::string & fn)
 #ifdef CHOWDREN_IS_DESKTOP
 #define STREAM_THRESHOLD 0.5
 #else
-#define STREAM_THRESHOLD 1.0
+#define STREAM_THRESHOLD 0.75
 #endif
 
 void Media::add_file(const std::string & name, const std::string & fn)

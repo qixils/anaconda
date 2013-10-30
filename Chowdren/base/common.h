@@ -34,6 +34,7 @@
 #include "utility.h"
 #include <stdarg.h>
 #include <boost/unordered_map.hpp>
+#include "coltree.h"
 
 extern std::string newline_character;
 
@@ -167,7 +168,7 @@ public:
 #define BACK_WIDTH WINDOW_WIDTH
 #define BACK_HEIGHT WINDOW_HEIGHT
 
-typedef std::vector<BackgroundItem> BackgroundItems;
+typedef std::vector<BackgroundItem*> BackgroundItems;
 
 class Background
 {
@@ -178,6 +179,9 @@ public:
     GLuint tex;
     BackgroundItems items;
     BackgroundItems col_items;
+#ifdef USE_COL_TREE
+    CollisionTree tree;
+#endif
 
     Background();
     ~Background();
@@ -234,6 +238,17 @@ public:
 // typedef boost::unordered_map<std::string, bool> RunningLoops;
 // typedef boost::unordered_map<std::string, int> LoopIndexes;
 
+class InstanceMap
+{
+public:
+    size_t num;
+    ObjectList ** items;
+
+    InstanceMap(size_t num);
+    ObjectList & get(int id);
+    void clear();
+};
+
 class Media;
 
 class Frame
@@ -246,7 +261,7 @@ public:
     ObjectList instances;
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
-    boost::unordered_map<int, ObjectList> instance_classes;
+    InstanceMap instance_classes;
     // LoopIndexes loop_indexes;
     // RunningLoops running_loops;
     Color background_color;
@@ -376,7 +391,7 @@ public:
     unsigned int flags;
     int animation_finished;
 
-    Active(const std::string & name, int x, int y, int type_id);
+    Active(int x, int y, int type_id);
     void initialize_active();
     ~Active();
     void initialize_animations();
@@ -441,8 +456,10 @@ public:
     int alignment;
     CollisionBase * collision;
     bool bold, italic;
+    std::string draw_text;
+    bool draw_text_set;
 
-    Text(const std::string & name, int x, int y, int type_id);
+    Text(int x, int y, int type_id);
     ~Text();
     void add_line(std::string text);
     void draw();
@@ -467,7 +484,7 @@ public:
     int remote;
 #endif
 
-    Backdrop(const std::string & name, int x, int y, int type_id);
+    Backdrop(int x, int y, int type_id);
     ~Backdrop();
     CollisionBase * get_collision();
     void draw();
@@ -485,7 +502,7 @@ public:
     Color color2;
     CollisionBase * collision;
 
-    QuickBackdrop(const std::string & name, int x, int y, int type_id);
+    QuickBackdrop(int x, int y, int type_id);
     ~QuickBackdrop();
     CollisionBase * get_collision();
     void draw();
@@ -499,8 +516,7 @@ public:
     double minimum, maximum;
     std::string cached_string;
 
-    Counter(int init, int min, int max, const std::string & name, 
-            int x, int y, int type_id);
+    Counter(int init, int min, int max, int x, int y, int type_id);
     Image * get_image(char c);
     void add(double value);
     void subtract(double value);
@@ -510,8 +526,6 @@ public:
     void draw();
 };
 
-/*typedef std::map<std::string, std::string> OptionMap;
-typedef std::map<std::string, OptionMap> SectionMap;*/
 typedef boost::unordered_map<std::string, std::string> OptionMap;
 typedef boost::unordered_map<std::string, OptionMap> SectionMap;
 
@@ -528,7 +542,7 @@ public:
     std::string filename;
     std::string global_key;
 
-    INI(const std::string & name, int x, int y, int type_id);
+    INI(int x, int y, int type_id);
     static void reset_global_data();
     static int _parse_handler(void* user, const char* section, const char* name,
                              const char* value);
@@ -599,7 +613,7 @@ class StringTokenizer : public FrameObject
 public:
     std::vector<std::string> elements;
 
-    StringTokenizer(const std::string & name, int x, int y, int type_id);
+    StringTokenizer(int x, int y, int type_id);
     void split(const std::string & text, const std::string & delims);
     const std::string & get(int index);
 };
@@ -649,7 +663,7 @@ public:
     WorkspaceMap workspaces;
     Workspace * current;
 
-    BinaryArray(const std::string & name, int x, int y, int type_id);
+    BinaryArray(int x, int y, int type_id);
     ~BinaryArray();
     void load_workspaces(const std::string & filename);
     void create_workspace(const std::string & name);
@@ -667,7 +681,7 @@ public:
     double * array;
     int x_size, y_size, z_size;
 
-    ArrayObject(const std::string & name, int x, int y, int type_id);
+    ArrayObject(int x, int y, int type_id);
     ~ArrayObject();
     void initialize(int x, int y, int z);
     void clear();
@@ -683,7 +697,7 @@ public:
     static bool sort_reverse;
     static double def;
 
-    LayerObject(const std::string & name, int x, int y, int type_id);
+    LayerObject(int x, int y, int type_id);
     void set_layer(int value);
     void hide_layer(int index);
     void show_layer(int index);
@@ -698,7 +712,7 @@ public:
     int center_x, center_y;
     int src_width, src_height;
 
-    Viewport(const std::string & name, int x, int y, int type_id);
+    Viewport(int x, int y, int type_id);
     void set_source(int center_x, int center_y, int width, int height);
     void set_width(int w);
     void set_height(int h);
@@ -710,7 +724,7 @@ class AdvancedDirection : public FrameObject
 public:
     FrameObject * closest;
 
-    AdvancedDirection(const std::string & name, int x, int y, int type_id);
+    AdvancedDirection(int x, int y, int type_id);
     void find_closest(ObjectList instances, int x, int y);
     FixedValue get_closest(int n);
 };
@@ -723,7 +737,7 @@ public:
     Image * image;
     int * charmap;
 
-    TextBlitter(const std::string & name, int x, int y, int type_id);
+    TextBlitter(int x, int y, int type_id);
     void initialize(const std::string & charmap);
     void set_text(const std::string & text);
     void draw();
@@ -758,7 +772,7 @@ public:
     ObstacleOverlapCallback obstacle_callback;
     PlatformOverlapCallback platform_callback;
 
-    PlatformObject(const std::string & name, int x, int y, int type_id);
+    PlatformObject(int x, int y, int type_id);
     void set_object(FrameObject * instance);
     virtual void call_overlaps_obstacle() = 0;
     virtual void call_overlaps_platform() = 0;
@@ -788,7 +802,7 @@ public:
     SpriteCollision * collision;
     static ImageCache image_cache;
 
-    ActivePicture(const std::string & name, int x, int y, int type_id);
+    ActivePicture(int x, int y, int type_id);
     ~ActivePicture();
     void remove_image();
     void load(const std::string & fn);
@@ -815,7 +829,7 @@ class ListObject : public FrameObject
 public:
     StringList lines;
 
-    ListObject(const std::string & name, int x, int y, int type_id);
+    ListObject(int x, int y, int type_id);
     void load_file(const std::string & name);
     void add_line(const std::string & value);
     const std::string & get_line(int i);
@@ -862,10 +876,17 @@ extern MathHelper math_helper;
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
+    if (fixed == 0.0 || fixed == -1.0)
+        return NULL;
     int64_t v;
     memcpy(&v, &fixed, sizeof(int64_t));
     intptr_t p = intptr_t(v);
     return (FrameObject*)p;
+}
+
+inline FrameObject * get_object_from_fixed(FixedValue fixed)
+{
+    return fixed.object;
 }
 
 inline ObjectList make_single_list(FrameObject * item)
@@ -873,6 +894,12 @@ inline ObjectList make_single_list(FrameObject * item)
     ObjectList new_list;
     new_list.push_back(item);
     return new_list;
+}
+
+inline void make_single_list(FrameObject * item, ObjectList & list)
+{
+    list.clear();
+    list.push_back(item);
 }
 
 inline bool check_overlap(ObjectList in_a, ObjectList in_b, 

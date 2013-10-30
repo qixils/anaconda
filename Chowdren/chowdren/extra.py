@@ -13,19 +13,20 @@ SOUNDS_STRING = 'Chowdren: Sounds'
 STEAM_STRING = 'Chowdren: Steam'
 LANGUAGE_STRING = 'Chowdren: Language'
 REMOTE_STRING = 'Chowdren: Remote'
+BORDER_STRING = 'Chowdren: Border'
 
 SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING, 
     RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING,
-    LANGUAGE_STRING, REMOTE_STRING])
+    LANGUAGE_STRING, REMOTE_STRING, BORDER_STRING])
 
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
 
 def convert_repr_bool(value):
-    value = eval(value)
-    if value == 'Yes':
+    value = eval(value.replace('std::string', 'str'))
+    if value in ('Yes', 'Enabled'):
         return True
-    elif value == 'No':
+    elif value in ('No', 'Disabled'):
         return False
     else:
         raise NotImplementedError
@@ -62,6 +63,9 @@ class SetString(ActionWriter):
         elif name == REMOTE_STRING:
             v = self.convert_index(0)
             writer.put('platform_set_remote_setting(%s);' % v)
+        elif name == BORDER_STRING:
+            v = convert_repr_bool(self.convert_index(0))
+            writer.put(to_c('platform_set_border(%s);', v))
 
 actions = {
     'SetString' : SetString

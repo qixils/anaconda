@@ -284,12 +284,53 @@ class NumberOfObjects(ComparisonWriter):
         return '%s.size()' % self.converter.get_object(object_info, True)
 
 class CompareFixedValue(ConditionWriter):
-    dereference = False
-
+    custom = True
     def write(self, writer):
-        comparison = self.get_comparison()
+        object_info, object_type = self.get_object()
+        converter = self.converter
+
+        end_label = 'fixed_%s_end' % id(self)
         value = self.convert_index(0)
-        writer.put(' %s get_object_from_fixed(%s)' % (comparison, value))
+        comparison = self.get_comparison()
+        is_equal = comparison == '=='
+        has_selection = object_info in converter.has_selection
+        is_instance = value.endswith('get_fixed()')
+        test_all = has_selection or not is_equal or not is_instance
+        if is_instance:
+            instance_value = value.replace('->get_fixed()', '')
+        else:
+            instance_value = 'get_object_from_fixed(%s)' % value
+
+        selected_name = converter.get_list_name(converter.get_object_name(
+            object_info))
+        get_list = converter.get_object(object_info, True)
+
+        fixed_name = 'fixed_test_%s' % id(self)
+        writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
+        if is_equal:
+            event_break = converter.event_break
+        else:
+            event_break = 'goto %s;' % end_label
+        if test_all and not has_selection:
+            writer.putln('%s = %s;' % (selected_name, get_list))
+        writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
+        if test_all:
+            writer.putln('item = %s.begin();' % (selected_name))
+            writer.putln('while (item != %s.end()) {' % selected_name)
+            writer.indent()
+            writer.putln('if (!((*item) %s %s)) item = %s.erase(item);' % (
+                comparison, fixed_name, selected_name))
+            writer.putln('else ++item;')
+            writer.end_brace()
+            writer.put_label(end_label)
+            writer.putln('if (%s.empty()) %s' % (selected_name,
+                                                 converter.event_break))
+        else:
+            writer.putln('make_single_list(%s, %s);' % (fixed_name,
+                                                        selected_name))
+            writer.put_label(end_label)
+
+        converter.set_list(object_info, selected_name)
 
 class FacingInDirection(ConditionWriter):
     def write(self, writer):
@@ -361,7 +402,7 @@ class CreateBase(ActionWriter):
             writer.putln('%s.push_back(new_obj);' % (list_name))
         except KeyError:
             list_name = self.converter.get_list_name(create_object)
-            writer.putln('%s = make_single_list(new_obj);' % (list_name))
+            writer.putln('make_single_list(new_obj, %s);' % (list_name))
             self.converter.has_selection[object_info] = list_name
         if is_shoot:
             writer.putln('%s->shoot(new_obj, %s);' % (

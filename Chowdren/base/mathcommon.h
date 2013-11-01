@@ -118,4 +118,14 @@ inline bool collides(int a_x1, int a_y1, int a_x2, int a_y2,
     return true;
 }
 
+inline void rect_union(int a_x1, int a_y1, int a_x2, int a_y2,
+                       int b_x1, int b_y1, int b_x2, int b_y2,
+                       int & r_x1, int & r_y1, int & r_x2, int & r_y2)
+{
+    r_x1 = std::min<int>(a_x1, b_x1);
+    r_y1 = std::min<int>(a_y1, b_y1);
+    r_x2 = std::max<int>(a_x2, b_x2);
+    r_y2 = std::max<int>(a_y2, b_y2);
+}
+
 #endif // CHOWDREN_MATH_H

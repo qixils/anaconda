@@ -350,10 +350,10 @@ void GameManager::run()
     while(true) {
         measure_time -= 1;
         bool show_stats = false;
-        if (measure_time <= 0) {
-            measure_time = 200;
-            show_stats = true;
-        }
+        // if (measure_time <= 0) {
+        //     measure_time = 200;
+        //     show_stats = true;
+        // }
 
         fps_limit.start();
         platform_poll_events();

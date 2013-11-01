@@ -253,7 +253,7 @@ class OnceCondition(ConditionWriter):
     def write(self, writer):
         event_break = self.converter.event_break
         name = 'once_condition_%s' % id(self)
-        writer.putln('static unsigned int %s = -1;' % name)
+        writer.putln('static unsigned int %s = (int)(-1);' % name)
         writer.putln('if (%s == frame_iteration) %s' % (name, event_break))
         writer.putln('%s = frame_iteration;' % (name))
 
@@ -306,6 +306,7 @@ class CompareFixedValue(ConditionWriter):
         get_list = converter.get_object(object_info, True)
 
         fixed_name = 'fixed_test_%s' % id(self)
+        writer.start_brace()
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         if is_equal:
             event_break = converter.event_break
@@ -313,7 +314,8 @@ class CompareFixedValue(ConditionWriter):
             event_break = 'goto %s;' % end_label
         if test_all and not has_selection:
             writer.putln('%s = %s;' % (selected_name, get_list))
-        writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
+        if not is_instance:
+            writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
         if test_all:
             writer.putln('item = %s.begin();' % (selected_name))
             writer.putln('while (item != %s.end()) {' % selected_name)
@@ -322,14 +324,17 @@ class CompareFixedValue(ConditionWriter):
                 comparison, fixed_name, selected_name))
             writer.putln('else ++item;')
             writer.end_brace()
-            writer.put_label(end_label)
+            if not is_equal:
+                writer.put_label(end_label)
             writer.putln('if (%s.empty()) %s' % (selected_name,
                                                  converter.event_break))
         else:
             writer.putln('make_single_list(%s, %s);' % (fixed_name,
                                                         selected_name))
-            writer.put_label(end_label)
+            if not is_equal:
+                writer.put_label(end_label)
 
+        writer.end_brace()
         converter.set_list(object_info, selected_name)
 
 class FacingInDirection(ConditionWriter):

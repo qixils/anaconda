@@ -38,7 +38,7 @@ import math
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-PROFILE = True
+PROFILE = False
 PROFILE_TIME = 0.01
 
 # enabled for porting

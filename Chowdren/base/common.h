@@ -209,6 +209,7 @@ public:
     Background * back;
     int index;
     bool scroll_active;
+    int x1, y1, x2, y2;
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
     ~Layer();

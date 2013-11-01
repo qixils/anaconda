@@ -227,12 +227,11 @@ bool Background::collide(CollisionBase * a)
 
 Layer::Layer(double scroll_x, double scroll_y, bool visible, int index) 
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index)
+  index(index), x1(0), y1(0), x2(0), y2(0)
 {
 #ifdef CHOWDREN_IS_WIIU
     remote = CHOWDREN_TV_TARGET;
 #endif
-
     scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
 }
 
@@ -260,6 +259,21 @@ void Layer::scroll(int dx, int dy)
 
 void Layer::add_background_object(FrameObject * instance)
 {
+    CollisionBase * col = instance->get_collision();
+    if (col != NULL) {
+        int b[4];
+        col->get_box(b);
+        if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
+            x1 = b[0];
+            y1 = b[1];
+            x2 = b[2];
+            y2 = b[3];
+        } else {
+            rect_union(x1, y1, x2, y2,
+                       b[0], b[1], b[2], b[3],
+                       x1, y1, x2, y2);
+        }
+    }
     background_instances.push_back(instance);
 }
 
@@ -320,6 +334,10 @@ bool Layer::test_background_collision(CollisionBase * a)
 {
     if (a == NULL)
         return false;
+    int b[4];
+    a->get_box(b);
+    if (!collides(b[0], b[1], b[2], b[3], x1, y1, x2, y2))
+        return false;
     if (back != NULL && back->collide(a))
         return true;
     ObjectList::const_iterator it;
@@ -345,6 +363,20 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
                   int collision_type)
 {
     create_background();
+    if (collision_type == 1) {
+        int xx = dest_x + src_width;
+        int yy = dest_x + src_height;
+        if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
+            x1 = dest_x;
+            y1 = dest_y;
+            x2 = xx;
+            y2 = yy;
+        } else {
+            rect_union(x1, y1, x2, y2,
+                       dest_x, dest_y, xx, yy,
+                       x1, y1, x2, y2);
+        }
+    }
     back->paste(img, dest_x, dest_y, src_x, src_y, 
         src_width, src_height, collision_type);
 }

@@ -922,7 +922,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Modulus' : '.%math_helper%',
     'AND' : '.&math_helper&',
     'OR' : '.|math_helper|',
-    'XOR' : '^math_helper^',
+    'XOR' : '.^math_helper^',
     'Random' : 'randrange',
     'ApplicationPath' : 'get_app_path()',
     'AlterableValue' : AlterableValueExpression,

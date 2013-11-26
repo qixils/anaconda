@@ -39,7 +39,7 @@ import math
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 PROFILE = False
-PROFILE_TIME = 0.01
+PROFILE_TIME = 0.001
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -1597,7 +1597,7 @@ class Converter(object):
         elif handle in self.has_selection:
             ret = self.has_selection[handle]
             if not as_list:
-                ret = '((%s)%s[0])' % (object_type, ret)
+                ret = '((%s)get_single(%s))' % (object_type, ret)
             return ret
         else:
             type_id, is_qual = self.get_object_handle(handle)

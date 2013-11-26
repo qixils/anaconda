@@ -367,7 +367,10 @@ void GameManager::run()
             std::cout << "Framerate: " << fps_limit.current_framerate 
                 << std::endl;
 
-        if (!platform_has_error()) {
+        if (platform_has_error()) {
+            if (platform_display_closed())
+                break;
+        } else {
             double event_update_time = platform_get_time();
 
             int ret = update();
@@ -393,7 +396,7 @@ void GameManager::run()
             std::cout << "Draw took " << platform_get_time() - draw_time
                 << std::endl;
             std::cout << "Instance count: " << frame->instances.size()
-                << std::endl;
+                << std::endl;   
             platform_print_stats();
         }
 

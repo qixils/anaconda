@@ -46,6 +46,18 @@ public:
         return *this;
     }
 
+    BaseStream & operator>>(short &v)
+    {
+        if (!ensure_size(2)) {
+            v = 0;
+            return *this;
+        }
+        unsigned char data[2];
+        read((char*)data, 2);
+        v = data[0] | (data[1] << 8);
+        return *this;
+    }
+
     BaseStream & operator>>(std::string & str)
     {
         read_delim(str, '\0');
@@ -65,6 +77,11 @@ public:
     inline BaseStream & operator>>(unsigned char &v)
     {
         return *this >> reinterpret_cast<char&>(v);
+    }
+
+    inline BaseStream & operator>>(unsigned short &v)
+    {
+        return *this >> reinterpret_cast<short&>(v);
     }
 
     // subclasses implements this

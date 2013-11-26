@@ -10,7 +10,8 @@ FILE(GLOB FRAMESRCS "frame*.cpp")
 
 set(SRCS run.cpp image.cpp glew.c desktop/platform.cpp shader.cpp font.cpp 
     desktop/glslshader.cpp ${FRAMESRCS} movement.cpp common.cpp media.cpp
-    objects.cpp fonts.cpp fpslimit.cpp include/tinythread/tinythread.cpp)
+    objects.cpp fonts.cpp fpslimit.cpp include/tinythread/tinythread.cpp
+    coltree.cpp)
 
 option(USE_BOX2D OFF)
 option(USE_PYTHON ON)

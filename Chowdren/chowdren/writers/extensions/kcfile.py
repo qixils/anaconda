@@ -20,6 +20,7 @@ actions = make_table(StaticActionWriter, {
 })
 
 conditions = make_table(StaticConditionWriter, {
+    1 : 'name_exists',
     4 : 'file_exists',
 })
 

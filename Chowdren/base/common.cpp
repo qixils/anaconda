@@ -18,19 +18,10 @@ Font::Font(char * face, int size, bool bold, bool italic, bool underline)
 // Background
 
 Background::Background()
-: image(NULL), image_changed(true)
 #ifdef USE_COL_TREE
-, tree(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, MAX_TREE_LEVEL)
+: tree(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, MAX_TREE_LEVEL)
 #endif
 {
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, BACK_WIDTH,
-        BACK_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-        0);
-    reset();
 }
 
 void clear_back_vec(BackgroundItems & items)
@@ -45,20 +36,12 @@ void clear_back_vec(BackgroundItems & items)
 
 Background::~Background()
 {
-    delete[] image;
-    glDeleteTextures(1, &tex);
     clear_back_vec(col_items);
     clear_back_vec(items);
 }
 
 void Background::reset(bool clear_items)
 {
-    if (image != NULL) {
-        delete[] image;
-    }
-    image = new unsigned char[BACK_WIDTH * BACK_HEIGHT * 4]();
-    image_changed = true;
-    items_changed = false;
     if (clear_items) {
         clear_back_vec(col_items);
         clear_back_vec(items);
@@ -80,9 +63,9 @@ void Background::destroy_at(int x, int y)
             // tree.remove(item.tree_item);
             delete item;
             it = items.erase(it);
-            items_changed = true;
-        } else
+        } else {
             ++it;
+        }
     }
     it = col_items.begin();
     while (it != col_items.end()) {
@@ -97,103 +80,44 @@ void Background::destroy_at(int x, int y)
             delete item;
             it = col_items.erase(it);
         } else
-            ++it;
-    }
-}
-
-void Background::update()
-{
-    if (!items_changed)
-        return;
-    reset(false);
-    BackgroundItems::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
-        BackgroundItem * item = *it;
-        paste(item->image, item->dest_x, item->dest_y, 
-              item->src_x, item->src_y, item->src_width, item->src_height,
-              item->collision_type, false);
+            it++;
     }
 }
 
 void Background::paste(Image * img, int dest_x, int dest_y, 
-           int src_x, int src_y, int src_width, int src_height, 
-           int collision_type, bool save)
+                       int src_x, int src_y, int src_width, int src_height, 
+                       int collision_type)
 {
-    if (save) {
-        BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
-                                                   src_x, src_y,
-                                                   src_width, src_height,
-                                                   collision_type);
-        if (collision_type == 1) {
-            col_items.push_back(item);
-#ifdef USE_COL_TREE
-            int x2 = dest_x + src_width;
-            int y2 = dest_y + src_height;
-            tree.add(&item->tree_item, dest_x, dest_y, x2, y2);
-#endif
-        } else {
-            items_changed = true;
-            items.push_back(item);
-        }
+    src_width = std::min(img->width, src_x + src_width) - src_x;
+    src_height = std::min(img->height, src_y + src_height) - src_y;
+
+    if (src_width <= 0 || src_height <= 0)
         return;
-    }
 
-    int x, y, dest_x2, dest_y2, src_x2, src_y2;
-
-    for (x = 0; x < src_width; x++) {
-        src_x2 = src_x + x;
-        if (src_x2 < 0 || src_x2 >= img->width)
-            continue;
-        dest_x2 = dest_x + x;
-        if (dest_x2 < 0 || dest_x2 >= BACK_WIDTH)
-            continue;
-        for (y = 0; y < src_height; y++) {
-            src_y2 = src_y + y;
-            if (src_y2 < 0 || src_y2 >= img->height)
-                continue;
-            dest_y2 = dest_y + y;
-            if (dest_y2 < 0 || dest_y2 >= BACK_HEIGHT)
-                continue;
-            unsigned char * src_c = (unsigned char*)&img->get(
-                src_x2, src_y2);
-            unsigned char * dst_c = (unsigned char*)&get(dest_x2, 
-                dest_y2);
-            float srcf_a = src_c[3] / 255.0f;
-            float one_minus_src = 1.0f - srcf_a;
-            dst_c[0] = srcf_a * src_c[0] + one_minus_src * dst_c[0];
-            dst_c[1] = srcf_a * src_c[1] + one_minus_src * dst_c[1];
-            dst_c[2] = srcf_a * src_c[2] + one_minus_src * dst_c[2];
-            dst_c[3] = (srcf_a + (dst_c[3] / 255.0f) * one_minus_src) * 255;
-        }
+    BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
+                                               src_x, src_y,
+                                               src_width, src_height,
+                                               collision_type);
+    if (collision_type == 1) {
+        col_items.push_back(item);
+#ifdef USE_COL_TREE
+        int x2 = dest_x + src_width;
+        int y2 = dest_y + src_height;
+        tree.add(&item->tree_item, dest_x, dest_y, x2, y2);
+#endif
+    } else {
+        items.push_back(item);
     }
-    image_changed = true;
 }
 
 void Background::draw()
 {
-    update();
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glColor4f(1.0, 1.0, 1.0, 1.0);
-    if (image_changed) {
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, BACK_WIDTH,
-            BACK_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE,
-            image);
-        image_changed = false;
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    BackgroundItems::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        BackgroundItem * item = *it;
+        item->draw();
     }
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0);
-    glVertex2d(0, 0);
-    glTexCoord2f(1.0, 0.0);
-    glVertex2d(BACK_WIDTH, 0.0);
-    glTexCoord2f(1.0, 1.0);
-    glVertex2d(BACK_WIDTH, BACK_HEIGHT);
-    glTexCoord2f(0.0, 1.0);
-    glVertex2d(0, BACK_HEIGHT);
-    glEnd();
-    glDisable(GL_TEXTURE_2D);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 bool Background::collide(CollisionBase * a)
@@ -227,7 +151,7 @@ bool Background::collide(CollisionBase * a)
 
 Layer::Layer(double scroll_x, double scroll_y, bool visible, int index) 
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index), x1(0), y1(0), x2(0), y2(0)
+  index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0)
 {
 #ifdef CHOWDREN_IS_WIIU
     remote = CHOWDREN_TV_TARGET;
@@ -248,6 +172,8 @@ Layer::~Layer()
 
 void Layer::scroll(int dx, int dy)
 {
+    x += dx;
+    y += dy;
     ObjectList::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
@@ -255,6 +181,11 @@ void Layer::scroll(int dx, int dy)
             continue;
         object->set_position(object->x + dx, object->y + dy);
     }
+}
+
+void Layer::set_position(int x, int y)
+{
+    scroll(x - this->x, y - this->y);
 }
 
 void Layer::add_background_object(FrameObject * instance)
@@ -436,7 +367,7 @@ ObjectList & InstanceMap::get(int id)
 
 void InstanceMap::clear()
 {
-    for (int i = 0; i < num; i++) {
+    for (unsigned int i = 0; i < num; i++) {
         delete items[i];
         items[i] = NULL;
     }
@@ -1032,6 +963,8 @@ void FrameObject::move_front()
 
 void FrameObject::move_front(FrameObject * other)
 {
+    if (!other)
+        return;
     if (other->layer_index != layer_index)
         return;
     int level = get_level();
@@ -1594,9 +1527,9 @@ void Text::draw()
         draw_text.clear();
         for (it = text.begin(); it != text.end(); it++) {
             char c = *it;
-            if (c < 128)
+            if (c < 128) {
                 draw_text.push_back(c);
-            else {
+            } else {
                 draw_text.push_back(0xC2 + (c > 0xBF));
                 draw_text.push_back(c & 0x3F + 0x80);
             }
@@ -1605,7 +1538,7 @@ void Text::draw()
     init_font();
     color.apply();
     glPushMatrix();
-    FTBBox box = default_font->BBox(draw_text.c_str(), draw_text.size(),
+    FTBBox box = default_font->BBox(draw_text.c_str(), text.size(),
                                     FTPoint());
     double box_w = box.Upper().X() - box.Lower().X();
     double box_h = box.Upper().Y() - box.Lower().Y();
@@ -1624,7 +1557,7 @@ void Text::draw()
 
     glTranslated((int)off_x, (int)off_y, 0.0);
     glScalef(1, -1, 1);
-    default_font->Render(draw_text.c_str(), draw_text.size(), FTPoint(),
+    default_font->Render(draw_text.c_str(), text.size(), FTPoint(),
         FTPoint(), RENDER_ALL);
     glPopMatrix();
 }
@@ -2355,6 +2288,13 @@ bool File::file_exists(const std::string & path)
     return fp.is_open();
 }
 
+bool File::name_exists(const std::string & path)
+{
+    // XXX also test directories
+    FSFile fp(convert_path(path).c_str(), "r");
+    return fp.is_open();
+}
+
 void File::delete_file(const std::string & path)
 {
     if (!platform_remove_file(path))
@@ -2470,16 +2410,71 @@ size_t BinaryArray::get_size()
     return (size_t)offset;
 }
 
-// ArrayObject
+// BinaryObject
 
-ArrayObject::ArrayObject(int x, int y, int type_id) 
-: FrameObject(x, y, type_id), array(NULL)
+BinaryObject::BinaryObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), data(NULL), size(0)
 {
 
 }
 
-void ArrayObject::initialize(int x, int y, int z)
+BinaryObject::~BinaryObject()
 {
+    if (data == NULL)
+        return;
+    free(data);
+}
+
+void BinaryObject::load_file(const std::string & filename)
+{
+    if (data != NULL)
+        free(data);
+    read_file_c(convert_path(filename).c_str(), &data, &size);
+}
+
+void BinaryObject::save_file(const std::string & filename)
+{
+    FSFile fp(convert_path(filename).c_str(), "w");
+    fp.write(data, size);
+    fp.close();
+}
+
+void BinaryObject::set_byte(size_t addr, unsigned char byte)
+{
+    ((unsigned char*)data)[addr] = byte;
+}
+
+void BinaryObject::resize(size_t v)
+{
+    size = v;
+    data = (char*)realloc(data, v);
+}
+
+int BinaryObject::get_byte(size_t addr)
+{
+    return ((unsigned char*)data)[addr];
+}
+
+int BinaryObject::get_short(size_t addr)
+{
+    unsigned char a = ((unsigned char*)data)[addr];
+    unsigned char b = ((unsigned char*)data)[addr+1];
+    unsigned short v = a | (b << 8);
+    return v;
+}
+
+// ArrayObject
+
+ArrayObject::ArrayObject(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), array(NULL), strings(NULL)
+{
+
+}
+
+void ArrayObject::initialize(bool numeric, int offset, int x, int y, int z)
+{
+    this->offset = offset;
+    is_numeric = numeric;
     x_size = x;
     y_size = y;
     z_size = z;
@@ -2488,25 +2483,44 @@ void ArrayObject::initialize(int x, int y, int z)
 
 double & ArrayObject::get_value(int x, int y)
 {
+    x -= offset;
+    y -= offset;
     return array[x + y * x_size];
+}
+
+std::string & ArrayObject::get_string(int x)
+{
+    x -= offset;
+    return strings[x];
 }
 
 void ArrayObject::set_value(double value, int x, int y)
 {
-/*    std::cout << "Set value: " << value << " " << x << " " << y << " "
-        << x_size << " " << y_size << " " << z_size << std::endl;*/
     get_value(x, y) = value;
+}
+
+void ArrayObject::set_string(const std::string & value, int x)
+{
+    get_string(x) = value;
 }
 
 ArrayObject::~ArrayObject()
 {
-    delete[] array;
+    if (is_numeric)
+        delete[] array;
+    else
+        delete[] strings;
 }
 
 void ArrayObject::clear()
 {
-    delete[] array;
-    array = new double[x_size * y_size * z_size]();
+    if (is_numeric) {
+        delete[] array;
+        array = new double[x_size * y_size * z_size]();
+    } else {
+        delete[] strings;
+        strings = new std::string[x_size * y_size * z_size];
+    }
 }
 
 // LayerObject
@@ -2534,6 +2548,11 @@ void LayerObject::hide_layer(int index)
 void LayerObject::show_layer(int index)
 {
     frame->layers[index]->visible = true;
+}
+
+void LayerObject::set_position(int index, int x, int y)
+{
+    frame->layers[index]->set_position(x, y);
 }
 
 double LayerObject::get_alterable(FrameObject * instance)
@@ -2649,8 +2668,7 @@ void TextBlitter::set_text(const std::string & value)
 
 void TextBlitter::draw()
 {
-    image->load();
-    image->upload_texture();
+    image->load(true);
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, image->tex);
@@ -2884,7 +2902,7 @@ void ActivePicture::load(const std::string & fn)
         if (has_transparent_color)
             transparent = &transparent_color;
         cached_image = new Image(filename, 0, 0, 0, 0, transparent);
-        if (cached_image->image == NULL) {
+        if (!cached_image->is_valid()) {
             delete cached_image;
             cached_image = NULL;
         }

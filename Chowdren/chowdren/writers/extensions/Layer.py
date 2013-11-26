@@ -16,6 +16,7 @@ class Layer(ObjectWriter):
         pass
 
 actions = make_table(ActionMethodWriter, {
+    30 : 'set_position(%s-1, %s, %s)',
     38 : 'set_layer(%s-1)',
     27 : 'sort_alt_decreasing',
     31 : 'show_layer(%s-1)',

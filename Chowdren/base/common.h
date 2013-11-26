@@ -141,6 +141,12 @@ inline std::string uppercase_string(std::string v)
     return v;
 }
 
+inline std::string right_string(const std::string & v, size_t count)
+{
+    size_t index = v.size() - count;
+    return v.substr(index, count);
+}
+
 inline std::string mid_string(const std::string & v, size_t index, size_t count)
 {
     if (index > v.size())
@@ -173,10 +179,6 @@ typedef std::vector<BackgroundItem*> BackgroundItems;
 class Background
 {
 public:
-    unsigned char * image;
-    bool image_changed;
-    bool items_changed;
-    GLuint tex;
     BackgroundItems items;
     BackgroundItems col_items;
 #ifdef USE_COL_TREE
@@ -187,14 +189,9 @@ public:
     ~Background();
     void reset(bool clear_items = true);
     void destroy_at(int x, int y);
-    inline unsigned int & get(int x, int y)
-    {
-        return ((unsigned int*)image)[y * BACK_WIDTH + x];
-    }
-    void update();
     void paste(Image * img, int dest_x, int dest_y, 
                int src_x, int src_y, int src_width, int src_height, 
-               int collision_type, bool save = true);
+               int collision_type);
     void draw();
     bool collide(CollisionBase * a);
 };
@@ -209,11 +206,13 @@ public:
     Background * back;
     int index;
     bool scroll_active;
+    int x, y;
     int x1, y1, x2, y2;
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
     ~Layer();
     void scroll(int dx, int dy);
+    void set_position(int x, int y);
     void add_background_object(FrameObject * instance);
     void add_object(FrameObject * instance);
     void insert_object(FrameObject * instance, int index);
@@ -636,6 +635,7 @@ class File
 public:
     static const std::string & get_appdata_directory();
     static bool file_exists(const std::string & path);
+    static bool name_exists(const std::string & path);
     static void delete_file(const std::string & path);
 };
 
@@ -676,18 +676,39 @@ public:
     size_t get_size();
 };
 
+class BinaryObject : public FrameObject
+{
+public:
+    char * data;
+    size_t size;
+
+    BinaryObject(int x, int y, int type_id);
+    ~BinaryObject();
+    void load_file(const std::string & filename);
+    void save_file(const std::string & filename);
+    void set_byte(size_t addr, unsigned char value);
+    void resize(size_t size);
+    int get_byte(size_t addr);
+    int get_short(size_t addr);
+};
+
 class ArrayObject : public FrameObject
 {
 public:
+    bool is_numeric;
+    int offset;
     double * array;
+    std::string * strings;
     int x_size, y_size, z_size;
 
     ArrayObject(int x, int y, int type_id);
     ~ArrayObject();
-    void initialize(int x, int y, int z);
+    void initialize(bool is_numeric, int offset, int x, int y, int z);
     void clear();
     double & get_value(int x, int y);
+    std::string & get_string(int x);
     void set_value(double value, int x, int y);
+    void set_string(const std::string & value, int x);
 };
 
 class LayerObject : public FrameObject
@@ -702,6 +723,7 @@ public:
     void set_layer(int value);
     void hide_layer(int index);
     void show_layer(int index);
+    void set_position(int index, int x, int y);
     static double get_alterable(FrameObject * instance);
     static bool sort_func(FrameObject * a, FrameObject * b);
     void sort_alt_decreasing(int index, double def);
@@ -849,6 +871,7 @@ inline void reset_global_data()
 struct MathHelper
 {
     double lhs;
+    int lhs_int;
 };
 
 inline MathHelper & operator*(double lhs, MathHelper& rhs)
@@ -871,6 +894,39 @@ inline MathHelper & operator%(double lhs, MathHelper& rhs)
 inline double operator%(const MathHelper& lhs, double rhs)
 {
     return fmod(lhs.lhs, rhs);
+}
+
+inline MathHelper & operator&(int lhs, MathHelper& rhs)
+{
+    rhs.lhs_int = lhs;
+    return rhs;
+}
+
+inline int operator&(const MathHelper& lhs, int rhs)
+{
+    return lhs.lhs_int & rhs;
+}
+
+inline MathHelper & operator|(int lhs, MathHelper& rhs)
+{
+    rhs.lhs_int = lhs;
+    return rhs;
+}
+
+inline int operator|(const MathHelper& lhs, int rhs)
+{
+    return lhs.lhs_int | rhs;
+}
+
+inline MathHelper & operator^(int lhs, MathHelper& rhs)
+{
+    rhs.lhs_int = lhs;
+    return rhs;
+}
+
+inline int operator^(const MathHelper& lhs, int rhs)
+{
+    return lhs.lhs_int ^ rhs;
 }
 
 extern MathHelper math_helper;
@@ -901,6 +957,13 @@ inline void make_single_list(FrameObject * item, ObjectList & list)
 {
     list.clear();
     list.push_back(item);
+}
+
+inline FrameObject * get_single(const ObjectList & list)
+{
+    if (list.empty())
+        return NULL;
+    return list[0];
 }
 
 inline bool check_overlap(ObjectList in_a, ObjectList in_b, 

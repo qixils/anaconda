@@ -5,6 +5,7 @@
 #include <string>
 #include "include_gl.h"
 #include "color.h"
+#include <vector>
 
 const std::string & get_image_path();
 void set_image_path(const std::string & path);
@@ -17,6 +18,9 @@ public:
     int hotspot_x, hotspot_y, action_x, action_y;
     GLuint tex;
     unsigned char * image;
+#ifndef CHOWDREN_IS_WIIU
+    bool * alpha;
+#endif
     int width, height;
     Image * ref;
 
@@ -27,10 +31,12 @@ public:
     ~Image();
     void load(bool upload = false);
     void upload_texture();
-    void draw(double x, double y, double angle = 0.0, 
+    void draw(double x, double y, double angle = 0.0,
               double scale_x = 1.0, double scale_y = 1.0,
               bool flip_x = false, bool flip_y = false, GLuint back = 0);
-    unsigned int & get(int x, int y);
+    void draw(double x, double y, int src_x, int src_y, int w, int h);
+    bool get_alpha(int x, int y);
+    bool is_valid();
 };
 
 Image * get_internal_image(unsigned int i);

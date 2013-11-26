@@ -253,7 +253,7 @@ public:
         }
         if (is_box)
             return true;
-        return ((unsigned char*)&image->get(x, y))[3] != 0;
+        return image->get_alpha(x, y);
     }
 };
 
@@ -329,7 +329,12 @@ public:
     {
         x += src_x;
         y += src_y;
-        return ((unsigned char*)&image->get(x, y))[3] != 0;
+        return image->get_alpha(x, y);
+    }
+
+    void draw()
+    {
+        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height);
     }
 };
 

@@ -509,7 +509,8 @@ class StartLoop(ActionWriter):
         is_infinite = comparison is not None
         is_dynamic = real_name is None
         if is_dynamic:
-            raise NotImplementedError
+            print 'not calling dynamic for name', self.convert_index(0)
+            return
         running_name = get_loop_running_name(real_name)
         index_name = get_loop_index_name(real_name)
         if not is_infinite:
@@ -919,6 +920,9 @@ expressions = make_table(ExpressionMethodWriter, {
     'Virgule' : VirguleExpression,
     'Parenthesis' : ParenthesisExpression,
     'Modulus' : '.%math_helper%',
+    'AND' : '.&math_helper&',
+    'OR' : '.|math_helper|',
+    'XOR' : '^math_helper^',
     'Random' : 'randrange',
     'ApplicationPath' : 'get_app_path()',
     'AlterableValue' : AlterableValueExpression,
@@ -950,6 +954,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ReverseFind' : 'string_rfind',
     'LowerString' : 'lowercase_string',
     'UpperString' : 'uppercase_string',
+    'RightString' : 'right_string',
     'MidString' : 'mid_string',
     'LeftString' : 'left_string',
     'FixedValue' : 'get_fixed()',
@@ -973,10 +978,12 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
+    'ObjectLayer' : '.layer_index',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',
     'XRightFrame' : 'frame_right()',
     'YBottomFrame' : 'frame_bottom()',
+    'YTopFrame' : 'frame_top()',
     'ObjectCount' : ObjectCount,
     'CounterMaximumValue' : '.maximum',
     'ApplicationDirectory' : 'get_app_dir()',

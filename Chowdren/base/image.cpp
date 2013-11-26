@@ -50,7 +50,11 @@ void open_image_file()
 }
 
 Image::Image(int handle) 
-: handle(handle), tex(0), image(NULL), ref(NULL)
+:
+#ifndef CHOWDREN_IS_WIIU
+  alpha(NULL),
+#endif
+  handle(handle), tex(0), image(NULL), ref(NULL)
 {
     load();
 }
@@ -61,6 +65,8 @@ Image::~Image()
         return;
     if (image != NULL)
         stbi_image_free(image);
+    if (alpha != NULL)
+        delete[] alpha;
     if (tex != 0)
         glDeleteTextures(1, &tex);
     image = NULL;
@@ -69,7 +75,11 @@ Image::~Image()
 
 Image::Image(const std::string & filename, int hot_x, int hot_y, 
              int act_x, int act_y, Color * color) 
-: hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
+: 
+#ifndef CHOWDREN_IS_WIIU
+  alpha(NULL),
+#endif
+  hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
   tex(0), image(NULL), ref(NULL), handle(-1)
 {
     int channels;
@@ -100,7 +110,11 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 }
 
 Image::Image(Image & img) 
-: hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
+:
+#ifndef CHOWDREN_IS_WIIU
+  alpha(NULL),
+#endif
+  hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
   action_x(img.action_x), action_y(img.action_y),
   tex(img.tex), image(img.image), ref(&img), width(img.width), 
   height(img.height), handle(-1)
@@ -109,11 +123,7 @@ Image::Image(Image & img)
 
 void Image::load(bool upload)
 {
-#ifdef CHOWDREN_IS_WIIU
-    if (tex != 0)
-        return;
-#endif
-    if (image != NULL)
+    if (tex != 0 || image != NULL)
         return;
     open_image_file();
     FileStream stream(image_file);
@@ -134,9 +144,7 @@ void Image::load(bool upload)
 
 void Image::upload_texture()
 {
-    if (tex != 0)
-        return;
-    else if (image == NULL)
+    if (tex != 0 || image == NULL)
         return;
     if (ref != NULL) {
         ref->upload_texture();
@@ -153,20 +161,35 @@ void Image::upload_texture()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-#ifdef CHOWDREN_IS_WIIU
-    // for memory reasons, we delete the image and access the texture directly
-    delete image;
-    image = NULL;
+#ifndef CHOWDREN_IS_WIIU
+    // create alpha mask
+    alpha = new bool[width * height];
+    for (int i = 0; i < width * height; i++) {
+        unsigned char c = ((unsigned char*)(((unsigned int*)image) + i))[3];
+        alpha[i] = c != 0;
+    }
 #endif
+    // for memory reasons, we delete the image and access the alpha or
+    // the texture directly
+    stbi_image_free(image);
+    image = NULL;
 }
 
-unsigned int & Image::get(int x, int y)
+bool Image::get_alpha(int x, int y)
 {
 #ifdef CHOWDREN_IS_WIIU
-    if (tex != 0)
-        return platform_get_texture_pixel(tex, x, y);
+    if (tex != 0) {
+        unsigned int & v = platform_get_texture_pixel(tex, x, y);
+        unsigned char c = ((unsigned char*)&v)[3];
+        return c != 0;
+    }
+#else
+    if (alpha != NULL)
+        return alpha[y * width + x];
 #endif
-    return ((unsigned int*)image)[y * width + x];
+    unsigned int * v = (unsigned int*)image + y * width + x;
+    unsigned char c = ((unsigned char*)v)[3];
+    return c != 0;
 }
 
 void Image::draw(double x, double y, double angle, 
@@ -231,6 +254,42 @@ void Image::draw(double x, double y, double angle,
     }
     glDisable(GL_TEXTURE_2D);
     glPopMatrix();
+}
+
+void Image::draw(double x, double y, int src_x, int src_y, int w, int h)
+{
+    if (tex == 0) {
+        upload_texture();
+
+        if (tex == 0)
+            return;
+    }
+
+    double x2 = x + double(w);
+    double y2 = y + double(h);
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glBegin(GL_QUADS);
+    float t_x1 = float(src_x) / float(width);
+    float t_x2 = t_x1 + float(w) / float(width);
+    float t_y1 = float(src_y) / float(height);
+    float t_y2 = t_y1 + float(h) / float(height);
+    glTexCoord2f(t_x1, t_y1);
+    glVertex2d(x, y);
+    glTexCoord2f(t_x2, t_y1);
+    glVertex2d(x2, y);
+    glTexCoord2f(t_x2, t_y2);
+    glVertex2d(x2, y2);
+    glTexCoord2f(t_x1, t_y2);
+    glVertex2d(x, y2);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+}
+
+bool Image::is_valid()
+{
+    return image != NULL || tex != 0;
 }
 
 static Image ** internal_images = NULL;

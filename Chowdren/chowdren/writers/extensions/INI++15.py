@@ -58,6 +58,38 @@ class MergeGroupObject(ActionMethodWriter):
         writer.put('merge_group(%s, %s, %s, %s);' % (
             self.converter.get_object(handle), src_group, dst_group, overwrite))
 
+LOAD_FILE = 0
+NO_LOAD = 1
+
+CHANGE_PATH = 0
+KEEP_PATH = 1
+CHANGE_PATH_EXISTS = 2
+
+CLEAR_DATA = 0
+KEEP_DATA = 1
+CLEAR_DATA_EXISTS = 2
+
+IMMEDIATE_SAVE = 1
+READ_ONLY = 2
+
+class FileOperation(ActionMethodWriter):
+    def write(self, writer):
+        filename = self.convert_index(0)
+        reader = self.parameters[1].loader.get_reader()
+        load = reader.readByte()
+        path = reader.readByte()
+        clear = reader.readByte()
+        flags = reader.readByte()
+        if load != LOAD_FILE:
+            raise NotImplementedError()
+        if path != KEEP_PATH:
+            raise NotImplementedError()
+        if clear != KEEP_PATH:
+            raise NotImplementedError()
+        if flags != READ_ONLY:
+            raise NotImplementedError()
+        writer.put(to_c('load_file(%r, true, true, true);', filename))
+
 SORT_BY_VALUE = 0
 SORT_BY_NAME = 9
 SORT_FIRST_PART = 10
@@ -103,7 +135,8 @@ actions = make_table(ActionMethodWriter, {
     33 : PerformSearch,
     40 : MergeObject,
     41 : MergeGroupObject,
-    71 : SortGroup
+    71 : SortGroup,
+    78 : FileOperation
 })
 
 conditions = make_table(ConditionMethodWriter, {

@@ -1,5 +1,10 @@
 cmake_minimum_required (VERSION 2.6)
 
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
+    set(LINUX TRUE)
+endif()
+
+
 if (APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk" CACHE STRING "")
@@ -203,7 +208,7 @@ install(TARGETS ${EXE_NAME} DESTINATION ${DEST_DIR})
 install(CODE "
     function(gp_item_default_embedded_path_override item default_embedded_path_var)
         set(path \"\${\${default_embedded_path_var}}\")
-        if (UNIX)
+        if (${LINUX})
             set(path \"@executable_path/../lib\")
         endif()
         set(\${default_embedded_path_var} \"\${path}\" PARENT_SCOPE)

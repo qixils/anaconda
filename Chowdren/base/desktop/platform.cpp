@@ -66,20 +66,8 @@ void add_joystick(int device);
 void remove_joystick(int instance);
 void on_joystick_button(int instance, int button, bool state);
 
-#ifdef _WIN32
-#include "windows.h"
-#include "shlobj.h"
-#elif __APPLE__
-#include <CoreServices/CoreServices.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <limits.h>
-#elif __linux
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#endif
-
 #ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
 #include <sys/param.h> // For MAXPATHLEN
 
 static void set_resources_dir()
@@ -481,6 +469,18 @@ void create_directories(const std::string & value)
     path.pop();
     platformstl::create_directory_recurse(path);
 }
+
+#ifdef _WIN32
+#include "windows.h"
+#include "shlobj.h"
+#elif __APPLE__
+#include <CoreServices/CoreServices.h>
+#include <limits.h>
+#elif __linux
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
 
 const std::string & platform_get_appdata_dir()
 {

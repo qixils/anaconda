@@ -66,6 +66,57 @@ void add_joystick(int device);
 void remove_joystick(int instance);
 void on_joystick_button(int instance, int button, bool state);
 
+#ifdef _WIN32
+#include "windows.h"
+#include "shlobj.h"
+#elif __APPLE__
+#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <limits.h>
+#elif __linux
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
+
+#ifdef __APPLE__
+#include <sys/param.h> // For MAXPATHLEN
+
+static void set_resources_dir()
+{
+    char resourcesPath[MAXPATHLEN];
+
+    CFBundleRef bundle = CFBundleGetMainBundle();
+    if (!bundle)
+        return;
+
+    CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(bundle);
+
+    CFStringRef last = CFURLCopyLastPathComponent(resourcesURL);
+    if (CFStringCompare(CFSTR("Resources"), last, 0) != kCFCompareEqualTo)
+    {
+        CFRelease(last);
+        CFRelease(resourcesURL);
+        return;
+    }
+
+    CFRelease(last);
+
+    if (!CFURLGetFileSystemRepresentation(resourcesURL,
+                                          true,
+                                          (UInt8*) resourcesPath,
+                                          MAXPATHLEN))
+    {
+        CFRelease(resourcesURL);
+        return;
+    }
+
+    CFRelease(resourcesURL);
+
+    chdir(resourcesPath);
+}
+#endif
+
 void platform_init()
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER |
@@ -74,6 +125,9 @@ void platform_init()
             << std::endl;
         return;
     }
+#ifdef __APPLE__
+    set_resources_dir();
+#endif
     start_time = SDL_GetPerformanceCounter();
     init_joystick();
 }
@@ -427,18 +481,6 @@ void create_directories(const std::string & value)
     path.pop();
     platformstl::create_directory_recurse(path);
 }
-
-#ifdef _WIN32
-#include "windows.h"
-#include "shlobj.h"
-#elif __APPLE__
-#include <CoreServices/CoreServices.h>
-#include <limits.h>
-#elif __linux
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#endif
 
 const std::string & platform_get_appdata_dir()
 {

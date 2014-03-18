@@ -184,13 +184,16 @@ if(APPLE)
 elseif(WIN32)
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
     set(DLL_PATH "${CMAKE_SOURCE_DIR}/bin/win32")
-    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
+    install(PROGRAMS "${CMAKE_SOURCE_DIR}/bin/win32/Microsoft.VC90.CRT"
+            DESTINATION .)
 else()
     set(DEST_DIR "bin")
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/bin/${EXE_NAME}")
 endif()
 
-include(InstallRequiredSystemLibraries)
+if(NOT WIN32)
+    include(InstallRequiredSystemLibraries)
+endif()
 install(TARGETS ${EXE_NAME} DESTINATION ${DEST_DIR})
 install(CODE "
     function(gp_item_default_embedded_path_override item default_embedded_path_var)

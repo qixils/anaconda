@@ -1,7 +1,7 @@
 #include "../frameobject.h"
+#include "../mathcommon.h"
 
 #include <iostream>
-
 #include "listener.h"
 #include "parser.h"
 #include "listener.cpp"
@@ -9,6 +9,9 @@
 #include "userdata.cpp"
 #include "func.cpp"
 #include "parser.cpp"
+
+static b2World * global_world = NULL;
+static DebugDraw * global_debug_draw = NULL;
 
 bool AssertFail(const char* expression, const char* file, int line)
 {
@@ -52,7 +55,6 @@ void Debug(float d)
 Box2D::Box2D(int x, int y, int type_id) 
 : FrameObject(x, y, type_id)
 {
-    create_alterables();
 }
 
 Box2D::~Box2D()
@@ -73,8 +75,10 @@ Box2D::~Box2D()
         delete sDefs[i];
     }
 
-    if (world)
+    if (world) {
         delete world;
+        global_world = NULL;
+    }
     if (bodies)
         delete[] bodies;
     if (joints)
@@ -139,6 +143,7 @@ void Box2D::initialize_box2d()
     DL = new DestructionListener;
     CF = new ContactFilter;
     DD = new DebugDraw;
+    global_debug_draw = DD;
     BL->rdPtr = this;
     CL->rdPtr = this;
     DL->rdPtr = this;
@@ -153,10 +158,17 @@ void Box2D::initialize_box2d()
     memset(&collData,0,sizeof(CollData));
 
     world = new b2World(bounds,gravity,allowSleep, &settings);
+    global_world = world;
     world->SetBoundaryListener(BL);
     world->SetContactListener(CL);
     world->SetDestructionListener(DL);
     world->SetContactFilter(CF);
+
+    DD->SetFlags(b2DebugDraw::e_shapeBit | b2DebugDraw::e_jointBit |
+                 b2DebugDraw::e_coreShapeBit | b2DebugDraw::e_aabbBit |
+                 b2DebugDraw::e_obbBit | b2DebugDraw::e_pairBit |
+                 b2DebugDraw::e_centerOfMassBit);
+    world->SetDebugDraw(DD);
 
     world->GetGroundBody()->GetUserData()->ID = -2;
 
@@ -175,7 +187,7 @@ void Box2D::initialize_box2d()
 
 void Box2D::generate_event(int id)
 {
-    std::cout << "Generate event " << id << std::endl;
+    // std::cout << "Generate event " << id << std::endl;
 }
 
 void Box2D::create_body(FrameObject * obj, float x, float y, int rot, int dest)
@@ -193,7 +205,7 @@ void Box2D::create_body(FrameObject * obj, float x, float y, int rot, int dest)
     b2BodyDef def;
     def.userData.ID = n;
     def.userData.rdPtr = this;
-    def.userData.AddObject(this, b2Vec2(-x/scale,-y/scale), rot, dest, 0);
+    def.userData.AddObject(obj, b2Vec2(-x/scale,-y/scale), rot, dest, 0);
     if (floatAngles)
         def.angle = obj->get_angle() * DEG_TO_RAD;
     else
@@ -592,8 +604,9 @@ void Box2D::remove_joint(int id)
 
 void Box2D::remove_joint(int body_id, int id)
 {
-    b2Body* jb = getBody(id, this);
-    b2Joint* j = getJoint(jb, id);
+    // is this a bug in the original Box2D code???
+    b2Body* jb = getBody(body_id, this);
+    b2Joint* j = getJoint(jb, body_id);
 
     if(!j)
         return;
@@ -641,7 +654,7 @@ void Box2D::reset_world()
     world->SetContactListener(CL);
     world->SetDestructionListener(DL);
     world->SetContactFilter(CF);
-
+    world->SetDebugDraw(DD);
     world->GetGroundBody()->GetUserData()->ID = -2;
 
     memset(bodies, 0, maxBodies*4);
@@ -666,10 +679,80 @@ void Box2D::reset_world()
     enumController = -2;
 }
 
+void Box2D::update_world(float dt)
+{
+    world->Step(timestep, velIterations, posIterations);
+
+    for (int i = 0; i < maxBodies; i++) {
+        if(!bodies[i])
+            continue;
+
+        b2Body* b = bodies[i];
+
+        if (b->IsSleeping()) {
+            if(!b->GetUserData()->sleepflag) {
+                b->GetUserData()->sleepflag = true;
+                SleepCallback* c = new SleepCallback;
+                c->bodyID = i;
+                addCallback(c, this);
+            }
+        } else {
+            if(b->GetUserData()->sleepflag) {
+                b->GetUserData()->sleepflag = false;
+                WakeCallback* c = new WakeCallback;
+                c->bodyID = i;
+                addCallback(c, this);
+            }
+        }
+
+        bodyUserData* bud = b->GetUserData();
+        Attachment* a = bud->attachment;
+        while (a) {
+            if (a->obj->destroying) {
+                if (a = bud->attachment) {
+                    bud->attachment = a->Next;
+                }
+                bud->RemAttachment(a);
+                
+                LostAttachmentCallback* c = new LostAttachmentCallback;
+                c->bodyID = i;
+                addCallback(c, this);
+                continue;
+            } else {
+                a->obj->set_position(
+                    int_round(bodies[i]->GetWorldPoint(a->offset).x*scale), 
+                    int_round(bodies[i]->GetWorldPoint(a->offset).y*scale));
+
+                switch (a->rotation) {
+                    case 1:
+                    case 2: {
+                        // 1: non-antialised
+                        // 2: antialised
+                        int quality = a->rotation - 1;
+                        float angle = -deg(bodies[i]->GetAngle()-a->rotOff);
+                        a->obj->set_angle(angle, quality);
+                        break;
+                    }
+                }
+            }
+            a = a->Next;
+        }
+    }
+
+    //Handle Callbacks
+    while (callbacks) {
+        callbacks->Do(this);
+        Callback* c = callbacks->Next;
+        delete callbacks;
+        callbacks = c;
+    }
+    lastcall = NULL;
+}
+
 void Box2D::update(float dt)
 {
     if (autoUpdate) {
-        // ActionFunc0(this, 0, 0);
+        update_world(dt);
     } else if (callbacks) {
         while(callbacks) {
             callbacks->Do(this);
@@ -679,4 +762,11 @@ void Box2D::update(float dt)
         }
         lastcall = NULL;
     }
+}
+
+void Box2D::draw_debug()
+{
+    if (global_world == NULL)
+        return;
+    global_world->DrawDebugData();
 }

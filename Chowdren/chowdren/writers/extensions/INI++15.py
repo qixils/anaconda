@@ -8,6 +8,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class INI(ObjectWriter):
     class_name = 'INI'
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()
@@ -88,7 +89,7 @@ class FileOperation(ActionMethodWriter):
             raise NotImplementedError()
         if flags != READ_ONLY:
             raise NotImplementedError()
-        writer.put(to_c('load_file(%r, true, true, true);', filename))
+        writer.put(to_c('load_file(%s, true, true, true);', filename))
 
 SORT_BY_VALUE = 0
 SORT_BY_NAME = 9

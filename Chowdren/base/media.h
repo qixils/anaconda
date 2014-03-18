@@ -57,8 +57,13 @@ public:
     void stop_channel(unsigned int channel);
     Channel * get_sample(const std::string & name);
     void set_sample_volume(const std::string & name, double volume);
+    void set_sample_pan(const std::string & name, double pan);
+    void set_sample_position(const std::string & name, double pos);
+    double get_sample_position(const std::string & name);
     void stop_sample(const std::string & name);
     void stop_samples();
+    void pause_samples();
+    void resume_samples();
     double get_channel_position(unsigned int channel);
     void set_channel_position(unsigned int channel, double pos);
     double get_channel_volume(unsigned int channel);

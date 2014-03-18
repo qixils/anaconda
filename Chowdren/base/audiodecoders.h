@@ -205,7 +205,7 @@ public:
                 sample_size = read_le16(file);
                 if (sample_size != 16) {
                     std::cerr << "Invalid sample size: " << filename 
-                        << std::endl;
+                        << " " << sample_size << std::endl;
                     break;
                 }
                 length -= 16;

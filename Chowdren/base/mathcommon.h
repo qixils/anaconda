@@ -1,9 +1,17 @@
 #ifndef CHOWDREN_MATH_H
 #define CHOWDREN_MATH_H
 
+// from SDL_stdinc
+#ifdef M_PI
+#undef M_PI
+#endif
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
+#include "crossrand.h"
+#include <iostream>
+#include <stdarg.h>
 
 // math helpers
 
@@ -51,9 +59,14 @@ inline float get_distance(float x1, float y1, float x2, float y2)
     return get_length(dx, dy);
 }
 
+inline double get_angle(int x1, int y1, int x2, int y2)
+{
+    return atan2d(y2 - y1, x2 - x1);
+}
+
 inline double get_direction(int x1, int y1, int x2, int y2)
 {
-    return atan2d(y2 - y1, x2 - x1) / -11.25;
+    return get_angle(x1, y1, x2, y2) / -11.25;
 }
 
 inline int get_direction_int(int x1, int y1, int x2, int y2)
@@ -101,6 +114,21 @@ inline double get_abs(double v)
     return fabs(v);
 }
 
+inline int get_floor(int v)
+{
+    return v;
+}
+
+inline float get_floor(float v)
+{
+    return floor(v);
+}
+
+inline double get_floor(double v)
+{
+    return floor(v);
+}
+
 inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2, 
                       int b_x1, int b_y1, int b_x2, int b_y2,
                       int & r_x1, int & r_y1, int & r_x2, int & r_y2)
@@ -127,6 +155,57 @@ inline void rect_union(int a_x1, int a_y1, int a_x2, int a_y2,
     r_y1 = std::min<int>(a_y1, b_y1);
     r_x2 = std::max<int>(a_x2, b_x2);
     r_y2 = std::max<int>(a_y2, b_y2);
+}
+
+inline void get_dir(int dir, double & x, double & y)
+{
+    double r = rad(dir * 11.25);
+    x = cos(r);
+    y = -sin(r);
+}
+
+inline void get_dir(int dir, float & x, float & y)
+{
+    float r = rad(dir * 11.25f);
+    x = cos(r);
+    y = -sin(r);
+}
+
+// random
+
+inline int randrange(int range)
+{
+    if (range == 0)
+        return 0;
+    return cross_rand() / (CROSS_RAND_MAX / range + 1);
+}
+
+inline float randrange(float a, float b)
+{
+    return a + (float)(rand()) /((float)(CROSS_RAND_MAX/(b-a)));
+}
+
+inline bool random_chance(int a, int b)
+{
+    return randrange(b) < a;
+}
+
+inline int pick_random(int count, ...)
+{
+    if (count == 0)
+        std::cout << "Invalid pick_random count!" << std::endl;
+    va_list ap;
+    va_start(ap, count);
+    int picked_index = randrange(count);
+    int value;
+    for(int i = 0; i < count; i++) {
+        if (i != picked_index)
+            va_arg(ap, int);
+        else
+            value = va_arg(ap, int);
+    }
+    va_end(ap);
+    return value;
 }
 
 #endif // CHOWDREN_MATH_H

@@ -15,7 +15,8 @@ NATIVE_SHADERS = {
     'Lens.fx' : 'dummy_shader',
     'LinearDodge.fx' : 'dummy_shader',
     'SoftLight.fx' : 'dummy_shader',
-    'PinLight.fx' : 'dummy_shader'
+    'PinLight.fx' : 'dummy_shader',
+    'Invert' : 'invert_shader'
 }
 
 def get_name(name):

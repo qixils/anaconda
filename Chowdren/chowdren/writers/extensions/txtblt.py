@@ -16,6 +16,7 @@ def fix_string(v):
 
 class TextBlitter(ObjectWriter):
     class_name = 'TextBlitter'
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()

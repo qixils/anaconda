@@ -162,7 +162,6 @@ def translate(game, print_func = dummy_out):
         newItem.name = item.name or ('Unnamed %s' % itemIndex)
         newItem.objectType = item.objectType
         newItem.handle = item.handle
-        frameItems[newItem.handle] = newItem
         newItem.transparent = item.transparent
         newItem.inkEffect = item.inkEffect
         newItem.inkEffectParameter = item.inkEffectValue
@@ -351,7 +350,8 @@ def translate(game, print_func = dummy_out):
                     paragraphs.append(newParagraph)
                     newParagraph.value = paragraph.value
                     newParagraph.flags = paragraph.flags.getFlags()
-    
+        frameItems[newItem.handle] = newItem
+
     qualifiers = {}
     
     indexHandles = dict(
@@ -408,7 +408,10 @@ def translate(game, print_func = dummy_out):
         print_func('Translating frame %r (%s)' % (newFrame.name, index))
         if frame.instances is not None:
             for instanceIndex, instance in enumerate(frame.instances.items):
-                frameItem = frameItems[instance.objectInfo]
+                try:
+                    frameItem = frameItems[instance.objectInfo]
+                except KeyError:
+                    continue
                 newFrameItems.add(frameItem)
                 newInstance = newFrame.new(FrameInstance)
                 newInstance.x = instance.x

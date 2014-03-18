@@ -7,6 +7,7 @@ from mmfparser.bitdict import BitDict
 
 class ActivePicture(ObjectWriter):
     class_name = 'ActivePicture'
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()

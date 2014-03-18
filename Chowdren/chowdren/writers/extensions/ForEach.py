@@ -46,12 +46,6 @@ class ForEach(ObjectWriter):
     class_name = 'ForEach'
     static = True
 
-    def write_init(self, writer):
-        pass
-
-    def write_class(self, writer):
-        pass
-
     def write_frame(self, writer):
         # writer.putln('std::map<std::string, FrameObject*> loop_instances;')
         # writer.putln('FrameObject * current_foreach_instance;')

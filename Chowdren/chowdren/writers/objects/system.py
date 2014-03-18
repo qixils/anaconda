@@ -6,13 +6,15 @@ from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP,
 from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES, 
     ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR, 
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
-    GRADIENT_FILL, FINE_COLLISION)
+    GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
+    LADDER_OBSTACLE, ANIMATION)
 
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
 class Active(ObjectWriter):
     class_name = 'Active'
+    use_alterables = True
 
     def write_init(self, writer):
         common = self.common
@@ -30,23 +32,36 @@ class Active(ObjectWriter):
         writer.end_brace()
         flags = common.newFlags
         writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
-        # if flags['AutomaticRotation']:
-        #     print 
-        #     raise NotImplementedError
+        writer.putlnc('auto_rotate = %s;', bool(flags['AutomaticRotation']))
+        writer.putlnc('transparent = %s;', self.get_transparent())
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         writer.putln('initialize_active();')
+
+    def get_transparent(self):
+        has_back = not self.common.newFlags['DoNotSaveBackground']
+        animations = self.common.animations.loadedAnimations
+        for animation in animations.values():
+            for direction in animation.loadedDirections.values():
+                for image in direction.frames:
+                    bank_image = self.converter.game.images.itemDict[image]
+                    has_alpha = bank_image.flags['Alpha']
+                    if has_back == has_alpha:
+                        return has_alpha
+        return self.data.transparent
 
     def write_class(self, writer):
         animations = self.common.animations.loadedAnimations
         for animation_index, animation in animations.iteritems():
+            single_loop = animation.getName() in ('Appearing', 'Disappearing')
             writer.putmeth('void init_anim_%s' % animation_index)
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
             for direction_index, direction in directions.iteritems():
                 loop_count = direction.repeat
-                if loop_count not in (0, 1):
-                    print 'loop count not supported:', loop_count
-                repeat = loop_count == 0
+                if loop_count == 0:
+                    loop_count = -1
+                if single_loop and loop_count == -1:
+                    loop_count = 1
                 writer.putln(to_c('add_direction(%s, %s, %s, %s, %s, %s);',
                     animation_name, direction_index, direction.minSpeed,
                     direction.maxSpeed, loop_count, direction.backTo))
@@ -79,13 +94,15 @@ class Backdrop(ObjectWriter):
         writer.putln('image = new Image(%s);' % image)
         writer.putln('image->hotspot_x = image->hotspot_y = 0;')
         if self.data.name.endswith('(DRC)'):
-            writer.putraw('#ifdef CHOWDREN_IS_WIIU')
+            writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
+                          'defined(CHOWDREN_EMULATE_WIIU)')
             writer.putln('remote = CHOWDREN_REMOTE_TARGET;')
             writer.putraw('#endif')
-        if self.common.getObstacleType() != 'Solid':
-            return
         writer.putln('width = image->width;')
         writer.putln('height = image->height;')
+        obstacle_type = self.common.obstacleType
+        if obstacle_type in (NONE_OBSTACLE, LADDER_OBSTACLE):
+            return
         if self.common.collisionMode == FINE_COLLISION:
             writer.putln('collision = new SpriteCollision(this, image);')
         else:
@@ -107,7 +124,7 @@ class QuickBackdrop(ObjectWriter):
             print 'shape', shape.getShape(), 'not supported'
             raise NotImplementedError
         fill = shape.getFill()
-        if fill not in ('Solid', 'Gradient'):
+        if fill not in ('Solid', 'Gradient', 'Motif'):
             print 'fill', shape.getFill(), 'not supported'
             raise NotImplementedError
         border = shape.borderColor
@@ -117,6 +134,7 @@ class QuickBackdrop(ObjectWriter):
         border_size = shape.borderSize
         if border_size != 0 and (fill == 'None' or border != color1
                                  or (has_color2 and border != color2)):
+            print self.data.name
             print fill, color1, color2, border
             print 'border size', shape.borderSize, 'not supported'
             raise NotImplementedError
@@ -125,11 +143,12 @@ class QuickBackdrop(ObjectWriter):
         shape = self.common.shape
         color1 = shape.color1
         color2 = shape.color2
+        fill = shape.getFill()
 
         writer.putln('width = %s;' % self.common.width)
         writer.putln('height = %s;' % self.common.height)
-        writer.putln('color = %s;' % make_color(color1))
-        fill = shape.getFill()
+        if fill != 'Motif':
+            writer.putln('color = %s;' % make_color(color1))
         if fill == 'Gradient':
             gradient = shape.getGradientType()
             if gradient == 'Horizontal':
@@ -137,6 +156,10 @@ class QuickBackdrop(ObjectWriter):
             else:
                 writer.putln('gradient_type = VERTICAL_GRADIENT;')
             writer.putln('color2 = %s;' % make_color(color2))
+        elif fill == 'Motif':
+            writer.putlnc('image = new Image(%s);',
+                          get_image_name(shape.image, False))
+            writer.putln('image->hotspot_x = image->hotspot_y = 0;')
         elif color2 is not None:
             raise NotImplementedError
         else:
@@ -153,11 +176,10 @@ class QuickBackdrop(ObjectWriter):
 
 class Text(ObjectWriter):
     class_name = 'Text'
+    use_alterables = True
 
     def initialize(self):
         pass
-        # if self.is_background():
-        #     raise NotImplementedError
 
     def write_init(self, writer):
         text = self.common.text
@@ -171,9 +193,9 @@ class Text(ObjectWriter):
         font = text.items[0].font
         writer.putln('bold = font%s.bold;' % font)
         writer.putln('italic = font%s.italic;' % font)
+        writer.putln('size = font%s.size;' % font)
         
         paragraph = text.items[0]
-        flags = []
         if paragraph.flags['HorizontalCenter']:
             horizontal = 'ALIGN_HCENTER'
         elif paragraph.flags['RightAligned']:
@@ -220,21 +242,22 @@ class Counter(ObjectWriter):
         counters = common.counters
         counter = common.counter
         if counters:
+            writer.putln('width = %s;' % counters.width)
+            writer.putln('height = %s;' % counters.height)
             display_type = counters.displayType
             if display_type == NUMBERS:
+                writer.putln('type = IMAGE_COUNTER;')
                 for char_index, char in enumerate(COUNTER_FRAMES):
                     writer.putln("images[%s] = %s;" % (char_index,
                         get_image_name(counters.frames[char_index])))
             elif display_type == HORIZONTAL_BAR:
                 print 'horizontal bar not implemented'
-                return
+                raise NotImplementedError
                 shape_object = counters.shape
                 shape = shape_object.shape
                 fill_type = shape_object.fillType
                 if shape != RECTANGLE_SHAPE:
                     raise NotImplementedError
-                writer.putln('width = %s;' % counters.width)
-                writer.putln('height = %s;' % counters.height)
                 if fill_type == GRADIENT_FILL:
                     writer.putdef('color1', shape_object.color1)
                     writer.putdef('color2', shape_object.color2)
@@ -242,12 +265,31 @@ class Counter(ObjectWriter):
                     writer.putdef('color1', shape_object.color1)
                 else:
                     raise NotImplementedError
+            elif display_type == VERTICAL_BAR:
+                shape_object = counters.shape
+                shape = shape_object.shape
+                if shape != RECTANGLE_SHAPE:
+                    print 'vertical rectangle shape not implemented'
+                    return
+                fill_type = shape_object.fillType
+                if fill_type != SOLID_FILL:
+                    print 'vertical fill type not implemented'
+                    return
+                count_up = counters.inverse
+                if not count_up:
+                    print 'vertical count direction not implemented'
+                    return
+                writer.putln('type = VERTICAL_UP_COUNTER;')
+                writer.putln('color1 = %s;' % make_color(shape_object.color1))
             else:
+                print 'type', counters.getDisplayType(), 'not implemented'
                 raise NotImplementedError
-
-    def get_parameters(self):
-        counter = self.common.counter
-        return [counter.initial, counter.minimum, counter.maximum]
+        else:
+            writer.putln('type = HIDDEN_COUNTER;')
+            writer.putln('width = height = 0;')
+        writer.putlnc('minimum = %s;', counter.minimum)
+        writer.putlnc('maximum = %s;', counter.maximum)
+        writer.putlnc('set(%s);', counter.initial)
 
     def get_images(self):
         common = self.common
@@ -259,6 +301,26 @@ class Counter(ObjectWriter):
                 return counters.frames
         return []
 
+class Lives(ObjectWriter):
+    class_name = 'Lives'
+
+    def write_init(self, writer):
+        common = self.common
+        counters = common.counters
+        counter = common.counter
+        if not counters:
+            raise NotImplementedError()
+        writer.putln('width = %s;' % counters.width)
+        writer.putln('height = %s;' % counters.height)
+        display_type = counters.displayType
+        if display_type != ANIMATION:
+            raise NotImplementedError()
+        image = counters.frames[0]
+        writer.putln('image = %s;' % get_image_name(image))
+
+    def get_images(self):
+        return [self.common.counters.frames[0]]
+
 system_objects = {
     TEXT : Text,
     ACTIVE : Active,
@@ -266,5 +328,6 @@ system_objects = {
     QUICKBACKDROP : QuickBackdrop,
     COUNTER : Counter,
     RTF : RTFText,
+    LIVES : Lives
     # SUBAPPLICATION : 'SubApplication',
 }

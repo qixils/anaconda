@@ -15,6 +15,11 @@ TreeItem::TreeItem(void * data)
 {
 }
 
+TreeItem::TreeItem()
+: marked(false)
+{
+}
+
 // CollisionTree
 
 CollisionTree::CollisionTree(int x1, int y1, int x2, int y2, int level,

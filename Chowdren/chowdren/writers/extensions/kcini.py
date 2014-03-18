@@ -22,6 +22,8 @@ class INI(ObjectWriter):
             writer.putln(to_c('load_file(%r);', filename))
 
 actions = make_table(ActionMethodWriter, {
+    7 : 'set_value',
+    9 : 'set_string',
     12 : 'delete_item',
     11 : 'delete_item',
     6 : 'load_file',
@@ -54,6 +56,8 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    2 : 'get_value',
+    4 : 'get_string',
     5 : 'get_string',
     3 : 'get_value'
     # 17 : 'get_item_count',

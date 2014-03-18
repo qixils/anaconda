@@ -20,9 +20,9 @@ actions = make_table(StaticActionWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    1 : 'is_key_pressed_once(translate_key(%s))',
-    6 : 'is_key_released_once(translate_key(%s))',
-    7 : 'is_key_released_once(translate_key(%s))'
+    1 : 'is_key_pressed_once(translate_string_to_key(%s))',
+    6 : 'is_key_released_once(translate_vk_to_key(%s))',
+    7 : 'is_key_released_once(translate_string_to_key(%s))'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

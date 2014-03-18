@@ -914,6 +914,7 @@ class FTSimpleLayout : public FTLayout
         float lineLength;
         TextAlignment alignment;
         float lineSpacing;
+        float tabSpacing;
 
         virtual void WrapText(const char *buf, const int len,
                               FTPoint position, int renderMode,

@@ -110,6 +110,7 @@ public:
     ~Box2D();
     void initialize_box2d();
     void generate_event(int id);
+    void update_world(float dt);
     void update(float dt);
     void create_body(float x, float y, float angle);
     void create_body(FrameObject * obj, float x, float y, int rot, int dest);
@@ -136,6 +137,7 @@ public:
     void set_joint_target(int id, float x, float y);
     void set_linear_damping(FrameObject * obj, float damping);
     void reset_world();
+    static void draw_debug();
 };
 
 #endif // CHOWDREN_BOX2DEXT_H

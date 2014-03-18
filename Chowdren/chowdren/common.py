@@ -97,6 +97,66 @@ def get_image_name(value, pointer = True):
 def make_color(value):
     return 'Color(%s)' % ', '.join([str(item) for item in value])
 
+def get_directions(value):
+    directions = []
+    for i in xrange(32):
+        if value & (1 << i) != 0:
+            directions.append(i)
+    return directions
+
+input_directions = [
+    -1,             # 0000 Static
+    8,              # 0001
+    24,             # 0010
+    -1,             # 0011 Static
+    16,             # 0100
+    12,             # 0101
+    20,             # 0110
+    16,             # 0111
+    0,              # 1000
+    4,              # 1001
+    28,             # 1010
+    0,              # 1011
+    -1,             # 1100 Static
+    8,              # 1101
+    24,             # 1110
+    -1              # 1111 Static
+]
+
+def get_flag_direction(value):
+    return input_directions[value]
+
+def get_input_direction(up, down, left, right):
+    v = int(up) | (int(down) << 1) | (int(left) << 2) | (int(right) << 3)
+    return get_flag_direction(v)
+
+def parse_direction(value):
+    if value in (0, -1):
+        return 'randrange(32)'
+    directions = get_directions(value)
+    if len(directions) > 1:
+        return 'pick_random(%s, %s)' % (len(directions),
+            ', '.join([str(item) for item in directions]))
+    return directions[0]
+
+ACCELERATORS = [0.0078125, 0.01171875, 0.015625, 0.0234375, 0.03125, 0.0390625,
+    0.046875, 0.0625, 0.078125, 0.09375, 0.1875, 0.21875, 0.25, 0.28125,
+    0.3125, 0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5625, 0.625, 0.6875, 
+    0.75, 0.8125, 0.875, 0.9375, 1.0, 1.0625, 1.125, 1.25, 1.3125, 1.375,
+    1.4375, 1.5, 1.5625, 1.625, 1.6875, 1.75, 1.875, 2.0, 2.125, 2.1875,
+    2.3125, 2.4375, 2.5, 2.625, 2.6875, 2.8125, 2.875, 3.0, 3.0625, 3.1875,
+    3.3125, 3.375, 3.5, 3.625, 3.6875, 3.8125, 3.875, 4.0, 4.375, 4.75,
+    5.125, 5.625, 6.0, 6.375, 6.75, 7.125, 7.625, 8.0, 8.75, 9.5, 10.5, 11.25,
+    12.0, 12.75, 13.5, 14.5, 15.25, 16.0, 25.5625, 19.1953125, 20.375,
+    22.390625, 24.0, 25.59765625, 27.1953125, 28.7734375, 30.390625, 32.0,
+    38.421875, 45.59375, 52.015625, 58.4375, 64.859375, 71.28125, 77.703125,
+    84.0, 100.0, 100.0]
+
+def get_accelerator(value):
+    if value <= 100:
+        return ACCELERATORS[value]
+    return value
+
 ANIMATION_NAMES = [
     'STOPPED',
     'WALKING',

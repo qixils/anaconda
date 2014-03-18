@@ -20,9 +20,9 @@ GameManager * global_manager;
 #include "crossrand.h"
 #include "media.h"
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
 #define CHOWDREN_DEBUG
-#endif
+// #endif
 
 #ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
@@ -31,8 +31,10 @@ GameManager * global_manager;
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
-  fade_value(0.0f), fade_dir(0.0f)
+  fade_value(0.0f), fade_dir(0.0f), lives(0)
 {
+    global_manager = this;
+
 #ifdef CHOWDREN_IS_DEMO
     idle_timer_started = false;
     global_time = show_build_timer = reset_timer = manual_reset_timer = 0.0;
@@ -88,8 +90,13 @@ void GameManager::set_window(bool fullscreen)
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+#ifdef CHOWDREN_QUICK_SCALE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+#else
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenFramebuffersEXT(1, &screen_fbo);
@@ -111,12 +118,20 @@ void GameManager::on_key(int key, bool state)
     idle_timer_started = true;
     idle_timer = 0.0;
 #endif
-    frame->on_key(key, state);
+    if (state)
+        keyboard.add(key);
+    else
+        keyboard.remove(key);
+    if (state)
+        frame->last_key = key;
 }
 
 void GameManager::on_mouse(int key, bool state)
 {
-    frame->on_mouse(key, state);
+    if (state)
+        mouse.add(key);
+    else
+        mouse.remove(key);
 }
 
 int GameManager::update()
@@ -175,7 +190,7 @@ void GameManager::set_framerate(int framerate)
 
 #ifdef CHOWDREN_IS_DEMO
 #include "font.h"
-extern FTTextureFont * default_font;
+FTTextureFont * get_font(int size);
 #endif
 
 void GameManager::draw()
@@ -210,9 +225,9 @@ void GameManager::draw()
         }
     }
 #else
-    frame->draw(CHOWDREN_TV_TARGET);
+    frame->draw(CHOWDREN_HYBRID_TARGET);
 #endif
-
+    glLoadIdentity();
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
         std::string date(__DATE__);
@@ -222,13 +237,11 @@ void GameManager::draw()
         glTranslatef(50, 50, 0);
         glScalef(5, -5, 5);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        default_font->Render(val.c_str(), val.size(), FTPoint(),
+        get_font(24)->Render(val.c_str(), val.size(), FTPoint(),
                              FTPoint(), RENDER_ALL);
         glPopMatrix();
     }
 #endif
-
-#ifdef CHOWDREN_IS_DESKTOP
 
     if (fade_dir != 0.0f) {
         glBegin(GL_QUADS);
@@ -240,6 +253,8 @@ void GameManager::draw()
         glVertex2f(0.0f, WINDOW_HEIGHT);
         glEnd();
     }
+
+#ifdef CHOWDREN_IS_DESKTOP
 
     bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
 
@@ -309,6 +324,9 @@ void GameManager::set_frame(int index)
     idle_timer_started = false;
 #endif
 
+#ifndef CHOWDREN_SAMPLES_OVER_FRAMES
+    media->stop_samples();
+#endif
     if (frame != NULL) {
         frame->on_end();
     }
@@ -350,10 +368,14 @@ void GameManager::run()
     while(true) {
         measure_time -= 1;
         bool show_stats = false;
-        // if (measure_time <= 0) {
-        //     measure_time = 200;
-        //     show_stats = true;
-        // }
+        if (measure_time <= 0) {
+            measure_time = 200;
+            show_stats = true;
+        }
+
+        // update input
+        keyboard.update();
+        mouse.update();
 
         fps_limit.start();
         platform_poll_events();
@@ -406,10 +428,172 @@ void GameManager::run()
     platform_exit();
 }
 
-#ifdef _WIN32
-int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
+// InputList
+
+#define INPUT_STATE_PRESSED 0
+#define INPUT_STATE_HOLD 1
+#define INPUT_STATE_RELEASED 2
+
+void InputList::add(int v)
+{
+    std::vector<InputState>::iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        InputState & s = *it;
+        if (s.key != v)
+            continue;
+        s.state = INPUT_STATE_PRESSED;
+        return;
+    }
+    InputState s;
+    s.key = v;
+    s.state = INPUT_STATE_PRESSED;
+    items.push_back(s);
+}
+
+void InputList::remove(int v)
+{
+    std::vector<InputState>::iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        InputState & s = *it;
+        if (s.key != v)
+            continue;
+        s.state = INPUT_STATE_RELEASED;
+        return;
+    }
+}
+
+bool InputList::is_pressed(int v)
+{
+    std::vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        const InputState & s = *it;
+        if (s.key != v)
+            continue;
+        return s.state != INPUT_STATE_RELEASED;
+    }
+    return false;
+}
+
+bool InputList::is_pressed_once(int v)
+{
+    std::vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        const InputState & s = *it;
+        if (s.key != v)
+            continue;
+        return s.state == INPUT_STATE_PRESSED;
+    }
+    return false;
+}
+
+bool InputList::is_any_pressed()
+{
+    std::vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        const InputState & s = *it;
+        if (s.state == INPUT_STATE_RELEASED)
+            continue;
+        return true;
+    }
+    return false;
+}
+
+bool InputList::is_any_pressed_once()
+{
+    std::vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        const InputState & s = *it;
+        if (s.state != INPUT_STATE_PRESSED)
+            continue;
+        return true;
+    }
+    return false;
+}
+
+bool InputList::is_released_once(int v)
+{
+    std::vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); it++) {
+        const InputState & s = *it;
+        if (s.key != v)
+            continue;
+        return s.state == INPUT_STATE_RELEASED;
+    }
+    return false;
+}
+
+void InputList::clear()
+{
+    items.clear();
+}
+
+void InputList::update()
+{
+    std::vector<InputState>::iterator it = items.begin();
+    while (it != items.end()) {
+        InputState & s = *it;
+        if (s.state != INPUT_STATE_RELEASED) {
+            s.state = INPUT_STATE_HOLD;
+            it++;
+            continue;
+        }
+        it = items.erase(it);
+    }
+}
+
+// input helpers
+
+bool is_mouse_pressed(int button)
+{
+    if (button < 0)
+        return false;
+    return global_manager->mouse.is_pressed(button);
+}
+
+bool is_key_pressed(int button)
+{
+    if (button < 0)
+        return false;
+    return global_manager->keyboard.is_pressed(button);
+}
+
+bool is_any_key_pressed()
+{
+    return global_manager->keyboard.is_any_pressed();
+}
+
+bool is_any_key_pressed_once()
+{
+    return global_manager->keyboard.is_any_pressed_once();
+}
+
+bool is_mouse_pressed_once(int key)
+{
+    if (key < 0)
+        return false;
+    return global_manager->mouse.is_pressed_once(key);
+}
+
+bool is_key_released_once(int key)
+{
+    if (key < 0)
+        return false;
+    return global_manager->keyboard.is_released_once(key);
+}
+
+bool is_key_pressed_once(int key)
+{
+    if (key < 0)
+        return false;
+    return global_manager->keyboard.is_pressed_once(key);
+}
+
+// main function
+
+#if defined(CHOWDREN_IS_WIIU)
+int main(int argc, char *argv[])
 #else
-int main (int argc, char *argv[])
+extern "C" int SDL_main(int argc, char *argv[])
 #endif
 {
 #if defined(_WIN32) && defined(CHOWDREN_SHOW_DEBUGGER)
@@ -438,8 +622,7 @@ int main (int argc, char *argv[])
     std::ios::sync_with_stdio();
 #endif
 
-    GameManager manager = GameManager();
-    global_manager = &manager;
+    GameManager manager;
     manager.run();
     return 0;
 }

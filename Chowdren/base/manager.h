@@ -5,6 +5,7 @@
 #include "color.h"
 #include "fpslimit.h"
 #include "include_gl.h"
+#include "input.h"
 
 class Frame;
 class Media;
@@ -26,6 +27,7 @@ public:
     Color fade_color;
     float fade_dir;
     float fade_value;
+    int lives;
 #if CHOWDREN_IS_DEMO
     bool idle_timer_started;
     double idle_timer;
@@ -34,6 +36,8 @@ public:
     double reset_timer;
     double manual_reset_timer;
 #endif
+    InputList keyboard;
+    InputList mouse;
 
     GameManager();
     void on_key(int key, bool state);
@@ -43,10 +47,12 @@ public:
     void set_frame(int index);
     void set_framerate(int framerate);
     void set_window(bool fullscreen);
+    void set_fullscreen_type(int type);
     bool is_fullscreen();
     void run();
     void reset_globals();
     void set_fade(const Color & color, float dir);
+
 };
 
 extern GameManager * global_manager;

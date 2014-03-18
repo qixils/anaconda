@@ -7,23 +7,22 @@
 #include "glslshader.h"
 
 static bool background_initialized = false;
-static GLuint background_fbo;
 static GLuint background_texture;
 
-void initialize_background()
+static void initialize_background()
 {
     background_initialized = true;
     glGenTextures(1, &background_texture);
     glBindTexture(GL_TEXTURE_2D, background_texture);
+#ifdef CHOWDREN_QUICK_SCALE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+#else
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenFramebuffersEXT(1, &background_fbo);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, background_fbo);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-        GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, background_texture, 0);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, global_manager->screen_fbo);
 }
 
 
@@ -123,53 +122,8 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
     if (has_background) {
         int box[4];
         instance->get_box(box);
-        int width = box[2] - box[0];
-        int height = box[3] - box[1];
-
-        glBindTexture(GL_TEXTURE_2D, background_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
-            0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glPushAttrib(GL_VIEWPORT_BIT | GL_TRANSFORM_BIT);
-        glViewport(0, 0, width, height);
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, width, height, 0, -1, 1);
-        glMatrixMode(GL_MODELVIEW);
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, background_fbo);
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-            GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, background_texture, 0);
-
-#if 0
-        GLenum result = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-        if (result != GL_FRAMEBUFFER_COMPLETE_EXT)
-            std::cout << "framebuffer incomplete: " << result << std::endl;
-#endif
-
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, global_manager->screen_texture);
-        glDisable(GL_BLEND);
-        glBegin(GL_QUADS);
-        glTexCoord2f(box[0] / float(WINDOW_WIDTH), 
-                     1.0 - box[3] / float(WINDOW_HEIGHT));
-        glVertex2i(0, 0);
-        glTexCoord2f(box[2] / float(WINDOW_WIDTH), 
-                     1.0 - box[3] / float(WINDOW_HEIGHT));
-        glVertex2i(width, 0);
-        glTexCoord2f(box[2] / float(WINDOW_WIDTH),
-                     1.0 - box[1] / float(WINDOW_HEIGHT));
-        glVertex2i(width, height);
-        glTexCoord2f(box[0] / float(WINDOW_WIDTH),
-                     1.0 - box[1] / float(WINDOW_HEIGHT));
-        glVertex2i(0, height);
-        glEnd();
-        glDisable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glPopAttrib(); // restores MODELVIEW too
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 
-                             global_manager->screen_fbo);
+        platform_copy_color_buffer_rect(background_texture, box[0], box[1],
+                                        box[2], box[3]);
     }
 
     glUseProgram(program);

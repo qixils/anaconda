@@ -1145,6 +1145,7 @@ FTSimpleLayout::FTSimpleLayout()
     lineLength = 100.0f;
     alignment = ALIGN_LEFT;
     lineSpacing = 1.0f;
+    tabSpacing = 1.0f / 0.6f;
 }
 
 
@@ -1197,6 +1198,17 @@ void FTSimpleLayout::Render(const wchar_t* string, const int len,
 }
 
 
+bool is_linebreak(char v)
+{
+    switch (v) {
+        case '\n':
+        case '\x0B':
+            return true;
+    }
+    return false;
+}
+
+
 template <typename T>
 inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
                                           FTPoint position, int renderMode,
@@ -1239,13 +1251,13 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
         nextStart += advance;
 
         // See if the current character is a space, a break or a regular character
-        if((currentWidth > lineLength) || (*itr == '\n'))
+        if((currentWidth > lineLength) || is_linebreak(*itr))
         {
             // A non whitespace character has exceeded the line length.  Or a
             // newline character has forced a line break.  Output the last
             // line and start a new line after the break character.
             // If we have not yet found a break, break on the last character
-            if(breakItr == lineStart || (*itr == '\n'))
+            if(breakItr == lineStart || is_linebreak(*itr))
             {
                 // Break on the previous character
                 breakItr = prevItr;
@@ -1254,7 +1266,7 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
                 // None of the previous words will be carried to the next line
                 wordLength = 0;
                 // If the current character is a newline discard its advance
-                if(*itr == '\n') advance = 0;
+                if(is_linebreak(*itr)) advance = 0;
             }
 
             float remainingWidth = lineLength - breakWidth;
@@ -1264,9 +1276,19 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
             // move past the break character and don't count it on the next line either
             ++breakChar; --charCount;
             // If the break character is a newline do not render it
-            if(*breakChar == '\n')
-            {
-                ++breakChar; --charCount;
+            float currentSpacing;
+            switch (*breakChar) {
+                case '\n':
+                    ++breakChar; --charCount;
+                    currentSpacing = lineSpacing;
+                    break;
+                case '\x0B':
+                    ++breakChar; --charCount;
+                    currentSpacing = tabSpacing;
+                    break;
+                default:
+                    currentSpacing = lineSpacing;
+                    break;
             }
 
             OutputWrapped(lineStart.getBufferFromHere(), breakCharCount,
@@ -1276,7 +1298,7 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
             // Store the start of the next line
             lineStart = breakChar;
             // TODO: Is Height() the right value here?
-            pen -= FTPoint(0, currentFont->LineHeight() * lineSpacing);
+            pen -= FTPoint(0, currentFont->LineHeight() * currentSpacing);
             // The current width is the width since the last break
             nextStart = wordLength + advance;
             wordLength += advance;

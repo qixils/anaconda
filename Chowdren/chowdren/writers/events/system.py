@@ -2,10 +2,15 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     ExpressionWriter, ComparisonWriter, ActionMethodWriter, 
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
     make_expression, make_comparison, EmptyAction)
-from chowdren.common import get_method_name, to_c, make_color
+from chowdren.common import (get_method_name, to_c, make_color,
+                             parse_direction, get_flag_direction)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
+from chowdren import hacks
+from chowdren.key import convert_key
+from mmfparser.bitdict import BitDict
+from chowdren.idpool import get_id
 
 def get_loop_running_name(name):
     return 'loop_%s_running' % get_method_name(name)
@@ -33,6 +38,19 @@ class SystemObject(ObjectWriter):
             index_name = get_loop_index_name(name)
             writer.putln('%s = false;' % running_name)
             writer.putln('%s = 0;' % index_name)
+        if not self.dynamic_loops:
+            return
+        writer.putln('static bool loops_initialized = false;')
+        writer.putln('if (!loops_initialized) {')
+        writer.indent()
+        for loop in self.dynamic_loops:
+            loop_method = 'loop_wrapper_' + get_method_name(loop)
+            running_name = get_loop_running_name(loop)
+            index_name = get_loop_index_name(loop)
+            writer.putlnc('loops[%r].set(&%s, &%s, &%s);',
+                          loop, loop_method, running_name, index_name)
+        writer.putln('loops_initialized = true;')
+        writer.end_brace()
 
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
@@ -46,16 +64,16 @@ class SystemObject(ObjectWriter):
     def write_loops(self, writer):
         self.loop_names = set()
         loops = self.loops = defaultdict(list)
-        dynloops = []
+        self.dynamic_loops = set()
         for loop_group in self.get_conditions('OnLoop'):
-            exps = loop_group.conditions[0].data.items[0].loader.items
-            exp = exps[0]
-
-            if len(exps) > 2 or exp.getName() != 'String':
-                dynloops.append((exps, loop_group))
+            parameter = loop_group.conditions[0].data.items[0]
+            items = parameter.loader.items
+            name = self.converter.convert_static_expression(items)
+            if name is None:
+                name = self.converter.convert_parameter(parameter)
+                print 'dynamic "on loop" not implemented:', name
                 continue
 
-            name = exp.loader.value
             if name == 'Clear Filter':
                 # KU-specific hack
                 continue
@@ -70,6 +88,12 @@ class SystemObject(ObjectWriter):
             index_name = get_loop_index_name(name)
             writer.putln('bool %s;' % running_name)
             writer.putln('int %s;' % index_name)
+
+        for start_loop in self.converter.action_dict['StartLoop']:
+            names = start_loop.get_loop_names(loops.keys())
+            if names is None:
+                continue
+            self.dynamic_loops.update(names)
 
         self.converter.begin_events()
         for name, groups in loops.iteritems():
@@ -97,17 +121,21 @@ class SystemObject(ObjectWriter):
             writer.putln('return true;')
             writer.end_brace()
 
-        writer.putmeth('bool call_dynamic_loop', 'const std::string & name')
-        for name in loops.keys():
-            writer.putln(to_c('if (name == %r) return loop_%s();', 
-                name, get_method_name(name)))
-        writer.putln('return false;')
-        writer.end_brace()
+        for name in self.dynamic_loops:
+            loop_name = get_method_name(name)
+            writer.putmeth('static bool loop_wrapper_%s' % loop_name,
+                           'void * frame')
+            writer.putlnc('return ((%s*)frame)->loop_%s();',
+                          self.converter.frame_class, loop_name)
+            writer.end_brace()
+
 
 # conditions
 
 class IsOverlapping(ConditionWriter):
+    save_collision = False
     has_object = False
+    is_always = True
 
     def write(self, writer):
         data = self.data
@@ -125,8 +153,12 @@ class IsOverlapping(ConditionWriter):
                 object_info))
             other_selected = converter.get_list_name(converter.get_object_name(
                 other_info))
+            if self.save_collision:
+                func_name = 'check_overlap_save'
+            else:
+                func_name = 'check_overlap'
             writer.put(to_c(
-                'check_overlap(%s, %s, %s, %s)',
+                '%s(%s, %s, %s, %s)', func_name,
                 converter.get_object(object_info, True), 
                 converter.get_object(other_info, True), 
                 selected_name, other_selected))
@@ -135,6 +167,13 @@ class IsOverlapping(ConditionWriter):
 
     def is_negated(self):
         return False
+
+class OnCollision(IsOverlapping):
+    save_collision = True
+
+class OnBackgroundCollision(ConditionMethodWriter):
+    is_always = True
+    method = 'overlaps_background_save'
 
 class ObjectInvisible(ConditionWriter):
     def write(self, writer):
@@ -174,9 +213,52 @@ class ObjectClicked(ConditionWriter):
         writer.put('mouse_over() && '
                    'is_mouse_pressed_once(%s)' % self.convert_index(0))
 
-# class PlayerKeyDown(ConditionWriter):
-#     def write(self, writer):
-#         writer.put('is_player_key_pressed(%s, %r)' % )
+KEY_FLAGS = BitDict(
+    'Up',
+    'Down',
+    'Left',
+    'Right',
+    'Button1',
+    'Button2',
+    'Button3',
+    'Button4'
+)
+
+JOYSTICK_CONDITIONS = {
+    'Button1' : 'CHOWDREN_BUTTON_A',
+    'Button2' : 'CHOWDREN_BUTTON_B',
+    'Button3' : 'CHOWDREN_BUTTON_X',
+    'Button4' : 'CHOWDREN_BUTTON_Y'
+}
+
+class PlayerKeyDown(ConditionWriter):
+    def write(self, writer):
+        player = self.data.objectInfo + 1
+        controls = self.converter.game.header.controls.items[player-1]
+        keys = []
+        flag_value = self.parameters[0].loader.value
+        is_keyboard = controls.getControlType() == 'Keyboard'
+        if not is_keyboard:
+            direction = flag_value & 15
+            key = 'test_joystick_direction_flags(%s, %s)' % (player,
+                                                             direction)
+            keys.append(key)
+            flag_value &= ~15
+
+        flags = KEY_FLAGS.copy()
+        flags.setFlags(flag_value)
+        for k, v in flags.iteritems():
+            if not v:
+                continue
+            if is_keyboard:
+                key = getattr(controls.keys, k.lower())
+                key = convert_key(key.getValue())
+                key = 'is_key_pressed(%s)' % key
+            else:
+                key = JOYSTICK_BUTTONS[k]
+                key = 'is_joystick_pressed(%s, %s)' % (player, key)
+            keys.append(key)
+        writer.put(' && '.join(keys))
 
 class TimerEquals(ConditionWriter):
     is_always = True
@@ -205,7 +287,7 @@ class TimerEvery(ConditionWriter):
 
     def write(self, writer):
         seconds = self.parameters[0].loader.delay / 1000.0
-        name = 'every_%s' % id(self)
+        name = 'every_%s' % get_id(self)
         writer.putln('static float %s = 0.0f;' % name)
         event_break = self.converter.event_break
         writer.putln('%s += float(manager->fps_limit.dt);' % name)
@@ -218,6 +300,14 @@ class AnimationFinished(ConditionWriter):
     def write(self, writer):
         writer.put('is_animation_finished(%s)' % self.convert_index(0))
 
+class PathFinished(ConditionMethodWriter):
+    is_always = True
+    method = 'get_movement()->is_path_finished'
+
+class NodeReached(ConditionMethodWriter):
+    is_always = True
+    method = 'get_movement()->is_node_reached'
+
 class OnGroupActivation(ConditionWriter):
     custom = True
     def write(self, writer):
@@ -226,13 +316,13 @@ class OnGroupActivation(ConditionWriter):
         writer.putln('%s = false;' % group_check)
 
     def get_group_check(self):
-        return 'group_check_%s' % id(self)
+        return 'group_check_%s' % get_id(self)
 
 class NotAlways(ConditionWriter):
     custom = True
     def write(self, writer):
         event_break = self.converter.event_break
-        name = 'not_always_%s' % id(self)
+        name = 'not_always_%s' % get_id(self)
         name2 = '%s_frame' % name
         writer.putln('static unsigned int %s = loop_count;' % name)
         writer.putln('static unsigned int %s = frame_iteration;' % name2)
@@ -252,7 +342,7 @@ class OnceCondition(ConditionWriter):
     custom = True
     def write(self, writer):
         event_break = self.converter.event_break
-        name = 'once_condition_%s' % id(self)
+        name = 'once_condition_%s' % get_id(self)
         writer.putln('static unsigned int %s = (int)(-1);' % name)
         writer.putln('if (%s == frame_iteration) %s' % (name, event_break))
         writer.putln('%s = frame_iteration;' % (name))
@@ -289,7 +379,7 @@ class CompareFixedValue(ConditionWriter):
         object_info, object_type = self.get_object()
         converter = self.converter
 
-        end_label = 'fixed_%s_end' % id(self)
+        end_label = 'fixed_%s_end' % get_id(self)
         value = self.convert_index(0)
         comparison = self.get_comparison()
         is_equal = comparison == '=='
@@ -305,7 +395,7 @@ class CompareFixedValue(ConditionWriter):
             object_info))
         get_list = converter.get_object(object_info, True)
 
-        fixed_name = 'fixed_test_%s' % id(self)
+        fixed_name = 'fixed_test_%s' % get_id(self)
         writer.start_brace()
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         if is_equal:
@@ -337,6 +427,10 @@ class CompareFixedValue(ConditionWriter):
         writer.end_brace()
         converter.set_list(object_info, selected_name)
 
+class AnyKeyPressed(ConditionMethodWriter):
+    is_always = True
+    method = 'is_any_key_pressed_once'
+
 class FacingInDirection(ConditionWriter):
     def write(self, writer):
         parameter = self.parameters[0].loader
@@ -353,66 +447,75 @@ class FacingInDirection(ConditionWriter):
 class CreateBase(ActionWriter):
     custom = True
     def write(self, writer):
-        writer.start_brace()
-        end_name = 'create_%s_end' % id(self)
-        is_shoot = self.is_shoot
         details = self.convert_index(0)
+        if details is None:
+            return
+        writer.start_brace()
+        end_name = 'create_%s_end' % get_id(self)
+        is_shoot = self.is_shoot
         x = str(details['x'])
         y = str(details['y'])
         parent = details.get('parent', None)
+        direction = None
+        use_direction = details.get('use_direction', False)
+        use_action_point = details.get('use_action_point', False)
+        object_info = self.parameters[0].loader.objectInfo
+        if is_shoot:
+            create_object = details['shoot_object']
+            if use_action_point and not use_direction:
+                direction = parse_direction(details['direction'])
+            else:
+                direction = '-1'
+        else:
+            create_object = details['create_object']
+        if object_info != parent:
+            if object_info not in self.converter.has_selection:
+                list_name = self.converter.get_list_name(create_object)
+                writer.putlnc('%s.clear();', list_name)
+                self.converter.set_list(object_info, list_name)
+        if parent is not None:
+            self.converter.start_object_iteration(parent, writer, 'p_it',
+                                                  copy=False)
+            writer.putln('FrameObject * parent = *p_it;')
         if parent is not None and not is_shoot:
-            writer.putln('int parent_x, parent_y, layer_index;')
-            parent_list = 'parent_instances'
-            writer.putln('FrameObject * parent = %s;' % (
-                self.converter.get_object(parent)))
-            writer.putln('if (parent == NULL) parent_x = parent_y = '
-                         'layer_index = 0;')
-            writer.putln('else {')
-            writer.indent()
-            if details.get('use_action_point', False):
+            if use_action_point:
                 parent_x = 'get_action_x()'
                 parent_y = 'get_action_y()'
             else:
                 parent_x = 'x'
                 parent_y = 'y'
-            writer.putln('parent_x = parent->%s;' % parent_x)
-            writer.putln('parent_y = parent->%s;' % parent_y)
-            writer.putln('layer_index = parent->layer_index;')
-            writer.end_brace()
-            if details.get('set_direction', False):
-                raise NotImplementedError
-                # arguments.append('use_direction = True')
             if details.get('transform_position_direction', False):
-                print 'transform position direction not implemented'
-            if details.get('use_direction', False):
-                print 'use_direction not implemented'
-            x = 'parent_x + %s' % (x)
-            y = 'parent_y + %s' % (y)
-            layer = 'layer_index'
+                writer.putln('int x_off = %s;' % x)
+                writer.putln('int y_off = %s;' % y)
+                writer.putln('transform_pos(x_off, y_off, parent);')
+                x = 'x_off'
+                y = 'y_off'
+            if use_direction:
+                direction = 'parent->direction'
+            x = 'parent->%s + %s' % (parent_x, x)
+            y = 'parent->%s + %s' % (parent_y, y)
+            layer = 'parent->layer_index'
+        elif is_shoot:
+            layer = 'parent->layer_index'
         else:
             layer = details['layer']
-        if is_shoot:
-            create_object = details['shoot_object']
-        else:
-            create_object = details['create_object']
         arguments = [x, y]
         obj_create_func = 'create_%s' % get_method_name(create_object)
         create_method = 'create_object'
         writer.putln('FrameObject * new_obj = %s(%s(%s), %s); // %s' % (
             create_method, obj_create_func, ', '.join(arguments), layer,
             details))
-        object_info = self.parameters[0].loader.objectInfo
-        try:
+        if object_info != parent:
             list_name = self.converter.has_selection[object_info]
             writer.putln('%s.push_back(new_obj);' % (list_name))
-        except KeyError:
-            list_name = self.converter.get_list_name(create_object)
-            writer.putln('make_single_list(new_obj, %s);' % (list_name))
-            self.converter.has_selection[object_info] = list_name
         if is_shoot:
-            writer.putln('%s->shoot(new_obj, %s);' % (
-                self.converter.get_object(object_info),
-                details['shoot_speed']))
+            writer.putlnc('parent->shoot(new_obj, %s, %s);',
+                          details['shoot_speed'], direction)
+        elif direction:
+            writer.putln('new_obj->set_direction(%s);' % direction)
+        if parent is not None:
+            self.converter.end_object_iteration(parent, writer, 'p_it',
+                                                copy=False)
         writer.end_brace()
         if False: # action_name == 'DisplayText':
             paragraph = parameters[1].loader.value
@@ -426,30 +529,38 @@ class ShootObject(CreateBase):
     is_shoot = True
 
 class SetPosition(ActionWriter):
+    custom = True
+
     def write(self, writer):
-        details = self.convert_index(0)
-        x = str(details['x'])
-        y = str(details['y'])
-        parent = details.get('parent', None)
-        if parent is not None:
-            parent = self.converter.get_object(parent)
-            if details.get('use_action_point', False):
-                parent_x = 'get_action_x()'
-                parent_y = 'get_action_y()'
-            else:
-                parent_x = 'x'
-                parent_y = 'y'
-            x = '%s->%s + %s' % (parent, parent_x, x)
-            y = '%s->%s + %s' % (parent, parent_y, y)
-            if details.get('set_direction', False):
-                raise NotImplementedError
-            if details.get('transform_position_direction', False):
-                print 'transform position direction 2 not implemented'
-            if details.get('use_direction', False):
-                print 'use direction 2 not implemented'
-        arguments = [x, y]
-        writer.put('set_position(%s); // %s' % (
-            ', '.join(arguments), details))
+        object_info, object_type = self.get_object()
+
+        with self.converter.iterate_object(object_info, writer, copy=False):
+            details = self.convert_index(0)
+            x = str(details['x'])
+            y = str(details['y'])
+            parent = details.get('parent', None)
+            if parent is not None:
+                parent = self.converter.get_object(parent)
+                writer.putln('FrameObject * parent = %s;' % parent)
+                if details.get('use_action_point', False):
+                    parent_x = 'get_action_x()'
+                    parent_y = 'get_action_y()'
+                else:
+                    parent_x = 'get_x()'
+                    parent_y = 'get_y()'
+                if details.get('transform_position_direction', False):
+                    writer.putln('int x_off = %s;' % x)
+                    writer.putln('int y_off = %s;' % y)
+                    writer.putln('transform_pos(x_off, y_off, parent);')
+                    x = 'x_off'
+                    y = 'y_off'
+                if details.get('use_direction', False):
+                    writer.putln('(*item)->set_direction(parent->direction);')
+                x = 'parent->%s + %s' % (parent_x, x)
+                y = 'parent->%s + %s' % (parent_y, y)
+            arguments = [x, y]
+            writer.putln('(*item)->set_global_position(%s); // %s' % (
+                ', '.join(arguments), details))
 
 class LookAt(ActionWriter):
     def write(self, writer):
@@ -480,11 +591,37 @@ class MoveBehind(ActionWriter):
         writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
 
 class StartLoop(ActionWriter):
+    custom = True
+
+    def get_name(self):
+        parameter = self.parameters[0]
+        items = parameter.loader.items
+        real_name = self.converter.convert_static_expression(items)
+        return real_name
+
+    def get_dynamic_name(self):
+        return self.convert_index(0)
+
+    def get_loop_names(self, loops):
+        if self.get_name() is not None:
+            return
+        strings = self.converter.get_string_expressions(self.parameters[0])
+        strings = [v.lower() for v in strings]
+        loop_names = set()
+        for loop in loops:
+            loop_check = loop.lower()
+            for substring in strings:
+                if substring not in loop_check:
+                    continue
+                loop_names.add(loop)
+                break
+        return loop_names
+
     def write(self, writer):
-        real_name = None
-        try:
-            exp, = self.parameters[0].loader.items[:-1]
-            real_name = exp.loader.value
+        real_name = self.get_name()
+        if real_name is None:
+            func_call = 'dyn_loop.callback(this)'
+        else:
             loop_names = self.converter.system_object.loop_names
             if real_name.lower() not in loop_names:
                 if real_name == 'Clear Filter':
@@ -492,8 +629,6 @@ class StartLoop(ActionWriter):
                 return
             name = get_method_name(real_name)
             func_call = 'loop_%s()' % name
-        except ValueError:
-            func_call = 'call_dynamic_loop(name)'
         comparison = None
         times = None
         try:
@@ -509,13 +644,17 @@ class StartLoop(ActionWriter):
         is_infinite = comparison is not None
         is_dynamic = real_name is None
         if is_dynamic:
-            print 'not calling dynamic for name', self.convert_index(0)
-            return
-        running_name = get_loop_running_name(real_name)
-        index_name = get_loop_index_name(real_name)
+            running_name = '(*dyn_loop.running)'
+            index_name = '(*dyn_loop.index)'
+        else:
+            running_name = get_loop_running_name(real_name)
+            index_name = get_loop_index_name(real_name)
         if not is_infinite:
             comparison = '%s < times' % index_name
         writer.start_brace()
+        if is_dynamic:
+            writer.putlnc('DynamicLoop & dyn_loop = loops[%s];',
+                          self.convert_index(0))
         # writer.putln('static const std::string name = %s;' %
         #              self.convert_index(0))
         writer.putln('%s = true;' % running_name)
@@ -562,8 +701,13 @@ class DeactivateGroup(ActionWriter):
 
 class StopLoop(ActionWriter):
     def write(self, writer):
-        exp, = self.parameters[0].loader.items[:-1]
-        name = exp.loader.value
+        parameter = self.parameters[0]
+        items = parameter.loader.items
+        name = self.converter.convert_static_expression(items)
+        if name is None:
+            name = self.converter.convert_parameter(parameter)
+            print 'Could not convert stop loop name for', name
+            return
         running_name = get_loop_running_name(name)
         writer.putln('%s = false;' % running_name)
 
@@ -573,8 +717,7 @@ class SetLoopIndex(ActionWriter):
         name = exp.loader.value
         index_name = get_loop_index_name(name)
         value = self.convert_index(1)
-        # writer.putln(to_c('loop_indexes[%r] = %s;', name, value))
-        writer.putln('%s = %s;' % index_name, value)
+        writer.putln('%s = %s;' % (index_name, value))
 
 class ActivateGroup(ActionWriter):
     def write(self, writer):
@@ -646,7 +789,7 @@ class SpreadValue(ActionWriter):
     def write(self, writer):
         alt = self.convert_index(0)
         start = self.convert_index(1)
-        object_list = self.converter.get_object(self.data.objectInfo, True)
+        object_list = self.converter.get_all_objects(self.data.objectInfo)
         writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
 
 # expressions
@@ -696,7 +839,15 @@ class VirguleExpression(ExpressionWriter):
 
 class AlterableValueExpression(ExpressionWriter):
     def get_string(self):
-        return 'values->get(%s)' % self.data.loader.value
+        if hacks.use_alterable_int(self):
+            func = 'values->get_int'
+        else:
+            func = 'values->get'
+        return '%s(%s)' % (func, self.data.loader.value)
+
+class AlterableValueIndexExpression(ExpressionWriter):
+    def get_string(self):
+        return 'values->get('
 
 class AlterableStringExpression(ExpressionWriter):
     def get_string(self):
@@ -704,7 +855,11 @@ class AlterableStringExpression(ExpressionWriter):
 
 class GlobalValueExpression(ExpressionWriter):
     def get_string(self):
-        return 'global_values->get(%s)' % self.data.loader.value
+        if hacks.use_global_int(self):
+            func = 'global_values->get_int'
+        else:
+            func = 'global_values->get'
+        return '%s(%s)' % (func, self.data.loader.value)
 
 class GlobalStringExpression(ExpressionWriter):
     def get_string(self):
@@ -712,9 +867,10 @@ class GlobalStringExpression(ExpressionWriter):
 
 class ObjectCount(ExpressionWriter):
     has_object = False
+
     def get_string(self):
-        return '%s.size()' % self.converter.get_object(
-            self.data.objectInfo, True)
+        instances = self.converter.get_all_objects(self.data.objectInfo)
+        return '%s.size()' % instances
 
 class ToString(ExpressionWriter):
     def get_string(self):
@@ -727,9 +883,19 @@ class ToString(ExpressionWriter):
 class GetLoopIndex(ExpressionWriter):
     def get_string(self):
         converter = self.converter
-        next_exp = converter.expression_items[converter.item_index + 1]
-        converter.item_index += 2
-        name = next_exp.loader.value
+        items = converter.expression_items
+        last_exp = items[converter.item_index + 2]
+        if last_exp.getName() != 'EndParenthesis':
+            name = converter.convert_static_expression(items,
+                                                       converter.item_index+1)
+            if name is None:
+                return 'get_loop_index('
+            size = len(items) - 1
+        else:
+            size = 2
+            next_exp = items[converter.item_index + 1]
+            name = next_exp.loader.value
+        converter.item_index += size
         index_name = get_loop_index_name(name)
         return index_name
 
@@ -823,7 +989,11 @@ actions = make_table(ActionMethodWriter, {
     'RestoreSpeed' : 'restore_speed',
     'SetMainVolume' : 'media->set_main_volume',
     'StopAllSamples' : 'media->stop_samples',
+    'PauseAllSounds' : 'media->pause_samples',
+    'ResumeAllSounds' : 'media->resume_samples',
     'StopSample' : 'media->stop_sample("%s")',
+    'SetSamplePan' : 'media->set_sample_volume("%s", %s)',
+    'SetSamplePosition' : 'media->set_sample_position("%s", %s)',
     'SetSampleVolume' : 'media->set_sample_volume("%s", %s)',
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
@@ -841,10 +1011,18 @@ actions = make_table(ActionMethodWriter, {
     'Stop' : 'get_movement()->stop()',
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
-    'SelectMovement' : 'set_movement',
+    'SelectMovement' : 'set_movement(%s - 1)',
     'EnableFlag' : 'enable_flag',
     'DisableFlag' : 'disable_flag',
-    'ReplaceColor' : EmptyAction # XXX fix,
+    'ToggleFlag' : 'toggle_flag',
+    'Reverse' : 'get_movement()->reverse()',
+    'ReplaceColor' : EmptyAction, # XXX fix,
+    'SetLives' : 'set_lives',
+    'SubtractLives' : 'set_lives(manager->lives - (%s))',
+    'AddLives' : 'set_lives(manager->lives + (%s))',
+    'EnableVsync' : 'set_vsync(true)',
+    'DisableVsync' : 'set_vsync(false)',
+    'SetGravity' : 'get_movement()->set_gravity',
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -857,7 +1035,7 @@ conditions = make_table(ConditionMethodWriter, {
     'CompareY' : make_comparison('y'),
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
-    'OnCollision' : IsOverlapping,
+    'OnCollision' : OnCollision,
     'ObjectVisible' : '.visible',
     'ObjectInvisible' : ObjectInvisible,
     'WhileMousePressed' : 'is_mouse_pressed',
@@ -865,7 +1043,7 @@ conditions = make_table(ConditionMethodWriter, {
     'Always' : Always,
     'MouseClicked' : MouseClicked,
     'ObjectClicked' : ObjectClicked,
-    # 'PlayerKeyDown' : PlayerKeyDown,
+    'PlayerKeyDown' : PlayerKeyDown,
     'KeyDown' : 'is_key_pressed',
     'KeyPressed' : 'is_key_pressed_once(%s)',
     'OnGroupActivation' : OnGroupActivation,
@@ -876,7 +1054,7 @@ conditions = make_table(ConditionMethodWriter, {
     'OutsidePlayfield' : 'outside_playfield',
     'IsObstacle' : 'test_background_collision',
     'IsOverlappingBackground' : 'overlaps_background',
-    'OnBackgroundCollision' : 'overlaps_background',
+    'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
@@ -892,14 +1070,17 @@ conditions = make_table(ConditionMethodWriter, {
     'IsBold' : 'get_bold',
     'IsItalic' : 'get_italic',
     'MovementStopped' : 'get_movement()->is_stopped()',
-    'PathFinished' : 'get_movement()->is_path_finished',
-    'NodeReached' : 'get_movement()->is_node_reached',
+    'PathFinished' : PathFinished,
+    'NodeReached' : NodeReached,
     'CompareSpeed' : make_comparison('get_movement()->get_speed()'),
     'FlagOn' : 'is_flag_on',
     'FlagOff' : 'is_flag_off',
     'NearWindowBorder' : 'is_near_border',
     'AnimationFinished' : AnimationFinished,
-    'StartOfFrame' : '.loop_count <= 1'
+    'StartOfFrame' : '.loop_count <= 1',
+    'Never' : '.false',
+    'NumberOfLives' :  make_comparison('manager->lives'),
+    'AnyKeyPressed' : AnyKeyPressed
 })
 
 expressions = make_table(ExpressionMethodWriter, {
@@ -926,7 +1107,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Random' : 'randrange',
     'ApplicationPath' : 'get_app_path()',
     'AlterableValue' : AlterableValueExpression,
-    'AlterableValueIndex' : 'values->get',
+    'AlterableValueIndex' : AlterableValueIndexExpression,
     'AlterableStringIndex' : 'strings->get',
     'AlterableString' : AlterableStringExpression,
     'GlobalString' : GlobalStringExpression,
@@ -971,14 +1152,15 @@ expressions = make_table(ExpressionMethodWriter, {
     'Atan2' : 'atan2d',
     'AlphaCoefficient' : 'blend_color.get_alpha_coefficient()',
     'EffectParameter' : 'get_shader_parameter',
-    'Floor' : 'floor',
+    'Floor' : 'get_floor',
     'Round' : 'int_round',
     'AnimationNumber' : 'get_animation',
     'Ceil' : 'ceil',
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
+    'GetSamplePosition' : 'media->get_sample_position',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
-    'ObjectLayer' : '.layer_index',
+    'ObjectLayer' : '.layer_index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',
     'XRightFrame' : 'frame_right()',
@@ -988,6 +1170,9 @@ expressions = make_table(ExpressionMethodWriter, {
     'CounterMaximumValue' : '.maximum',
     'ApplicationDirectory' : 'get_app_dir()',
     'ApplicationDrive' : 'get_app_drive()',
-    'TimerValue' : '.frame_time * 1000.0',
-    'CounterValue': '.value'
+    'TimerValue' : '.(frame_time * 1000.0)',
+    'CounterValue': '.value',
+    'CurrentFrame' : '.(index+1)',
+    'GetFlag' : 'get_flag',
+    'GetCommandItem' : 'get_command_arg'
 })

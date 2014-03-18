@@ -17,16 +17,9 @@ option(USE_BOX2D OFF)
 option(USE_PYTHON ON)
 option(USE_STEAM OFF)
 option(ENABLE_STEAM ON)
+option(EMULATE_WIIU OFF)
 
 add_definitions(-DCHOWDREN_IS_DESKTOP)
-
-if (USE_PYTHON)
-    add_definitions(-DCHOWDREN_USE_PYTHON)
-    set(SRCS
-        ${SRCS}
-        pythonext.cpp
-    )
-endif()
 
 if (USE_STEAM)
     add_definitions(-DCHOWDREN_USE_STEAM)
@@ -102,6 +95,10 @@ if (USE_BOX2D)
     )
 endif()
 
+if (EMULATE_WIIU)
+    add_definitions(-DCHOWDREN_EMULATE_WIIU)
+endif()
+
 if(WIN32)
     set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/win32"
         ${CMAKE_LIBRARY_PATH})
@@ -144,6 +141,15 @@ if(APPLE)
     set(SRCS ${SRCS} ${OSX_ICON_FILES})
 endif()
 
+if (USE_PYTHON)
+    add_definitions(-DCHOWDREN_USE_PYTHON)
+    set(SRCS
+        ${SRCS}
+        pythonext.cpp
+    )
+    find_package(PythonLibs 2.7 REQUIRED)
+endif()
+
 # for Linux (set RPATH properly)
 set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
 set(CMAKE_SKIP_BUILD_RPATH TRUE)
@@ -153,25 +159,16 @@ set(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
 add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
 
-if (UNIX)
-    find_package(PkgConfig REQUIRED)
-    pkg_search_module(PC_GLFW REQUIRED glfw3)
-    set(GLFW_INCLUDE_DIR ${PC_GLFW_INCLUDE_DIRS})
-    find_library(GLFW_LIBRARIES NAMES ${PC_GLFW_LIBRARIES}
-                 HINTS ${PC_GLFW_LIBRARY_DIRS})
-else()
-    find_package(GLFW3 REQUIRED)
-endif()
+find_package(SDL2 REQUIRED)
 find_package(Vorbis REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenALSoft REQUIRED)
-find_package(PythonLibs 2.7 REQUIRED)
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
-    ${FREETYPE_INCLUDE_DIRS} ${GLFW_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS})
-target_link_libraries(Chowdren ${GLFW_LIBRARIES} ${OPENGL_LIBRARY} 
+    ${FREETYPE_INCLUDE_DIRS} ${SDL2_INCLUDE_DIR} ${VORBIS_INCLUDE_DIR}
+    ${BOX2D_INCLUDE_DIR})
+target_link_libraries(Chowdren ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
     ${BOX2D_LIBRARY})

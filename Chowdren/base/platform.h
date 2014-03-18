@@ -13,14 +13,14 @@ void platform_poll_events();
 bool platform_display_closed();
 void platform_create_display(bool fullscreen);
 void platform_get_size(int * width, int * height);
+void platform_get_screen_size(int * width, int * height);
 double platform_get_time();
 void platform_sleep(double v);
 size_t get_file_size(const char * filename);
 void create_directories(const std::string & v);
-int translate_key(int vk);
-int translate_key(const std::string & name);
-bool is_mouse_pressed(int button);
-bool is_key_pressed(int button);
+int translate_vk_to_key(int vk);
+int translate_key_to_vk(int key);
+int translate_string_to_key(const std::string & name);
 bool platform_has_focus();
 void platform_set_focus(bool v);
 void platform_show_mouse();
@@ -40,11 +40,11 @@ bool is_joystick_attached(int n);
 bool is_joystick_pressed(int n, int button);
 bool any_joystick_pressed(int n);
 bool is_joystick_released(int n, int button);
-int get_joystick_direction(int n);
 bool compare_joystick_direction(int n, int test_dir);
 bool is_joystick_direction_changed(int n);
-float get_joystick_x(int n);
-float get_joystick_y(int n);
+void joystick_vibrate(int n, float l, float r, float d);
+float get_joystick_axis(int n, int axis);
+int get_joystick_last_press(int n);
 
 // file
 
@@ -77,6 +77,9 @@ std::string convert_path(const std::string & value);
 // shaders
 
 void init_shaders_platform();
+void platform_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
+                                     int y2);
+void platform_scissor_world(int x, int y, int w, int h);
 
 // demo
 

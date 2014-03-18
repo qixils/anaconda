@@ -2,31 +2,46 @@
 #define CHOWDREN_MOVEMENT_H
 
 #include <string>
+#include <vector>
 
 class FrameObject;
+
+int get_movement_direction(int v);
+int get_movement_direction(bool up, bool down, bool left, bool right);
 
 class Movement
 {
 public:
-    int speed;
+    int speed, max_speed;
+    int old_x, old_y;
     double add_x, add_y;
     FrameObject * instance;
+    FrameObject * last_collision;
+    bool back_col;
     unsigned int directions;
 
     Movement(FrameObject * instance);
     virtual void update(float dt);
     virtual void set_max_speed(int speed);
     virtual void set_speed(int speed);
+    virtual void set_acceleration(int value);
+    virtual void set_deceleration(int value);
+    virtual void set_gravity(int value);
     virtual void start();
     virtual void stop();
     virtual void bounce();
     virtual bool is_stopped();
+    virtual void reverse();
     virtual int get_speed();
     virtual void set_node(const std::string & node);
     virtual bool is_path_finished();
     virtual bool is_node_reached();
+    virtual void set_direction(int value);
     void set_directions(unsigned int directions);
     void move(double add_x, double add_y);
+    bool test_offset(float x, float y);
+    bool test_position(int x, int y);
+    bool push_out();
 };
 
 class StaticMovement : public Movement
@@ -35,11 +50,76 @@ public:
     StaticMovement(FrameObject * instance);
 };
 
+class PathNode
+{
+public:
+    int speed;
+    float x, y;
+    float length;
+    int direction;
+    float pause;
+};
+
+class NamedNode
+{
+public:
+    int index;
+    std::string name;
+};
+
+typedef std::vector<PathNode> PathNodes;
+typedef std::vector<NamedNode> NamedNodes;
+
+class PathMovement : public Movement
+{
+public:
+    bool loop, reverse;
+    PathNodes nodes;
+    NamedNodes named_nodes;
+    int current_node;
+    float distance_left;
+    int dir;
+    bool node_changed;
+    int end_x, end_y;
+
+    PathMovement(FrameObject * instance);
+    void set_path(bool loop, bool reverse, int end_x, int end_y);
+    void add_node(int speed, float x, float y, float length, int dir,
+                  float pause);
+    void add_named_node(int i, const std::string & name);
+    void set_node(int i);
+    void update(float dt);
+    void start();
+    void stop();
+    bool is_path_finished();
+    bool is_node_reached();
+};
+
+class PinballMovement : public Movement
+{
+public:
+    int deceleration;
+    int gravity;
+    float x_speed, y_speed;
+    bool stopped;
+
+    PinballMovement(FrameObject * instance);
+    void start();
+    void stop();
+    void update(float dt);
+    void bounce();
+    void set_deceleration(int value);
+    void set_gravity(int value);
+    void set_speed(int value);
+    void set_direction(int value);
+};
+
 class BallMovement : public Movement
 {
 public:
     BallMovement(FrameObject * instance);
     void update(float dt);
+    void bounce();
 };
 
 class ShootMovement : public Movement
@@ -47,6 +127,18 @@ class ShootMovement : public Movement
 public:
     ShootMovement(FrameObject * instance);
     void update(float dt);
+};
+
+class EightDirections : public Movement
+{
+public:
+    int acceleration, deceleration;
+
+    EightDirections(FrameObject * instance);
+    void update(float dt);
+    void set_deceleration(int value);
+    void set_acceleration(int value);
+    void stop();
 };
 
 #endif // CHOWDREN_MOVEMENT_H

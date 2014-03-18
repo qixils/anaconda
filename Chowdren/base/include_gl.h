@@ -7,7 +7,7 @@
 
 #ifdef CHOWDREN_IS_DESKTOP
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <SDL_opengl.h>
 #elif CHOWDREN_IS_WIIU
 #include "wiiu_gl.h"
 #endif

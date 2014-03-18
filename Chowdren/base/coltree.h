@@ -3,7 +3,7 @@
 
 #include <vector>
 
-// #define USE_COL_TREE
+#define USE_COL_TREE
 #define MAX_TREE_LEVEL 5
 
 class CollisionTree;
@@ -12,6 +12,7 @@ class TreeItem
 {
 public:
     TreeItem(void * data);
+    TreeItem();
 
     void * data;
     bool marked;

@@ -31,6 +31,7 @@ extern Shader * dummy_shader;
 extern Shader * blend_shader;
 extern Shader * offset_shader;
 extern Shader * dodgeblur_shader;
+extern Shader * invert_shader;
 #ifndef CHOWDREN_IS_DESKTOP
 extern Shader * basic_shader;
 extern Shader * texture_shader;

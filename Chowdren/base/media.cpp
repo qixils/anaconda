@@ -15,7 +15,7 @@ void setup_sounds(Media * media);
 
 inline double clamp_sound(double val)
 {
-    return std::max<double>(0, std::min<double>(val, 100));
+    return std::max(0.0, std::min(val, 100.0));
 }
 
 static std::string cache_path("./sounds/");
@@ -116,6 +116,8 @@ void Channel::resume()
 {
     if (is_invalid())
         return;
+    if (sound->get_status() == ChowdrenAudio::SoundBase::Stopped)
+        return;
     sound->play();
 }
 
@@ -139,7 +141,7 @@ void Channel::set_volume(double value)
     volume = clamp_sound(value);
     if (is_invalid())
         return;
-    sound->set_volume(value / 100.0);
+    sound->set_volume(volume / 100.0);
 }
 
 void Channel::set_frequency(double value)
@@ -298,6 +300,30 @@ void Media::set_sample_volume(const std::string & name, double volume)
     channel->set_volume(volume);
 }
 
+void Media::set_sample_pan(const std::string & name, double pan)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return;
+    channel->set_pan(pan);
+}
+
+void Media::set_sample_position(const std::string & name, double pos)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return;
+    channel->set_position(pos);
+}
+
+double Media::get_sample_position(const std::string & name)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return 0.0;
+    return channel->get_position();
+}
+
 void Media::stop_sample(const std::string & name)
 {
     Channel * channel = get_sample(name);
@@ -310,6 +336,20 @@ void Media::stop_samples()
 {
     for (int i = 0; i < 32; i++) {
         stop_channel(i);
+    }
+}
+
+void Media::pause_samples()
+{
+    for (int i = 0; i < 32; i++) {
+        pause_channel(i);
+    }
+}
+
+void Media::resume_samples()
+{
+    for (int i = 0; i < 32; i++) {
+        resume_channel(i);
     }
 }
 

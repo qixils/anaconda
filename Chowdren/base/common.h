@@ -32,9 +32,9 @@
 #include "types.h"
 #include "crossrand.h"
 #include "utility.h"
-#include <stdarg.h>
 #include <boost/unordered_map.hpp>
 #include "coltree.h"
+#include "input.h"
 
 extern std::string newline_character;
 
@@ -49,36 +49,6 @@ inline typename A::iterator set_map_value(A & map, const B & key,
     if (!res.second)
         it->second = value;
     return it;
-}
-
-inline int randrange(int range)
-{
-    if (range == 0)
-        return 0;
-    return cross_rand() / (CROSS_RAND_MAX / range + 1);
-}
-
-inline bool random_chance(int a, int b)
-{
-    return randrange(b) < a;
-}
-
-inline int pick_random(int count, ...)
-{
-    if (count == 0)
-        std::cout << "Invalid pick_random count!" << std::endl;
-    va_list ap;
-    va_start(ap, count);
-    int picked_index = randrange(count);
-    int value;
-    for(int i = 0; i < count; i++) {
-        if (i != picked_index)
-            va_arg(ap, int);
-        else
-            value = va_arg(ap, int);
-    }
-    va_end(ap);
-    return value;
 }
 
 inline void split_string(const std::string &s, char delim, 
@@ -181,7 +151,7 @@ class Background
 public:
     BackgroundItems items;
     BackgroundItems col_items;
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
     CollisionTree tree;
 #endif
 
@@ -206,12 +176,17 @@ public:
     Background * back;
     int index;
     bool scroll_active;
+    int off_x, off_y;
     int x, y;
     int x1, y1, x2, y2;
+#ifdef CHOWDREN_USE_COLTREE
+    CollisionTree tree;
+    TreeItems tree_items;
+#endif
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
     ~Layer();
-    void scroll(int dx, int dy);
+    void scroll(int off_x, int off_y, int dx, int dy);
     void set_position(int x, int y);
     void add_background_object(FrameObject * instance);
     void add_object(FrameObject * instance);
@@ -229,14 +204,34 @@ public:
                int collision_type);
     void draw();
 
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     int remote;
     void set_remote(int value);
 #endif
 };
 
-// typedef boost::unordered_map<std::string, bool> RunningLoops;
-// typedef boost::unordered_map<std::string, int> LoopIndexes;
+typedef bool (*LoopCallback)(void*);
+
+class DynamicLoop
+{
+public:
+    LoopCallback callback;
+    bool * running;
+    int * index;
+
+    DynamicLoop()
+    {
+    }
+
+    void set(LoopCallback callback, bool * running, int * index)
+    {
+        this->callback = callback;
+        this->running = running;
+        this->index = index;
+    }
+};
+
+typedef boost::unordered_map<std::string, DynamicLoop> DynamicLoops;
 
 class InstanceMap
 {
@@ -262,18 +257,14 @@ public:
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
     InstanceMap instance_classes;
-    // LoopIndexes loop_indexes;
-    // RunningLoops running_loops;
+    DynamicLoops loops;
     Color background_color;
     GlobalValues * global_values;
     GlobalStrings * global_strings;
     Media * media;
     bool has_quit;
-    int off_x, off_y;
+    int off_x, off_y, new_off_x, new_off_y;
     int last_key;
-    bool key_presses[CHOWDREN_KEY_LAST + 1];
-    bool key_releases[CHOWDREN_KEY_LAST + 1];
-    bool mouse_presses[CHOWDREN_MOUSE_BUTTON_LAST + 1];
     int next_frame;
     unsigned int loop_count;
     double frame_time;
@@ -284,18 +275,20 @@ public:
           Color background_color, int index, GameManager * manager);
     virtual void event_callback(int id);
     virtual void on_start();
-    void on_end();
+    virtual void on_end();
     virtual void handle_events();
     bool update(float dt);
     void pause();
     void restart();
-    void on_key(int key, bool state);
-    void on_mouse(int key, bool state);
     void draw(int remote);
     ObjectList & get_instances(int object_id);
     ObjectList get_instances(unsigned int qualifier[]);
     FrameObject * get_instance(int object_id);
+    FrameObject * get_instance(int object_id, int index);
+    FrameObject * get_active_instance(int object_id);
+    FrameObject * get_active_instance(int object_id, int index);
     FrameObject * get_instance(unsigned int qualifier[]);
+    FrameObject * get_instance(unsigned int qualifier[], int index);
     void add_layer(double scroll_x, double scroll_y, bool visible);
     void add_object(FrameObject * object, int layer_index);
     void add_background_object(FrameObject * object, int layer_index);
@@ -304,7 +297,9 @@ public:
     void set_object_layer(FrameObject * object, int new_layer);
     int get_loop_index(const std::string & name);
     void set_timer(double value);
+    void set_lives(int lives);
     void set_display_center(int x = -1, int y = -1);
+    void update_display_center();
     int frame_left();
     int frame_right();
     int frame_top();
@@ -313,12 +308,11 @@ public:
     void get_mouse_pos(int * x, int * y);
     int get_mouse_x();
     int get_mouse_y();
-    bool is_mouse_pressed_once(int key);
-    bool is_key_released_once(int key);
-    bool is_key_pressed_once(int key);
     bool test_background_collision(int x, int y);
     bool compare_joystick_direction(int n, int test_dir);
     bool is_joystick_direction_changed(int n);
+    void clean_instances();
+    void set_vsync(bool value);
 };
 
 // object types
@@ -386,10 +380,12 @@ public:
     int action_x, action_y;
     bool collision_box;
     bool stopped;
-    float flash_time;
-    float flash_interval;
+    float flash_time, flash_interval;
     unsigned int flags;
     int animation_finished;
+    bool auto_rotate;
+    bool transparent;
+    int loop_count;
 
     Active(int x, int y, int type_id);
     void initialize_active();
@@ -407,6 +403,7 @@ public:
                        int back_to);
     void add_image(int animation, int direction, Image * image);
     void update_frame();
+    void update_direction();
     void update_action_point();
     void update(float dt);
     void draw();
@@ -421,7 +418,7 @@ public:
     Direction * get_direction_data();
     int get_animation();
     CollisionBase * get_collision();
-    void set_direction(int value);
+    void set_direction(int value, bool set_movement = true);
     int & get_animation_direction();
     void set_scale(double scale);
     void set_x_scale(double value);
@@ -435,10 +432,14 @@ public:
     void flash(float value);
     void enable_flag(int index);
     void disable_flag(int index);
+    void toggle_flag(int index);
     bool is_flag_on(int index);
     bool is_flag_off(int index);
+    int get_flag(int index);
     bool is_near_border(int border);
     bool is_animation_finished(int anim);
+    void destroy();
+    bool has_animation(int anim);
 };
 
 void set_font_path(const char * path);
@@ -456,8 +457,10 @@ public:
     int alignment;
     CollisionBase * collision;
     bool bold, italic;
+    int size;
     std::string draw_text;
     bool draw_text_set;
+    FTSimpleLayout * layout;
 
     Text(int x, int y, int type_id);
     ~Text();
@@ -473,6 +476,19 @@ public:
     void set_bold(bool value);
     std::string get_paragraph(int index);
     CollisionBase * get_collision();
+    void set_width(int w);
+    int get_height();
+    void update_draw_text();
+};
+
+class FontInfo
+{
+public:
+    static std::string vertical_tab;
+
+    static int get_width(FrameObject * obj);
+    static int get_height(FrameObject * obj);
+    static void set_width(FrameObject * obj, int w);
 };
 
 class Backdrop : public FrameObject
@@ -480,7 +496,7 @@ class Backdrop : public FrameObject
 public:
     Image * image;
     CollisionBase * collision;
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     int remote;
 #endif
 
@@ -501,12 +517,17 @@ public:
     int gradient_type;
     Color color2;
     CollisionBase * collision;
+    Image * image;
 
     QuickBackdrop(int x, int y, int type_id);
     ~QuickBackdrop();
     CollisionBase * get_collision();
     void draw();
 };
+
+#define HIDDEN_COUNTER 0
+#define IMAGE_COUNTER 1
+#define VERTICAL_UP_COUNTER 2
 
 class Counter : public FrameObject
 {
@@ -515,14 +536,36 @@ public:
     double value;
     double minimum, maximum;
     std::string cached_string;
+    CollisionBase * collision;
+    int type;
+    float flash_time, flash_interval;
+    Color color1;
 
-    Counter(int init, int min, int max, int x, int y, int type_id);
+    Counter(int x, int y, int type_id);
+    ~Counter();
+    CollisionBase * get_collision();
     Image * get_image(char c);
     void add(double value);
     void subtract(double value);
     void set_max(double value);
     void set_min(double value);
     void set(double value);
+    void draw();
+    void calculate_box();
+    void update(float dt);
+    void flash(float value);
+};
+
+class Lives : public FrameObject
+{
+public:
+    Image * image;
+    float flash_time;
+    float flash_interval;
+
+    Lives(int x, int y, int type_id);
+    void update(float dt);
+    void flash(float value);
     void draw();
 };
 
@@ -549,6 +592,7 @@ public:
     void parse_handler(const std::string & section, const std::string & name,
                        const std::string & value);
     void set_group(const std::string & name, bool new_group);
+    std::string get_string(const std::string & item);
     std::string get_string(const std::string & group, const std::string & item, 
                            const std::string & def);
     std::string get_string(const std::string & item, const std::string & def);
@@ -557,6 +601,7 @@ public:
     std::string get_item_name(const std::string & group, unsigned int index);
     std::string get_item_name(unsigned int index);
     std::string get_group_name(unsigned int index);
+    double get_value(const std::string & item);
     double get_value(const std::string & group, const std::string & item, 
                      double def);
     double get_value(const std::string & item, double def);
@@ -565,6 +610,7 @@ public:
     void set_value(const std::string & group, const std::string & item, 
                    int pad, double value);
     void set_value(const std::string & item, int pad, double value);
+    void set_value(const std::string & item, double value);
     void set_string(const std::string & group, const std::string & item, 
                     const std::string & value);
     void set_string(const std::string & item, const std::string & value);
@@ -618,18 +664,6 @@ public:
     const std::string & get(int index);
 };
 
-#ifdef _WIN32
-#include "windows.h"
-#include "shlobj.h"
-#elif __APPLE__
-#include <CoreServices/CoreServices.h>
-#include <limits.h>
-#elif __linux
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#endif
-
 class File
 {
 public:
@@ -642,8 +676,19 @@ public:
 class WindowControl
 {
 public:
+    static void set_x(int x);
+    static void set_y(int y);
     static bool has_focus();
+    static bool is_maximized();
     static void set_focus(bool value);
+    static void set_width(int w);
+    static void set_height(int w);
+    static void maximize();
+    static void restore();
+    static int get_width();
+    static int get_height();
+    static int get_screen_width();
+    static int get_screen_height();
 };
 
 class Workspace
@@ -686,7 +731,7 @@ public:
     ~BinaryObject();
     void load_file(const std::string & filename);
     void save_file(const std::string & filename);
-    void set_byte(size_t addr, unsigned char value);
+    void set_byte(unsigned char value, size_t addr);
     void resize(size_t size);
     int get_byte(size_t addr);
     int get_short(size_t addr);
@@ -723,7 +768,10 @@ public:
     void set_layer(int value);
     void hide_layer(int index);
     void show_layer(int index);
+    void set_x(int index, int x);
+    void set_y(int index, int y);
     void set_position(int index, int x, int y);
+    void set_alpha_coefficient(int index, int alpha);
     static double get_alterable(FrameObject * instance);
     static bool sort_func(FrameObject * a, FrameObject * b);
     void sort_alt_decreasing(int index, double def);
@@ -734,8 +782,10 @@ class Viewport : public FrameObject
 public:
     int center_x, center_y;
     int src_width, src_height;
+    GLuint texture;
 
     Viewport(int x, int y, int type_id);
+    ~Viewport();
     void set_source(int center_x, int center_y, int width, int height);
     void set_width(int w);
     void set_height(int h);
@@ -750,6 +800,7 @@ public:
     AdvancedDirection(int x, int y, int type_id);
     void find_closest(ObjectList instances, int x, int y);
     FixedValue get_closest(int n);
+    static float get_object_angle(FrameObject * a, FrameObject * b);
 };
 
 class TextBlitter : public FrameObject
@@ -759,11 +810,14 @@ public:
     int char_width, char_height;
     Image * image;
     int * charmap;
+    float flash_time, flash_interval;
 
     TextBlitter(int x, int y, int type_id);
     void initialize(const std::string & charmap);
     void set_text(const std::string & text);
     void draw();
+    void update(float dt);
+    void flash(float value);
 };
 
 typedef void (*ObstacleOverlapCallback)();
@@ -874,6 +928,17 @@ struct MathHelper
     int lhs_int;
 };
 
+inline MathHelper & operator/(double lhs, MathHelper& rhs)
+{
+    rhs.lhs = lhs;
+    return rhs;
+}
+
+inline int operator/(const MathHelper& lhs, double rhs)
+{
+    return int(lhs.lhs / rhs);
+}
+
 inline MathHelper & operator*(double lhs, MathHelper& rhs)
 {
     rhs.lhs = lhs;
@@ -959,11 +1024,68 @@ inline void make_single_list(FrameObject * item, ObjectList & list)
     list.push_back(item);
 }
 
+inline void add_unique_object(FrameObject * obj, ObjectList & list)
+{
+    if (std::find(list.begin(), list.end(), obj) != list.end())
+        return;
+    list.push_back(obj);
+}
+
+inline void append_list(ObjectList & a, ObjectList & b)
+{
+    ObjectList::const_iterator it;
+    for (it = b.begin(); it != b.end(); it++) {
+        add_unique_object(*it, a);
+    }
+}
+
 inline FrameObject * get_single(const ObjectList & list)
 {
     if (list.empty())
         return NULL;
-    return list[0];
+    return list.back();
+}
+
+inline FrameObject * get_single(const ObjectList & list, int index)
+{
+    if (list.empty())
+        return NULL;
+    return list[index % list.size()];
+}
+
+inline bool check_overlap_save(ObjectList in_a, ObjectList in_b, 
+                               ObjectList & out_a, ObjectList & out_b)
+{
+    out_a.clear();
+    out_b.clear();
+    ObjectList::const_iterator item1, item2;
+    bool ret = false;
+    for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
+        FrameObject * f1 = *item1;
+        bool added = false;
+        for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
+            FrameObject * f2 = *item2;
+            if (f1 == f2)
+                continue;
+            if (!f1->overlaps(f2))
+                continue;
+            if (f1->movement != NULL) {
+                f1->movement->last_collision = f2;
+                f1->movement->back_col = false;
+            }
+            if (f2->movement != NULL) {
+                f2->movement->last_collision = f1;
+                f2->movement->back_col = false;
+            }
+            ret = true;
+            if (!added) {
+                added = true;
+                add_unique_object(f1, out_a);
+            }
+            add_unique_object(f2, out_b);
+        }
+    }
+    return ret;
 }
 
 inline bool check_overlap(ObjectList in_a, ObjectList in_b, 
@@ -974,18 +1096,20 @@ inline bool check_overlap(ObjectList in_a, ObjectList in_b,
     ObjectList::const_iterator item1, item2;
     bool ret = false;
     for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        FrameObject * f1 = (*item1);
+        FrameObject * f1 = *item1;
         bool added = false;
         for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f2 = (*item2);
+            FrameObject * f2 = *item2;
+            if (f1 == f2)
+                continue;
             if (!f1->overlaps(f2))
                 continue;
             ret = true;
             if (!added) {
                 added = true;
-                out_a.push_back(f1);
+                add_unique_object(f1, out_a);
             }
-            out_b.push_back(f2);
+            add_unique_object(f2, out_b);
         }
     }
     return ret;
@@ -996,8 +1120,10 @@ inline bool check_not_overlap(ObjectList in_a, ObjectList in_b)
     ObjectList::const_iterator item1, item2;
     for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
         for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f1 = (*item1);
-            FrameObject * f2 = (*item2);
+            FrameObject * f1 = *item1;
+            FrameObject * f2 = *item2;
+            if (f1 == f2)
+                continue;
             if (f1->overlaps(f2))
                 return false;
         }
@@ -1007,6 +1133,8 @@ inline bool check_not_overlap(ObjectList in_a, ObjectList in_b)
 
 inline void pick_random(ObjectList & instances)
 {
+    if (instances.empty())
+        return;
     FrameObject * instance = instances[randrange(instances.size())];
     instances = make_single_list(instance);
 }
@@ -1026,9 +1154,20 @@ inline void set_random_seed(int seed)
     cross_srand(seed);
 }
 
-inline void open_process(std::string exe, std::string cmd, int pad)
+inline void open_process(const std::string & exe, const std::string & cmd,
+                         int pad)
 {
 
+}
+
+inline void transform_pos(int & x, int & y, FrameObject * parent)
+{
+    double c, s;
+    get_dir(parent->direction, c, s);
+    int new_x = int(double(x) * c - double(y) * s);
+    int new_y = int(double(x) * s + double(y) * c);
+    x = new_x;
+    y = new_y;
 }
 
 inline void set_cursor_visible(bool value)
@@ -1037,6 +1176,12 @@ inline void set_cursor_visible(bool value)
         platform_show_mouse();
     else
         platform_hide_mouse();
+}
+
+inline std::string get_command_arg(const std::string & arg)
+{
+    // XXX implement, maybe
+    return "";
 }
 
 inline std::string get_platform()

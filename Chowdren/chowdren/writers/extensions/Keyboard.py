@@ -25,11 +25,13 @@ actions = make_table(StaticActionWriter, {
 conditions = make_table(ConditionMethodWriter, {
     3 : OnAnyDown,
     2 : 'is_key_pressed',
-    0 : 'is_key_pressed_once'
+    0 : 'is_key_pressed_once',
+    5 : 'is_any_key_pressed'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    0 : '.last_key'
+    0 : '.last_key',
+    2 : 'translate_key_to_string'
 })
 
 def get_object():

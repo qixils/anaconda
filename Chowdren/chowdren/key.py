@@ -1,127 +1,129 @@
-VK_TO_GLFW = {
-    0x1 : ['CHOWDREN_MOUSE_BUTTON_LEFT'],
-    0x2 : ['CHOWDREN_MOUSE_BUTTON_RIGHT'],
-    0x4 : ['CHOWDREN_MOUSE_BUTTON_MIDDLE'],
-    0x8 : ['CHOWDREN_KEY_BACKSPACE'],
-    0x9 : ['CHOWDREN_KEY_TAB'],
-    0xC : ['CHOWDREN_KEY_KP_5'],
-    0xD : ['CHOWDREN_KEY_ENTER', 'CHOWDREN_KEY_KP_ENTER'],
-    0x10 : ['CHOWDREN_KEY_LEFT_SHIFT', 'CHOWDREN_KEY_RIGHT_SHIFT'],
-    0x11 : ['CHOWDREN_KEY_LEFT_CONTROL', 'CHOWDREN_KEY_RIGHT_CONTROL'],
-    0x12 : ['CHOWDREN_KEY_RIGHT_ALT', 'CHOWDREN_KEY_LEFT_ALT'],
-    0x13 : ['CHOWDREN_KEY_PAUSE'],
-    0x14 : ['CHOWDREN_KEY_CAPS_LOCK'],
-    0x1B : ['CHOWDREN_KEY_ESCAPE'],
-    0x20 : ['CHOWDREN_KEY_SPACE'],
-    0x21 : ['CHOWDREN_KEY_PAGE_UP', 'CHOWDREN_KEY_KP_9'],
-    0x22 : ['CHOWDREN_KEY_PAGE_DOWN', 'CHOWDREN_KEY_KP_3'],
-    0x23 : ['CHOWDREN_KEY_END', 'CHOWDREN_KEY_KP_1'],
-    0x24 : ['CHOWDREN_KEY_HOME', 'CHOWDREN_KEY_KP_7'],
-    0x25 : ['CHOWDREN_KEY_LEFT', 'CHOWDREN_KEY_KP_4'],
-    0x26 : ['CHOWDREN_KEY_UP', 'CHOWDREN_KEY_KP_4'],
-    0x27 : ['CHOWDREN_KEY_RIGHT', 'CHOWDREN_KEY_KP_8'],
-    0x28 : ['CHOWDREN_KEY_DOWN', 'CHOWDREN_KEY_KP_2'],
-    0x2D : ['CHOWDREN_KEY_INSERT', 'CHOWDREN_KEY_KP_0'],
-    0x2E : ['CHOWDREN_KEY_DELETE', 'CHOWDREN_KEY_KP_DECIMAL'],
-    0x30 : ['CHOWDREN_KEY_0'], # VK_0
-    0x31 : ['CHOWDREN_KEY_1'], # VK_1
-    0x32 : ['CHOWDREN_KEY_2'], # VK_2
-    0x33 : ['CHOWDREN_KEY_3'], # VK_3
-    0x34 : ['CHOWDREN_KEY_4'], # VK_4
-    0x35 : ['CHOWDREN_KEY_5'], # VK_5
-    0x36 : ['CHOWDREN_KEY_6'], # VK_6
-    0x37 : ['CHOWDREN_KEY_7'], # VK_7
-    0x38 : ['CHOWDREN_KEY_8'], # VK_8
-    0x39 : ['CHOWDREN_KEY_9'], # VK_9
-    0x41 : ['CHOWDREN_KEY_A'], # VK_A
-    0x42 : ['CHOWDREN_KEY_B'], # VK_B
-    0x43 : ['CHOWDREN_KEY_C'], # VK_C
-    0x44 : ['CHOWDREN_KEY_D'], # VK_D
-    0x45 : ['CHOWDREN_KEY_E'], # VK_E
-    0x46 : ['CHOWDREN_KEY_F'], # VK_F
-    0x47 : ['CHOWDREN_KEY_G'], # VK_G
-    0x48 : ['CHOWDREN_KEY_H'], # VK_H
-    0x49 : ['CHOWDREN_KEY_I'], # VK_I
-    0x4A : ['CHOWDREN_KEY_J'], # VK_J
-    0x4B : ['CHOWDREN_KEY_K'], # VK_K
-    0x4C : ['CHOWDREN_KEY_L'], # VK_L
-    0x4D : ['CHOWDREN_KEY_M'], # VK_M
-    0x4E : ['CHOWDREN_KEY_N'], # VK_N
-    0x4F : ['CHOWDREN_KEY_O'], # VK_O
-    0x50 : ['CHOWDREN_KEY_P'], # VK_P
-    0x51 : ['CHOWDREN_KEY_Q'], # VK_Q
-    0x52 : ['CHOWDREN_KEY_R'], # VK_R
-    0x53 : ['CHOWDREN_KEY_S'], # VK_S
-    0x54 : ['CHOWDREN_KEY_T'], # VK_T
-    0x55 : ['CHOWDREN_KEY_U'], # VK_U
-    0x56 : ['CHOWDREN_KEY_V'], # VK_V
-    0x57 : ['CHOWDREN_KEY_W'], # VK_W
-    0x58 : ['CHOWDREN_KEY_X'], # VK_X
-    0x59 : ['CHOWDREN_KEY_Y'], # VK_Y
-    0x5A : ['CHOWDREN_KEY_Z'], # VK_Z
-    0x5B : ['CHOWDREN_KEY_LEFT_SUPER'], # VK_LWIN
-    0x5C : ['CHOWDREN_KEY_RIGHT_SUPER'], # VK_RWIN
-    0x5D : ['CHOWDREN_KEY_MENU'], # VK_APPS
-    0x60 : ['CHOWDREN_KEY_KP_0'], # VK_NUMPAD0
-    0x61 : ['CHOWDREN_KEY_KP_1'], # VK_NUMPAD1
-    0x62 : ['CHOWDREN_KEY_KP_2'], # VK_NUMPAD2
-    0x63 : ['CHOWDREN_KEY_KP_3'], # VK_NUMPAD3
-    0x64 : ['CHOWDREN_KEY_KP_4'], # VK_NUMPAD4
-    0x65 : ['CHOWDREN_KEY_KP_5'], # VK_NUMPAD5
-    0x66 : ['CHOWDREN_KEY_KP_6'], # VK_NUMPAD6
-    0x67 : ['CHOWDREN_KEY_KP_7'], # VK_NUMPAD7
-    0x68 : ['CHOWDREN_KEY_KP_8'], # VK_NUMPAD8
-    0x69 : ['CHOWDREN_KEY_KP_9'], # VK_NUMPAD9
-    0x6A : ['CHOWDREN_KEY_KP_MULTIPLY'], # VK_MULTIPLY
-    0x6B : ['CHOWDREN_KEY_KP_ADD'], # VK_ADD
-    0x6D : ['CHOWDREN_KEY_KP_SUBTRACT'], # VK_SUBTRACT
-    0x6E : ['CHOWDREN_KEY_KP_DECIMAL'], # VK_DECIMAL
-    0x6F : ['CHOWDREN_KEY_KP_DIVIDE'], # VK_DIVIDE
-    0x70 : ['CHOWDREN_KEY_F1'], # VK_F1
-    0x71 : ['CHOWDREN_KEY_F2'], # VK_F2
-    0x72 : ['CHOWDREN_KEY_F3'], # VK_F3
-    0x73 : ['CHOWDREN_KEY_F4'], # VK_F4
-    0x74 : ['CHOWDREN_KEY_F5'], # VK_F5
-    0x75 : ['CHOWDREN_KEY_F6'], # VK_F6
-    0x76 : ['CHOWDREN_KEY_F7'], # VK_F7
-    0x77 : ['CHOWDREN_KEY_F8'], # VK_F8
-    0x78 : ['CHOWDREN_KEY_F9'], # VK_F9
-    0x79 : ['CHOWDREN_KEY_F10'], # VK_F10
-    0x7A : ['CHOWDREN_KEY_F11'], # VK_F11
-    0x7B : ['CHOWDREN_KEY_F12'], # VK_F12
-    0x7C : ['CHOWDREN_KEY_F13'], # VK_F13
-    0x7D : ['CHOWDREN_KEY_F14'], # VK_F14
-    0x7E : ['CHOWDREN_KEY_F15'], # VK_F15
-    0x7F : ['CHOWDREN_KEY_F16'], # VK_F16
-    0x80 : ['CHOWDREN_KEY_F17'], # VK_F17
-    0x81 : ['CHOWDREN_KEY_F18'], # VK_F18
-    0x82 : ['CHOWDREN_KEY_F19'], # VK_F19
-    0x83 : ['CHOWDREN_KEY_F20'], # VK_F20
-    0x84 : ['CHOWDREN_KEY_F21'], # VK_F21
-    0x85 : ['CHOWDREN_KEY_F22'], # VK_F22
-    0x86 : ['CHOWDREN_KEY_F23'], # VK_F23
-    0x87 : ['CHOWDREN_KEY_F24'], # VK_F24
-    0x90 : ['CHOWDREN_KEY_NUM_LOCK'], # VK_NUMLOCK
-    0x91 : ['CHOWDREN_KEY_SCROLL_LOCK'], # VK_SCROLL
-    0xA0 : ['CHOWDREN_KEY_LEFT_SHIFT'], # VK_LSHIFT
-    0xA1 : ['CHOWDREN_KEY_RIGHT_SHIFT'], # VK_RSHIFT
-    0xA2 : ['CHOWDREN_KEY_LEFT_CONTROL'], # VK_LCONTROL
-    0xA3 : ['CHOWDREN_KEY_RIGHT_CONTROL'], # VK_RCONTROL
-    0xA4 : ['CHOWDREN_KEY_LEFT_ALT'], # VK_LMENU
-    0xA5 : ['CHOWDREN_KEY_RIGHT_ALT'], # VK_RMENU
-    0xBD : ['CHOWDREN_KEY_MINUS'],
-    0xBB : ['CHOWDREN_KEY_EQUAL'],
-    0xDB : ['CHOWDREN_KEY_LEFT_BRACKET'],
-    0xDD : ['CHOWDREN_KEY_RIGHT_BRACKET'],
-    0xDC : ['CHOWDREN_KEY_BACKSLASH'],
-    0xBA : ['CHOWDREN_KEY_SEMICOLON'],
-    0xDE : ['CHOWDREN_KEY_APOSTROPHE'],
-    0xC0 : ['CHOWDREN_KEY_GRAVE_ACCENT'],
-    0xBC : ['CHOWDREN_KEY_COMMA'],
-    0xBE : ['CHOWDREN_KEY_PERIOD'],
-    0xBF : ['CHOWDREN_KEY_SLASH'],
-    0xDF : ['CHOWDREN_KEY_WORLD_1'],
-    0xE2 : ['CHOWDREN_KEY_WORLD_2']
+VK_TO_SDL = {
+    0x1 : ['SDL_BUTTON_LEFT'],
+    0x2 : ['SDL_BUTTON_RIGHT'],
+    # 0x3 : ['SDLK_BREAK'],
+    0x4 : ['SDL_BUTTON_MIDDLE'],
+    0x5 : ['SDL_BUTTON_X1'],
+    0x6 : ['SDL_BUTTON_X2'],
+    0x8 : ['SDLK_BACKSPACE'],
+    0x9 : ['SDLK_TAB'],
+    0xC : ['SDLK_CLEAR'],
+    0xD : ['SDLK_RETURN', 'SDLK_KP_ENTER'],
+    0x10 : ['SDLK_LSHIFT', 'SDLK_RSHIFT'],
+    0x11 : ['SDLK_LCTRL', 'SDLK_RCTRL'],
+    0x12 : ['SDLK_RALT', 'SDLK_LALT'],
+    0x13 : ['SDLK_PAUSE'],
+    0x14 : ['SDLK_CAPSLOCK'],
+    0x1B : ['SDLK_ESCAPE'],
+    0x20 : ['SDLK_SPACE'],
+    0x21 : ['SDLK_PAGEUP', 'SDLK_KP_9'],
+    0x22 : ['SDLK_PAGEDOWN', 'SDLK_KP_3'],
+    0x23 : ['SDLK_END', 'SDLK_KP_1'],
+    0x24 : ['SDLK_HOME', 'SDLK_KP_7'],
+    0x25 : ['SDLK_LEFT', 'SDLK_KP_4'],
+    0x26 : ['SDLK_UP', 'SDLK_KP_8'],
+    0x27 : ['SDLK_RIGHT', 'SDLK_KP_6'],
+    0x28 : ['SDLK_DOWN', 'SDLK_KP_2'],
+    0x2D : ['SDLK_INSERT', 'SDLK_KP_0'],
+    0x2E : ['SDLK_DELETE', 'SDLK_KP_DECIMAL'],
+    0x30 : ['SDLK_0'], # VK_0
+    0x31 : ['SDLK_1'], # VK_1
+    0x32 : ['SDLK_2'], # VK_2
+    0x33 : ['SDLK_3'], # VK_3
+    0x34 : ['SDLK_4'], # VK_4
+    0x35 : ['SDLK_5'], # VK_5
+    0x36 : ['SDLK_6'], # VK_6
+    0x37 : ['SDLK_7'], # VK_7
+    0x38 : ['SDLK_8'], # VK_8
+    0x39 : ['SDLK_9'], # VK_9
+    0x41 : ['SDLK_a'], # VK_A
+    0x42 : ['SDLK_b'], # VK_B
+    0x43 : ['SDLK_c'], # VK_C
+    0x44 : ['SDLK_d'], # VK_D
+    0x45 : ['SDLK_e'], # VK_E
+    0x46 : ['SDLK_f'], # VK_F
+    0x47 : ['SDLK_g'], # VK_G
+    0x48 : ['SDLK_h'], # VK_H
+    0x49 : ['SDLK_i'], # VK_I
+    0x4A : ['SDLK_j'], # VK_J
+    0x4B : ['SDLK_k'], # VK_K
+    0x4C : ['SDLK_l'], # VK_L
+    0x4D : ['SDLK_m'], # VK_M
+    0x4E : ['SDLK_n'], # VK_N
+    0x4F : ['SDLK_o'], # VK_O
+    0x50 : ['SDLK_p'], # VK_P
+    0x51 : ['SDLK_q'], # VK_Q
+    0x52 : ['SDLK_r'], # VK_R
+    0x53 : ['SDLK_s'], # VK_S
+    0x54 : ['SDLK_t'], # VK_T
+    0x55 : ['SDLK_u'], # VK_U
+    0x56 : ['SDLK_v'], # VK_V
+    0x57 : ['SDLK_w'], # VK_W
+    0x58 : ['SDLK_x'], # VK_X
+    0x59 : ['SDLK_y'], # VK_Y
+    0x5A : ['SDLK_z'], # VK_Z
+    0x5B : ['SDLK_LGUI'], # VK_LWIN
+    0x5C : ['SDLK_RGUI'], # VK_RWIN
+    0x5D : ['SDLK_MENU'], # VK_APPS
+    0x60 : ['SDLK_KP_0'], # VK_NUMPAD0
+    0x61 : ['SDLK_KP_1'], # VK_NUMPAD1
+    0x62 : ['SDLK_KP_2'], # VK_NUMPAD2
+    0x63 : ['SDLK_KP_3'], # VK_NUMPAD3
+    0x64 : ['SDLK_KP_4'], # VK_NUMPAD4
+    0x65 : ['SDLK_KP_5'], # VK_NUMPAD5
+    0x66 : ['SDLK_KP_6'], # VK_NUMPAD6
+    0x67 : ['SDLK_KP_7'], # VK_NUMPAD7
+    0x68 : ['SDLK_KP_8'], # VK_NUMPAD8
+    0x69 : ['SDLK_KP_9'], # VK_NUMPAD9
+    0x6A : ['SDLK_KP_MULTIPLY'], # VK_MULTIPLY
+    0x6B : ['SDLK_KP_PLUS'], # VK_ADD
+    0x6D : ['SDLK_KP_MINUS'], # VK_SUBTRACT
+    0x6E : ['SDLK_KP_DECIMAL'], # VK_DECIMAL
+    0x6F : ['SDLK_KP_DIVIDE'], # VK_DIVIDE
+    0x70 : ['SDLK_F1'], # VK_F1
+    0x71 : ['SDLK_F2'], # VK_F2
+    0x72 : ['SDLK_F3'], # VK_F3
+    0x73 : ['SDLK_F4'], # VK_F4
+    0x74 : ['SDLK_F5'], # VK_F5
+    0x75 : ['SDLK_F6'], # VK_F6
+    0x76 : ['SDLK_F7'], # VK_F7
+    0x77 : ['SDLK_F8'], # VK_F8
+    0x78 : ['SDLK_F9'], # VK_F9
+    0x79 : ['SDLK_F10'], # VK_F10
+    0x7A : ['SDLK_F11'], # VK_F11
+    0x7B : ['SDLK_F12'], # VK_F12
+    0x7C : ['SDLK_F13'], # VK_F13
+    0x7D : ['SDLK_F14'], # VK_F14
+    0x7E : ['SDLK_F15'], # VK_F15
+    0x7F : ['SDLK_F16'], # VK_F16
+    0x80 : ['SDLK_F17'], # VK_F17
+    0x81 : ['SDLK_F18'], # VK_F18
+    0x82 : ['SDLK_F19'], # VK_F19
+    0x83 : ['SDLK_F20'], # VK_F20
+    0x84 : ['SDLK_F21'], # VK_F21
+    0x85 : ['SDLK_F22'], # VK_F22
+    0x86 : ['SDLK_F23'], # VK_F23
+    0x87 : ['SDLK_F24'], # VK_F24
+    0x90 : ['SDLK_NUMLOCKCLEAR'], # VK_NUMLOCK
+    0x91 : ['SDLK_SCROLLLOCK'], # VK_SCROLL
+    0xA0 : ['SDLK_LSHIFT'], # VK_LSHIFT
+    0xA1 : ['SDLK_RSHIFT'], # VK_RSHIFT
+    0xA2 : ['SDLK_LCTRL'], # VK_LCONTROL
+    0xA3 : ['SDLK_RCTRL'], # VK_RCONTROL
+    0xA4 : ['SDLK_LALT'], # VK_LMENU
+    0xA5 : ['SDLK_RALT'], # VK_RMENU
+    0xBD : ['SDLK_MINUS'],
+    0xBB : ['SDLK_EQUALS'],
+    0xDB : ['SDLK_LEFTBRACKET'],
+    0xDD : ['SDLK_RIGHTBRACKET'],
+    0xDC : ['SDLK_BACKSLASH'],
+    0xBA : ['SDLK_SEMICOLON'],
+    0xDE : ['SDLK_QUOTE'],
+    0xC0 : ['SDLK_BACKQUOTE'],
+    0xBC : ['SDLK_COMMA'],
+    0xBE : ['SDLK_PERIOD'],
+    0xBF : ['SDLK_SLASH'],
+    0xE2 : ['SDLK_BACKSLASH']
 }
 
 VK_TO_NAME = {
@@ -255,3 +257,14 @@ VK_TO_NAME = {
     164 : 'Alt Left',
     165 : 'Alt Right',
 }
+
+KEY_TO_NAME = {}
+for vk, names in VK_TO_SDL.iteritems():
+    string_name = VK_TO_NAME.get(vk, None)
+    if string_name is None:
+        continue
+    for name in names:
+        KEY_TO_NAME[name] = string_name
+
+def convert_key(value):
+    return VK_TO_SDL[value][0]

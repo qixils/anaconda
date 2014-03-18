@@ -3,47 +3,91 @@
 
 // for size_t
 #include <stdlib.h>
+#include <string.h>
 #include <string>
+#include <iostream>
 
-template <class T, size_t B>
-class Alterables
+#define ALT_VALUES 26
+#define ALT_STRINGS 10
+
+class AlterableValues
 {
 public:
-    T values[B];
+    double values[ALT_VALUES];
 
-    Alterables()
+    AlterableValues()
     {
-        for (int i = 0; i < B; i++) {
-            values[i] = T();
+        for (int i = 0; i < ALT_VALUES; i++) {
+            values[i] = 0.0;
         }
     }
 
-    T get(size_t index, T def = T())
+    double get(size_t index)
     {
-        if (index >= B)
-            return def;
+        if (index >= ALT_VALUES)
+            return 0.0;
         return values[index];
     }
 
-    void set(size_t index, T value)
+    int get_int(size_t index)
     {
-        if (index >= B)
+        return int(get(index));
+    }
+
+    void set(size_t index, double value)
+    {
+        if (index >= ALT_VALUES)
             return;
         values[index] = value;
     }
 
-    void add(size_t index, T value)
+    void add(size_t index, double value)
     {
         set(index, get(index) + value);
     }
 
-    void sub(size_t index, T value)
+    void sub(size_t index, double value)
     {
         set(index, get(index) - value);
     }
+
+    void set(const AlterableValues & v)
+    {
+        memcpy(values, v.values, ALT_VALUES*sizeof(double));
+    }
 };
 
-typedef Alterables<double, 26> AlterableValues;
-typedef Alterables<std::string, 10> AlterableStrings;
+class AlterableStrings
+{
+public:
+    std::string values[ALT_STRINGS];
+
+    AlterableStrings()
+    {
+    }
+
+    const std::string & get(size_t index)
+    {
+        if (index >= ALT_STRINGS) {
+            static std::string empty;
+            return empty;
+        }
+        return values[index];
+    }
+
+    void set(size_t index, const std::string & value)
+    {
+        if (index >= ALT_STRINGS)
+            return;
+        values[index] = value;
+    }
+
+    void set(const AlterableStrings & v)
+    {
+        for (int i = 0; i < ALT_STRINGS; i++) {
+            values[i] = v.values[i];
+        }
+    }
+};
 
 #endif // ALTERABLES_H

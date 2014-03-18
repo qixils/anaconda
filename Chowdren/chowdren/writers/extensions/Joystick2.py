@@ -6,7 +6,7 @@ from chowdren.common import (get_image_name, get_animation_name, to_c,
 from chowdren.writers.events import (StaticConditionWriter, 
     StaticActionWriter, StaticExpressionWriter, make_table,
     ConditionMethodWriter, ExpressionMethodWriter, EmptyAction,
-    StaticConditionWriter)
+    StaticConditionWriter, TrueCondition, FalseCondition)
 
 class Joystick2(ObjectWriter):
     class_name = 'Joystick'
@@ -29,12 +29,17 @@ conditions = make_table(ConditionMethodWriter, {
     6 : 'is_joystick_released',
     7 : 'any_joystick_pressed',
     17 : 'compare_joystick_direction',
-    27 : 'is_joystick_direction_changed'
+    27 : 'is_joystick_direction_changed',
+    33 : TrueCondition, # is xbox controller
+    26 : TrueCondition, # has point of view
+    8 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_UP)'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_joystick_x',
-    1 : 'get_joystick_y'
+    1 : 'get_joystick_y',
+    6 : 'get_joystick_dpad_degrees',
+    22 : 'get_joystick_last_press'
 })
 
 def get_object():

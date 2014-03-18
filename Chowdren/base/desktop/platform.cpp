@@ -6,22 +6,24 @@
 #include <sys/time.h>
 #endif
 
+#include <SDL.h>
 #include "../config.h"
 #include "../platform.h"
 #include "../include_gl.h"
 #include "../manager.h"
 #include "../mathcommon.h"
-
 #include <tinythread/tinythread.h>
-
 #include <iostream>
 
 GLuint screen_texture;
 GLuint screen_fbo;
 
-GLFWwindow * global_window = NULL;
+SDL_Window * global_window = NULL;
+SDL_GLContext global_context = NULL;
 bool is_fullscreen = false;
 bool hide_cursor = false;
+bool has_closed = false;
+Uint64 start_time;
 
 inline bool check_opengl_extension(const char * name)
 {
@@ -46,38 +48,73 @@ inline bool check_opengl_extensions()
     return true;
 }
 
-void _on_key(GLFWwindow * window, int key, int scancode, int action,
-             int mods)
+void on_key(SDL_KeyboardEvent & e)
 {
-    if (action == GLFW_REPEAT)
+    if (e.repeat != 0)
         return;
-#ifdef __APPLE__
-    if (is_fullscreen && action == GLFW_PRESS && mods & GLFW_MOD_SUPER
-            && key == GLFW_KEY_M) {
-        glfwIconifyWindow(window);
-    }
-#endif
-    global_manager->on_key(key, action == GLFW_PRESS);
+    global_manager->on_key(e.keysym.sym, e.state == SDL_PRESSED);
 }
 
-void _on_mouse(GLFWwindow * window, int button, int action, int mods) 
+void on_mouse(SDL_MouseButtonEvent & e) 
 {
-    global_manager->on_mouse(button, action == GLFW_PRESS);
+    global_manager->on_mouse(e.button, e.state == SDL_PRESSED);
 }
+
+void init_joystick();
+void update_joystick();
+void add_joystick(int device);
+void remove_joystick(int instance);
+void on_joystick_button(int instance, int button, bool state);
 
 void platform_init()
 {
-    glfwInit();
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER |
+                 SDL_INIT_HAPTIC) < 0) {
+        std::cout << "SDL could not be initialized: " << SDL_GetError()
+            << std::endl;
+        return;
+    }
+    start_time = SDL_GetPerformanceCounter();
+    init_joystick();
 }
 
 void platform_exit()
 {
-
+    SDL_Quit();
 }
 
 void platform_poll_events()
 {
-    glfwPollEvents();
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        switch (e.type) {
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+                on_key(e.key);
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+                on_mouse(e.button);
+                break;
+            case SDL_CONTROLLERDEVICEADDED:
+                add_joystick(e.cdevice.which);
+                break;
+            case SDL_CONTROLLERDEVICEREMOVED:
+                remove_joystick(e.cdevice.which);
+                break;
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP:
+                on_joystick_button(e.cbutton.which, e.cbutton.button,
+                                   e.cbutton.state == SDL_PRESSED);
+                break;
+            case SDL_QUIT:
+                has_closed = true;
+                break;
+            default:
+                break;
+        }
+    }
+    update_joystick();
 }
 
 #ifdef _WIN32
@@ -102,7 +139,7 @@ void platform_sleep(double t)
 
 void platform_sleep(double t)
 {
-    if(t == 0.0) {
+    if (t == 0.0) {
         sched_yield();
         return;
     }
@@ -151,49 +188,41 @@ bool platform_display_closed()
 {
     if (global_window == NULL)
         return true;
-    return glfwWindowShouldClose(global_window) == GL_TRUE;
+    return has_closed;
 }
 
 void platform_get_mouse_pos(int * x, int * y)
 {
-    if (global_window == NULL) {
-        *x = *y = 0;
-        return;
-    }
-    double xx, yy;
-    glfwGetCursorPos(global_window, &xx, &yy);
-    *x = int(xx);
-    *y = int(yy);
+    SDL_GetMouseState(x, y);
 }
 
 void platform_create_display(bool fullscreen)
 {
     is_fullscreen = fullscreen;
 
-    glfwWindowHint(GLFW_SAMPLES, 0);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    int width, height;
-    GLFWmonitor * monitor = NULL;
+    int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     if (fullscreen) {
-        monitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode * desktop_mode = glfwGetVideoMode(monitor);
-        width = desktop_mode->width;
-        height = desktop_mode->height;
-        glfwWindowHint(GLFW_REFRESH_RATE, desktop_mode->refreshRate);
-        glfwWindowHint(GLFW_RED_BITS, desktop_mode->redBits);
-        glfwWindowHint(GLFW_GREEN_BITS, desktop_mode->greenBits);
-        glfwWindowHint(GLFW_BLUE_BITS, desktop_mode->blueBits);
-    } else {
-        width = WINDOW_WIDTH;
-        height = WINDOW_HEIGHT;
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+    }
+    global_window = SDL_CreateWindow(NAME,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     WINDOW_WIDTH, WINDOW_HEIGHT, 
+                                     flags);
+    if (global_window == NULL) {
+        std::cout << "Could not open window: " << SDL_GetError() << std::endl;
+        exit(EXIT_FAILURE);
+        return;
+    }
+    global_context = SDL_GL_CreateContext(global_window);
+    if (global_context == NULL) {
+        std::cout << "Could not create OpenGL context: " << SDL_GetError()
+            << std::endl;
+        exit(EXIT_FAILURE);
+        return;
     }
 
-    global_window = glfwCreateWindow(width, height, NAME, monitor, NULL);
-    glfwMakeContextCurrent(global_window);
-
-    glfwSwapInterval(0);
-    glfwSetKeyCallback(global_window, _on_key);
-    glfwSetMouseButtonCallback(global_window, _on_mouse);
+    SDL_GL_SetSwapInterval(0);
 
     // initialize OpenGL extensions
     glewInit();
@@ -218,46 +247,132 @@ void platform_begin_draw()
 
 void platform_swap_buffers()
 {
-    glfwSwapBuffers(global_window);
+    SDL_GL_SwapWindow(global_window);
+}
+
+static bool copy_initialized = false;
+static GLuint background_fbo;
+
+static void initialize_copy()
+{
+    copy_initialized = true;
+    glGenFramebuffersEXT(1, &background_fbo);
+}
+
+void platform_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
+                                     int y2)
+{
+    if (!copy_initialized)
+        initialize_copy();
+
+    int width = x2 - x1;
+    int height = y2 - y1;
+
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glPushAttrib(GL_VIEWPORT_BIT);
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, width, height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, background_fbo);
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
+        GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex, 0);
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, global_manager->screen_texture);
+    glDisable(GL_BLEND);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(x1 / float(WINDOW_WIDTH), 
+                 1.0 - y2 / float(WINDOW_HEIGHT));
+    glVertex2i(0, 0);
+    glTexCoord2f(x2 / float(WINDOW_WIDTH), 
+                 1.0 - y2 / float(WINDOW_HEIGHT));
+    glVertex2i(width, 0);
+    glTexCoord2f(x2 / float(WINDOW_WIDTH),
+                 1.0 - y1 / float(WINDOW_HEIGHT));
+    glVertex2i(width, height);
+    glTexCoord2f(x1 / float(WINDOW_WIDTH),
+                 1.0 - y1 / float(WINDOW_HEIGHT));
+    glVertex2i(0, height);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glPopMatrix(); // restore modelview matrix
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopAttrib(); // restores viewport
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,
+                         global_manager->screen_fbo);
+}
+
+void platform_scissor_world(int x, int y, int w, int h)
+{
+    GLfloat modelview[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+
+    int w_x = int(x + modelview[12]);
+    int w_y2 = int(WINDOW_HEIGHT - y - modelview[13]);
+    int w_x2 = w_x + w;
+    int w_y = w_y2 - h;
+
+    w_x = int_max(0, int_min(w_x, WINDOW_WIDTH));
+    w_x2 = int_max(0, int_min(w_x2, WINDOW_WIDTH));
+    w_y = int_max(0, int_min(w_y, WINDOW_HEIGHT));
+    w_y2 = int_max(0, int_min(w_y2, WINDOW_HEIGHT));
+
+    glScissor(w_x, w_y, w_x2 - w_x, w_y2 - w_y);
 }
 
 void platform_get_size(int * width, int * height)
 {
-    glfwGetFramebufferSize(global_window, width, height);
+    SDL_GL_GetDrawableSize(global_window, width, height);
+}
+
+void platform_get_screen_size(int * width, int * height)
+{
+    int display_index = SDL_GetWindowDisplayIndex(global_window);
+    SDL_Rect bounds;
+    SDL_GetDisplayBounds(display_index, &bounds);
+    *width = bounds.w;
+    *height = bounds.h;
 }
 
 bool platform_has_focus()
 {
-#ifdef __APPLE__
-    // GLFW bug
-    if (is_fullscreen)
-        return true;
-#endif
-    return glfwGetWindowAttrib(global_window, GLFW_FOCUSED) == GL_TRUE;
+    int f = SDL_GetWindowFlags(global_window);
+    if ((f & SDL_WINDOW_SHOWN) == 0)
+        return false;
+    if ((f & SDL_WINDOW_INPUT_FOCUS) == 0)
+        return false;
+    return true;
 }
 
 void platform_set_focus(bool value)
 {
     if (value)
-        glfwRestoreWindow(global_window);
+        SDL_RestoreWindow(global_window);
     else
-        glfwIconifyWindow(global_window);
+        SDL_MinimizeWindow(global_window);
 }
 
 void platform_show_mouse()
 {
     hide_cursor = false;
-    if (global_window == NULL)
-        return;
-    glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    SDL_ShowCursor(1);
 }
 
 void platform_hide_mouse()
 {
     hide_cursor = true;
-    if (global_window == NULL)
-        return;
-    glfwSetInputMode(global_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    SDL_ShowCursor(0);
 }
 
 const std::string & platform_get_language()
@@ -280,26 +395,12 @@ double platform_get_time()
 
 double platform_get_time()
 {
-    return glfwGetTime();
+    Uint64 s = SDL_GetPerformanceCounter();
+    s -= start_time;
+    return double(s) / double(SDL_GetPerformanceFrequency());
 }
 
 #endif
-
-// input
-
-bool is_mouse_pressed(int button)
-{
-    if (button < 0)
-        return false;
-    return glfwGetMouseButton(global_window, button) == GLFW_PRESS;
-}
-
-bool is_key_pressed(int button)
-{
-    if (button < 0)
-        return false;
-    return glfwGetKey(global_window, button) == GLFW_PRESS;
-}
 
 // filesystem stuff
 
@@ -365,76 +466,213 @@ const std::string & platform_get_appdata_dir()
 
 // joystick
 
-inline int joy_num(int n)
+class JoystickData;
+static std::vector<JoystickData*> joysticks;
+static SDL_HapticEffect rumble_effect;
+
+class JoystickData
 {
-    return GLFW_JOYSTICK_1 - 1 + n;
+public:
+    SDL_Joystick * joy;
+    SDL_GameController * controller;
+    int device;
+    int instance;
+    SDL_Haptic * haptics;
+    bool has_effect, has_rumble;
+    const unsigned char * buttons;
+    int axis_count;
+    const float * axes;
+    int last_press;
+
+    JoystickData(int device, SDL_GameController * c)
+    : controller(c), has_effect(false), has_rumble(false), last_press(0)
+    {
+        joy = SDL_GameControllerGetJoystick(c);
+        instance = SDL_JoystickInstanceID(joy);
+        init_rumble();
+    }
+
+    ~JoystickData()
+    {
+        SDL_GameControllerClose(controller);
+        if (haptics != NULL)
+            SDL_HapticClose(haptics);
+    }
+
+    void init_rumble()
+    {
+        if (SDL_JoystickIsHaptic(joy) != 1)
+            return;
+        haptics = SDL_HapticOpenFromJoystick(joy);
+        if (haptics == NULL)
+            return;
+        int efx = SDL_HapticEffectSupported(haptics, &rumble_effect);
+        if (efx == 1) {
+            rumble_effect.leftright.large_magnitude = 0;
+            rumble_effect.leftright.small_magnitude = 0;
+            SDL_HapticNewEffect(haptics, &rumble_effect);
+            has_effect = true;
+        } else if (SDL_HapticRumbleSupported(haptics) == 1) {
+            SDL_HapticRumbleInit(haptics);
+            has_rumble = true;
+        }
+    }
+
+    float get_axis(SDL_GameControllerAxis n)
+    {
+        return float(SDL_GameControllerGetAxis(controller, n)) / float(0x7FFF);
+    }
+
+    float get_axis(int n)
+    {
+        return get_axis((SDL_GameControllerAxis)n);
+    }
+
+    bool get_button(int b)
+    {
+        return get_button((SDL_GameControllerButton)b);
+    }
+
+    bool get_button(SDL_GameControllerButton b)
+    {
+        return SDL_GameControllerGetButton(controller, b) == 1;
+    }
+
+    void vibrate(float left, float right, int ms)
+    {
+        if (!has_rumble && !has_effect)
+            return;
+
+        if (has_effect) {
+            int lm = (int)(65535.0f * left);
+            int sm = (int)(65535.0f * right);
+            rumble_effect.leftright.large_magnitude = lm;
+            rumble_effect.leftright.small_magnitude = sm;
+            rumble_effect.leftright.length = ms;
+            SDL_HapticUpdateEffect(haptics, 0, &rumble_effect);
+            SDL_HapticRunEffect(haptics, 0, 1);
+        } else {
+            float strength;
+            if (left >= right) {
+                strength = left;
+            } else {
+                strength = right;
+            }
+            SDL_HapticRumblePlay(haptics, strength, ms);
+        }
+    }
+};
+
+JoystickData & get_joy(int n)
+{
+    return *joysticks[n-1];
+}
+
+JoystickData * get_joy_instance(int instance)
+{
+    std::vector<JoystickData*>::iterator it;
+    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+        JoystickData * j = *it;
+        if (j->instance != instance)
+            continue;
+        return j;
+    }
+    return NULL;
+}
+
+void add_joystick(int device)
+{
+    if (!SDL_IsGameController(device))
+        return;
+    SDL_GameController * c = SDL_GameControllerOpen(device);
+    if (c == NULL)
+        return;
+    joysticks.push_back(new JoystickData(device, c));
+}
+
+void remove_joystick(int instance)
+{
+    JoystickData * joy = get_joy_instance(instance);
+    if (joy == NULL)
+        return;
+    delete joy;
+    joysticks.erase(std::remove(joysticks.begin(), joysticks.end(),
+                    joy), joysticks.end());
+}
+
+void init_joystick()
+{
+    rumble_effect.type = SDL_HAPTIC_LEFTRIGHT;
+    rumble_effect.leftright.length = 0;
+    return;
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        add_joystick(i);
+    }
+}
+
+void update_joystick()
+{
+}
+
+void on_joystick_button(int instance, int button, bool state)
+{
+    if (!state)
+        return;
+    get_joy_instance(instance)->last_press = button + 1;
+}
+
+int get_joystick_last_press(int n)
+{
+    if (!is_joystick_attached(n))
+        return CHOWDREN_BUTTON_INVALID;
+    return get_joy(n).last_press;
 }
 
 bool is_joystick_attached(int n)
 {
-    return glfwJoystickPresent(joy_num(n)) == GL_TRUE;
+    n--;
+    return n >= 0 && n < int(joysticks.size());
 }
 
 bool is_joystick_pressed(int n, int button)
 {
-    int count;
-    const unsigned char * buttons = glfwGetJoystickButtons(joy_num(n), &count);
-    button -= 1;
-    if (button >= count)
+    if (!is_joystick_attached(n))
         return false;
-    return buttons[button] == GLFW_PRESS;
+    button--;
+    return get_joy(n).get_button(button);
 }
 
 bool any_joystick_pressed(int n)
 {
-    int count;
-    const unsigned char * buttons = glfwGetJoystickButtons(joy_num(n), &count);
-    for (int i = 0; i < count; i++)
-        if (buttons[i] == GLFW_PRESS)
+    if (!is_joystick_attached(n))
+        return false;
+    JoystickData & joy = get_joy(n);
+    for (unsigned int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
+        if (joy.get_button(i))
             return true;
+    }
     return false;
 }
 
 bool is_joystick_released(int n, int button)
 {
-    int count;
-    const unsigned char * buttons = glfwGetJoystickButtons(joy_num(n), &count);
-    button -= 1;
-    if (button >= count)
+    if (!is_joystick_attached(n))
         return true;
-    return buttons[button] == GLFW_RELEASE;
+    button--;
+    return !get_joy(n).get_button(button);
 }
 
-int get_joystick_direction(int n)
+void joystick_vibrate(int n, float l, float r, int ms)
 {
-    int count;
-    const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
-    if (count < 2)
-        return 8;
-    const static float threshold = 0.4f;
-    float x = axes[0];
-    float y = axes[1];
-    if (get_length(x, y) < 0.4f)
-        return 8; // center
-    return int_round(atan2d(y, x) / (90.0f / 2.0f));
+    get_joy(n).vibrate(l, r, ms);
 }
 
-float get_joystick_x(int n)
+float get_joystick_axis(int n, int axis)
 {
-    int count;
-    const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
-    if (count < 2)
+    if (!is_joystick_attached(n))
         return 0.0f;
-    return axes[0] * 1000.0f;
-}
-
-float get_joystick_y(int n)
-{
-    int count;
-    const float * axes = glfwGetJoystickAxes(joy_num(n), &count);
-    if (count < 2)
-        return 0.0f;
-    return axes[1] * -1000.0f;
+    axis--;
+    return get_joy(n).get_axis(axis);
 }
 
 // url open
@@ -810,7 +1048,19 @@ void platform_set_remote_setting(const std::string & v)
 
 }
 
-static std::string remote_string("Hybrid");
+int platform_get_remote_value()
+{
+    return CHOWDREN_TV_TARGET;
+}
+
+void platform_set_border(bool v)
+{
+
+}
+
+
+
+static std::string remote_string("TV");
 
 const std::string & platform_get_remote_setting()
 {

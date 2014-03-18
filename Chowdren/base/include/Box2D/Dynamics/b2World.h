@@ -203,6 +203,8 @@ public:
 	/// Get the global gravity vector.
 	b2Vec2 GetGravity() const;
 
+    void DrawDebugData();
+
 	//Settings
 	b2Settings* settings;
 
@@ -218,7 +220,6 @@ private:
 
 	void DrawJoint(b2Joint* joint);
 	void DrawShape(b2Shape* shape, const b2XForm& xf, const b2Color& color, bool core);
-	void DrawDebugData();
 
 	//Is it safe to pass private static function pointers?
 	static float32 RaycastSortKey(void* shape);

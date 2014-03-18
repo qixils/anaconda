@@ -6,6 +6,7 @@
 enum CollisionType
 {
     INSTANCE_BOX,
+    OFFSET_INSTANCE_BOX,
     SPRITE_COLLISION,
     POINT_COLLISION,
     BOUNDING_BOX,
@@ -29,6 +30,10 @@ public:
     }
 
     virtual void get_box(int v[4]) = 0;
+    virtual FrameObject * get_instance()
+    {
+        return NULL;
+    }
 };
 
 inline bool collide_line(int x1, int y1, int x2, int y2,
@@ -86,6 +91,43 @@ public:
         v[1] = instance->y;
         v[2] = instance->x + instance->width;
         v[3] = instance->y + instance->height;
+    }
+
+    FrameObject * get_instance()
+    {
+        return instance;
+    }
+};
+
+class OffsetInstanceBox : public CollisionBase
+{
+public:
+    FrameObject * instance;
+    int off_x, off_y;
+
+    OffsetInstanceBox(FrameObject * instance)
+    : CollisionBase(OFFSET_INSTANCE_BOX, true), instance(instance),
+      off_x(0), off_y(0)
+    {
+    }
+
+    void get_box(int v[4])
+    {
+        v[0] = instance->x + off_x;
+        v[1] = instance->y + off_y;
+        v[2] = v[0] + instance->width;
+        v[3] = v[1] + instance->height;
+    }
+
+    void set_offset(int x, int y)
+    {
+        off_x = x;
+        off_y = y;
+    }
+
+    FrameObject * get_instance()
+    {
+        return instance;
     }
 };
 
@@ -255,6 +297,11 @@ public:
             return true;
         return image->get_alpha(x, y);
     }
+
+    FrameObject * get_instance()
+    {
+        return instance;
+    }
 };
 
 class PointCollision : public CollisionBase
@@ -302,7 +349,7 @@ public:
     Image * image;
     int collision_type;
 
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
     TreeItem tree_item;
 #endif
 
@@ -311,10 +358,10 @@ public:
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), collision_type(type),
       image(img), CollisionBase(BACKGROUND_ITEM, false)
-#ifdef USE_COL_TREE
-      , tree_item(this)
-#endif
     {
+#ifdef CHOWDREN_USE_COLTREE
+        tree_item.data = this;
+#endif
     }
 
     void get_box(int v[4])
@@ -444,6 +491,7 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
                     return collide_background_box(a, w, h, offx1, offy1);
             }
         default:
+            // case box
             switch (b->type) {
                 case SPRITE_COLLISION:
                     return collide_sprite_box(b, w, h, offx2, offy2);
@@ -453,4 +501,23 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
                     return true;
             }
     }
+}
+
+inline bool collide_box(FrameObject * a, int x1, int y1, int x2, int y2)
+{
+    int v1[4];
+    CollisionBase * col = a->get_collision();
+    if (col == NULL) {
+        v1[0] = a->x;
+        v1[1] = a->y;
+        v1[2] = v1[0] + a->width;
+        v1[3] = v1[1] + a->height;
+    } else {
+        a->get_box(v1);
+    }
+
+    if (!collides(v1[0], v1[1], v1[2], v1[3], 
+                  x1, y1, x2, y2))
+        return false;
+    return true;
 }

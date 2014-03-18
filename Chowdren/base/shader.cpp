@@ -135,6 +135,16 @@ public:
     }
 };
 
+class InvertShader : public GLSLShader
+{
+public:
+    InvertShader()
+    : GLSLShader("invert", true)
+    {
+
+    }
+};
+
 class DodgeBlurShader : public GLSLShader
 {
 public:
@@ -169,6 +179,7 @@ Shader * dummy_shader;
 Shader * blend_shader;
 Shader * offset_shader;
 Shader * dodgeblur_shader;
+Shader * invert_shader;
 
 void init_shaders()
 {
@@ -181,5 +192,6 @@ void init_shaders()
     blend_shader = new Shader;
     offset_shader = new OffsetShader;
     dodgeblur_shader = new DodgeBlurShader;
+    invert_shader = new InvertShader;
     init_shaders_platform();
 }

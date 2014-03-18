@@ -6,6 +6,7 @@
 #include "config.h"
 
 std::string newline_character("\r\n");
+std::string empty_string("");
 
 // Font
 
@@ -18,8 +19,9 @@ Font::Font(char * face, int size, bool bold, bool italic, bool underline)
 // Background
 
 Background::Background()
-#ifdef USE_COL_TREE
-: tree(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, MAX_TREE_LEVEL)
+#ifdef CHOWDREN_USE_COLTREE
+: tree(0, 0, global_manager->frame->width, global_manager->frame->height, 0,
+       MAX_TREE_LEVEL)
 #endif
 {
 }
@@ -45,7 +47,7 @@ void Background::reset(bool clear_items)
     if (clear_items) {
         clear_back_vec(col_items);
         clear_back_vec(items);
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
         tree.clear();
 #endif
     }
@@ -74,7 +76,7 @@ void Background::destroy_at(int x, int y)
                      item->dest_x + item->src_width, 
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
             tree.remove(&item->tree_item);
 #endif
             delete item;
@@ -100,7 +102,7 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                collision_type);
     if (collision_type == 1) {
         col_items.push_back(item);
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
         int x2 = dest_x + src_width;
         int y2 = dest_y + src_height;
         tree.add(&item->tree_item, dest_x, dest_y, x2, y2);
@@ -122,7 +124,7 @@ void Background::draw()
 
 bool Background::collide(CollisionBase * a)
 {
-#ifdef USE_COL_TREE
+#ifdef CHOWDREN_USE_COLTREE
     TreeItems tree_items;
     int box[4];
     a->get_box(box);
@@ -151,9 +153,13 @@ bool Background::collide(CollisionBase * a)
 
 Layer::Layer(double scroll_x, double scroll_y, bool visible, int index) 
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0)
+  index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
+#ifdef CHOWDREN_USE_COLTREE
+  , tree(0, 0, global_manager->frame->width, global_manager->frame->height, 0,
+         MAX_TREE_LEVEL)
+#endif
 {
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_TV_TARGET;
 #endif
     scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
@@ -164,16 +170,24 @@ Layer::~Layer()
     delete back;
 
     // layers are in charge of deleting background instances
-    for (ObjectList::const_iterator iter = background_instances.begin(); 
-         iter != background_instances.end(); iter++) {
-        delete (*iter);
+    for (ObjectList::const_iterator it = background_instances.begin(); 
+         it != background_instances.end(); it++) {
+        delete (*it);
     }
+
+#ifdef CHOWDREN_USE_COLTREE
+    TreeItems::const_iterator it;
+    for (it = tree_items.begin(); it != tree_items.end(); it++) {
+        delete (*it);
+    }
+#endif
 }
 
-void Layer::scroll(int dx, int dy)
+void Layer::scroll(int off_x, int off_y, int dx, int dy)
 {
-    x += dx;
-    y += dy;
+    this->off_x = off_x;
+    this->off_y = off_y;
+
     ObjectList::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
@@ -185,7 +199,23 @@ void Layer::scroll(int dx, int dy)
 
 void Layer::set_position(int x, int y)
 {
-    scroll(x - this->x, y - this->y);
+    int dx = x - this->x;
+    int dy = y - this->y;
+    this->x = x;
+    this->y = y;
+    ObjectList::const_iterator it;
+    for (it = instances.begin(); it != instances.end(); it++) {
+        FrameObject * object = *it;
+        if (!object->scroll)
+            continue;
+        object->set_position(object->x + dx, object->y + dy);
+    }
+    // XXX should we change background instance positions (coltree)
+    for (it = background_instances.begin(); it != background_instances.end();
+         it++) {
+        FrameObject * item = *it;
+        item->set_position(item->x + dx, item->y + dy);
+    }
 }
 
 void Layer::add_background_object(FrameObject * instance)
@@ -204,6 +234,11 @@ void Layer::add_background_object(FrameObject * instance)
                        b[0], b[1], b[2], b[3],
                        x1, y1, x2, y2);
         }
+#ifdef CHOWDREN_USE_COLTREE
+        TreeItem * new_item = new TreeItem((void*)col);
+        tree_items.push_back(new_item);
+        tree.add(new_item, b[0], b[1], b[2], b[3]);
+#endif
     }
     background_instances.push_back(instance);
 }
@@ -271,6 +306,19 @@ bool Layer::test_background_collision(CollisionBase * a)
         return false;
     if (back != NULL && back->collide(a))
         return true;
+#ifdef CHOWDREN_USE_COLTREE
+    TreeItems tree_items;
+    tree.get(b[0], b[1], b[2], b[3], tree_items);
+
+    TreeItems::iterator it;
+
+    for (it = tree_items.begin(); it != tree_items.end(); it++) {
+        TreeItem * tree_item = *it;
+        CollisionBase * item = (CollisionBase*)tree_item->data;
+        if (::collide(a, item))
+            return true;
+    }
+#else
     ObjectList::const_iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
          it++) {
@@ -280,6 +328,7 @@ bool Layer::test_background_collision(CollisionBase * a)
         if (collide(a, col))
             return true;
     }
+#endif
     return false;
 }
 
@@ -318,10 +367,17 @@ void Layer::draw()
         return;
 
     // draw backgrounds
+    int x1 = global_manager->frame->off_x * scroll_x;
+    int y1 = global_manager->frame->off_y * scroll_y;
+    int x2 = x1+WINDOW_WIDTH;
+    int y2 = y1+WINDOW_HEIGHT;
+
     for (ObjectList::const_iterator iter = background_instances.begin(); 
          iter != background_instances.end(); iter++) {
         FrameObject * item = (*iter);
         if (!item->visible)
+            continue;
+        if (!collide_box(item, x1, y1, x2, y2))
             continue;
         item->draw();
     }
@@ -336,11 +392,13 @@ void Layer::draw()
         FrameObject * item = (*iter);
         if (!item->visible)
             continue;
+        if (!collide_box(item, x1, y1, x2, y2))
+            continue;
         item->draw();
     }
 }
 
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
 void Layer::set_remote(int value)
 {
     remote = value;
@@ -379,12 +437,10 @@ Frame::Frame(const std::string & name, int width, int height,
              Color background_color, int index, GameManager * manager)
 : name(name), width(width), height(height), index(index), 
   background_color(background_color), manager(manager),
-  off_x(0), off_y(0), has_quit(false), last_key(-1), next_frame(-1),
-  loop_count(0), frame_time(0.0), frame_iteration(0),
-  instance_classes(MAX_OBJECT_ID)
+  off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
+  last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
+  frame_iteration(0), instance_classes(MAX_OBJECT_ID)
 {
-    std::fill_n(key_presses, CHOWDREN_KEY_LAST, false);
-    std::fill_n(mouse_presses, CHOWDREN_MOUSE_BUTTON_LAST, false);
 }
 
 void Frame::event_callback(int id)
@@ -399,17 +455,16 @@ void Frame::on_end()
 {
     ObjectList::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
-        delete (*it);
+        delete *it;
     }
     std::vector<Layer*>::const_iterator layer_it;
     for (layer_it = layers.begin(); layer_it != layers.end(); layer_it++) {
-        delete (*layer_it);
+        delete *layer_it;
     }
     instances.clear();
     layers.clear();
     instance_classes.clear();
-    // loop_indexes.clear();
-    // running_loops.clear();
+    destroyed_instances.clear();
     next_frame = -1;
     loop_count = 0;
     off_x = 0;
@@ -420,20 +475,8 @@ void Frame::on_end()
 
 void Frame::handle_events() {}
 
-bool Frame::update(float dt)
+void Frame::clean_instances()
 {
-    frame_time += dt;
-
-    for (ObjectList::const_iterator it = instances.begin(); 
-         it != instances.end(); it++) {
-        FrameObject * instance = *it;
-        instance->update(dt);
-        if (instance->movement)
-            instance->movement->update(dt);
-    }
-
-    handle_events();
-
     for (ObjectList::const_iterator it = destroyed_instances.begin(); 
          it != destroyed_instances.end(); it++) {
         FrameObject * instance = *it;
@@ -447,14 +490,28 @@ bool Frame::update(float dt)
         layers[instance->layer_index]->remove_object(instance);
         delete instance;
     }
-
     destroyed_instances.clear();
+}
+
+bool Frame::update(float dt)
+{
+    frame_time += dt;
+
+    for (ObjectList::const_iterator it = instances.begin(); 
+         it != instances.end(); it++) {
+        FrameObject * instance = *it;
+        if (instance->destroying)
+            continue;
+        instance->update(dt);
+        if (instance->movement)
+            instance->movement->update(dt);
+    }
+
+    clean_instances();
+    handle_events();
+    update_display_center();
 
     last_key = -1;
-
-    std::fill_n(key_presses, CHOWDREN_KEY_LAST, false);
-    std::fill_n(key_releases, CHOWDREN_KEY_LAST, false);
-    std::fill_n(mouse_presses, CHOWDREN_MOUSE_BUTTON_LAST, false);
 
     loop_count++;
 
@@ -471,23 +528,6 @@ void Frame::restart()
     next_frame = -2;
 }
 
-void Frame::on_key(int key, bool state)
-{
-    if (state) {
-        last_key = key;
-        key_presses[key] = true;
-    } else {
-        key_releases[key] = true;
-    }
-}
-
-void Frame::on_mouse(int key, bool state)
-{
-    if (state) {
-        mouse_presses[key] = true;
-    }
-}
-
 void Frame::draw(int remote)
 {
     // first, draw the actual window contents
@@ -496,7 +536,7 @@ void Frame::draw(int remote)
     glLoadIdentity();
     glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
     glMatrixMode(GL_MODELVIEW);
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     if (remote == CHOWDREN_REMOTE_TARGET)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     else
@@ -505,7 +545,7 @@ void Frame::draw(int remote)
         glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
                      background_color.b / 255.0f, 1.0f);
     }
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     if (remote != CHOWDREN_REMOTE_ONLY)
 #endif
     {
@@ -515,7 +555,7 @@ void Frame::draw(int remote)
     std::vector<Layer*>::const_iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
         Layer * layer = *it;
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
         if (remote == CHOWDREN_HYBRID_TARGET) {
             if (layer->remote == CHOWDREN_REMOTE_TARGET)
                 continue;
@@ -531,10 +571,14 @@ void Frame::draw(int remote)
         }
 #endif
         glLoadIdentity();
-        glTranslatef(floor(-off_x * layer->scroll_x),
-                     floor(-off_y * layer->scroll_y), 0.0);
+        glTranslatef(-floor(off_x * layer->scroll_x),
+                     -floor(off_y * layer->scroll_y), 0.0);
         layer->draw();
     }
+
+// #ifdef CHOWDREN_USE_BOX2D
+//     Box2D::draw_debug();
+// #endif
 }
 
 ObjectList & Frame::get_instances(int object_id)
@@ -558,21 +602,70 @@ ObjectList Frame::get_instances(unsigned int qualifier[])
 FrameObject * Frame::get_instance(int object_id)
 {
     ObjectList & instances = instance_classes.get(object_id);
-    if (instances.size() == 0) {
-        std::cout << "Warning: invalid instance count" << std::endl;
+    if (instances.empty()) {
+        std::cout << "Warning: invalid instance count for " << object_id
+            << std::endl;
         return NULL;
     }
-    return instances[0];
+    return instances.back();
+}
+
+FrameObject * Frame::get_instance(int object_id, int index)
+{
+    ObjectList & instances = instance_classes.get(object_id);
+    if (instances.empty()) {
+        std::cout << "Warning: invalid instance count for " << object_id
+            << std::endl;
+        return NULL;
+    }
+    return instances[index % instances.size()];
+}
+
+static Active default_active_instance(0, 0, 0);
+
+FrameObject * Frame::get_active_instance(int object_id)
+{
+    ObjectList & instances = instance_classes.get(object_id);
+    if (instances.size() == 0) {
+        return &default_active_instance;
+    }
+    return instances.back();
+}
+
+FrameObject * Frame::get_active_instance(int object_id, int index)
+{
+    ObjectList & instances = instance_classes.get(object_id);
+    if (instances.size() == 0) {
+        return &default_active_instance;
+    }
+    return instances[index % instances.size()];
 }
 
 FrameObject * Frame::get_instance(unsigned int qualifier[])
 {
-    ObjectList list = get_instances(qualifier);
-    if (list.size() == 0) {
-        std::cout << "Warning: invalid instance count" << std::endl;
+    int index = 0;
+    while (qualifier[index] != 0) {
+        ObjectList & b = get_instances(qualifier[index]);
+        if (b.empty()) {
+            index++;
+            continue;
+        }
+        return b[0];
+    }
+    std::cout << "Warning: invalid instance count for qualifier"
+        << std::endl;
+    return NULL;
+}
+
+FrameObject * Frame::get_instance(unsigned int qualifier[], int index)
+{
+    ObjectList instances = get_instances(qualifier);
+    if (instances.empty()) {
+        std::cout << "Warning: invalid instance count for qualifier"
+            << std::endl;
         return NULL;
     }
-    return list[0];
+    return instances[index % instances.size()];
 }
 
 void Frame::add_layer(double scroll_x, double scroll_y, bool visible)
@@ -620,8 +713,7 @@ void Frame::set_object_layer(FrameObject * object, int new_layer)
 
 int Frame::get_loop_index(const std::string & name)
 {
-    return 0;
-    // return loop_indexes[name];
+    return *(loops[name].index);
 }
 
 void Frame::set_timer(double value)
@@ -629,29 +721,42 @@ void Frame::set_timer(double value)
     frame_time = value;
 }
 
+void Frame::set_lives(int value)
+{
+    manager->lives = value;
+}
+
 void Frame::set_display_center(int x, int y)
 {
-    int old_off_x, old_off_y;
-    old_off_x = off_x;
-    old_off_y = off_y;
+    if (x != -1) {
+        new_off_x = int_max(0, x - WINDOW_WIDTH / 2);
+        new_off_x = int_min(new_off_x, width - WINDOW_WIDTH);
+    }
+    if (y != -1) {
+        new_off_y = int_max(0, y - WINDOW_HEIGHT / 2);
+        new_off_y = int_min(new_off_y, height - WINDOW_HEIGHT);
+    }
+}
 
-    if (x != -1) 
-        off_x = x - WINDOW_WIDTH / 2;
-
-    if (y != -1)
-        off_y = int_min(
-            int_max(0, y - WINDOW_HEIGHT / 2),
-            height - WINDOW_HEIGHT);
-
-    int dx, dy;
-    dx = off_x - old_off_x;
-    dy = off_y - old_off_y;
+void Frame::update_display_center()
+{
+    if (off_x == new_off_x && off_y == new_off_y)
+        return;
 
     std::vector<Layer*>::const_iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
         Layer * layer = *it;
-        layer->scroll(dx, dy);
+        int x1 = off_x * layer->scroll_x;
+        int y1 = off_y * layer->scroll_y;
+        int x2 = new_off_x * layer->scroll_x;
+        int y2 = new_off_y * layer->scroll_y;
+        int layer_off_x = new_off_x - x2;
+        int layer_off_y = new_off_y - y2;
+        layer->scroll(layer_off_x, layer_off_y, x2 - x1, y2 - y1);
     }
+
+    off_x = new_off_x;
+    off_y = new_off_y;
 }
 
 int Frame::frame_left()
@@ -681,8 +786,8 @@ void Frame::set_background_color(int color)
 
 void Frame::get_mouse_pos(int * x, int * y)
 {
-    (*x) = manager->mouse_x + off_x;
-    (*y) = manager->mouse_y + off_y;
+    *x = manager->mouse_x + off_x;
+    *y = manager->mouse_y + off_y;
 }
 
 int Frame::get_mouse_x()
@@ -697,27 +802,6 @@ int Frame::get_mouse_y()
     int x, y;
     get_mouse_pos(&x, &y);
     return y;
-}
-
-bool Frame::is_mouse_pressed_once(int key)
-{
-    if (key < 0)
-        return false;
-    return (bool)mouse_presses[key];
-}
-
-bool Frame::is_key_released_once(int key)
-{
-    if (key < 0)
-        return false;
-    return (bool)key_releases[key];
-}
-
-bool Frame::is_key_pressed_once(int key)
-{
-    if (key < 0)
-        return false;
-    return (bool)key_presses[key];
 }
 
 bool Frame::test_background_collision(int x, int y)
@@ -747,12 +831,18 @@ bool Frame::is_joystick_direction_changed(int n)
     return ret;
 }
 
+void Frame::set_vsync(bool value)
+{
+    std::cout << "Set vsync: " << value << std::endl;
+}
+
 // FrameObject
 
 FrameObject::FrameObject(int x, int y, int type_id) 
 : x(x), y(y), id(type_id), visible(true), shader(NULL), 
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
-  destroying(false), scroll(true), movement(NULL)
+  destroying(false), scroll(true), movement(NULL), movements(NULL),
+  movement_count(0)
 {
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
@@ -762,8 +852,13 @@ FrameObject::FrameObject(int x, int y, int type_id)
 FrameObject::~FrameObject()
 {
     delete movement;
-    delete values;
-    delete strings;
+    if (movements != NULL) {
+        for (int i = 0; i < movement_count; i++) {
+            if (movement == movements[i])
+                continue;
+            delete movements[i];
+        }
+    }
     delete shader_parameters;
 }
 
@@ -787,30 +882,31 @@ void FrameObject::set_position(int x, int y)
     this->y = y;
 }
 
+void FrameObject::set_global_position(int x, int y)
+{
+    Layer * layer = frame->layers[layer_index];
+    this->x = x  - layer->off_x;
+    this->y = y - layer->off_y;
+}
+
 void FrameObject::set_x(int x)
 {
-    this->x = x;
+    this->x = x  - frame->layers[layer_index]->off_x;
 }
 
 int FrameObject::get_x()
 {
-    Layer * layer = frame->layers[layer_index];
-    if (!layer->scroll_active)
-        return x;
-    return x + frame->off_x * (1 - layer->scroll_x);
+    return x + frame->layers[layer_index]->off_x;
 }
 
 void FrameObject::set_y(int y)
 {
-    this->y = y;
+    this->y = y - frame->layers[layer_index]->off_y;
 }
 
 int FrameObject::get_y()
 {
-    Layer * layer = frame->layers[layer_index];
-    if (!layer->scroll_active)
-        return y;
-    return y + frame->off_y * (1 - layer->scroll_y);
+    return y + frame->layers[layer_index]->off_y;
 }
 
 void FrameObject::create_alterables()
@@ -821,6 +917,7 @@ void FrameObject::create_alterables()
 
 void FrameObject::set_visible(bool value)
 {
+    flash(0);
     visible = value;
 }
 
@@ -836,11 +933,14 @@ void FrameObject::set_layer(int index)
     frame->set_object_layer(this, index);
 }
 
+void FrameObject::flash(float value) {}
 void FrameObject::draw() {}
 void FrameObject::update(float dt) {}
-void FrameObject::set_direction(int value)
+void FrameObject::set_direction(int value, bool set_movement)
 {
     direction = value & 31;
+    if (set_movement && movement != NULL)
+        movement->set_direction(value);
 }
 
 int FrameObject::get_direction() 
@@ -867,6 +967,8 @@ bool FrameObject::overlaps(FrameObject * other)
 {
     if (destroying || other->destroying)
         return false;
+    if (other->layer_index != layer_index)
+        return false;
     return collide(other->get_collision(), get_collision());
 }
 
@@ -878,19 +980,38 @@ bool FrameObject::overlaps_background()
     return layer->test_background_collision(get_collision());
 }
 
+bool FrameObject::overlaps_background_save()
+{
+    if (destroying)
+        return false;
+    Layer * layer = frame->layers[layer_index];
+    bool ret = layer->test_background_collision(get_collision());
+    if (movement != NULL) {
+        movement->last_collision = NULL;
+        movement->back_col = ret;
+    }
+    return ret;
+}
+
 bool FrameObject::outside_playfield()
 {
     int box[4];
     get_collision()->get_box(box);
     return !collides(box[0], box[1], box[2], box[3],
-        0, 0, frame->width, frame->height);
+                     frame->off_x, frame->off_y,
+                     frame->width+frame->off_x, frame->height+frame->off_y);
 }
 
 int FrameObject::get_box_index(int index)
 {
     int box[4];
     get_collision()->get_box(box);
-    return box[index];
+    int ret = box[index];
+    if (index == 0 || index == 2)
+        ret += frame->layers[layer_index]->off_x;
+    else
+        ret += frame->layers[layer_index]->off_y;
+    return ret;
 }
 
 void FrameObject::get_box(int box[4])
@@ -979,9 +1100,25 @@ FixedValue FrameObject::get_fixed()
     return FixedValue(this);
 }
 
+void FrameObject::clear_movements()
+{
+    if (movements != NULL) {
+        for (int i = 0; i < movement_count; i++) {
+            if (movement == movements[i])
+                continue;
+            delete movements[i];
+        }
+        movements = NULL;
+        movement_count = 0;
+    }
+    delete movement;
+    movement = NULL;
+}
+
 void FrameObject::set_movement(int i)
 {
-    
+    movement = movements[i];
+    movement->start();
 }
 
 Movement * FrameObject::get_movement()
@@ -1001,9 +1138,12 @@ int FrameObject::get_action_y()
     return y;
 }
 
-void FrameObject::shoot(FrameObject * other, int speed)
+void FrameObject::shoot(FrameObject * other, int speed, int direction)
 {
+    if (direction == -1)
+        direction = this->direction;
     other->set_position(get_action_x(), get_action_y());
+    other->set_direction(direction);
     delete other->movement;
     other->movement = new ShootMovement(other);
     other->movement->set_speed(speed);
@@ -1028,6 +1168,22 @@ const std::string & FrameObject::get_name()
 #endif
 }
 
+void FrameObject::look_at(int x, int y)
+{
+    set_direction(get_direction_int(this->x, this->y, x, y));
+}
+
+void FrameObject::update_flash(float dt, float interval, float & t)
+{
+    if (interval != 0.0f) {
+        t += dt;
+        if (t >= interval) {
+            t = 0.0f;
+            visible = !visible;
+        }
+    }
+}
+
 // FixedValue
 
 FixedValue::FixedValue(FrameObject * object)
@@ -1048,6 +1204,11 @@ FixedValue::operator std::string() const
 {
     intptr_t val = intptr_t(object);
     return number_to_string(val);
+}
+
+FixedValue::operator FrameObject*() const
+{
+    return object;
 }
 
 // Direction
@@ -1107,15 +1268,15 @@ Active::Active(int x, int y, int type_id)
   animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
   forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
   animation_direction(0), stopped(false), flash_interval(0.0f),
-  animation_finished(-1)
+  animation_finished(-1), transparent(false), flags(0)
 {
-    create_alterables();
 }
 
 void Active::initialize_active()
 {
     collision = new SpriteCollision(this);
     collision->is_box = collision_box;
+    update_direction();
     update_frame();
 }
 
@@ -1140,33 +1301,53 @@ void Active::initialize_animations()
 
 void Active::force_animation(int value)
 {
+    if (animation == DISAPPEARING)
+        return;
     if (value == animation)
         return;
-    Animation * anim = animations->items[value];
-    if (anim == NULL) {
-        std::cout << "Invalid animation: " << value 
-            << " (" << get_name() << ")" << std::endl;
+
+    if (!has_animation(value)) {
+        // XXX 
+        // std::cout << "Invalid animation: " << value 
+        //     << " (" << get_name() << ")" << std::endl;
+        for (value = 0; value < animations->count; value++) {
+            if (has_animation(value))
+                break;
+        }
+        if (value == animation)
+            return;
     }
+
+    Animation * anim = animations->items[value];
     animation = value;
     if (forced_frame == -1)
         animation_frame = 0;
+    update_direction();
     update_frame();
 }
 
 void Active::force_frame(int value)
 {
+    if (animation == DISAPPEARING)
+        return;
     forced_frame = value;
     update_frame();
 }
 
 void Active::force_speed(int value)
 {
+    if (animation == DISAPPEARING)
+        return;
     forced_speed = value;
 }
 
 void Active::force_direction(int value)
 {
-    forced_direction = value & 31;
+    value &= 31;
+    if (forced_direction == value)
+        return;
+    forced_direction = value;
+    update_direction();
     update_frame();
 }
 
@@ -1176,6 +1357,8 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
+    if (animation == DISAPPEARING)
+        return;
     animation_frame = forced_frame;
     forced_frame = -1;
     update_frame();
@@ -1219,6 +1402,11 @@ void Active::update_frame()
     update_action_point();
 }
 
+void Active::update_direction()
+{
+    loop_count = get_direction_data()->loop_count;
+}
+
 void Active::update_action_point()
 {
     Image * img = get_image();
@@ -1234,26 +1422,29 @@ void Active::update(float dt)
 
     if (forced_frame != -1 || stopped)
         return;
-    if (flash_interval != 0.0f) {
-        flash_time += dt;
-        if (flash_time >= flash_interval) {
-            flash_time = 0.0f;
-            visible = !visible;
-        }
-    }
+
+    update_flash(dt, flash_interval, flash_time);
+
+    if (loop_count == 0)
+        return;
+
     Direction * dir = get_direction_data();
     counter += get_speed();
     int old_frame = animation_frame;
     while (counter > 100) {
+        counter -= 100;
         animation_frame++;
         if (animation_frame >= (int)dir->frames.size()) {
-            if (dir->loop_count != 0) {
+            if (animation == DISAPPEARING)
+                FrameObject::destroy();
+            if (loop_count > 0)
+                loop_count--;
+            if (loop_count == 0) {
                 animation_finished = animation;
                 animation_frame--;
             } else
                 animation_frame = dir->back_to;
         }
-        counter -= 100;
     }
     if (animation_frame != old_frame)
         update_frame();
@@ -1267,7 +1458,12 @@ void Active::draw()
         return;
     }
     blend_color.apply();
+    bool blend = transparent || blend_color.a < 255;
+    if (!blend)
+        glDisable(GL_BLEND);
     draw_image(img, x, y, angle, x_scale, y_scale, false, false);
+    if (!blend)
+        glEnable(GL_BLEND);
 }
 
 inline Image * Active::get_image()
@@ -1342,14 +1538,23 @@ int Active::get_animation()
 
 CollisionBase * Active::get_collision()
 {
+    if (animation == DISAPPEARING)
+        return NULL;
     return collision;
 }
 
-void Active::set_direction(int value)
+void Active::set_direction(int value, bool set_movement)
 {
-    FrameObject::set_direction(value);
+    if (animation == DISAPPEARING)
+        return;
+    FrameObject::set_direction(value, set_movement);
+    if (auto_rotate) {
+        set_angle(double(value) * 11.25);
+        value = 0;
+    }
     animation_direction = direction;
     update_frame();
+    update_direction();
 }
 
 int & Active::get_animation_direction()
@@ -1359,24 +1564,25 @@ int & Active::get_animation_direction()
     return animation_direction;
 }
 
-void Active::set_scale(double scale)
+void Active::set_scale(double value)
 {
-    x_scale = y_scale = scale;
-    collision->set_scale(scale);
+    value = std::max<double>(0.0f, value);
+    x_scale = y_scale = value;
+    collision->set_scale(value);
     update_action_point();
 }
 
 void Active::set_x_scale(double value)
 {
-    x_scale = value;
-    collision->set_x_scale(value);
+    x_scale = std::max<double>(0.0f, value);
+    collision->set_x_scale(x_scale);
     update_action_point();
 }
 
 void Active::set_y_scale(double value)
 {
-    y_scale = value;
-    collision->set_y_scale(value);
+    y_scale = std::max<double>(0.0f, value);
+    collision->set_y_scale(y_scale);
     update_action_point();
 }
 
@@ -1430,6 +1636,11 @@ void Active::disable_flag(int index)
     flags &= ~(1 << index);
 }
 
+void Active::toggle_flag(int index)
+{
+    flags ^= 1 << index;
+}
+
 bool Active::is_flag_on(int index)
 {
     return (flags & (1 << index)) != 0;
@@ -1438,6 +1649,11 @@ bool Active::is_flag_on(int index)
 bool Active::is_flag_off(int index)
 {
     return (flags & (1 << index)) == 0;
+}
+
+int Active::get_flag(int index)
+{
+    return int(is_flag_on(index));
 }
 
 bool Active::is_near_border(int border)
@@ -1465,15 +1681,38 @@ bool Active::is_animation_finished(int anim)
     return animation_finished == anim;
 }
 
+void Active::destroy()
+{
+    if (animation == DISAPPEARING)
+        return;
+    if (!has_animation(DISAPPEARING)) {
+        FrameObject::destroy();
+        return;
+    }
+    clear_movements();
+    force_animation(DISAPPEARING);
+}
+
+bool Active::has_animation(int anim)
+{
+    if (anim >= animations->count)
+        return false;
+    if (animations->items[anim] == NULL)
+        return false;
+    return true;
+}
+
 // Text
 
-FTTextureFont * default_font = NULL;
+FTTextureFont * small_font = NULL;
+FTTextureFont * big_font = NULL;
 
 void set_font_path(const char * path)
 {
-    if (default_font != NULL)
+    if (small_font != NULL || big_font != NULL)
         return;
-    default_font = new FTTextureFont(path, false);
+    small_font = new FTTextureFont(path, false);
+    big_font = new FTTextureFont(path, false);
 }
 
 void set_font_path(const std::string & path)
@@ -1487,26 +1726,31 @@ void init_font()
     if (initialized)
         return;
     set_font_path("Arial.ttf"); // default font, could be set already
-#ifdef CHOWDREN_IS_WIIU
-    default_font->FaceSize(24, 96);
-#else
-    default_font->FaceSize(12, 96);
-#endif
+    big_font->FaceSize(24, 96);
+    small_font->FaceSize(13, 96);
     initialized = true;
 }
 
+FTTextureFont * get_font(int size)
+{
+    init_font();
+    if (size >= 24)
+        return big_font;
+    else
+        return small_font;
+}
 
 Text::Text(int x, int y, int type_id) 
 : FrameObject(x, y, type_id), initialized(false), current_paragraph(0),
-  draw_text_set(false)
+  draw_text_set(false), layout(NULL)
 {
-    create_alterables();
     collision = new InstanceBox(this);
 }
 
 Text::~Text()
 {
     delete collision;
+    delete layout;
 }
 
 void Text::add_line(std::string text)
@@ -1520,46 +1764,40 @@ void Text::add_line(std::string text)
 
 void Text::draw()
 {
-    if (!draw_text_set) {
-        // convert from windows-1252 to utf-8
-        draw_text_set = true;
-        std::string::const_iterator it;
-        draw_text.clear();
-        for (it = text.begin(); it != text.end(); it++) {
-            char c = *it;
-            if (c < 128) {
-                draw_text.push_back(c);
-            } else {
-                draw_text.push_back(0xC2 + (c > 0xBF));
-                draw_text.push_back(c & 0x3F + 0x80);
-            }
-        }
-    }
-    init_font();
+    update_draw_text();
     color.apply();
     glPushMatrix();
-    FTBBox box = default_font->BBox(draw_text.c_str(), text.size(),
-                                    FTPoint());
-    double box_w = box.Upper().X() - box.Lower().X();
-    double box_h = box.Upper().Y() - box.Lower().Y();
-    double off_x = x;
-    double off_y = y + default_font->Ascender();
+    if (layout != NULL) {
+        FTBBox bb = layout->BBox(draw_text.c_str(), -1);
+        double off_x = x;
+        double off_y = y;
+        glTranslated((int)off_x, (int)off_y, 0.0);
+        glScalef(1, -1, 1);
+        layout->Render(draw_text.c_str(), -1, FTPoint());
+        glPopMatrix();
+    } else {
+        FTTextureFont * font = get_font(size);
+        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
+        double box_w = box.Upper().X() - box.Lower().X();
+        double box_h = box.Upper().Y() - box.Lower().Y();
+        double off_x = x;
+        double off_y = y + font->Ascender();
 
-    if (alignment & ALIGN_HCENTER)
-        off_x += 0.5 * (width - box_w);
-    else if (alignment & ALIGN_RIGHT) 
-        off_x += width - box_w;
+        if (alignment & ALIGN_HCENTER)
+            off_x += 0.5 * (width - box_w);
+        else if (alignment & ALIGN_RIGHT) 
+            off_x += width - box_w;
 
-    if (alignment & ALIGN_VCENTER)
-        off_y += height * 0.5 - default_font->LineHeight() * 0.5;
-    else if (alignment & ALIGN_BOTTOM)
-        off_y += default_font->LineHeight();
+        if (alignment & ALIGN_VCENTER)
+            off_y += height * 0.5 - font->LineHeight() * 0.5;
+        else if (alignment & ALIGN_BOTTOM)
+            off_y += font->LineHeight();
 
-    glTranslated((int)off_x, (int)off_y, 0.0);
-    glScalef(1, -1, 1);
-    default_font->Render(draw_text.c_str(), text.size(), FTPoint(),
-        FTPoint(), RENDER_ALL);
-    glPopMatrix();
+        glTranslated((int)off_x, (int)off_y, 0.0);
+        glScalef(1, -1, 1);
+        font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint(), RENDER_ALL);
+        glPopMatrix();
+    }
 }
 
 void Text::set_string(std::string value)
@@ -1618,12 +1856,74 @@ CollisionBase * Text::get_collision()
     return collision;
 }
 
+void Text::update_draw_text()
+{
+    if (draw_text_set)
+        return;
+    // convert from windows-1252 to utf-8
+    draw_text_set = true;
+#ifdef CHOWDREN_TEXT_USE_UTF8
+    draw_text = text;
+#else
+    // convert from windows-1252 to utf-8
+    std::string::const_iterator it;
+    draw_text.clear();
+    for (it = text.begin(); it != text.end(); it++) {
+        char c = *it;
+        if (c < 128) {
+            draw_text.push_back(c);
+        } else {
+            draw_text.push_back(0xC2 + (c > 0xBF));
+            draw_text.push_back(c & 0x3F + 0x80);
+        }
+    }
+#endif
+}
+
+void Text::set_width(int w)
+{
+    width = w;
+    if (layout == NULL) {
+        layout = new FTSimpleLayout;
+        layout->SetFont(get_font(size));
+    }
+    layout->SetLineLength(w);
+}
+
+int Text::get_height()
+{
+    if (layout == NULL)
+        return height;
+    update_draw_text();
+    FTBBox bb = layout->BBox(draw_text.c_str(), text.size());
+    return (int)(bb.Upper().Y() - bb.Lower().Y());
+}
+
+// FontInfo
+
+int FontInfo::get_width(FrameObject * obj)
+{
+    return ((Text*)obj)->width;
+}
+
+int FontInfo::get_height(FrameObject * obj)
+{
+    return ((Text*)obj)->get_height();
+}
+
+void FontInfo::set_width(FrameObject * obj, int width)
+{
+    ((Text*)obj)->set_width(width);
+}
+
+std::string FontInfo::vertical_tab("\x0B");
+
 // Backdrop
 
 Backdrop::Backdrop(int x, int y, int type_id) 
 : FrameObject(x, y, type_id), collision(NULL)
 {
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_HYBRID_TARGET;
 #endif
 }
@@ -1641,7 +1941,7 @@ CollisionBase * Backdrop::get_collision()
 
 void Backdrop::draw()
 {
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     int current_remote = platform_get_remote_value();
     if (remote == CHOWDREN_REMOTE_TARGET &&
         current_remote != CHOWDREN_HYBRID_TARGET)
@@ -1654,13 +1954,14 @@ void Backdrop::draw()
 // QuickBackdrop
 
 QuickBackdrop::QuickBackdrop(int x, int y, int type_id) 
-: FrameObject(x, y, type_id), collision(NULL)
+: FrameObject(x, y, type_id), collision(NULL), image(NULL)
 {
 }
 
 QuickBackdrop::~QuickBackdrop()
 {
     delete collision;
+    delete image;
 }
 
 CollisionBase * QuickBackdrop::get_collision()
@@ -1670,45 +1971,85 @@ CollisionBase * QuickBackdrop::get_collision()
 
 void QuickBackdrop::draw()
 {
-    glDisable(GL_TEXTURE_2D);
-    glBegin(GL_QUADS);
-    switch (gradient_type) {
-        case NONE_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, blend_color.a);
-            glVertex2f(x, y);
-            glVertex2f(x + width, y);
-            glVertex2f(x + width, y + height);
-            glVertex2f(x, y + height);
-            break;
-        case VERTICAL_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, blend_color.a);
-            glVertex2f(x, y);
-            glVertex2f(x + width, y);
-            glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-            glVertex2f(x + width, y + height);
-            glVertex2f(x, y + height);
-            break;
-        case HORIZONTAL_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, blend_color.a);
-            glVertex2f(x, y + height);
-            glVertex2f(x, y);
-            glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-            glVertex2f(x + width, y);
-            glVertex2f(x + width, y + height);
-            break;
+    if (image != NULL) {
+        glPushAttrib(GL_SCISSOR_BIT);
+        glEnable(GL_SCISSOR_TEST);
+        platform_scissor_world(x, y, width, height);
+        for (int xx = x; xx < x + width; xx += image->width)
+        for (int yy = y; yy < y + height; yy += image->height) {
+            image->draw(xx, yy);
+        }
+        glPopAttrib();
+    } else {
+        glDisable(GL_TEXTURE_2D);
+        glBegin(GL_QUADS);
+        switch (gradient_type) {
+            case NONE_GRADIENT:
+                glColor4ub(color.r, color.g, color.b, blend_color.a);
+                glVertex2f(x, y);
+                glVertex2f(x + width, y);
+                glVertex2f(x + width, y + height);
+                glVertex2f(x, y + height);
+                break;
+            case VERTICAL_GRADIENT:
+                glColor4ub(color.r, color.g, color.b, blend_color.a);
+                glVertex2f(x, y);
+                glVertex2f(x + width, y);
+                glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
+                glVertex2f(x + width, y + height);
+                glVertex2f(x, y + height);
+                break;
+            case HORIZONTAL_GRADIENT:
+                glColor4ub(color.r, color.g, color.b, blend_color.a);
+                glVertex2f(x, y + height);
+                glVertex2f(x, y);
+                glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
+                glVertex2f(x + width, y);
+                glVertex2f(x + width, y + height);
+                break;
+        }
+        glEnd();
     }
-    glEnd();
 }
 
 // Counter
 
-Counter::Counter(int init, int min, int max, int x, int y, int type_id) 
-: FrameObject(x, y, type_id), minimum(min), maximum(max)
+Counter::Counter(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), collision(NULL), flash_interval(0.0f)
 {
     for (int i = 0; i < 14; i++)
         images[i] = NULL;
+}
 
-    set(init);
+Counter::~Counter()
+{
+    delete collision;
+}
+
+CollisionBase * Counter::get_collision()
+{
+    if (type == HIDDEN_COUNTER)
+        return NULL;
+    if (collision == NULL) {
+        collision = new OffsetInstanceBox(this);
+        calculate_box();
+    }
+    return collision;
+}
+
+void Counter::calculate_box()
+{
+    if (type != IMAGE_COUNTER)
+        return;
+    width = 0;
+    height = 0;
+    for (std::string::const_iterator it = cached_string.begin(); 
+         it != cached_string.end(); it++) {
+        Image * image = get_image(it[0]);
+        width += image->width;
+        height = std::max(image->height, height);
+    }
+    ((OffsetInstanceBox*)collision)->set_offset(-width, -height);
 }
 
 Image * Counter::get_image(char c)
@@ -1753,9 +2094,15 @@ void Counter::set(double value)
     value = std::max<double>(std::min<double>(value, maximum), minimum);
     this->value = value;
 
+    if (type != IMAGE_COUNTER)
+        return;
+
     std::ostringstream str;
     str << value;
     cached_string = str.str();
+
+    if (collision != NULL)
+        calculate_box();
 }
 
 void Counter::set_max(double value)
@@ -1770,18 +2117,80 @@ void Counter::set_min(double value)
     set(this->value);
 }
 
+void Counter::update(float dt)
+{
+    update_flash(dt, flash_interval, flash_time);
+}
+
+void Counter::flash(float value)
+{
+    flash_interval = value;
+    flash_time = 0.0f;
+}
+
 void Counter::draw()
 {
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    double current_x = x;
-    for (std::string::reverse_iterator it = cached_string.rbegin(); 
-         it != cached_string.rend(); it++) {
-        Image * image = get_image(it[0]);
-        if (image == NULL)
-            continue;
-        image->draw(current_x + image->hotspot_x - image->width, 
-                    y + image->hotspot_y - image->height);
-        current_x -= image->width;
+    if (type == HIDDEN_COUNTER)
+        return;
+
+    blend_color.apply();
+
+    if (type == IMAGE_COUNTER) {
+        double current_x = x;
+        for (std::string::reverse_iterator it = cached_string.rbegin(); 
+             it != cached_string.rend(); it++) {
+            Image * image = get_image(it[0]);
+            if (image == NULL)
+                continue;
+            image->draw(current_x + image->hotspot_x - image->width,
+                        y + image->hotspot_y - image->height);
+            current_x -= image->width;
+        }
+    } else if (type == VERTICAL_UP_COUNTER) {
+        float p = (value - minimum) / 
+                  (maximum - minimum);
+        int draw_height = p * height;
+        int x2 = x + width;
+        int y2 = y + height;
+        int y1 = y2 - draw_height;
+        color1.apply();
+        glBegin(GL_QUADS);
+        glVertex2f(x, y1);
+        glVertex2f(x2, y1);
+        glVertex2f(x2, y2);
+        glVertex2f(x, y2);
+        glEnd();
+    }
+}
+
+// Lives
+
+Lives::Lives(int x, int y, int type_id) 
+: FrameObject(x, y, type_id), flash_interval(0.0f)
+{
+}
+
+void Lives::flash(float value)
+{
+    flash_interval = value;
+    flash_time = 0.0f;
+}
+
+void Lives::update(float dt)
+{
+    update_flash(dt, flash_interval, flash_time);
+}
+
+void Lives::draw()
+{
+    blend_color.apply();
+
+    int xx = x;
+    int i = 0;
+    while (i < frame->manager->lives) {
+        image->draw(xx, y);
+        xx += image->width;
+        i++;
     }
 }
 
@@ -1817,7 +2226,6 @@ inline bool match_wildcard(const std::string & pattern,
 INI::INI(int x, int y, int type_id) 
 : FrameObject(x, y, type_id), overwrite(false), auto_save(false)
 {
-    create_alterables();
 }
 
 void INI::reset_global_data()
@@ -1863,11 +2271,16 @@ std::string INI::get_string(const std::string & item, const std::string & def)
     return get_string(current_group, item, def);
 }
 
+std::string INI::get_string(const std::string & item)
+{
+    return get_string(item, empty_string);
+}
+
 std::string INI::get_string_index(const std::string & group, unsigned int index)
 {
     SectionMap::const_iterator it = data.find(group);
     if (it == data.end())
-        return "";
+        return empty_string;
     OptionMap::const_iterator new_it = (*it).second.begin();
     int current_index = 0;
     while (new_it != (*it).second.end()) {
@@ -1876,7 +2289,7 @@ std::string INI::get_string_index(const std::string & group, unsigned int index)
         new_it++;
         current_index++;
     }
-    return "";
+    return empty_string;
 }
 
 std::string INI::get_string_index(unsigned int index)
@@ -1888,7 +2301,7 @@ std::string INI::get_item_name(const std::string & group, unsigned int index)
 {
     SectionMap::const_iterator it = data.find(group);
     if (it == data.end())
-        return "";
+        return empty_string;
     OptionMap::const_iterator new_it = (*it).second.begin();
     int current_index = 0;
     while (new_it != (*it).second.end()) {
@@ -1897,7 +2310,7 @@ std::string INI::get_item_name(const std::string & group, unsigned int index)
         new_it++;
         current_index++;
     }
-    return "";
+    return empty_string;
 }
 
 std::string INI::get_item_name(unsigned int index)
@@ -1915,7 +2328,7 @@ std::string INI::get_group_name(unsigned int index)
         it++;
         current_index++;
     }
-    return "";
+    return empty_string;
 }
 
 double INI::get_value(const std::string & group, const std::string & item, 
@@ -1933,6 +2346,11 @@ double INI::get_value(const std::string & group, const std::string & item,
 double INI::get_value(const std::string & item, double def)
 {
     return get_value(current_group, item, def);
+}
+
+double INI::get_value(const std::string & item)
+{
+    return get_value(item, 0.0);
 }
 
 double INI::get_value_index(const std::string & group, unsigned int index)
@@ -1957,7 +2375,7 @@ double INI::get_value_index(unsigned int index)
 }
 
 void INI::set_value(const std::string & group, const std::string & item, 
-               int pad, double value)
+                    int pad, double value)
 {
     set_string(group, item, number_to_string(value));
 }
@@ -1965,6 +2383,11 @@ void INI::set_value(const std::string & group, const std::string & item,
 void INI::set_value(const std::string & item, int pad, double value)
 {
     set_value(current_group, item, pad, value);
+}
+
+void INI::set_value(const std::string & item, double value)
+{
+    set_value(item, 0, value);
 }
 
 void INI::set_string(const std::string & group, const std::string & item, 
@@ -2308,9 +2731,72 @@ bool WindowControl::has_focus()
     return platform_has_focus();
 }
 
+bool WindowControl::is_maximized()
+{
+    return false;
+}
+
 void WindowControl::set_focus(bool value)
 {
     platform_set_focus(value);
+}
+
+void WindowControl::set_x(int x)
+{
+    std::cout << "Set window x: " << x << std::endl;
+}
+
+void WindowControl::set_y(int y)
+{
+    std::cout << "Set window y: " << y << std::endl;
+}
+
+void WindowControl::set_width(int w)
+{
+    std::cout << "Set window width: " << w << std::endl;
+}
+
+void WindowControl::set_height(int h)
+{
+    std::cout << "Set window height: " << h << std::endl;
+}
+
+void WindowControl::maximize()
+{
+    std::cout << "Maximize window" << std::endl;
+}
+
+void WindowControl::restore()
+{
+    std::cout << "Restore window" << std::endl;
+}
+
+int WindowControl::get_width()
+{
+    int w, h;
+    platform_get_size(&w, &h);
+    return w;
+}
+
+int WindowControl::get_height()
+{
+    int w, h;
+    platform_get_size(&w, &h);
+    return h;
+}
+
+int WindowControl::get_screen_width()
+{
+    int w, h;
+    platform_get_screen_size(&w, &h);
+    return w;
+}
+
+int WindowControl::get_screen_height()
+{
+    int w, h;
+    platform_get_screen_size(&w, &h);
+    return h;
 }
 
 // Workspace
@@ -2429,17 +2915,19 @@ void BinaryObject::load_file(const std::string & filename)
 {
     if (data != NULL)
         free(data);
+    std::cout << "Load binary array: " << filename << std::endl;
     read_file_c(convert_path(filename).c_str(), &data, &size);
 }
 
 void BinaryObject::save_file(const std::string & filename)
 {
+    std::cout << "Save binary array: " << filename << std::endl;
     FSFile fp(convert_path(filename).c_str(), "w");
     fp.write(data, size);
     fp.close();
 }
 
-void BinaryObject::set_byte(size_t addr, unsigned char byte)
+void BinaryObject::set_byte(unsigned char byte, size_t addr)
 {
     ((unsigned char*)data)[addr] = byte;
 }
@@ -2555,6 +3043,23 @@ void LayerObject::set_position(int index, int x, int y)
     frame->layers[index]->set_position(x, y);
 }
 
+void LayerObject::set_x(int index, int x)
+{
+    Layer * layer = frame->layers[index];
+    layer->set_position(x, layer->y);
+}
+
+void LayerObject::set_y(int index, int y)
+{
+    Layer * layer = frame->layers[index];
+    layer->set_position(layer->x, y);
+}
+
+void LayerObject::set_alpha_coefficient(int index, int alpha)
+{
+    std::cout << "Alpha set for layer not supported: " << alpha << std::endl;
+}
+
 double LayerObject::get_alterable(FrameObject * instance)
 {
     if (instance->values == NULL)
@@ -2586,7 +3091,17 @@ void LayerObject::sort_alt_decreasing(int index, double def)
 Viewport::Viewport(int x, int y, int type_id) 
 : FrameObject(x, y, type_id)
 {
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
 
+Viewport::~Viewport()
+{
+    glDeleteTextures(1, &texture);
 }
 
 void Viewport::set_source(int center_x, int center_y, int width, int height)
@@ -2609,9 +3124,29 @@ void Viewport::set_height(int h)
 
 void Viewport::draw()
 {
-    int src_x = center_x - src_width / 2;
-    int src_y = center_y - src_height / 2;
-    // XXX finish
+    int src_x1 = center_x - src_width / 2;
+    int src_y1 = center_y - src_height / 2;
+    int src_x2 = src_x1 + src_width;
+    int src_y2 = src_y1 + src_height;
+    platform_copy_color_buffer_rect(texture, src_x1, src_y1, src_x2, src_y2);
+    int x2 = x + width;
+    int y2 = y + height;
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glDisable(GL_BLEND);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2i(x, y);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2i(x2, y);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2i(x2, y2);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2i(x, y2);
+    glEnd();
+    glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
 }
 
 // AdvancedDirection
@@ -2641,12 +3176,16 @@ FixedValue AdvancedDirection::get_closest(int n)
     return closest->get_fixed();
 }
 
+float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
+{
+    return -::get_angle(a->x, a->y, b->x, b->y);
+}
+
 // TextBlitter
 
 TextBlitter::TextBlitter(int x, int y, int type_id)
-: FrameObject(x, y, type_id)
+: FrameObject(x, y, type_id), flash_interval(0.0f)
 {
-    create_alterables();
 }
 
 void TextBlitter::initialize(const std::string & map_string)
@@ -2659,6 +3198,8 @@ void TextBlitter::initialize(const std::string & map_string)
         unsigned char c = (unsigned char)map_string[i];
         charmap[c] = i;
     }
+
+    image->upload_texture();
 }
 
 void TextBlitter::set_text(const std::string & value)
@@ -2666,10 +3207,20 @@ void TextBlitter::set_text(const std::string & value)
     text = value;
 }
 
+void TextBlitter::update(float dt)
+{
+    update_flash(dt, flash_interval, flash_time);
+}
+
+void TextBlitter::flash(float value)
+{
+    flash_interval = value;
+    flash_time = 0.0f;
+}
+
 void TextBlitter::draw()
 {
-    image->load(true);
-
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, image->tex);
 
@@ -2717,7 +3268,6 @@ PlatformObject::PlatformObject(int x, int y, int type_id)
   platform_collision(false), on_ground(false), through_collision_top(false),
   jump_through(false)
 {
-    create_alterables();
 }
 
 void PlatformObject::update(float dt)
@@ -2860,7 +3410,6 @@ ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
   scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
 {
-    create_alterables();
     collision = new SpriteCollision(this);
 }
 
@@ -2880,7 +3429,7 @@ void ActivePicture::remove_image()
 
 void ActivePicture::load(const std::string & fn)
 {
-#ifdef CHOWDREN_IS_WIIU
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     // small hack to load language-specific files for menu
     size_t dir_end = fn.find_last_of(PATH_SEP);
     size_t dir_start = fn.find_last_of(PATH_SEP, dir_end-1);
@@ -3046,3 +3595,118 @@ int ListObject::get_count()
 // MathHelper
 
 MathHelper math_helper;
+
+// joystick
+
+int get_joystick_direction(int n)
+{
+    const static float threshold = 0.4f;
+    float x = get_joystick_axis(n, CHOWDREN_AXIS_LEFTX);
+    float y = -get_joystick_axis(n, CHOWDREN_AXIS_LEFTY);
+    // int dir;
+    // emulate Joystick 2 very closely
+    if (get_abs(x) < threshold && get_abs(y) < threshold)
+        return 8;
+    if (x > threshold) {
+        if (y > threshold)
+            return 1;
+        else if (y < -threshold)
+            return 7;
+        else
+            return 0;
+    } else if (x < -threshold) {
+        if (y > threshold)
+            return 3;
+        else if (y < -threshold)
+            return 5;
+        else
+            return 4;
+    } else {
+        if (y > threshold)
+            return 2;
+        else
+            return 6;
+    }
+    return 8;
+    // if (get_length(x, y) < threshold)
+    //     dir = 8; // center
+    // else {
+    //     float angle = atan2d(y, x);
+    //     dir = int_round(angle / 45.0f) & 7;
+    // }
+    // return dir;
+}
+
+int get_joystick_direction_flags(int n)
+{
+    int dir = get_joystick_direction(n);
+    switch (dir) {
+        case 0:
+            return 8; // 1000
+        case 1:
+            return 9; // 1001
+        case 2:
+            return 1; // 0001
+        case 3:
+            return 5; // 0101
+        case 4:
+            return 4; // 0100
+        case 5:
+            return 6; // 0110
+        case 6:
+            return 2; // 0010
+        case 7:
+            return 10; // 1010
+        default:
+            return 0;
+    }
+}
+
+bool test_joystick_direction_flags(int n, int flags)
+{
+    int f = get_joystick_direction_flags(n);
+    return (f & flags) == flags;
+}
+
+int get_joystick_dpad(int n)
+{
+    bool up = is_joystick_pressed(n, CHOWDREN_BUTTON_DPAD_UP);
+    bool down = is_joystick_pressed(n, CHOWDREN_BUTTON_DPAD_DOWN);
+    bool left = is_joystick_pressed(n, CHOWDREN_BUTTON_DPAD_LEFT);
+    bool right = is_joystick_pressed(n, CHOWDREN_BUTTON_DPAD_RIGHT);
+    int dir = get_movement_direction(up, down, left, right);
+    if (dir == -1)
+        dir = 8;
+    else
+        dir /= 4;
+    return dir;
+}
+
+float get_joystick_dpad_degrees(int n)
+{
+    int dir = get_joystick_dpad(n);
+    if (dir == 8)
+        return -1;
+    return dir * 45.0f;
+}
+
+float get_joystick_rt(int n)
+{
+    return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERRIGHT) * 100.0f;
+}
+
+float get_joystick_lt(int n)
+{
+    return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERLEFT) * 100.0f;
+}
+
+float get_joystick_x(int n)
+{
+    return get_joystick_axis(n, CHOWDREN_AXIS_LEFTX) * 1000.0f;
+}
+
+float get_joystick_y(int n)
+{
+    return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * -1000.0f;
+}
+

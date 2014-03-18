@@ -7,6 +7,7 @@ class EventWriter(BaseWriter):
     custom = False
     has_object = True
     container = None
+    prefix = ''
 
     def __init__(self, *arg, **kw):
         BaseWriter.__init__(self, *arg, **kw)
@@ -74,6 +75,8 @@ class FalseCondition(ConditionWriter):
         writer.put('false')
 
 class ComparisonWriter(ConditionWriter):
+    prefix = '('
+
     def write(self, writer):
         comparison = self.get_comparison()
         parameters = [str(self.convert_parameter(parameter))
@@ -87,7 +90,7 @@ class ComparisonWriter(ConditionWriter):
             value2 = parameters[1]
         else:
             raise NotImplementedError
-        writer.put('%s %s %s' % (value1, comparison, value2))
+        writer.put('%s) %s (%s)' % (value1, comparison, value2))
 
     def get_comparison_value(self):
         return self.value

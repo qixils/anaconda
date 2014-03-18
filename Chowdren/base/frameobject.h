@@ -25,6 +25,7 @@ public:
     FixedValue(FrameObject * object);
     operator double() const;
     operator std::string() const;
+    operator FrameObject*() const;
 };
 
 class FrameObject
@@ -47,6 +48,8 @@ public:
     ShaderParameters * shader_parameters;
     bool destroying;
     bool scroll;
+    int movement_count;
+    Movement ** movements;
     Movement * movement;
 #ifdef CHOWDREN_USE_BOX2D
     int body;
@@ -55,6 +58,7 @@ public:
     FrameObject(int x, int y, int type_id);
     virtual ~FrameObject();
     void set_position(int x, int y);
+    void set_global_position(int x, int y);
     int get_x();
     void set_x(int x);
     int get_y();
@@ -71,7 +75,7 @@ public:
         double scale_x = 1.0, double scale_y = 1.0, 
         bool flip_x = false, bool flip_y = false);
     virtual void update(float dt);
-    virtual void set_direction(int value);
+    virtual void set_direction(int value, bool set_movement = true);
     virtual int get_direction();
     virtual CollisionBase * get_collision();
     bool mouse_over();
@@ -87,16 +91,21 @@ public:
     void move_back(FrameObject * other);
     void move_front();
     void move_front(FrameObject * other);
-    void destroy();
+    virtual void destroy();
     FixedValue get_fixed();
     bool outside_playfield();
     void get_box(int box[4]);
     int get_box_index(int index);
     bool overlaps_background();
+    bool overlaps_background_save();
+    void clear_movements();
     void set_movement(int i);
     Movement * get_movement();
-    void shoot(FrameObject * other, int speed);
+    void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();
+    void look_at(int x, int y);
+    void update_flash(float dt, float interval, float & time);
+    virtual void flash(float value);
 };
 
 typedef std::vector<FrameObject*> ObjectList;

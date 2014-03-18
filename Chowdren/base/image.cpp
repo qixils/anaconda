@@ -8,6 +8,7 @@
 #include <vector>
 #include "platform.h"
 #include "datastream.h"
+#include "config.h"
 
 static int read_func(void *user, char *data, int size)
 {
@@ -112,19 +113,24 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 Image::Image(Image & img) 
 :
 #ifndef CHOWDREN_IS_WIIU
-  alpha(NULL),
+  alpha(img.alpha),
 #endif
   hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
   action_x(img.action_x), action_y(img.action_y),
   tex(img.tex), image(img.image), ref(&img), width(img.width), 
-  height(img.height), handle(-1)
+  height(img.height), handle(img.handle)
 {
 }
 
 void Image::load(bool upload)
 {
-    if (tex != 0 || image != NULL)
+    if (tex != 0)
         return;
+    if (image != NULL) {
+        if (upload)
+            upload_texture();
+        return;
+    }
     open_image_file();
     FileStream stream(image_file);
     stream.seek(4 + handle * 4);
@@ -149,6 +155,8 @@ void Image::upload_texture()
     if (ref != NULL) {
         ref->upload_texture();
         tex = ref->tex;
+        image = ref->image;
+        alpha = ref->alpha;
         return;
     }
 
@@ -156,8 +164,13 @@ void Image::upload_texture()
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, 
                  GL_UNSIGNED_BYTE, image);
+#ifdef CHOWDREN_QUICK_SCALE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+#else
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 

@@ -207,7 +207,7 @@ POSITION_FLAGS = BitDict(
     # True: transform position according to the direction of parent
     # False: use position without transformation
     'Direction',
-    # Origin flag flag
+    # Origin flag
     'Action',
     # 2 orientation flags (both are set appropriately)
     # True: use direction of parent

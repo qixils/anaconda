@@ -20,9 +20,13 @@ GameManager * global_manager;
 #include "crossrand.h"
 #include "media.h"
 
-// #ifndef NDEBUG
+#if defined(CHOWDREN_IS_DESKTOP)
+#include "SDL.h"
+#endif
+
+#ifndef NDEBUG
 #define CHOWDREN_DEBUG
-// #endif
+#endif
 
 #ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
@@ -590,11 +594,7 @@ bool is_key_pressed_once(int key)
 
 // main function
 
-#if defined(CHOWDREN_IS_WIIU)
 int main(int argc, char *argv[])
-#else
-extern "C" int SDL_main(int argc, char *argv[])
-#endif
 {
 #if defined(_WIN32) && defined(CHOWDREN_SHOW_DEBUGGER)
     int outHandle, errHandle, inHandle;

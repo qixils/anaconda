@@ -68,6 +68,8 @@ class StringWrapper(object):
                 new += '\\r'
             elif c == '\n':
                 new += '\\n'
+            elif c == '?':
+                new += '\\?'
             elif ord(c) > 128:
                 new += '\\' + oct(ord(c))[1:]
             else:

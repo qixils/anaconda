@@ -1,5 +1,10 @@
 cmake_minimum_required (VERSION 2.6)
 
+if (APPLE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7" CACHE STRING "")
+    set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk" CACHE STRING "")
+endif()
+
 project(Chowdren)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/include")
@@ -127,8 +132,6 @@ endif()
 add_definitions(-DGLEW_STATIC)
 
 if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7")
-    set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk")
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)
     set(MACOSX_BUNDLE_BUNDLE_NAME "%(name)s")
     set(MACOSX_BUNDLE_GUI_IDENTIFIER "%(name)s")

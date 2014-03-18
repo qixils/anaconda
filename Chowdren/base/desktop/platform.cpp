@@ -33,15 +33,16 @@ inline bool check_opengl_extension(const char * name)
     return false;
 }
 
+const char * extensions[] = {
+    "GL_EXT_framebuffer_object",
+    "GL_ARB_vertex_shader",
+    "GL_ARB_fragment_shader",
+    "GL_ARB_texture_non_power_of_two",
+    NULL
+};
+
 inline bool check_opengl_extensions()
 {
-    char * extensions[] = {
-        "GL_EXT_framebuffer_object",
-        "GL_ARB_vertex_shader",
-        "GL_ARB_fragment_shader",
-        "GL_ARB_texture_non_power_of_two",
-        NULL
-    };
     for (int i = 0; extensions[i] != NULL; i++)
         if (!check_opengl_extension(extensions[i]))
             return false;

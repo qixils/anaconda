@@ -1384,6 +1384,8 @@ inline void FTSimpleLayout::OutputWrappedI(const T *buf, const int len,
             pen.X(0);
             distributeWidth = remaining;
             break;
+        default:
+            break;
     }
 
     // If we have bounds expand them by the line's bounds, otherwise render

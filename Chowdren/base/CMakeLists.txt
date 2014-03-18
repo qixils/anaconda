@@ -209,6 +209,7 @@ install(CODE "
         set(\${default_embedded_path_var} \"\${path}\" PARENT_SCOPE)
     endfunction(gp_item_default_embedded_path_override)
 
+   set(BU_CHMOD_BUNDLE_ITEMS TRUE)
    include(BundleUtilities)
    fixup_bundle(\"${EXE_PATH}\"   \"\"   \"${DLL_PATH}\")
    " COMPONENT Runtime)

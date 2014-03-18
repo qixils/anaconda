@@ -10,7 +10,7 @@ std::string empty_string("");
 
 // Font
 
-Font::Font(char * face, int size, bool bold, bool italic, bool underline)
+Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
 : face(face),  size(size),  bold(bold), italic(italic), underline(underline)
 {
 

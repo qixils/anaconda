@@ -132,13 +132,13 @@ inline std::string left_string(const std::string & v, size_t count)
 class Font
 {
 public:
-    char * face;
+    const char * face;
     int size;
     bool bold;
     bool italic;
     bool underline;
 
-    Font(char * face, int size, bool bold, bool italic, bool underline);
+    Font(const char * face, int size, bool bold, bool italic, bool underline);
 };
 
 #define BACK_WIDTH WINDOW_WIDTH

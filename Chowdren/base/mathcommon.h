@@ -1,17 +1,13 @@
 #ifndef CHOWDREN_MATH_H
 #define CHOWDREN_MATH_H
 
-// from SDL_stdinc
-#ifdef M_PI
-#undef M_PI
-#endif
-
-#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
 #include "crossrand.h"
 #include <iostream>
 #include <stdarg.h>
+
+#define CHOW_PI 3.14159265358979323846264338327950288
 
 // math helpers
 
@@ -23,13 +19,13 @@ inline float mod(float a, float b)
 template <class T>
 inline T rad(T x)
 {
-    return x * (M_PI/180);
+    return x * (CHOW_PI/180);
 }
 
 template <class T>
 inline T deg(T x)
 {
-    return x * (180/M_PI);
+    return x * (180/CHOW_PI);
 }
 
 inline double sin_deg(double x)

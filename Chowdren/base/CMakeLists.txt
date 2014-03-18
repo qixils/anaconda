@@ -157,7 +157,8 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 set(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
-add_executable(Chowdren WIN32 MACOSX_BUNDLE ${SRCS})
+set(EXE_NAME "Chowdren")
+add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
 find_package(SDL2 REQUIRED)
 find_package(Vorbis REQUIRED)
@@ -168,9 +169,38 @@ find_package(OpenALSoft REQUIRED)
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
     ${FREETYPE_INCLUDE_DIRS} ${SDL2_INCLUDE_DIR} ${VORBIS_INCLUDE_DIR}
     ${BOX2D_INCLUDE_DIR})
-target_link_libraries(Chowdren ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
+target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
     ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
     ${BOX2D_LIBRARY})
 
-include(CPack)
+
+set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
+
+set(DEST_DIR ".")
+if(APPLE)
+    set(LIB_PATH "")
+    set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.app")
+elseif(WIN32)
+    set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
+    set(DLL_PATH "${CMAKE_SOURCE_DIR}/bin/win32")
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
+else()
+    set(DEST_DIR "bin")
+    set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/bin/${EXE_NAME}")
+endif()
+
+include(InstallRequiredSystemLibraries)
+install(TARGETS ${EXE_NAME} DESTINATION ${DEST_DIR})
+install(CODE "
+    function(gp_item_default_embedded_path_override item default_embedded_path_var)
+        set(path \"\${\${default_embedded_path_var}}\")
+        if (UNIX)
+            set(path \"@executable_path/../lib\")
+        endif()
+        set(\${default_embedded_path_var} \"\${path}\" PARENT_SCOPE)
+    endfunction(gp_item_default_embedded_path_override)
+
+   include(BundleUtilities)
+   fixup_bundle(\"${EXE_PATH}\"   \"\"   \"${DLL_PATH}\")
+   " COMPONENT Runtime)

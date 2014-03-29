@@ -2,8 +2,19 @@
 #include <set>
 #include <vector>
 #include <algorithm>
+
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <emscripten/emscripten.h>
+#else // CHOWDREN_IS_EMSCRIPTEN
 #include <al.h>
 #include <alc.h>
+#endif // CHOWDREN_IS_EMSCRIPTEN
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <tinythread/tinythread.h>
 #include <math.h>
 #include "../types.h"
@@ -11,10 +22,12 @@
 
 namespace ChowdrenAudio {
 
+#ifndef CHOWDREN_IS_EMSCRIPTEN
 // extension function pointers
 typedef ALvoid (AL_APIENTRY*PFNALBUFFERSUBDATASOFTPROC)(ALuint, ALenum, 
     const ALvoid*, ALsizei, ALsizei);
 PFNALBUFFERSUBDATASOFTPROC alBufferSubDataSOFT;
+#endif
 
 void _al_check(const std::string& file, unsigned int line)
 {
@@ -78,8 +91,8 @@ public:
     ALCdevice * device;
     ALCcontext * context;
     ALboolean direct_channels_ext, sub_buffer_data_ext;
-    tthread::thread * streaming_thread;
     std::vector<SoundStream*> streams;
+    tthread::thread * streaming_thread;
     tthread::recursive_mutex stream_mutex;
     volatile bool closing;
 
@@ -112,6 +125,7 @@ ALenum get_format(unsigned int channels)
             return AL_FORMAT_MONO16;
         case 2:
             return AL_FORMAT_STEREO16;
+#ifndef CHOWDREN_IS_EMSCRIPTEN
         case 4:
             return alGetEnumValue("AL_FORMAT_QUAD16");
         case 6:
@@ -120,6 +134,7 @@ ALenum get_format(unsigned int channels)
             return alGetEnumValue("AL_FORMAT_61CHN16");
         case 8:
             return alGetEnumValue("AL_FORMAT_71CHN16");
+#endif
         default:
             return 0;
     }
@@ -187,12 +202,15 @@ public:
                 buffer_data[i+1] *= right_gain;
             }
         }
-        if (updated)
+        if (updated) {
+#ifndef CHOWDREN_IS_EMSCRIPTEN
             al_check(alBufferSubDataSOFT(buffer, format, buffer_data, 0,
                 size));
-        else
+#endif
+        } else {
             al_check(alBufferData(
                 buffer, format, buffer_data, size, sample_rate));
+        }
         if (del)
             delete[] buffer_data;
     }
@@ -743,13 +761,22 @@ AudioDevice::AudioDevice()
         << std::endl;
 
     // OpenAL-Soft specific extensions
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+    direct_channels_ext = sub_buffer_data_ext = false;
+#else
     direct_channels_ext = alIsExtensionPresent("AL_SOFT_direct_channels");
     sub_buffer_data_ext = alIsExtensionPresent("AL_SOFT_buffer_sub_data");
     if (sub_buffer_data_ext) {
         alBufferSubDataSOFT = (PFNALBUFFERSUBDATASOFTPROC)alGetProcAddress(
             "alBufferSubDataSOFT");
     }
+#endif
+
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+    stream_update();
+#else
     streaming_thread = new tthread::thread(_stream_update, (void*)this);
+#endif
 }
 
 void AudioDevice::close()
@@ -768,6 +795,14 @@ void AudioDevice::close()
 
 void AudioDevice::stream_update()
 {
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+    if (closing)
+        return;
+    std::vector<SoundStream*>::const_iterator it;
+    for (it = streams.begin(); it != streams.end(); it++)
+        (*it)->update();
+    emscripten_async_call(_stream_update, (void*)this, 125);
+#else
     while (!closing) {
         stream_mutex.lock();
         std::vector<SoundStream*>::const_iterator it;
@@ -776,6 +811,7 @@ void AudioDevice::stream_update()
         stream_mutex.unlock();
         tthread::this_thread::sleep_for(tthread::chrono::milliseconds(125));
     }
+#endif
 }
 
 void AudioDevice::_stream_update(void * data)

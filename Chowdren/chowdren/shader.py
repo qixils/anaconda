@@ -1,3 +1,6 @@
+from chowdren.common import get_base_path, makedirs
+import os
+
 NATIVE_SHADERS = {
     'Sub' : 'subtract_shader',
     'Add' : 'additive_shader',
@@ -21,3 +24,84 @@ NATIVE_SHADERS = {
 
 def get_name(name):
     return NATIVE_SHADERS.get(name, name)
+
+VERTEX_REPLACEMENTS = {
+    'gl_MultiTexCoord0': 'in_tex_coord1',
+    'gl_MultiTexCoord1': 'in_tex_coord2',
+    'gl_Vertex': 'in_pos',
+    'gl_Color': 'in_blend_color',
+    'gl_FrontColor': 'blend_color',
+    'gl_ModelViewProjectionMatrix': '1.0'
+}
+
+FRAGMENT_REPLACEMENTS = {
+    'gl_Color': 'blend_color'
+}
+
+REPLACEMENTS = {
+    'vertex': VERTEX_REPLACEMENTS,
+    'fragment': FRAGMENT_REPLACEMENTS,
+}
+
+SHADER_TYPES = {
+    'blend_color': 'varying vec4 blend_color',
+    'in_tex_coord1': 'attribute vec2 in_tex_coord1',
+    'in_tex_coord2': 'attribute vec2 in_tex_coord2',
+    'in_pos': 'attribute vec4 in_pos',
+    'in_blend_color': 'uniform vec4 in_blend_color'
+}
+
+def translate_shader_data(data, typ, profile):
+    # translates GLSL shaders to GLES-compatible ones
+    features = set()
+    for k, v in REPLACEMENTS[typ].iteritems():
+        if not k in data:
+            continue
+        data = data.replace(k, v)
+        features.add(v)
+
+    lines = data.splitlines()
+    if lines[0].strip() != '#version 120':
+        raise NotImplementedError()
+    if profile == 'gles':
+        lines.pop(0)
+        lines.insert(0, 'precision mediump float;')
+    for feature in features:
+        new_typ = SHADER_TYPES.get(feature, None)
+        if not new_typ:
+            continue
+        new_line = '%s;' % (new_typ)
+        lines.insert(1, new_line)
+    return '\n'.join(lines)
+
+def translate_shader_path(path, typ, out_path, profile):
+    with open(path, 'rU') as fp:
+        data = fp.read()
+    data = translate_shader_data(data, typ, profile)
+    open(out_path, 'wb').write(data)
+
+def translate_program(name, out_dir, profile):
+    makedirs(out_dir)
+    shader_path = os.path.join(get_base_path(), 'shaders')
+    vert_path = os.path.join(shader_path, '%s.vert' % name)
+    frag_path = os.path.join(shader_path, '%s.frag' % name)
+    new_vert_path = os.path.join(out_dir, '%s.vert' % name)
+    new_frag_path = os.path.join(out_dir, '%s.frag' % name)
+    translate_shader_path(vert_path, 'vertex', new_vert_path, profile)
+    translate_shader_path(frag_path, 'fragment', new_frag_path, profile)
+    return new_vert_path, new_frag_path
+
+def get_shader_programs():
+    shaders = set()
+    for path in os.listdir(os.path.join(get_base_path(), 'shaders')):
+        shaders.add(os.path.splitext(os.path.basename(path))[0])
+    return shaders
+
+def main():
+    out_dir = os.path.join(os.getcwd(), 'glesshaders')
+    for name in get_shader_programs():
+        translate_program(name, out_dir, 'gles')
+        print 'Translated shader', name
+
+if __name__ == '__main__':
+    main()

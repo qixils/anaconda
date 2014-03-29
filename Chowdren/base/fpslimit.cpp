@@ -1,7 +1,12 @@
 #include "platform.h"
 
 #ifdef _WIN32
-#include "windows.h"
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX                /* Don't defined min() and max() */
+#endif
+#include <windows.h>
+#include <mmsystem.h>
 #endif
 
 #include "fpslimit.h"
@@ -40,7 +45,9 @@ void FPSLimiter::start()
 
 void FPSLimiter::finish()
 {
+#ifndef CHOWDREN_IS_EMSCRIPTEN
     if (framerate >= 100)
         return;
     platform_sleep(next_update - platform_get_time());
+#endif
 }

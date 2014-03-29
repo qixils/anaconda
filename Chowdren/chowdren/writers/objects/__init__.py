@@ -9,6 +9,7 @@ class ObjectWriter(BaseWriter):
     includes = []
     event_callbacks = None
     use_alterables = False
+    has_color = False
 
     def __init__(self, *arg, **kw):
         self.event_callbacks = {}

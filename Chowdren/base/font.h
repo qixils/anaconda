@@ -5,13 +5,13 @@
 
 typedef enum
 {
-    ALIGN_LEFT = 0,
-    ALIGN_HCENTER = 1,
-    ALIGN_RIGHT = 2,
-    ALIGN_JUSTIFY = 3,
-    ALIGN_TOP = 4,
-    ALIGN_BOTTOM = 5,
-    ALIGN_VCENTER = 6
+    ALIGN_LEFT = 1 << 0,
+    ALIGN_HCENTER = 1 << 1,
+    ALIGN_RIGHT = 1 << 2,
+    ALIGN_JUSTIFY = 1 << 3,
+    ALIGN_TOP = 1 << 4,
+    ALIGN_BOTTOM = 1 << 5,
+    ALIGN_VCENTER = 1 << 6
 } TextAlignment;
 
 #ifdef CHOWDREN_USE_FT2
@@ -774,20 +774,10 @@ public:
                            FTPoint position, FTPoint spacing,
                            int renderMode)
     {
-        // Protect GL_TEXTURE_2D
-        glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
-                     GL_TEXTURE_ENV_MODE);
-
         glEnable(GL_TEXTURE_2D);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
         FTTextureGlyph::ResetActiveTexture();
-
         FTPoint tmp = FTFont::Render(string, len,
                                      position, spacing, renderMode);
-
-        glPopAttrib();
-
         return tmp;
     }
 

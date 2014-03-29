@@ -9,7 +9,7 @@ inline double get_pixels(int speed)
     return speed / 8.0;
 }
 
-const static int accelerators[] =
+static const int accelerators[] =
 {
     0x0002,0x0003,0x0004,0x0006,0x0008,0x000a,0x000c,0x0010,0x0014,0x0018,
     0x0030,0x0038,0x0040,0x0048,0x0050,0x0058,0x0060,0x0068,0x0070,0x0078,
@@ -31,7 +31,7 @@ inline double get_accelerator(int value)
     return value;
 }
 
-const static int movement_directions[] = 
+static const int movement_directions[] = 
 {
     -1,             // 0000 Static
     8,              // 0001
@@ -309,7 +309,7 @@ void PathMovement::add_named_node(int i, const std::string & name)
     named_nodes.push_back(node);
 }
 
-void PathMovement::set_node(int i)
+void PathMovement::set_current_node(int i)
 {
     current_node = i;
     PathNode & node = nodes[i];
@@ -321,7 +321,7 @@ void PathMovement::set_node(int i)
 void PathMovement::start()
 {
     if (current_node == -1)
-        set_node(0);
+        set_current_node(0);
     else if (current_node == -2)
         return;
     else
@@ -348,12 +348,12 @@ void PathMovement::update(float dt)
         int next_node = current_node+dir;
         bool is_last = next_node == nodes.size() || next_node == -1;
         if (!is_last) {
-            set_node(next_node);
+            set_current_node(next_node);
             return;
         }
         if (reverse && dir == 1) {
             dir = -1;
-            set_node(current_node);
+            set_current_node(current_node);
             return;
         }
         move(-end_x, -end_y);
@@ -364,7 +364,7 @@ void PathMovement::update(float dt)
         if (reverse)
             dir = -dir;
         next_node = (current_node+dir) % nodes.size();
-        set_node(next_node);
+        set_current_node(next_node);
     }
 }
 

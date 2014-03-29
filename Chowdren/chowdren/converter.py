@@ -27,7 +27,7 @@ from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits, 
-    to_c, make_color, get_image_name, parse_direction)
+    to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -459,12 +459,6 @@ class EventGroup(object):
     def set_generated(self, value):
         self.generated = value
 
-def makedirs(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        return
-
 def fix_sound(data, extension):
     data = str(data)
     if extension != 'wav':
@@ -503,12 +497,6 @@ class Converter(object):
         self.outdir = outdir
 
         # copy base
-        # shutil.rmtree(outdir, ignore_errors = True)
-        if base_only:
-            excludes = ['resource.rc', 'CMakeLists.txt']
-        else:
-            excludes = []
-        copytree(os.path.join(os.getcwd(), 'base'), outdir, excludes)
         if base_only:
             return
 
@@ -534,19 +522,26 @@ class Converter(object):
         if mac_icns is not None:
             shutil.copy(mac_icns, self.get_filename('icon.icns'))
 
+        # set up directory structure
+        makedirs(outdir)
+        makedirs(os.path.join(outdir, 'build'))
+
         # application info
         company = company or game.author
         version = version or '1.0.0.0'
         version_number = ', '.join(version.split('.'))
         copyright = copyright or game.author
+        self.base_path = get_base_path()
         self.info_dict = dict(company = company, version = version, 
             copyright = copyright, description = game.name,
-            version_number = version_number, name = game.name)
+            version_number = version_number, name = game.name,
+            base_path = self.base_path.replace('\\', '/'))
         hacks.init(self)
 
-        # for resource.rc
+        # format input
         self.format_file('resource.rc')
-        self.format_file('CMakeLists.txt')
+        self.format_file('Application.cmake', 'CMakeLists.txt')
+        self.open('config.py').write(repr(self.info_dict))
         
         # write keys file
         keys_file = self.open_code('keys.h')
@@ -660,7 +655,7 @@ class Converter(object):
         
         # sounds
         if WRITE_SOUNDS:
-            makedirs(self.get_filename('sounds'))
+            dir_created = False
             sounds_file = self.open_code('sounds.h')
             sounds_file.putln('#include "common.h"')
             sounds_file.start_guard('SOUNDS_H')
@@ -674,6 +669,9 @@ class Converter(object):
                         sound_type]
                     filename = '%s.%s' % (sound.name, extension)
                     data = fix_sound(sound.data, extension)
+                    if not dir_created:
+                        makedirs(self.get_filename('sounds'))
+                        dir_created = True
                     self.open('sounds', filename).write(data)
                     sounds_file.putln(to_c('media->add_cache(%r, %r);', 
                         sound.name, filename))
@@ -692,6 +690,7 @@ class Converter(object):
         objects_file.putln('#include "objects.h"')
         objects_file.putln('#include "common.h"')
         objects_file.putln('#include "fonts.h"')
+        objects_file.putln('#include "font.h"')
         objects_file.putln('')
         
         self.object_names = {}
@@ -771,8 +770,11 @@ class Converter(object):
                     parameter = frameitem.inkEffectValue
                     b, g, r = get_color_tuple(parameter)
                     a = (parameter & 0xFF000000) >> 24
-                    objects_file.putln('blend_color = %s;' % make_color(
-                        (r, g, b, a)))
+                    if object_writer.has_color:
+                        objects_file.putlnc('blend_color.a = %s;', a)
+                    else:
+                        objects_file.putln('blend_color = %s;' % make_color(
+                            (r, g, b, a)))
                     ink_effect &= ~HWA_EFFECT
                     if ink_effect == SHADER_EFFECT:
                         shader_data = game.shaders.items[frameitem.shaderId]
@@ -786,8 +788,12 @@ class Converter(object):
                 elif ink_effect == INVERTED_EFFECT:
                     shader_name = 'Invert'
                 elif ink_effect == SEMITRANSPARENT_EFFECT:
-                    objects_file.putln('blend_color = %s;' % make_color(
-                        (255, 255, 255, 255 - frameitem.inkEffectValue)))
+                    a = 255 - frameitem.inkEffectValue
+                    if object_writer.has_color:
+                        objects_file.putlnc('blend_color.a = %s;', a)
+                    else:
+                        objects_file.putlnc('blend_color = %s;', make_color(
+                            (255, 255, 255, a)))
                 else:
                     raise NotImplementedError(
                         'unknown inkeffect: %s' % ink_effect)
@@ -1249,7 +1255,7 @@ class Converter(object):
 
         # general configuration
         header = game.header
-        config_file = self.open_code('config.h')
+        config_file = self.open_code('chowconfig.h')
         config_file.start_guard("CHOWDREN_CONFIG_H")
 
         # small hack to make applications with Ultimate Fullscreen not open
@@ -1630,7 +1636,7 @@ class Converter(object):
             object_info, object_type = action_writer.get_object()
             if object_info is not None and not is_qualifier(object_info):
                 is_static = self.all_objects[object_info].static
-                if is_static and not action_writer.static:
+                if is_static and action_writer.ignore_static:
                     continue
             self.current_object = (object_info, object_type)
             if object_info is not None:
@@ -2042,12 +2048,13 @@ class Converter(object):
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)
 
-    def format_file(self, path):
-        path = self.get_filename(path)
-        fp = open(path, 'rb')
+    def format_file(self, src, dst=None):
+        src = os.path.join(self.base_path, src)
+        dst = self.get_filename(dst or src)
+        fp = open(src, 'rb')
         data = fp.read()
         fp.close()
         data = data % self.info_dict
-        fp = open(path, 'wb')
+        fp = open(dst, 'wb')
         fp.write(data)
         fp.close()

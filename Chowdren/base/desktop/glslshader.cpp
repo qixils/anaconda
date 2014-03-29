@@ -1,7 +1,7 @@
 #include "../shader.h"
 #include "../frameobject.h"
 #include "../manager.h"
-#include "../config.h"
+#include "chowconfig.h"
 #include "../filecommon.h"
 #include "../image.h"
 #include "glslshader.h"
@@ -25,6 +25,7 @@ static void initialize_background()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
+GLSLShader * GLSLShader::current = NULL;
 
 GLSLShader::GLSLShader(const std::string & name, bool has_back) 
 : initialized(false), name(name), has_background(has_back)
@@ -36,6 +37,13 @@ void GLSLShader::initialize()
     program = glCreateProgram();
     GLuint vert_shader = attach_source("vert", GL_VERTEX_SHADER);
     GLuint frag_shader = attach_source("frag", GL_FRAGMENT_SHADER);
+
+#ifndef CHOWDREN_USE_GL
+    glBindAttribLocation(program, POSITION_ATTRIB_IDX, POSITION_ATTRIB_NAME);
+    glBindAttribLocation(program, TEXCOORD1_ATTRIB_IDX, TEXCOORD1_ATTRIB_NAME);
+    glBindAttribLocation(program, TEXCOORD2_ATTRIB_IDX, TEXCOORD2_ATTRIB_NAME);
+#endif
+
     glLinkProgram(program);
 
     GLint status;
@@ -56,12 +64,18 @@ void GLSLShader::initialize()
         initialize_background();
 
     glUseProgram(program);
-    glUniform1i((GLint)get_uniform("texture"), 0);
+
+    // setup uniforms
+    glUniform1i((GLint)get_uniform(TEXTURE_SAMPLER_NAME), 0);
 
     if (has_background) {
-        glUniform1i((GLint)get_uniform("background_texture"), 1);
-        size_uniform = (GLint)get_uniform("texture_size");
+        glUniform1i((GLint)get_uniform(BACKTEX_SAMPLER_NAME), 1);
+        size_uniform = (GLint)get_uniform(SIZE_UNIFORM_NAME);
     }
+
+#ifndef CHOWDREN_USE_GL
+    blend_color = (GLint)get_uniform(COLOR_UNIFORM_NAME);
+#endif
 
     glUseProgram(0);
 
@@ -122,8 +136,8 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
     if (has_background) {
         int box[4];
         instance->get_box(box);
-        platform_copy_color_buffer_rect(background_texture, box[0], box[1],
-                                        box[2], box[3]);
+        glc_copy_color_buffer_rect(background_texture, box[0], box[1],
+                                   box[2], box[3]);
     }
 
     glUseProgram(program);
@@ -133,6 +147,8 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
                                   1.0f / image->height);
 
     set_parameters(instance);
+
+    current = this;
 }
 
 void GLSLShader::set_parameters(FrameObject * instance) 
@@ -142,6 +158,8 @@ void GLSLShader::set_parameters(FrameObject * instance)
 
 void GLSLShader::end(FrameObject * instance)
 {
+    current = NULL;
+
     glUseProgram(0);
 }
 

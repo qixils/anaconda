@@ -87,7 +87,7 @@ public:
     void add_node(int speed, float x, float y, float length, int dir,
                   float pause);
     void add_named_node(int i, const std::string & name);
-    void set_node(int i);
+    void set_current_node(int i);
     void update(float dt);
     void start();
     void stop();

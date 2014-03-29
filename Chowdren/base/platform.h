@@ -3,7 +3,6 @@
 
 #include <string>
 #include <stdio.h>
-#include "color.h"
 #include "fileio.h"
 
 void open_url(const std::string & name);
@@ -76,10 +75,10 @@ std::string convert_path(const std::string & value);
 
 // shaders
 
-void init_shaders_platform();
-void platform_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
+void glc_init_shaders();
+void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
                                      int y2);
-void platform_scissor_world(int x, int y, int w, int h);
+void glc_scissor_world(int x, int y, int w, int h);
 
 // demo
 

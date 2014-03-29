@@ -2,11 +2,10 @@
 #define CHOWDREN_COMMON_H
 
 #include "keys.h"
-#include "config.h"
+#include "chowconfig.h"
 #include "manager.h"
 #include "platform.h"
 #include "include_gl.h"
-#include "font.h"
 #include <string>
 #include <list>
 #include <vector>
@@ -446,6 +445,8 @@ void set_font_path(const char * path);
 void set_font_path(const std::string & path);
 void init_font();
 
+class FTSimpleLayout;
+
 class Text : public FrameObject
 {
 public:
@@ -453,7 +454,6 @@ public:
     std::string text;
     unsigned int current_paragraph;
     bool initialized;
-    Color color;
     int alignment;
     CollisionBase * collision;
     bool bold, italic;
@@ -477,6 +477,7 @@ public:
     std::string get_paragraph(int index);
     CollisionBase * get_collision();
     void set_width(int w);
+    int get_width();
     int get_height();
     void update_draw_text();
 };

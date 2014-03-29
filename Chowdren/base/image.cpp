@@ -8,7 +8,7 @@
 #include <vector>
 #include "platform.h"
 #include "datastream.h"
-#include "config.h"
+#include "chowconfig.h"
 
 static int read_func(void *user, char *data, int size)
 {
@@ -66,8 +66,10 @@ Image::~Image()
         return;
     if (image != NULL)
         stbi_image_free(image);
+#ifndef CHOWDREN_IS_WIIU
     if (alpha != NULL)
         delete[] alpha;
+#endif
     if (tex != 0)
         glDeleteTextures(1, &tex);
     image = NULL;
@@ -156,14 +158,16 @@ void Image::upload_texture()
         ref->upload_texture();
         tex = ref->tex;
         image = ref->image;
+#ifndef CHOWDREN_IS_WIIU
         alpha = ref->alpha;
+#endif
         return;
     }
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, 
-                 GL_UNSIGNED_BYTE, image);
+                     GL_UNSIGNED_BYTE, image);
 #ifdef CHOWDREN_QUICK_SCALE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -205,6 +209,36 @@ bool Image::get_alpha(int x, int y)
     return c != 0;
 }
 
+const float flipped_texcoords[] = {
+    1.0f, 0.0f,
+    0.0f, 0.0f,
+    0.0f, 1.0f,
+    1.0f, 1.0f
+};
+
+const float normal_texcoords[] = {
+    0.0f, 0.0f,
+    1.0f, 0.0f,
+    1.0f, 1.0f,
+    0.0f, 1.0f
+};
+
+#ifdef CHOWDREN_IS_DESKTOP
+const float back_texcoords[] = {
+    0.0f, 1.0f,
+    1.0f, 1.0f,
+    1.0f, 0.0f,
+    0.0f, 0.0f
+};
+#else
+const float back_texcoords[] = {
+    0.0f, 0.0f,
+    1.0f, 0.0f,
+    1.0f, 1.0f,
+    0.0f, 1.0f
+};
+#endif
+
 void Image::draw(double x, double y, double angle, 
                  double scale_x, double scale_y,
                  bool flip_x, bool flip_y, GLuint background)
@@ -232,33 +266,31 @@ void Image::draw(double x, double y, double angle,
         glBindTexture(GL_TEXTURE_2D, background);
     }
     glBegin(GL_QUADS);
-    float tex_coords[8];
+    const float * tex_coords;
     if (flip_x) {
-         tex_coords[0] = 1.0; tex_coords[1] = 0.0;
-         tex_coords[2] = 0.0; tex_coords[3] = 0.0;
-         tex_coords[4] = 0.0; tex_coords[5] = 1.0;
-         tex_coords[6] = 1.0; tex_coords[7] = 1.0;
+        tex_coords = flipped_texcoords;
     } else {
-         tex_coords[0] = 0.0; tex_coords[1] = 0.0;
-         tex_coords[2] = 1.0; tex_coords[3] = 0.0;
-         tex_coords[4] = 1.0; tex_coords[5] = 1.0;
-         tex_coords[6] = 0.0; tex_coords[7] = 1.0;
+        tex_coords = normal_texcoords;
     }
     glTexCoord2f(tex_coords[0], tex_coords[1]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[0], tex_coords[1]);
+        glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[0], back_texcoords[1]);
     glVertex2d(-hotspot_x, -hotspot_y);
     glTexCoord2f(tex_coords[2], tex_coords[3]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[2], tex_coords[3]);
+        glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[2], back_texcoords[3]);
     glVertex2d(-hotspot_x + width, -hotspot_y);
     glTexCoord2f(tex_coords[4], tex_coords[5]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[4], tex_coords[5]);
+        glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[4], back_texcoords[5]);
     glVertex2d(-hotspot_x + width, -hotspot_y + height);
     glTexCoord2f(tex_coords[6], tex_coords[7]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1, tex_coords[6], tex_coords[7]);
+        glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[6], back_texcoords[7]);
     glVertex2d(-hotspot_x, -hotspot_y + height);
     glEnd();
     if (background != 0) {

@@ -1,8 +1,13 @@
 #include <cstdlib>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
 #endif
 
 #include "manager.h"
@@ -13,7 +18,7 @@ GameManager * global_manager;
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "config.h"
+#include "chowconfig.h"
 #include "frames.h"
 #include "common.h"
 #include "fonts.h"
@@ -24,13 +29,17 @@ GameManager * global_manager;
 #include "SDL.h"
 #endif
 
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
+
 #ifndef NDEBUG
 #define CHOWDREN_DEBUG
 #endif
 
-#ifdef CHOWDREN_DEBUG
+// #ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-#endif
+// #endif
 
 GameManager::GameManager() 
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -93,7 +102,7 @@ void GameManager::set_window(bool fullscreen)
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 #ifdef CHOWDREN_QUICK_SCALE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -103,11 +112,11 @@ void GameManager::set_window(bool fullscreen)
 #endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenFramebuffersEXT(1, &screen_fbo);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-        GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, screen_texture, 0);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glGenFramebuffers(1, &screen_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 }
 
@@ -138,7 +147,7 @@ void GameManager::on_mouse(int key, bool state)
         mouse.remove(key);
 }
 
-int GameManager::update()
+int GameManager::update_frame()
 {
     double dt = fps_limit.dt;
     if (fade_dir != 0.0f) {
@@ -210,7 +219,8 @@ void GameManager::draw()
 
     platform_begin_draw();
 
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, screen_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 #ifdef CHOWDREN_IS_WIIU
     int remote_setting = platform_get_remote_value();
@@ -231,7 +241,9 @@ void GameManager::draw()
 #else
     frame->draw(CHOWDREN_HYBRID_TARGET);
 #endif
+
     glLoadIdentity();
+
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
         std::string date(__DATE__);
@@ -250,7 +262,7 @@ void GameManager::draw()
     if (fade_dir != 0.0f) {
         glBegin(GL_QUADS);
         glColor4ub(fade_color.r, fade_color.g, fade_color.b,
-                   int(fade_value * 255));
+                      int(fade_value * 255));
         glVertex2f(0.0f, 0.0f);
         glVertex2f(WINDOW_WIDTH, 0.0f);
         glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -259,7 +271,6 @@ void GameManager::draw()
     }
 
 #ifdef CHOWDREN_IS_DESKTOP
-
     bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
 
     if (resize) {
@@ -283,7 +294,7 @@ void GameManager::draw()
         y_size = WINDOW_HEIGHT;
     }
 
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // resize the window contents if necessary (fullscreen mode)
 
@@ -365,71 +376,88 @@ void GameManager::set_fade(const Color & color, float fade_dir)
         fade_value = 0.0f;
 }
 
-void GameManager::run()
+bool GameManager::update()
 {
-    int measure_time = 0;
+    static int measure_time = 0;
+    measure_time -= 1;
+    bool show_stats = false;
+    if (measure_time <= 0) {
+        measure_time = 200;
+        show_stats = true;
+    }
 
-    while(true) {
-        measure_time -= 1;
-        bool show_stats = false;
-        if (measure_time <= 0) {
-            measure_time = 200;
-            show_stats = true;
-        }
+    // update input
+    keyboard.update();
+    mouse.update();
 
-        // update input
-        keyboard.update();
-        mouse.update();
+    fps_limit.start();
+    platform_poll_events();
 
-        fps_limit.start();
-        platform_poll_events();
+    // update mouse position
+    platform_get_mouse_pos(&mouse_x, &mouse_y);
+    mouse_x = (mouse_x - off_x) * (float(WINDOW_WIDTH) / x_size);
+    mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
 
-        // update mouse position
-        platform_get_mouse_pos(&mouse_x, &mouse_y);
-        mouse_x = (mouse_x - off_x) * (float(WINDOW_WIDTH) / x_size);
-        mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
+    if (show_stats)
+        std::cout << "Framerate: " << fps_limit.current_framerate 
+            << std::endl;
+
+    if (platform_has_error()) {
+        if (platform_display_closed())
+            return false;
+    } else {
+        double event_update_time = platform_get_time();
+
+        int ret = update_frame();
 
         if (show_stats)
-            std::cout << "Framerate: " << fps_limit.current_framerate 
-                << std::endl;
+            std::cout << "Event update took " << 
+                platform_get_time() - event_update_time << std::endl;
 
-        if (platform_has_error()) {
-            if (platform_display_closed())
-                break;
-        } else {
-            double event_update_time = platform_get_time();
+        if (ret == 0)
+            return false;
+        else if (ret == 2)
+            return true;
 
-            int ret = update();
+        if (window_created && platform_display_closed())
+            return false;
+    }
 
-            if (show_stats)
-                std::cout << "Event update took " << 
-                    platform_get_time() - event_update_time << std::endl;
+    double draw_time = platform_get_time();
 
-            if (ret == 0)
-                break;
-            else if (ret == 2)
-                continue;
+    draw();
 
-            if (window_created && platform_display_closed())
-                break;
-        }
+    if (show_stats) {
+        std::cout << "Draw took " << platform_get_time() - draw_time
+            << std::endl;
+        std::cout << "Instance count: " << frame->instances.size()
+            << std::endl;   
+        platform_print_stats();
+    }
 
-        double draw_time = platform_get_time();
+    fps_limit.finish();
+    return true;
+}
 
-        draw();
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+static void _emscripten_run()
+{
+    global_manager->update();
+}
+#endif
 
-        if (show_stats) {
-            std::cout << "Draw took " << platform_get_time() - draw_time
-                << std::endl;
-            std::cout << "Instance count: " << frame->instances.size()
-                << std::endl;   
-            platform_print_stats();
-        }
-
-        fps_limit.finish();
+void GameManager::run()
+{
+#ifdef CHOWDREN_IS_EMSCRIPTEN
+    emscripten_set_main_loop(_emscripten_run, 0, 1);
+#else
+    while (true) {
+        if (!update())
+            break;
     }
     delete media;
     platform_exit();
+#endif
 }
 
 // InputList

@@ -42,7 +42,8 @@ public:
     GameManager();
     void on_key(int key, bool state);
     void on_mouse(int key, bool state);
-    int update();
+    bool update();
+    int update_frame();
     void draw();
     void set_frame(int index);
     void set_framerate(int framerate);

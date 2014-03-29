@@ -139,7 +139,7 @@ class InvertShader : public GLSLShader
 {
 public:
     InvertShader()
-    : GLSLShader("invert", true)
+    : GLSLShader("invert")
     {
 
     }
@@ -170,6 +170,26 @@ public:
     }
 };
 
+#ifndef CHOWDREN_USE_GL
+class BasicShader : public GLSLShader
+{
+public:
+    BasicShader() 
+    : GLSLShader("basic", false)
+    {
+    }
+};
+
+class TextureShader : public GLSLShader
+{
+public:
+    TextureShader() 
+    : GLSLShader("texture", false)
+    {
+    }
+};
+#endif
+
 Shader * subtract_shader;
 Shader * additive_shader;
 Shader * monochrome_shader;
@@ -180,6 +200,10 @@ Shader * blend_shader;
 Shader * offset_shader;
 Shader * dodgeblur_shader;
 Shader * invert_shader;
+#ifndef CHOWDREN_USE_GL
+Shader * basic_shader;
+Shader * texture_shader;
+#endif
 
 void init_shaders()
 {
@@ -193,5 +217,9 @@ void init_shaders()
     offset_shader = new OffsetShader;
     dodgeblur_shader = new DodgeBlurShader;
     invert_shader = new InvertShader;
-    init_shaders_platform();
+#ifndef CHOWDREN_USE_GL
+    basic_shader = new BasicShader;
+    texture_shader = new TextureShader;
+#endif
+    glc_init_shaders();
 }

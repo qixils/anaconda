@@ -73,6 +73,8 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_QUICK_SCALE')
     if is_knytt_japan:
         writer.putln('#define CHOWDREN_TEXT_USE_UTF8')
+        writer.putln('#define CHOWDREN_BIG_FONT_SIZE 23')
+        writer.putln('#define CHOWDREN_BIG_FONT_OFFY 4')
     if not is_knytt:
         writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:

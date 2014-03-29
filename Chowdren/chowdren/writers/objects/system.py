@@ -177,6 +177,7 @@ class QuickBackdrop(ObjectWriter):
 class Text(ObjectWriter):
     class_name = 'Text'
     use_alterables = True
+    has_color = True
 
     def initialize(self):
         pass
@@ -189,7 +190,7 @@ class Text(ObjectWriter):
         # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
-        writer.putln('color = %s;' % make_color(text.items[0].color))
+        writer.putln('blend_color = %s;' % make_color(text.items[0].color))
         font = text.items[0].font
         writer.putln('bold = font%s.bold;' % font)
         writer.putln('italic = font%s.italic;' % font)
@@ -225,7 +226,7 @@ class RTFText(ObjectWriter):
         # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
-        writer.putln('color = Color(0, 0, 0);')
+        writer.putln('blend_color = Color(0, 0, 0);')
         writer.putln('bold = false;')
         writer.putln('italic = false;')
 

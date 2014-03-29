@@ -7,7 +7,7 @@
 #endif
 
 #include <SDL.h>
-#include "../config.h"
+#include "chowconfig.h"
 #include "../platform.h"
 #include "../include_gl.h"
 #include "../manager.h"
@@ -27,17 +27,19 @@ Uint64 start_time;
 
 inline bool check_opengl_extension(const char * name)
 {
-    if (glewGetExtension(name) == GL_TRUE)
+    if (SDL_GL_ExtensionSupported(name) == SDL_TRUE)
         return true;
     std::cout << "OpenGL extension '" << name << "' not supported." << std::endl;
     return false;
 }
 
 const char * extensions[] = {
+#ifdef CHOWDREN_USE_GL
     "GL_EXT_framebuffer_object",
     "GL_ARB_vertex_shader",
     "GL_ARB_fragment_shader",
     "GL_ARB_texture_non_power_of_two",
+#endif
     NULL
 };
 
@@ -108,8 +110,10 @@ static void set_resources_dir()
 
 void platform_init()
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER |
-                 SDL_INIT_HAPTIC) < 0) {
+    unsigned int flags = SDL_INIT_VIDEO | SDL_INIT_JOYSTICK |
+                         SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC |
+                         SDL_INIT_NOPARACHUTE;
+    if (SDL_Init(flags) < 0) {
         std::cout << "SDL could not be initialized: " << SDL_GetError()
             << std::endl;
         return;
@@ -243,6 +247,18 @@ void platform_create_display(bool fullscreen)
 {
     is_fullscreen = fullscreen;
 
+#ifdef CHOWDREN_USE_GLES1
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                        SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#elif CHOWDREN_USE_GLES2
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                        SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
+
     int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     if (fullscreen) {
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -267,8 +283,10 @@ void platform_create_display(bool fullscreen)
 
     SDL_GL_SetSwapInterval(0);
 
+#ifdef CHOWDREN_USE_GL
     // initialize OpenGL extensions
     glewInit();
+#endif
 
     // check extensions
     if (!check_opengl_extensions()) {
@@ -293,87 +311,6 @@ void platform_swap_buffers()
     SDL_GL_SwapWindow(global_window);
 }
 
-static bool copy_initialized = false;
-static GLuint background_fbo;
-
-static void initialize_copy()
-{
-    copy_initialized = true;
-    glGenFramebuffersEXT(1, &background_fbo);
-}
-
-void platform_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
-                                     int y2)
-{
-    if (!copy_initialized)
-        initialize_copy();
-
-    int width = x2 - x1;
-    int height = y2 - y1;
-
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
-        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glPushAttrib(GL_VIEWPORT_BIT);
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, width, height, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, background_fbo);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-        GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex, 0);
-
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, global_manager->screen_texture);
-    glDisable(GL_BLEND);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glTexCoord2f(x1 / float(WINDOW_WIDTH), 
-                 1.0 - y2 / float(WINDOW_HEIGHT));
-    glVertex2i(0, 0);
-    glTexCoord2f(x2 / float(WINDOW_WIDTH), 
-                 1.0 - y2 / float(WINDOW_HEIGHT));
-    glVertex2i(width, 0);
-    glTexCoord2f(x2 / float(WINDOW_WIDTH),
-                 1.0 - y1 / float(WINDOW_HEIGHT));
-    glVertex2i(width, height);
-    glTexCoord2f(x1 / float(WINDOW_WIDTH),
-                 1.0 - y1 / float(WINDOW_HEIGHT));
-    glVertex2i(0, height);
-    glEnd();
-    glDisable(GL_TEXTURE_2D);
-    glEnable(GL_BLEND);
-    glPopMatrix(); // restore modelview matrix
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopAttrib(); // restores viewport
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,
-                         global_manager->screen_fbo);
-}
-
-void platform_scissor_world(int x, int y, int w, int h)
-{
-    GLfloat modelview[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-
-    int w_x = int(x + modelview[12]);
-    int w_y2 = int(WINDOW_HEIGHT - y - modelview[13]);
-    int w_x2 = w_x + w;
-    int w_y = w_y2 - h;
-
-    w_x = int_max(0, int_min(w_x, WINDOW_WIDTH));
-    w_x2 = int_max(0, int_min(w_x2, WINDOW_WIDTH));
-    w_y = int_max(0, int_min(w_y, WINDOW_HEIGHT));
-    w_y2 = int_max(0, int_min(w_y2, WINDOW_HEIGHT));
-
-    glScissor(w_x, w_y, w_x2 - w_x, w_y2 - w_y);
-}
-
 void platform_get_size(int * width, int * height)
 {
     SDL_GL_GetDrawableSize(global_window, width, height);
@@ -381,7 +318,8 @@ void platform_get_size(int * width, int * height)
 
 void platform_get_screen_size(int * width, int * height)
 {
-    int display_index = SDL_GetWindowDisplayIndex(global_window);
+    int display_index;
+    display_index = SDL_GetWindowDisplayIndex(global_window);
     SDL_Rect bounds;
     SDL_GetDisplayBounds(display_index, &bounds);
     *width = bounds.w;
@@ -460,6 +398,7 @@ size_t get_file_size(const char * filename)
 #ifdef __APPLE__
 #define unix
 #endif
+
 #include <platformstl/platformstl.hpp>
 #include <platformstl/filesystem/path.hpp>
 #include <platformstl/filesystem/directory_functions.hpp>
@@ -1069,12 +1008,6 @@ std::string convert_path(const std::string & v)
 #else
     return v;
 #endif
-}
-
-// shaders
-
-void init_shaders_platform()
-{
 }
 
 // debug

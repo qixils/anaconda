@@ -1,4 +1,15 @@
 import string
+import os
+
+def get_base_path():
+    path = os.path.join(os.path.dirname(__file__), '..', 'base')
+    return os.path.abspath(path)
+
+def makedirs(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        return
 
 COMPARISONS = [
     '==',

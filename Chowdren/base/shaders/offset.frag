@@ -13,6 +13,6 @@ void main()
     vec4 shift = texture2D(texture, texture_coordinate0);
     vec2 off = vec2(width * texture_size.x, height * texture_size.y);
     off.x *= 2.0 * (shift.r-0.5);
-    off.y *= -2.0 * (shift.g-0.5);
+    off.y *= 2.0 * (shift.g-0.5);
     gl_FragColor = texture2D(background_texture, texture_coordinate1+off);
 }

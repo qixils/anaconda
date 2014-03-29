@@ -8,6 +8,7 @@ class EventWriter(BaseWriter):
     has_object = True
     container = None
     prefix = ''
+    ignore_static = False
 
     def __init__(self, *arg, **kw):
         BaseWriter.__init__(self, *arg, **kw)

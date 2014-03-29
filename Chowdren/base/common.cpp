@@ -3,7 +3,8 @@
 #include "filecommon.h"
 #include <string>
 #include <boost/unordered_map.hpp>
-#include "config.h"
+#include "chowconfig.h"
+#include "font.h"
 
 std::string newline_character("\r\n");
 std::string empty_string("");
@@ -1720,14 +1721,22 @@ void set_font_path(const std::string & path)
     set_font_path(path.c_str());
 }
 
+#ifndef CHOWDREN_SMALL_FONT_SIZE
+#define CHOWDREN_SMALL_FONT_SIZE 13
+#endif
+
+#ifndef CHOWDREN_BIG_FONT_SIZE
+#define CHOWDREN_BIG_FONT_SIZE 24
+#endif
+
 void init_font()
 {
     static bool initialized = false;
     if (initialized)
         return;
     set_font_path("Arial.ttf"); // default font, could be set already
-    big_font->FaceSize(24, 96);
-    small_font->FaceSize(13, 96);
+    big_font->FaceSize(CHOWDREN_BIG_FONT_SIZE, 96);
+    small_font->FaceSize(CHOWDREN_SMALL_FONT_SIZE, 96);
     initialized = true;
 }
 
@@ -1765,7 +1774,7 @@ void Text::add_line(std::string text)
 void Text::draw()
 {
     update_draw_text();
-    color.apply();
+    blend_color.apply();
     glPushMatrix();
     if (layout != NULL) {
         FTBBox bb = layout->BBox(draw_text.c_str(), -1);
@@ -1788,10 +1797,16 @@ void Text::draw()
         else if (alignment & ALIGN_RIGHT) 
             off_x += width - box_w;
 
-        if (alignment & ALIGN_VCENTER)
+        if (alignment & ALIGN_VCENTER) {
             off_y += height * 0.5 - font->LineHeight() * 0.5;
-        else if (alignment & ALIGN_BOTTOM)
+        } else if (alignment & ALIGN_BOTTOM) {
             off_y += font->LineHeight();
+        }
+
+#ifdef CHOWDREN_BIG_FONT_OFFY
+        if (font == big_font)
+            off_y += CHOWDREN_BIG_FONT_OFFY;
+#endif
 
         glTranslated((int)off_x, (int)off_y, 0.0);
         glScalef(1, -1, 1);
@@ -1890,6 +1905,15 @@ void Text::set_width(int w)
     layout->SetLineLength(w);
 }
 
+int Text::get_width()
+{
+    if (layout == NULL)
+        return width;
+    update_draw_text();
+    FTBBox bb = layout->BBox(draw_text.c_str(), text.size());
+    return (int)(bb.Upper().X() - bb.Lower().X());
+}
+
 int Text::get_height()
 {
     if (layout == NULL)
@@ -1903,7 +1927,7 @@ int Text::get_height()
 
 int FontInfo::get_width(FrameObject * obj)
 {
-    return ((Text*)obj)->width;
+    return ((Text*)obj)->get_width();
 }
 
 int FontInfo::get_height(FrameObject * obj)
@@ -1972,14 +1996,13 @@ CollisionBase * QuickBackdrop::get_collision()
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
-        glPushAttrib(GL_SCISSOR_BIT);
         glEnable(GL_SCISSOR_TEST);
-        platform_scissor_world(x, y, width, height);
+        glc_scissor_world(x, y, width, height);
         for (int xx = x; xx < x + width; xx += image->width)
         for (int yy = y; yy < y + height; yy += image->height) {
             image->draw(xx, yy);
         }
-        glPopAttrib();
+        glDisable(GL_SCISSOR_TEST);
     } else {
         glDisable(GL_TEXTURE_2D);
         glBegin(GL_QUADS);
@@ -3128,7 +3151,7 @@ void Viewport::draw()
     int src_y1 = center_y - src_height / 2;
     int src_x2 = src_x1 + src_width;
     int src_y2 = src_y1 + src_height;
-    platform_copy_color_buffer_rect(texture, src_x1, src_y1, src_x2, src_y2);
+    glc_copy_color_buffer_rect(texture, src_x1, src_y1, src_x2, src_y2);
     int x2 = x + width;
     int y2 = y + height;
     glEnable(GL_TEXTURE_2D);
@@ -3600,9 +3623,10 @@ MathHelper math_helper;
 
 int get_joystick_direction(int n)
 {
-    const static float threshold = 0.4f;
     float x = get_joystick_axis(n, CHOWDREN_AXIS_LEFTX);
     float y = -get_joystick_axis(n, CHOWDREN_AXIS_LEFTY);
+#ifdef CHOWDREN_IS_DESKTOP
+    static const float threshold = 0.4f;
     // int dir;
     // emulate Joystick 2 very closely
     if (get_abs(x) < threshold && get_abs(y) < threshold)
@@ -3628,13 +3652,15 @@ int get_joystick_direction(int n)
             return 6;
     }
     return 8;
-    // if (get_length(x, y) < threshold)
-    //     dir = 8; // center
-    // else {
-    //     float angle = atan2d(y, x);
-    //     dir = int_round(angle / 45.0f) & 7;
-    // }
-    // return dir;
+#else
+    static const float threshold = 0.35f;
+    if (get_length(x, y) < threshold)
+        return 8; // center
+    else {
+        return int_round(atan2d(y, x) / 45.0f) & 7;
+    }
+    return 8;
+#endif
 }
 
 int get_joystick_direction_flags(int n)
@@ -3707,6 +3733,6 @@ float get_joystick_x(int n)
 
 float get_joystick_y(int n)
 {
-    return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * -1000.0f;
+    return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
 }
 

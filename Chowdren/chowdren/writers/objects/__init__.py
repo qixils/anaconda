@@ -61,6 +61,29 @@ class ObjectWriter(BaseWriter):
         groups.sort(key = lambda x: x.global_id)
         return groups
 
+    def get_object_conditions(self, *values):
+        object_info = self.data.handle
+        groups = []
+        for value in values:
+            if self.data is None:
+                key = value
+            else:
+                key = (self.data.properties.objectType, value)
+            new_groups = self.converter.generated_groups.get(key, None)
+            if not new_groups:
+                continue
+            for group in new_groups[:]:
+                first = group.conditions[0]
+                other_info = first.data.objectInfo
+                if other_info != object_info:
+                    continue
+                groups.append(group)
+                new_groups.remove(group)
+            if not new_groups:
+                self.converter.generated_groups.pop(key)
+        groups.sort(key = lambda x: x.global_id)
+        return groups
+
     def is_visible(self):
         try:
             return self.common.newFlags['VisibleAtStart']

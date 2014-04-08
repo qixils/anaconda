@@ -390,6 +390,13 @@ class ContainerMark(object):
         self.container = container
         self.mark = mark
 
+def fix_conditions(conditions):
+    # this is a nasty hack based on very odd MMF2 behaviour
+    names = [c.data.getName() for c in conditions]
+    if names == ['Never', 'OnCollision']:
+        conditions.pop(0)
+    return conditions
+
 class EventGroup(object):
     global_id = None
     local_id = None
@@ -403,7 +410,7 @@ class EventGroup(object):
 
     def __init__(self, conditions, actions, container, global_id, 
                  or_index, not_always, or_type):
-        self.conditions = conditions
+        self.conditions = fix_conditions(conditions)
         self.actions = actions
         for ace_list in (conditions, actions):
             for ace in ace_list:
@@ -1065,7 +1072,11 @@ class Converter(object):
                 frame_class_name, frame.name, frame.width, frame.height, 
                 make_color(frame.background), frame_index))
             frame_file.start_brace()
-            frame_file.putln('timer_base = %s;' % frame.movementTimer)
+            if frame.flags['TimedMovements']:
+                timer_base = frame.movementTimer
+            else:
+                timer_base = 0
+            frame_file.putln('timer_base = %s;' % timer_base)
             frame_file.end_brace()
 
             startup_images = set()
@@ -1250,8 +1261,16 @@ class Converter(object):
             frame_file.close()
                 
             if generated_groups:
+                missing_groups = []
+                for k, v in generated_groups.iteritems():
+                    if isinstance(k, str):
+                        missing_groups.append(k)
+                        continue
+                    object_type, num = k
+                    object_class = self.get_object_class(object_type)
+                    missing_groups.append((object_class, num))
                 print 'unimplemented generated groups in %r: %r' % (
-                    frame.name, generated_groups.keys())
+                    frame.name, missing_groups)
 
         # general configuration
         header = game.header
@@ -1351,7 +1370,7 @@ class Converter(object):
             else:
                 prefix = ''
             writer.putln('%s%s = %s;' % (prefix, selected_name, make_dict))
-        self.set_iterator(object_info, selected_name)
+        self.set_iterator(object_info, selected_name, '*' + name)
         if name == 'item':
             writer.putln('%s = %s.begin();' % (name, selected_name))
         else:

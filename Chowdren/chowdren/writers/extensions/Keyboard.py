@@ -16,6 +16,7 @@ class Keyboard(ObjectWriter):
 
 class OnAnyDown(ConditionMethodWriter):
     is_always = True
+
     def write(self, writer):
         writer.put('last_key != -1')
 

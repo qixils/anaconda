@@ -1,7 +1,7 @@
 from chowdren.writers.events import (ActionWriter, ConditionWriter, 
     ExpressionWriter, ComparisonWriter, ActionMethodWriter, 
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
-    make_expression, make_comparison, EmptyAction)
+    make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
                              parse_direction, get_flag_direction)
 from chowdren.writers.objects import ObjectWriter
@@ -626,6 +626,7 @@ class StartLoop(ActionWriter):
             if real_name.lower() not in loop_names:
                 if real_name == 'Clear Filter':
                     self.converter.clear_selection()
+                print 'Could not find loop %r' % real_name
                 return
             name = get_method_name(real_name)
             func_call = 'loop_%s()' % name
@@ -1011,7 +1012,7 @@ actions = make_table(ActionMethodWriter, {
     'Stop' : 'get_movement()->stop()',
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
-    'SelectMovement' : 'set_movement(%s - 1)',
+    'SelectMovement' : 'set_movement(%s)',
     'EnableFlag' : 'enable_flag',
     'DisableFlag' : 'disable_flag',
     'ToggleFlag' : 'toggle_flag',
@@ -1080,7 +1081,8 @@ conditions = make_table(ConditionMethodWriter, {
     'StartOfFrame' : '.loop_count <= 1',
     'Never' : '.false',
     'NumberOfLives' :  make_comparison('manager->lives'),
-    'AnyKeyPressed' : AnyKeyPressed
+    'AnyKeyPressed' : AnyKeyPressed,
+    'OnLoop' : FalseCondition # if not a generated group, this is always false
 })
 
 expressions = make_table(ExpressionMethodWriter, {

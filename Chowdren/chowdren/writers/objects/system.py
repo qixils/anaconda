@@ -38,6 +38,8 @@ class Active(ObjectWriter):
         writer.putln('initialize_active();')
 
     def get_transparent(self):
+        if self.data.transparent:
+            return True
         has_back = not self.common.newFlags['DoNotSaveBackground']
         animations = self.common.animations.loadedAnimations
         for animation in animations.values():
@@ -47,7 +49,7 @@ class Active(ObjectWriter):
                     has_alpha = bank_image.flags['Alpha']
                     if has_back == has_alpha:
                         return has_alpha
-        return self.data.transparent
+        return False
 
     def write_class(self, writer):
         animations = self.common.animations.loadedAnimations

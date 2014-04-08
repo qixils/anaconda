@@ -82,6 +82,10 @@ class GetYByName(GetByName):
     def get_string_layer(self, index, layer):
         return 'layers[%s]->y' % index
 
+class IsVisible(ConditionMethodWriter):
+    has_object = False
+    method = 'layers[%s+1]->visible'
+
 actions = make_table(ActionMethodWriter, {
     30 : 'set_position(%s-1, %s, %s)',
     33 : SetXByName,
@@ -94,6 +98,7 @@ actions = make_table(ActionMethodWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    10 : IsVisible
 })
 
 expressions = make_table(ExpressionMethodWriter, {

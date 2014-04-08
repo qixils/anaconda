@@ -50,6 +50,8 @@ void glc_init_shaders()
 {
 }
 
+#ifndef CHOWDREN_USE_GL
+
 inline void mult_matrix(Mat4x4 & m, Mat4x4 & n, Mat4x4 & d)
 {
     d[0] = m[0]*n[0] + m[4]*n[1] + m[8]*n[2] + m[12]*n[3];
@@ -133,28 +135,6 @@ public:
 };
 
 static GLState gl_state;
-
-void glc_scissor_world(int x, int y, int w, int h)
-{
-#ifdef CHOWDREN_USE_GL
-    GLfloat modelview[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-#else
-    Mat4x4 & modelview = gl_state.get_mat();
-#endif
-
-    int w_x = int(x + modelview[12]);
-    int w_y2 = int(WINDOW_HEIGHT - y - modelview[13]);
-    int w_x2 = w_x + w;
-    int w_y = w_y2 - h;
-
-    w_x = int_max(0, int_min(w_x, WINDOW_WIDTH));
-    w_x2 = int_max(0, int_min(w_x2, WINDOW_WIDTH));
-    w_y = int_max(0, int_min(w_y, WINDOW_HEIGHT));
-    w_y2 = int_max(0, int_min(w_y2, WINDOW_HEIGHT));
-
-    glScissor(w_x, w_y, w_x2 - w_x, w_y2 - w_y);
-}
 
 void glc_enable(GLenum cap)
 {
@@ -244,9 +224,10 @@ void glc_end()
                               (void*)&gl_state.texcoords[1]);
     }
 
-    if (shader->blend_color != -1)
+    if (shader->blend_color != -1) {
         glUniform4fv((GLint)shader->blend_color, 1,
                      (const GLfloat*)&gl_state.current_color);
+    }
 
 
     // drawing
@@ -393,4 +374,28 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z)
     m[5] = a01 * -s + a11 * c;
     m[6] = a02 * -s + a12 * c;
     m[7] = a03 * -s + a13 * c;
+}
+
+#endif // CHOWDREN_USE_GL
+
+void glc_scissor_world(int x, int y, int w, int h)
+{
+#ifdef CHOWDREN_USE_GL
+    GLfloat modelview[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+#else
+    Mat4x4 & modelview = gl_state.get_mat();
+#endif
+
+    int w_x = int(x + modelview[12]);
+    int w_y2 = int(WINDOW_HEIGHT - y - modelview[13]);
+    int w_x2 = w_x + w;
+    int w_y = w_y2 - h;
+
+    w_x = int_max(0, int_min(w_x, WINDOW_WIDTH));
+    w_x2 = int_max(0, int_min(w_x2, WINDOW_WIDTH));
+    w_y = int_max(0, int_min(w_y, WINDOW_HEIGHT));
+    w_y2 = int_max(0, int_min(w_y2, WINDOW_HEIGHT));
+
+    glScissor(w_x, w_y, w_x2 - w_x, w_y2 - w_y);
 }

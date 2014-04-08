@@ -254,7 +254,7 @@ void GameManager::draw()
         glScalef(5, -5, 5);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         get_font(24)->Render(val.c_str(), val.size(), FTPoint(),
-                             FTPoint(), RENDER_ALL);
+                             FTPoint());
         glPopMatrix();
     }
 #endif

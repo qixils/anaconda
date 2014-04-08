@@ -39,11 +39,16 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 
 #ifndef CHOWDREN_BUILD_GLC
 
-#ifdef CHOWDREN_USE_GL
+#if defined(CHOWDREN_USE_GL) || defined(CHOWDREN_IS_WIIU)
+#undef glGenFramebuffers
 #define glGenFramebuffers glGenFramebuffersEXT
+#undef glBindFramebuffer
 #define glBindFramebuffer glBindFramebufferEXT
+#undef glFramebufferTexture2D
 #define glFramebufferTexture2D glFramebufferTexture2DEXT
+#undef GL_FRAMEBUFFER
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#undef GL_COLOR_ATTACHMENT0
 #define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
 #endif
 

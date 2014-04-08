@@ -56,6 +56,22 @@ class TextBlitter(ObjectWriter):
         writer.putln('char_height = %s;' % char_size[1])
         writer.putln(to_c('text = %r;', text))
         writer.putln('image = %s;' % get_image_name(image))
+        align_flags = []
+        if horizontal_align == 0:
+            align_flags.append('ALIGN_LEFT')
+        elif horizontal_align == 1:
+            align_flags.append('ALIGN_HCENTER')
+        elif horizontal_align == 2:
+            align_flags.append('ALIGN_RIGHT')
+        if vertical_align == 0:
+            align_flags.append('ALIGN_TOP')
+        elif vertical_align == 1:
+            align_flags.append('ALIGN_VCENTER')
+        elif vertical_align == 2:
+            align_flags.append('ALIGN_BOTTOM')
+        if not align_flags:
+            align_flags.append('0')
+        writer.putln('alignment = %s;' % ' | '.join(align_flags))
         writer.putln('static int * charmap = new int[256];')
         writer.putln('static bool initialized = false;')
         writer.putln('this->charmap = charmap;')

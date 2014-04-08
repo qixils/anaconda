@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include "platform.h"
+#include <string.h>
 
 class BaseStream
 {
@@ -43,6 +44,14 @@ public:
         unsigned char data[4];
         read((char*)data, 4);
         v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+        return *this;
+    }
+
+    BaseStream & operator>>(float &v)
+    {
+        int vv;
+        *this >> vv;
+        memcpy(&v, &vv, sizeof(float));
         return *this;
     }
 

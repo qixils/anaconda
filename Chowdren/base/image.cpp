@@ -209,14 +209,14 @@ bool Image::get_alpha(int x, int y)
     return c != 0;
 }
 
-const float flipped_texcoords[] = {
+const float flipped_texcoords[8] = {
     1.0f, 0.0f,
     0.0f, 0.0f,
     0.0f, 1.0f,
     1.0f, 1.0f
 };
 
-const float normal_texcoords[] = {
+const float normal_texcoords[8] = {
     0.0f, 0.0f,
     1.0f, 0.0f,
     1.0f, 1.0f,
@@ -224,14 +224,14 @@ const float normal_texcoords[] = {
 };
 
 #ifdef CHOWDREN_IS_DESKTOP
-const float back_texcoords[] = {
+const float back_texcoords[8] = {
     0.0f, 1.0f,
     1.0f, 1.0f,
     1.0f, 0.0f,
     0.0f, 0.0f
 };
 #else
-const float back_texcoords[] = {
+const float back_texcoords[8] = {
     0.0f, 0.0f,
     1.0f, 0.0f,
     1.0f, 1.0f,
@@ -274,23 +274,19 @@ void Image::draw(double x, double y, double angle,
     }
     glTexCoord2f(tex_coords[0], tex_coords[1]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[0], back_texcoords[1]);
+        glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[0], back_texcoords[1]);
     glVertex2d(-hotspot_x, -hotspot_y);
     glTexCoord2f(tex_coords[2], tex_coords[3]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[2], back_texcoords[3]);
+        glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[2], back_texcoords[3]);
     glVertex2d(-hotspot_x + width, -hotspot_y);
     glTexCoord2f(tex_coords[4], tex_coords[5]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[4], back_texcoords[5]);
+        glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[4], back_texcoords[5]);
     glVertex2d(-hotspot_x + width, -hotspot_y + height);
     glTexCoord2f(tex_coords[6], tex_coords[7]);
     if (background != 0)
-        glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[6], back_texcoords[7]);
+        glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[6], back_texcoords[7]);
     glVertex2d(-hotspot_x, -hotspot_y + height);
     glEnd();
     if (background != 0) {

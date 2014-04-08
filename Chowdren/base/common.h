@@ -269,6 +269,7 @@ public:
     double frame_time;
     unsigned int frame_iteration;
     int timer_base;
+    float timer_mul;
 
     Frame(const std::string & name, int width, int height, 
           Color background_color, int index, GameManager * manager);
@@ -812,6 +813,7 @@ public:
     Image * image;
     int * charmap;
     float flash_time, flash_interval;
+    int alignment;
 
     TextBlitter(int x, int y, int type_id);
     void initialize(const std::string & charmap);
@@ -845,7 +847,7 @@ public:
     bool jump_through, through_collision_top;
 
     bool obstacle_collision;
-    bool platform_collision;
+    bool platform_collision;    
 
     ObstacleOverlapCallback obstacle_callback;
     PlatformOverlapCallback platform_callback;

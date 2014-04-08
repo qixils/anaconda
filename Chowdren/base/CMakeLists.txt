@@ -27,11 +27,11 @@ option(ENABLE_STEAM ON)
 option(EMULATE_WIIU OFF)
 
 if (EMSCRIPTEN)
-    set(USE_GLES2 TRUE)
+    set(USE_GLES2 ON)
 else()
-    option(USE_GL TRUE)
-    option(USE_GLES1 FALSE)
-    option(USE_GLES2 FALSE)
+    option(USE_GL ON)
+    option(USE_GLES1 OFF)
+    option(USE_GLES2 OFF)
 endif()
 
 if(EMSCRIPTEN)
@@ -105,7 +105,7 @@ if (USE_BOX2D)
     set(BOX2D_DIR "${CHOWDREN_BASE_DIR}/include/Box2D")
     set(SRCS
         ${SRCS}
-        box2d/box2dext.cpp
+        ${CHOWDREN_BASE_DIR}/box2d/box2dext.cpp
         ${BOX2D_DIR}/Collision/b2BroadPhase.cpp
         ${BOX2D_DIR}/Collision/b2CollideCircle.cpp
         ${BOX2D_DIR}/Collision/b2CollidePoly.cpp
@@ -179,6 +179,8 @@ if(MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
     # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305")
+    # multicore compile
+    add_definitions("/MP")
 endif()
 
 add_definitions(-DGLEW_STATIC)
@@ -223,30 +225,11 @@ if(EMSCRIPTEN)
     # libogg
     file(GLOB LIBOGG_C "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
     file(GLOB LIBVORBIS_C "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
-    set(FREETYPE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/freetype")
-    set(SRCS ${SRCS} 
-        ${LIBOGG_C} 
-        ${LIBVORBIS_C}
-        ${FREETYPE_DIR}/base/ftsystem.c
-        ${FREETYPE_DIR}/base/ftinit.c
-        ${FREETYPE_DIR}/base/ftdebug.c
-        ${FREETYPE_DIR}/base/ftbase.c
-        ${FREETYPE_DIR}/base/ftbbox.c
-        ${FREETYPE_DIR}/base/ftglyph.c
-        ${FREETYPE_DIR}/base/ftstroke.c
-        ${FREETYPE_DIR}/base/ftbitmap.c
-        ${FREETYPE_DIR}/sfnt/sfnt.c
-        ${FREETYPE_DIR}/truetype/truetype.c
-        ${FREETYPE_DIR}/smooth/smooth.c
-        ${FREETYPE_DIR}/autofit/autofit.c
-        ${FREETYPE_DIR}/psnames/psnames.c
-    )
     add_definitions(-DFT2_BUILD_LIBRARY)
     set(VORBIS_INCLUDE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
     include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
 else()
     find_package(SDL2 REQUIRED)
-    find_package(Freetype REQUIRED)
     find_package(OpenALSoft REQUIRED)
     find_package(Vorbis REQUIRED)
     if (USE_GL)
@@ -260,12 +243,12 @@ set(EXE_NAME "Chowdren")
 add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
-    ${FREETYPE_INCLUDE_DIRS} ${SDL2_INCLUDE_DIR} ${VORBIS_INCLUDE_DIR}
+    ${SDL2_INCLUDE_DIR} ${VORBIS_INCLUDE_DIR}
     ${BOX2D_INCLUDE_DIR})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
-    ${FREETYPE_LIBRARIES} ${OPENALSOFT_LIBRARY} 
-    ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES})
+    ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES}
+    ${PLATFORM_LIBRARIES} ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES}
+    ${EGL_LIBRARIES})
 
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)

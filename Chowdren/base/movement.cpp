@@ -142,8 +142,8 @@ void Movement::move(double x, double y)
     back_col = false;
     add_x += x;
     add_y += y;
-    int xx = int(add_x);
-    int yy = int(add_y);
+    double xx = floor(add_x);
+    double yy = floor(add_y);
     add_x -= xx;
     add_y -= yy;
     old_x = instance->x;
@@ -261,7 +261,7 @@ void BallMovement::update(float dt)
 {
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
-    double m = get_pixels(speed) * dt * instance->frame->timer_base;
+    double m = get_pixels(speed) * instance->frame->timer_mul;
     move(add_x * m, add_y * m);
 }
 
@@ -339,7 +339,7 @@ void PathMovement::update(float dt)
     if (current_node < 0)
         return;
     PathNode & node = nodes[current_node];
-    float m = get_pixels(speed) * dt * instance->frame->timer_base;
+    float m = get_pixels(speed) * instance->frame->timer_mul;
     float move_m = std::min(m, distance_left) * float(dir);
     move(node.x * move_m, node.y * move_m);
     distance_left -= move_m;
@@ -402,7 +402,6 @@ void PinballMovement::stop()
     if (stopped)
         return;
     stopped = true;
-    x_speed = y_speed = true;
 }
 
 void PinballMovement::set_direction(int value)
@@ -420,7 +419,7 @@ float get_pinball_angle(float x, float y)
         return 0.0f;
     float angle = acos(x / d);
     if (y > 0.0f)
-        angle = 2.0 * M_PI - angle;
+        angle = 2.0 * CHOW_PI - angle;
     return angle;
 }
 
@@ -429,7 +428,7 @@ void PinballMovement::update(float dt)
     if (stopped)
         return;
     y_speed += gravity / 10.0f;
-    float m = instance->frame->timer_base * dt;
+    float m = instance->frame->timer_mul;
     float angle = get_pinball_angle(x_speed, y_speed);
     float dist = get_length(x_speed, y_speed);
     float decel = deceleration * m;
@@ -439,13 +438,15 @@ void PinballMovement::update(float dt)
     x_speed = dist * cos(angle);
     y_speed = -dist * sin(angle);
     speed = int_min(int(dist), 100);
-    instance->set_direction((angle * 32.0f) / (2.0 * M_PI), false);
+    instance->set_direction((angle * 32.0f) / (2.0 * CHOW_PI), false);
     move((x_speed * m) / 10.0f, (y_speed * m) / 10.0f);
 }
 
 void PinballMovement::bounce()
 {
     push_out();
+
+    add_x = add_y = 0.0;
 
     if (last_collision == NULL && !back_col) {
         x_speed = -x_speed;
@@ -457,7 +458,7 @@ void PinballMovement::bounce()
     float dist = get_length(x_speed, y_speed);
 
     float found_a = -1000.0f;
-    for (float a = 0.0f; a < 2.0f * M_PI; a += M_PI / 32.0f) {
+    for (float a = 0.0f; a < 2.0f * CHOW_PI; a += CHOW_PI / 32.0f) {
         float x_move = 16.0f * cos(angle + a);
         float y_move = -16.0f * sin(angle + a);
 
@@ -474,8 +475,8 @@ void PinballMovement::bounce()
     }
 
     angle += found_a * 2.0f;
-    if (angle > 2.0 * M_PI)
-        angle -= 2.0 * M_PI;
+    if (angle > 2.0 * CHOW_PI)
+        angle -= 2.0 * CHOW_PI;
 
     x_speed = dist * cos(angle);
     y_speed = -dist * sin(angle);
@@ -514,7 +515,7 @@ void ShootMovement::update(float dt)
 {
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
-    double m = get_pixels(speed) * dt * instance->frame->timer_base;
+    double m = get_pixels(speed) * instance->frame->timer_mul;
     move(add_x * m, add_y * m);
 }
 
@@ -555,7 +556,7 @@ void EightDirections::update(float dt)
         dir *= 4;
         instance->set_direction(dir, false);
     }
-    double mul = dt * instance->frame->timer_base;
+    double mul = instance->frame->timer_mul;
 
     double change;
     if (on)

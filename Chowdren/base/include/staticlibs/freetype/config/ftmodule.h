@@ -13,7 +13,7 @@
 FT_USE_MODULE( FT_Module_Class, autofit_module_class )
 FT_USE_MODULE( FT_Driver_ClassRec, tt_driver_class )
 // FT_USE_MODULE( FT_Driver_ClassRec, t1_driver_class )
-// FT_USE_MODULE( FT_Driver_ClassRec, cff_driver_class )
+FT_USE_MODULE( FT_Driver_ClassRec, cff_driver_class )
 // FT_USE_MODULE( FT_Driver_ClassRec, t1cid_driver_class )
 // FT_USE_MODULE( FT_Driver_ClassRec, pfr_driver_class )
 // FT_USE_MODULE( FT_Driver_ClassRec, t42_driver_class )

@@ -48,12 +48,12 @@ class PlatformObject(ObjectWriter):
 
     def write_frame(self, writer):
         writer.putmeth('void %s' % self.overlap_obstacle_name)
-        for group in self.get_conditions(TEST_OVERLAP_OBSTACLE):
+        for group in self.get_object_conditions(TEST_OVERLAP_OBSTACLE):
             self.converter.write_event(writer, group, True)
         writer.end_brace()
 
         writer.putmeth('void %s' % self.overlap_platform_name)
-        for group in self.get_conditions(TEST_OVERLAP_PLATFORM):
+        for group in self.get_object_conditions(TEST_OVERLAP_PLATFORM):
             self.converter.write_event(writer, group, True)
         writer.end_brace()
 

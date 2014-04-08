@@ -28,6 +28,7 @@ public:
     float fade_dir;
     float fade_value;
     int lives;
+    float timer_mul;
 #if CHOWDREN_IS_DEMO
     bool idle_timer_started;
     double idle_timer;

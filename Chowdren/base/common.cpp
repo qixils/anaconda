@@ -498,6 +498,12 @@ bool Frame::update(float dt)
 {
     frame_time += dt;
 
+    if (timer_base == 0) {
+        timer_mul = 1.0f;
+    } else {
+        timer_mul = dt * timer_base;
+    }
+
     for (ObjectList::const_iterator it = instances.begin(); 
          it != instances.end(); it++) {
         FrameObject * instance = *it;
@@ -604,8 +610,8 @@ FrameObject * Frame::get_instance(int object_id)
 {
     ObjectList & instances = instance_classes.get(object_id);
     if (instances.empty()) {
-        std::cout << "Warning: invalid instance count for " << object_id
-            << std::endl;
+        // std::cout << "Warning: invalid instance count for " << object_id
+        //     << std::endl;
         return NULL;
     }
     return instances.back();
@@ -615,14 +621,24 @@ FrameObject * Frame::get_instance(int object_id, int index)
 {
     ObjectList & instances = instance_classes.get(object_id);
     if (instances.empty()) {
-        std::cout << "Warning: invalid instance count for " << object_id
-            << std::endl;
+        // std::cout << "Warning: invalid instance count for " << object_id
+        //     << std::endl;
         return NULL;
     }
     return instances[index % instances.size()];
 }
 
-static Active default_active_instance(0, 0, 0);
+class DefaultActive : public Active
+{
+public:
+    DefaultActive()
+    : Active(0, 0, 0)
+    {
+        create_alterables();
+    }
+};
+
+static DefaultActive default_active_instance;
 
 FrameObject * Frame::get_active_instance(int object_id)
 {
@@ -859,6 +875,7 @@ FrameObject::~FrameObject()
                 continue;
             delete movements[i];
         }
+        delete[] movements;
     }
     delete shader_parameters;
 }
@@ -1118,6 +1135,8 @@ void FrameObject::clear_movements()
 
 void FrameObject::set_movement(int i)
 {
+    if (movement != NULL && (i < 0 || i >= movement_count))
+        return;
     movement = movements[i];
     movement->start();
 }
@@ -1430,7 +1449,7 @@ void Active::update(float dt)
         return;
 
     Direction * dir = get_direction_data();
-    counter += get_speed();
+    counter += int(get_speed() * frame->timer_mul);
     int old_frame = animation_frame;
     while (counter > 100) {
         counter -= 100;
@@ -1707,36 +1726,22 @@ bool Active::has_animation(int anim)
 
 FTTextureFont * small_font = NULL;
 FTTextureFont * big_font = NULL;
+std::string font_path;
 
-void set_font_path(const char * path)
+void set_font_path(const std::string & value)
 {
-    if (small_font != NULL || big_font != NULL)
+    if (!font_path.empty())
         return;
-    small_font = new FTTextureFont(path, false);
-    big_font = new FTTextureFont(path, false);
+    font_path = value;
 }
-
-void set_font_path(const std::string & path)
-{
-    set_font_path(path.c_str());
-}
-
-#ifndef CHOWDREN_SMALL_FONT_SIZE
-#define CHOWDREN_SMALL_FONT_SIZE 13
-#endif
-
-#ifndef CHOWDREN_BIG_FONT_SIZE
-#define CHOWDREN_BIG_FONT_SIZE 24
-#endif
 
 void init_font()
 {
     static bool initialized = false;
     if (initialized)
         return;
-    set_font_path("Arial.ttf"); // default font, could be set already
-    big_font->FaceSize(CHOWDREN_BIG_FONT_SIZE, 96);
-    small_font->FaceSize(CHOWDREN_SMALL_FONT_SIZE, 96);
+    set_font_path(std::string("Font.dat")); // default font, could be set already
+    load_fonts(font_path, &small_font, &big_font);
     initialized = true;
 }
 
@@ -1810,7 +1815,7 @@ void Text::draw()
 
         glTranslated((int)off_x, (int)off_y, 0.0);
         glScalef(1, -1, 1);
-        font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint(), RENDER_ALL);
+        font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint());
         glPopMatrix();
     }
 }
@@ -3159,13 +3164,13 @@ void Viewport::draw()
     glDisable(GL_BLEND);
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f);
+    glTexCoord2f(back_texcoords[0], back_texcoords[1]);
     glVertex2i(x, y);
-    glTexCoord2f(1.0f, 0.0f);
+    glTexCoord2f(back_texcoords[2], back_texcoords[3]);
     glVertex2i(x2, y);
-    glTexCoord2f(1.0f, 1.0f);
+    glTexCoord2f(back_texcoords[4], back_texcoords[5]);
     glVertex2i(x2, y2);
-    glTexCoord2f(0.0f, 1.0f);
+    glTexCoord2f(back_texcoords[6], back_texcoords[7]);
     glVertex2i(x, y2);
     glEnd();
     glEnable(GL_BLEND);
@@ -3250,6 +3255,12 @@ void TextBlitter::draw()
     std::string::const_iterator it;
     int xx = x;
     int yy = y;
+
+    if (alignment & ALIGN_HCENTER)
+        xx += width / 2 - (text.size() * char_width) / 2;
+    if (alignment & ALIGN_VCENTER)
+        yy += height / 2 - char_height / 2;
+
     for (it = text.begin(); it != text.end(); it++) {
         unsigned char c = (unsigned char)(*it);
         int i = charmap[c];

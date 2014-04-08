@@ -24,10 +24,10 @@ def init(converter):
             values[i] = convert_key(values[i])
 
 object_checks = {
-    (4, 326) : 'BulletShock_67',
-    (4, 2556) : 'SAVEInventoryANNEPieces76100UNUSED_459',
-    (3, 186) : 'BulletShock_67',
-    (3, 2215) : 'SAVEInventoryANNEPieces76100UNUSED_459'
+    # (4, 326) : 'BulletShock_67',
+    # (4, 2556) : 'SAVEInventoryANNEPieces76100UNUSED_459',
+    # (3, 186) : 'BulletShock_67',
+    # (3, 2215) : 'SAVEInventoryANNEPieces76100UNUSED_459'
 }
 
 def write_pre(converter, writer, group):
@@ -74,7 +74,7 @@ def write_defines(converter, writer):
     if is_knytt_japan:
         writer.putln('#define CHOWDREN_TEXT_USE_UTF8')
         writer.putln('#define CHOWDREN_BIG_FONT_SIZE 23')
-        writer.putln('#define CHOWDREN_BIG_FONT_OFFY 4')
+        writer.putln('#define CHOWDREN_BIG_FONT_OFFY 1')
     if not is_knytt:
         writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:

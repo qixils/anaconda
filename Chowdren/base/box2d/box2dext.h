@@ -28,9 +28,15 @@ void Debug(float d);
 
 struct RayResult
 {
+    RayResult()
+    : shapes(NULL)
+    {
+    }
+
     void Init(int n)
     {
-        if(shapes) delete [] shapes;
+        if (shapes)
+            delete[] shapes;
         shapes = new b2Shape*[n];
         numShapes = n;
         hits = 0;
@@ -40,7 +46,8 @@ struct RayResult
 
     ~RayResult()
     {
-        if(shapes) delete [] shapes;
+        if (shapes)
+            delete[] shapes;
     }
     b2Shape** shapes;
     int numShapes;

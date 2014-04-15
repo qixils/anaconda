@@ -3,7 +3,7 @@
 
 using namespace Parser;
 
-bool Parser::compare(char* buf, char* cmp)
+bool Parser::compare(char* buf, const char* cmp)
 {
 	while(parseType[*buf] == type_char)
 	{

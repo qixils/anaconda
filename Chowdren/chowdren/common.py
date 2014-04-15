@@ -110,6 +110,12 @@ def get_image_name(value, pointer = True):
 def make_color(value):
     return 'Color(%s)' % ', '.join([str(item) for item in value])
 
+def is_qualifier(handle):
+    return handle & 32768 == 32768
+
+def get_qualifier(handle):
+    return handle & 2047
+
 def get_directions(value):
     directions = []
     for i in xrange(32):

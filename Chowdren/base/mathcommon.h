@@ -28,6 +28,16 @@ inline T deg(T x)
     return x * (180/CHOW_PI);
 }
 
+template <class T>
+inline int sign_int(T x)
+{
+    if (x > 0)
+        return 1;
+    else if (x < 0)
+        return -1;
+    return 0;
+}
+
 inline double sin_deg(double x)
 {
     return sin(rad(x));
@@ -178,7 +188,7 @@ inline int randrange(int range)
 
 inline float randrange(float a, float b)
 {
-    return a + (float)(rand()) /((float)(CROSS_RAND_MAX/(b-a)));
+    return a + cross_rand() / (CROSS_RAND_MAX/(b-a));
 }
 
 inline bool random_chance(int a, int b)

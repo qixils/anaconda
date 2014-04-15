@@ -1,5 +1,4 @@
 #include "common.h"
-#include "movement.h"
 #include "filecommon.h"
 #include <string>
 #include <boost/unordered_map.hpp>
@@ -778,22 +777,22 @@ void Frame::update_display_center()
 
 int Frame::frame_left()
 {
-    return off_x;
+    return new_off_x;
 }
 
 int Frame::frame_right()
 {
-    return off_x + WINDOW_WIDTH;
+    return new_off_x + WINDOW_WIDTH;
 }
 
 int Frame::frame_top()
 {
-    return off_y;
+    return new_off_y;
 }
 
 int Frame::frame_bottom()
 {
-    return off_y + WINDOW_HEIGHT;
+    return new_off_y + WINDOW_HEIGHT;
 }
 
 void Frame::set_background_color(int color)
@@ -835,11 +834,15 @@ bool Frame::test_background_collision(int x, int y)
 
 bool Frame::compare_joystick_direction(int n, int test_dir)
 {
+    if (!is_joystick_attached(n))
+        return false;
     return get_joystick_direction(n) == test_dir;
 }
 
 bool Frame::is_joystick_direction_changed(int n)
 {
+    if (!is_joystick_attached(n))
+        return false;
     // hack for now
     static int last_dir = get_joystick_direction(n);
     int new_dir = get_joystick_direction(n);
@@ -1005,8 +1008,7 @@ bool FrameObject::overlaps_background_save()
     Layer * layer = frame->layers[layer_index];
     bool ret = layer->test_background_collision(get_collision());
     if (movement != NULL) {
-        movement->last_collision = NULL;
-        movement->back_col = ret;
+        movement->set_background_collision();
     }
     return ret;
 }
@@ -1166,7 +1168,8 @@ void FrameObject::shoot(FrameObject * other, int speed, int direction)
     other->set_direction(direction);
     delete other->movement;
     other->movement = new ShootMovement(other);
-    other->movement->set_speed(speed);
+    other->movement->set_max_speed(speed);
+    other->movement->start();
 }
 
 double FrameObject::get_angle()
@@ -1454,17 +1457,21 @@ void Active::update(float dt)
     while (counter > 100) {
         counter -= 100;
         animation_frame++;
-        if (animation_frame >= (int)dir->frames.size()) {
-            if (animation == DISAPPEARING)
-                FrameObject::destroy();
-            if (loop_count > 0)
-                loop_count--;
-            if (loop_count == 0) {
-                animation_finished = animation;
-                animation_frame--;
-            } else
-                animation_frame = dir->back_to;
+        if (animation_frame < (int)dir->frames.size())
+            continue;
+        if (loop_count > 0)
+            loop_count--;
+        if (loop_count != 0) {
+            animation_frame = dir->back_to;
+            continue;
         }
+        animation_finished = animation;
+        animation_frame--;
+
+        if (animation == DISAPPEARING)
+            FrameObject::destroy();
+        else if (animation == APPEARING)
+            force_animation(STOPPED);
     }
     if (animation_frame != old_frame)
         update_frame();
@@ -1890,11 +1897,12 @@ void Text::update_draw_text()
     draw_text.clear();
     for (it = text.begin(); it != text.end(); it++) {
         char c = *it;
-        if (c < 128) {
+        unsigned char cc = (unsigned char)c;
+        if (cc < 128) {
             draw_text.push_back(c);
         } else {
-            draw_text.push_back(0xC2 + (c > 0xBF));
-            draw_text.push_back(c & 0x3F + 0x80);
+            draw_text.push_back(char(0xC2 + (cc > 0xBF)));
+            draw_text.push_back(char(cc & 0x3F + 0x80));
         }
     }
 #endif
@@ -3323,8 +3331,8 @@ void PlatformObject::update(float dt)
             x_vel = 0;
     }
 
-    x_vel = std::min(std::max(x_vel, 0 - max_x_vel), max_x_vel);
-    y_vel = std::min(std::max(y_vel + gravity, 0 - max_y_vel), max_y_vel);
+    x_vel = std::min(std::max(x_vel, -max_x_vel), max_x_vel);
+    y_vel = std::min(std::max(y_vel + gravity, -max_y_vel), max_y_vel);
     int x_vel_2 = x_vel + add_x_vel;
     int y_vel_2 = y_vel + add_y_vel;
     x_move_count += get_abs(x_vel_2);
@@ -3632,37 +3640,61 @@ MathHelper math_helper;
 
 // joystick
 
+int remap_button(int n)
+{
+#ifdef CHOWDREN_SNES_CONTROLLER
+    switch (n) {
+        case CHOWDREN_BUTTON_X:
+            return CHOWDREN_BUTTON_A;
+        case CHOWDREN_BUTTON_Y:
+            return CHOWDREN_BUTTON_X;
+        case CHOWDREN_BUTTON_GUIDE:
+            return CHOWDREN_BUTTON_RIGHTSHOULDER;
+        case CHOWDREN_BUTTON_BACK:
+            return CHOWDREN_BUTTON_LEFTSHOULDER;
+        case CHOWDREN_BUTTON_LEFTSHOULDER:
+            return CHOWDREN_BUTTON_START;
+        case CHOWDREN_BUTTON_B:
+            return n;
+        default:
+            return CHOWDREN_BUTTON_INVALID;
+    }
+#else
+    return n;
+#endif
+}
+
 int get_joystick_direction(int n)
 {
     float x = get_joystick_axis(n, CHOWDREN_AXIS_LEFTX);
     float y = -get_joystick_axis(n, CHOWDREN_AXIS_LEFTY);
 #ifdef CHOWDREN_IS_DESKTOP
     static const float threshold = 0.4f;
-    // int dir;
+    int dir;
     // emulate Joystick 2 very closely
     if (get_abs(x) < threshold && get_abs(y) < threshold)
-        return 8;
-    if (x > threshold) {
+        dir = 8;
+    else if (x > threshold) {
         if (y > threshold)
-            return 1;
+            dir = 1;
         else if (y < -threshold)
-            return 7;
+            dir = 7;
         else
-            return 0;
+            dir = 0;
     } else if (x < -threshold) {
         if (y > threshold)
-            return 3;
+            dir = 3;
         else if (y < -threshold)
-            return 5;
+            dir = 5;
         else
-            return 4;
+            dir = 4;
     } else {
         if (y > threshold)
-            return 2;
+            dir = 2;
         else
-            return 6;
+            dir = 6;
     }
-    return 8;
+    return dir;
 #else
     static const float threshold = 0.35f;
     if (get_length(x, y) < threshold)

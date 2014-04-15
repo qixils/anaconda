@@ -24,7 +24,7 @@
 #include <assert.h>
 #include <math.h>
 
-#define B2_NOT_USED(x) x
+#define B2_NOT_USED(x)
 
 bool AssertFail(const char * expression, const char * file, int line);
 bool AssertFail2(const char* message);

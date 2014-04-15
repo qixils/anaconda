@@ -27,7 +27,8 @@ from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits, 
-    to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs)
+    to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs,
+    is_qualifier, get_qualifier)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -300,12 +301,6 @@ def load_native_extension(name):
     native_extension_cache[name] = extension
     return extension
 
-def is_qualifier(handle):
-    return handle & 32768 == 32768
-
-def get_qualifier(handle):
-    return handle & 2047
-
 def get_color_number(value):
     return (value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16)
 
@@ -391,6 +386,7 @@ class ContainerMark(object):
         self.mark = mark
 
 def fix_conditions(conditions):
+    return conditions
     # this is a nasty hack based on very odd MMF2 behaviour
     names = [c.data.getName() for c in conditions]
     if names == ['Never', 'OnCollision']:
@@ -548,6 +544,8 @@ class Converter(object):
         # format input
         self.format_file('resource.rc')
         self.format_file('Application.cmake', 'CMakeLists.txt')
+        self.copy_file('icon.icns', overwrite=False)
+
         self.open('config.py').write(repr(self.info_dict))
         
         # write keys file
@@ -1471,8 +1469,8 @@ class Converter(object):
                 end_x = end_y = 0
                 for i, step in enumerate(path.steps):
                     if reposition:
-                        end_x += step.destinationX
-                        end_y += step.destinationY
+                        end_x += math.floor(step.cosinus * step.length)
+                        end_y += math.floor(step.sinus * step.length)
                     args = []
                     args.append(step.speed)
                     args.append(step.cosinus)
@@ -1528,8 +1526,11 @@ class Converter(object):
                 writer.putlnc('movement->start();')
 
     def write_event(self, outwriter, group, triggered = False):
+        self.current_object = None
+        self.current_group = group
         self.current_event_id = group.global_id
         self.event_settings = {}
+        self.collision_objects = set()
         actions = group.actions
         conditions = group.conditions
         container = group.container
@@ -1728,12 +1729,12 @@ class Converter(object):
         if not self.has_selection:
             return
         for obj, list_name in self.has_selection.iteritems():
+            group.or_instance_groups[obj].append(group.or_temp_result)
             new_list = group.or_selected.get(obj, None)
             if new_list is not None:
                 continue
             new_list = 'or_%s_%s' % (list_name, group.global_id)
             group.or_selected[obj] = new_list
-            group.or_instance_groups[obj].append(group.or_temp_result)
             writer.putlnc('static ObjectList %s;', new_list)
             writer.putlnc('%s.clear();', new_list)
 
@@ -1977,6 +1978,8 @@ class Converter(object):
             return system_objects[object_type]
 
     def resolve_qualifier(self, handle):
+        if not is_qualifier(handle):
+            return [handle]
         return self.qualifiers[get_qualifier(handle)]
 
     def get_condition_name(self, item):
@@ -2067,9 +2070,16 @@ class Converter(object):
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)
 
-    def format_file(self, src, dst=None):
-        src = os.path.join(self.base_path, src)
+    def copy_file(self, src, dst=None, overwrite=True):
         dst = self.get_filename(dst or src)
+        src = os.path.join(self.base_path, src)
+        if not overwrite and os.path.isfile(dst):
+            return
+        shutil.copy(src, dst)
+
+    def format_file(self, src, dst=None):
+        dst = self.get_filename(dst or src)
+        src = os.path.join(self.base_path, src)
         fp = open(src, 'rb')
         data = fp.read()
         fp.close()

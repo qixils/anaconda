@@ -17,8 +17,8 @@
 */
 
 #include "b2BroadPhase.h"
-#include "Shapes\b2Shape.h"
-#include "..\Dynamics\b2Body.h"
+#include "Shapes/b2Shape.h"
+#include "../Dynamics/b2Body.h"
 #include <algorithm>
 
 #include <cstring>

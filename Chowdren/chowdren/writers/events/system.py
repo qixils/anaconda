@@ -132,8 +132,24 @@ class SystemObject(ObjectWriter):
 
 # conditions
 
-class IsOverlapping(ConditionWriter):
+class CollisionCondition(ConditionWriter):
     save_collision = False
+
+    def has_collisions(self):
+        if not self.save_collision:
+            return False
+        actions = self.converter.current_group.actions
+        for action in actions:
+            if action.data.getName() in ('Stop', 'Bounce'):
+                return True
+        return False
+
+    def add_collision_objects(self, *handles):
+        for handle in handles:
+            infos = self.converter.resolve_qualifier(handle)
+            self.converter.collision_objects.update(infos)
+
+class IsOverlapping(CollisionCondition):
     has_object = False
     is_always = True
 
@@ -153,8 +169,9 @@ class IsOverlapping(ConditionWriter):
                 object_info))
             other_selected = converter.get_list_name(converter.get_object_name(
                 other_info))
-            if self.save_collision:
+            if self.has_collisions():
                 func_name = 'check_overlap_save'
+                self.add_collision_objects(object_info, other_info)
             else:
                 func_name = 'check_overlap'
             writer.put(to_c(
@@ -171,9 +188,18 @@ class IsOverlapping(ConditionWriter):
 class OnCollision(IsOverlapping):
     save_collision = True
 
-class OnBackgroundCollision(ConditionMethodWriter):
+class OnBackgroundCollision(CollisionCondition):
     is_always = True
-    method = 'overlaps_background_save'
+    save_collision = True
+
+    def write(self, writer):
+        object_info, object_type = self.get_object()
+        if self.has_collisions():
+            func_name = 'overlaps_background_save'
+            self.add_collision_objects(object_info)
+        else:
+            func_name = 'overlaps_background'
+        writer.put('%s()' % func_name)
 
 class ObjectInvisible(ConditionWriter):
     def write(self, writer):
@@ -443,6 +469,18 @@ class FacingInDirection(ConditionWriter):
         writer.put('%s(%s)' % (name, value))
 
 # actions
+
+class CollisionAction(ActionWriter):
+    def write(self, writer):
+        object_info, object_type = self.get_object()
+        is_col = object_info in self.converter.collision_objects
+        writer.put(to_c(self.method + ';', is_col))
+
+class StopAction(CollisionAction):
+    method = 'get_movement()->stop(%s)'
+
+class BounceAction(CollisionAction):
+    method = 'get_movement()->bounce(%s)'
 
 class CreateBase(ActionWriter):
     custom = True
@@ -740,6 +778,37 @@ class CenterDisplayY(ActionWriter):
     def write(self, writer):
         writer.put('set_display_center(-1, %s);' % self.convert_index(0))
 
+class CenterDisplay(ActionWriter):
+    custom = True
+
+    def write(self, writer):
+        writer.start_brace()
+        object_info, object_type = self.get_object()
+
+        details = self.convert_index(0)
+        x = str(details['x'])
+        y = str(details['y'])
+        parent = details.get('parent', None)
+        if parent is not None:
+            parent = self.converter.get_object(parent)
+            writer.putln('FrameObject * parent = %s;' % parent)
+            if details.get('use_action_point', False):
+                parent_x = 'get_action_x()'
+                parent_y = 'get_action_y()'
+            else:
+                parent_x = 'get_x()'
+                parent_y = 'get_y()'
+            if details.get('transform_position_direction', False):
+                writer.putln('int x_off = %s;' % x)
+                writer.putln('int y_off = %s;' % y)
+                writer.putln('transform_pos(x_off, y_off, parent);')
+                x = 'x_off'
+                y = 'y_off'
+            x = 'parent->%s + %s' % (parent_x, x)
+            y = 'parent->%s + %s' % (parent_y, y)
+        writer.putlnc('set_display_center(%s, %s);', x, y)
+        writer.end_brace()
+
 class EndApplication(ActionWriter):
     def write(self, writer):
         writer.put('has_quit = true;')
@@ -947,6 +1016,7 @@ actions = make_table(ActionMethodWriter, {
     'ActivateGroup' : ActivateGroup,
     'CenterDisplayX' : CenterDisplayX,
     'CenterDisplayY' : CenterDisplayY,
+    'CenterDisplay' : CenterDisplay,
     'EndApplication' : EndApplication,
     'RestartApplication' : 'restart',
     'LookAt' : LookAt,
@@ -1007,9 +1077,9 @@ actions = make_table(ActionMethodWriter, {
     'FlashDuring' : 'flash',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
     'SetSpeed' : 'get_movement()->set_speed',
-    'Bounce' : 'get_movement()->bounce()',
+    'Bounce' : BounceAction,
     'Start' : 'get_movement()->start()',
-    'Stop' : 'get_movement()->stop()',
+    'Stop': StopAction,
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
     'SelectMovement' : 'set_movement(%s)',

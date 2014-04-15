@@ -32,7 +32,7 @@ namespace Parser
 	};
 
 	bool nextElement(char* &buf);
-	bool compare(char* buf, char* cmp);
+	bool compare(char* buf, const char* cmp);
 
 	bool parseVertices(char* &buf, b2Vec2* &dest, int &count, int minVerts);
 	bool parseShape(char* &buf, b2ShapeDef* &def, Box2D* rdPtr);

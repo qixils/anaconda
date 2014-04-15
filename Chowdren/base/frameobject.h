@@ -5,7 +5,6 @@
 #include "color.h"
 #include <string>
 #include <vector>
-#include "movement.h"
 #include <boost/unordered_map.hpp>
 
 class CollisionBase;
@@ -16,6 +15,7 @@ class Image;
 typedef boost::unordered_map<std::string, double> ShaderParameters;
 
 class FrameObject;
+class Movement;
 
 class FixedValue
 {

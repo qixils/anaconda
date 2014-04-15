@@ -89,7 +89,7 @@ static bool parseDelim[128] =
 
 #define delim parseDelim
 
-float* parseString(LPCSTR string, int &num);
+float* parseString(const char * string, int &num);
 
 struct extendedParam
 {

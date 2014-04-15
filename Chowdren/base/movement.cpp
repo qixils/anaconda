@@ -66,7 +66,7 @@ int get_movement_direction(int v)
 
 Movement::Movement(FrameObject * instance)
 : instance(instance), speed(0), add_x(0), add_y(0), max_speed(0),
-  last_collision(NULL), back_col(false)
+  back_col(false)
 {
 
 }
@@ -121,12 +121,12 @@ void Movement::reverse()
     set_speed(-speed);
 }
 
-void Movement::stop()
+void Movement::stop(bool collision)
 {
     set_speed(0);
 }
 
-void Movement::bounce()
+void Movement::bounce(bool collision)
 {
     set_speed(0);
 }
@@ -136,10 +136,14 @@ bool Movement::is_stopped()
     return speed == 0;
 }
 
+void Movement::clear_collisions()
+{
+    collisions.clear();
+    back_col = false;
+}
+
 void Movement::move(double x, double y)
 {
-    last_collision = NULL;
-    back_col = false;
     add_x += x;
     add_y += y;
     double xx = floor(add_x);
@@ -150,6 +154,7 @@ void Movement::move(double x, double y)
     old_y = instance->y;
     instance->set_position(instance->x + xx,
                            instance->y + yy);
+    clear_collisions();
 }
 
 void Movement::set_directions(unsigned int directions)
@@ -171,6 +176,15 @@ bool Movement::is_node_reached()
     return false;
 }
 
+bool Movement::test_direction(int dir, int displacement)
+{
+    float add_x, add_y;
+    get_dir(dir, add_x, add_y);
+    add_x *= displacement;
+    add_y *= displacement;
+    return test_offset(add_x, add_y);
+}
+
 bool Movement::test_offset(float x, float y)
 {
     return test_position(int(instance->x + x), int(instance->y + y));
@@ -178,23 +192,63 @@ bool Movement::test_offset(float x, float y)
 
 bool Movement::test_position(int x, int y)
 {
-    if (!back_col && last_collision == NULL)
+    if (!back_col && collisions.empty())
         return false;
     int old_x = instance->x;
     int old_y = instance->y;
     instance->set_position(x, y);
-    bool ret;
+    bool ret = false;
     if (back_col)
         ret = instance->overlaps_background();
-    else
-        ret = instance->overlaps(last_collision);
+    if (!ret) {
+        ObjectList::const_iterator it;
+        for (it = collisions.begin(); it != collisions.end(); it++) {
+            FrameObject * obj = *it;
+            if (!instance->overlaps(obj))
+                continue;
+            ret = true;
+            break;
+        }
+    }
     instance->set_position(old_x, old_y);
     return ret;
 }
 
+static const int fix_pos_table[] = {
+    0,-1,   0,1,    0,-2,   0,2,    0,-3,   0,3,    -2,0,   -3,0,
+    -1,-1,  1,1,    -2,-2,  2,2,    -3,-3,  3,3,    -2,2,   -3,3,
+    -1, 0,  1,0,    -2,0,   2,0,    -3,0,   3,0,    0,2,    0,3,
+    -1, 1,  1,-1,   -2,2,   2,-2,   -3,3,   3,-3,   2,2,    3,3,
+    0, 1,   0,-1,   0,2,    0,-2,   0,3,    0,-3,   2,0,    3,0,
+    1,1,    -1,-1,  2,2,    -2,-2,  3,3,    -3,-3,  2,-2,   3,-3,
+    1,0,    -1,0,   2,0,    -2,0,   3,0,    -3,0,   0,-2,   0,-3,
+    1,-1,   -1,1,   2,-2,   -2,2,   3,-3,   -3,3,   -2,-2,  -3,-3,
+};
+
+bool Movement::fix_position()
+{
+    if (push_out())
+        return true;
+
+    int table_index = (instance->direction/4) * 16;
+
+    for (int i = 0; i < 8; i++) {
+        int x = instance->x + fix_pos_table[table_index]*2;
+        int y = instance->y + fix_pos_table[table_index+1]*2;
+        table_index += 2;
+        if (test_position(x, y))
+            continue;
+        instance->set_position(x, y);
+        return true;
+    }
+    
+    instance->set_position(old_x, old_y);
+    return false;
+}
+
 bool Movement::push_out()
 {
-    if (!back_col && last_collision == NULL)
+    if (!back_col && collisions.empty())
         return true;
     int src_x = old_x;
     int src_y = old_y;
@@ -241,6 +295,16 @@ bool Movement::push_out()
     return false;
 }
 
+void Movement::add_collision(FrameObject * obj)
+{
+    collisions.push_back(obj);
+}
+
+void Movement::set_background_collision()
+{
+    back_col = true;
+}
+
 // StaticMovement
 
 StaticMovement::StaticMovement(FrameObject * instance)
@@ -265,10 +329,35 @@ void BallMovement::update(float dt)
     move(add_x * m, add_y * m);
 }
 
-void BallMovement::bounce()
+void BallMovement::bounce(bool collision)
 {
-    instance->set_direction((instance->direction + 16) % 32, false);
-    push_out();
+    fix_position();
+
+    float angle = rad(instance->direction * 11.25f);
+    float found_a = -1.0f;
+    for (float a = 0.0f; a < (CHOW_PI*2.0f); a += (CHOW_PI*2.0f) / 16.0f) {
+        float x_move = 10.0f * cos(angle + a);
+        float y_move = -10.0f * sin(angle + a);
+
+        int x = instance->x + x_move;
+        int y = instance->y + y_move;
+
+        if (!test_position(x, y)) {
+            found_a = a;
+            break;
+        }
+    }
+
+    if (found_a == -1.0f) {
+        instance->set_direction((instance->direction + 16) % 32, false);
+        return;
+    }
+
+    angle += found_a * 2.0f;
+    if (angle > 2.0 * CHOW_PI)
+        angle -= 2.0 * CHOW_PI;
+
+    instance->set_direction(deg(angle) / 11.25f, false);
 }
 
 // PathMovement
@@ -283,12 +372,12 @@ PathMovement::PathMovement(FrameObject * instance)
 void PathMovement::set_path(bool loop, bool reverse, int end_x, int end_y)
 {
     this->loop = loop;
-    this->reverse = reverse;
+    this->has_reverse = reverse;
     this->end_x = end_x;
     this->end_y = end_y;
 }
 
-void PathMovement::add_node(int speed, float x, float y, float length,
+void PathMovement::add_node(int speed, float x, float y, int length,
                             int dir, float pause)
 {
     PathNode node;
@@ -313,7 +402,7 @@ void PathMovement::set_current_node(int i)
 {
     current_node = i;
     PathNode & node = nodes[i];
-    distance_left = node.length;
+    distance_left = float(node.length);
     instance->set_direction(node.direction, false);
     set_speed(node.speed);
 }
@@ -328,7 +417,7 @@ void PathMovement::start()
         set_speed(nodes[current_node].speed);
 }
 
-void PathMovement::stop()
+void PathMovement::stop(bool collision)
 {
     set_speed(0);
 }
@@ -340,10 +429,12 @@ void PathMovement::update(float dt)
         return;
     PathNode & node = nodes[current_node];
     float m = get_pixels(speed) * instance->frame->timer_mul;
-    float move_m = std::min(m, distance_left) * float(dir);
-    move(node.x * move_m, node.y * move_m);
-    distance_left -= move_m;
+    float move_dist = std::min<float>(m, distance_left);
+    float move_val = move_dist * dir;
+    move(node.x * move_val, node.y * move_val);
+    distance_left -= move_dist;
     if (distance_left <= 0.0f) {
+        add_x = add_y = 0.0;
         node_changed = true;
         int next_node = current_node+dir;
         bool is_last = next_node == nodes.size() || next_node == -1;
@@ -351,17 +442,18 @@ void PathMovement::update(float dt)
             set_current_node(next_node);
             return;
         }
-        if (reverse && dir == 1) {
+        if (has_reverse && dir == 1) {
             dir = -1;
             set_current_node(current_node);
             return;
         }
-        move(-end_x, -end_y);
+        if (!has_reverse && dir == 1)
+            move(-end_x, -end_y);
         if (!loop) {
             current_node = -2;
             return;
         }
-        if (reverse)
+        if (has_reverse || dir == -1)
             dir = -dir;
         next_node = (current_node+dir) % nodes.size();
         set_current_node(next_node);
@@ -376,6 +468,25 @@ bool PathMovement::is_path_finished()
 bool PathMovement::is_node_reached()
 {
     return node_changed;
+}
+
+void PathMovement::set_node(const std::string & value)
+{
+}
+
+void PathMovement::reverse()
+{
+    dir = -dir;
+    if (current_node >= 0) {
+        distance_left = nodes[current_node].length - distance_left;
+        return;
+    }
+    int n;
+    if (dir == 1)
+        n = 0;
+    else
+        n = nodes.size() - 1;
+    set_current_node(n);
 }
 
 // PinballMovement
@@ -397,7 +508,7 @@ void PinballMovement::start()
     y_speed *= speed;
 }
 
-void PinballMovement::stop()
+void PinballMovement::stop(bool collision)
 {
     if (stopped)
         return;
@@ -442,25 +553,25 @@ void PinballMovement::update(float dt)
     move((x_speed * m) / 10.0f, (y_speed * m) / 10.0f);
 }
 
-void PinballMovement::bounce()
+void PinballMovement::bounce(bool collision)
 {
-    push_out();
-
     add_x = add_y = 0.0;
 
-    if (last_collision == NULL && !back_col) {
+    if (!collision) {
         x_speed = -x_speed;
         y_speed = -y_speed;
         return;
     }
 
+    push_out();
+
     float angle = get_pinball_angle(x_speed, y_speed);
     float dist = get_length(x_speed, y_speed);
 
-    float found_a = -1000.0f;
-    for (float a = 0.0f; a < 2.0f * CHOW_PI; a += CHOW_PI / 32.0f) {
-        float x_move = 16.0f * cos(angle + a);
-        float y_move = -16.0f * sin(angle + a);
+    float found_a = -1.0f;
+    for (float a = 0.0f; a < (2.0f*CHOW_PI); a += (2.0f*CHOW_PI) / 32.0f) {
+        float x_move = 10.0f * cos(angle + a);
+        float y_move = -10.0f * sin(angle + a);
 
         if (!test_offset(x_move, y_move)) {
             found_a = a;
@@ -468,7 +579,7 @@ void PinballMovement::bounce()
         }
     }
 
-    if (found_a == -1000.0f) {
+    if (found_a == -1.0f) {
         x_speed = -x_speed;
         y_speed = -y_speed;
         return;
@@ -478,11 +589,12 @@ void PinballMovement::bounce()
     if (angle > 2.0 * CHOW_PI)
         angle -= 2.0 * CHOW_PI;
 
+    // add some randomness
+    angle += randrange(-0.3f, 0.3f);
+    dist += randrange(0.0f, 15.0f);
+
     x_speed = dist * cos(angle);
     y_speed = -dist * sin(angle);
-
-    last_collision = NULL;
-    back_col = false;
 }
 
 void PinballMovement::set_deceleration(int value)
@@ -536,10 +648,82 @@ void EightDirections::set_acceleration(int value)
     acceleration = value;
 }
 
-void EightDirections::stop()
+void EightDirections::start()
 {
-    set_speed(0);
-    push_out();
+}
+
+template <class T>
+int rounded_sign(T x)
+{
+    return sign_int(int_round(x));
+}
+
+void EightDirections::stop(bool collision)
+{
+    // set_speed(0);
+    if (!collision)
+        return;
+
+    // float angle = rad(instance->direction * 11.25);
+
+    // int x, y;
+    // float angle2;
+
+    // for (float a = rad(90); a <= rad(180); a += rad(90) / 8.0f) {
+    //     const float d = 8.0f;
+    //     angle2 = angle + a;
+    //     x = instance->x + cos(angle2) * d;
+    //     y = instance->y - sin(angle2) * d;
+    //     if (!test_position(x, y)) {
+    //         instance->set_position(x, y);
+    //         return;
+    //     }
+    //     angle2 = angle - a;
+    //     x = instance->x + cos(angle2) * d;
+    //     y = instance->y - sin(angle2) * d;
+    //     if (!test_position(x, y)) {
+    //         instance->set_position(x, y);
+    //         return;
+    //     }
+    // }
+
+    // int dir1 = instance->direction + 6;
+    // int dir2 = instance->direction - 6;
+
+    // int x, y;
+    // float add_x, add_y;
+
+    // get_dir(dir1, add_x, add_y);
+    // add_x *= last_move;
+    // add_y *= last_move;
+    // x = old_x + add_x;
+    // y = old_y + add_y;
+    // if (!test_position(x, y)) {
+    //     instance->set_position(x, y);
+    //     return;
+    // }
+
+    // get_dir(dir2, add_x, add_y);
+    // add_x *= last_move;
+    // add_y *= last_move;
+    // x = old_x + add_x;
+    // y = old_y + add_y;
+    // if (!test_position(x, y)) {
+    //     instance->set_position(x, y);
+    //     return;
+    // }
+
+    if (!test_position(old_x, instance->y)) {
+        instance->set_position(old_x, instance->y);
+        return;
+    }
+
+    if (!test_position(instance->x, old_y)) {
+        instance->set_position(instance->x, old_y);
+        return;
+    }
+
+    fix_position();
 }
 
 void EightDirections::update(float dt)
@@ -564,13 +748,14 @@ void EightDirections::update(float dt)
     else
         change = -get_accelerator(deceleration);
 
-    set_speed(int_min(speed + change * mul, max_speed));
+    set_speed(int_max(0, int_min(speed + change * mul, max_speed)));
 
-    if (!on)
+    if (speed == 0)
         return;
 
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
     double m = get_pixels(speed) * mul;
     move(add_x * m, add_y * m);
+    last_move = m;
 }

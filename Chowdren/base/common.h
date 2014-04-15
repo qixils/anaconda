@@ -34,6 +34,7 @@
 #include <boost/unordered_map.hpp>
 #include "coltree.h"
 #include "input.h"
+#include "movement.h"
 
 extern std::string newline_character;
 
@@ -1073,12 +1074,10 @@ inline bool check_overlap_save(ObjectList in_a, ObjectList in_b,
             if (!f1->overlaps(f2))
                 continue;
             if (f1->movement != NULL) {
-                f1->movement->last_collision = f2;
-                f1->movement->back_col = false;
+                f1->movement->add_collision(f2);
             }
             if (f2->movement != NULL) {
-                f2->movement->last_collision = f1;
-                f2->movement->back_col = false;
+                f2->movement->add_collision(f1);
             }
             ret = true;
             if (!added) {
@@ -1142,7 +1141,7 @@ inline void pick_random(ObjectList & instances)
     instances = make_single_list(instance);
 }
 
-inline void spread_value(ObjectList & instances, int alt, int start)
+inline void spread_value(const ObjectList & instances, int alt, int start)
 {
     ObjectList::const_iterator item;
     for (item = instances.begin(); item != instances.end(); item++) {

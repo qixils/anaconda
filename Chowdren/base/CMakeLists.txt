@@ -193,11 +193,11 @@ if(APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "${APP_VERSION}")
     set(MACOSX_BUNDLE_COPYRIGHT "${APP_COPYRIGHT}")
     set(DATA_SRCS ${DATA_SRCS} "${CMAKE_SOURCE_DIR}/${MACOSX_BUNDLE_ICON_FILE}")
-    set(DATA_SRCS ${DATA_SRCS} "${CMAKE_SOURCE_DIR}/alsoft.conf")
+    set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 endif()
 
 # include alsoft.conf
-set(DATA_SRCS ${DATA_SRCS} "${CMAKE_SOURCE_DIR}/alsoft.conf")
+set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 
 if (USE_PYTHON)
     add_definitions(-DCHOWDREN_USE_PYTHON)
@@ -206,6 +206,7 @@ if (USE_PYTHON)
         ${CHOWDREN_BASE_DIR}/pythonext.cpp
     )
     find_package(PythonLibs 2.7 REQUIRED)
+    include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
 # for Linux (set RPATH properly)
@@ -225,7 +226,6 @@ if(EMSCRIPTEN)
     # libogg
     file(GLOB LIBOGG_C "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
     file(GLOB LIBVORBIS_C "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
-    add_definitions(-DFT2_BUILD_LIBRARY)
     set(VORBIS_INCLUDE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
     include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
 else()
@@ -242,9 +242,8 @@ endif()
 set(EXE_NAME "Chowdren")
 add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
-include_directories(${OPENALSOFT_INCLUDE_DIR} ${PYTHON_INCLUDE_DIRS} 
-    ${SDL2_INCLUDE_DIR} ${VORBIS_INCLUDE_DIR}
-    ${BOX2D_INCLUDE_DIR})
+include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
+    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES}
     ${PLATFORM_LIBRARIES} ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES}
@@ -258,7 +257,6 @@ set(DATA_PATH ".")
 if(APPLE)
     set(DATA_PATH "/${EXE_NAME}.app/Contents/Resources")
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.app")
-    set()
 elseif(WIN32)
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
     set(DLL_PATH "${CMAKE_SOURCE_DIR}/bin/win32")

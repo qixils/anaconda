@@ -131,12 +131,12 @@ void Box2D::initialize_box2d()
     sDefs = new b2ShapeDef*[maxShapeDefs];
     controllers = new b2Controller*[maxControllers];
 
-    memset(bodies, 0, maxBodies*4);
-    memset(joints, 0, maxJoints*4);
-    memset(bDefs, 0, maxBodyDefs*4);
-    memset(jDefs, 0, maxJointDefs*4);
-    memset(sDefs, 0, maxShapeDefs*4);
-    memset(controllers, 0, maxControllers*4);
+    memset(bodies, 0, maxBodies*sizeof(void*));
+    memset(joints, 0, maxJoints*sizeof(void*));
+    memset(bDefs, 0, maxBodyDefs*sizeof(void*));
+    memset(jDefs, 0, maxJointDefs*sizeof(void*));
+    memset(sDefs, 0, maxShapeDefs*sizeof(void*));
+    memset(controllers, 0, maxControllers*sizeof(void*));
 
     BL = new BoundaryListener;
     CL = new ContactListener;
@@ -657,12 +657,12 @@ void Box2D::reset_world()
     world->SetDebugDraw(DD);
     world->GetGroundBody()->GetUserData()->ID = -2;
 
-    memset(bodies, 0, maxBodies*4);
-    memset(joints, 0, maxJoints*4);
-    memset(bDefs, 0, maxBodyDefs*4);
-    memset(jDefs, 0, maxJointDefs*4);
-    memset(sDefs, 0, maxShapeDefs*4);
-    memset(controllers, 0, maxControllers*4);
+    memset(bodies, 0, maxBodies*sizeof(void*));
+    memset(joints, 0, maxJoints*sizeof(void*));
+    memset(bDefs, 0, maxBodyDefs*sizeof(void*));
+    memset(jDefs, 0, maxJointDefs*sizeof(void*));
+    memset(sDefs, 0, maxShapeDefs*sizeof(void*));
+    memset(controllers, 0, maxControllers*sizeof(void*));
 
     lastBody = -2;
     lastJoint = -2;

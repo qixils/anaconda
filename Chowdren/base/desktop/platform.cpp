@@ -600,14 +600,14 @@ void on_joystick_button(int instance, int button, bool state)
 {
     if (!state)
         return;
-    get_joy_instance(instance)->last_press = button + 1;
+    get_joy_instance(instance)->last_press = button;
 }
 
 int get_joystick_last_press(int n)
 {
     if (!is_joystick_attached(n))
         return CHOWDREN_BUTTON_INVALID;
-    return get_joy(n).last_press;
+    return remap_button(get_joy(n).last_press+1);
 }
 
 bool is_joystick_attached(int n)
@@ -620,6 +620,7 @@ bool is_joystick_pressed(int n, int button)
 {
     if (!is_joystick_attached(n))
         return false;
+    button = remap_button(button);
     button--;
     return get_joy(n).get_button(button);
 }
@@ -640,6 +641,7 @@ bool is_joystick_released(int n, int button)
 {
     if (!is_joystick_attached(n))
         return true;
+    button = remap_button(button);
     button--;
     return !get_joy(n).get_button(button);
 }

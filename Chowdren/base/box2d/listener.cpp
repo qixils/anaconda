@@ -97,8 +97,6 @@ void ContactListener::ContactStop(b2Contact* contact)
 
 void ContactListener::ContactPointAdd(b2Contact* contact, const b2ContactPoint* point)
 {
-	contact;
-
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
 	
@@ -126,8 +124,6 @@ void ContactListener::ContactPointAdd(b2Contact* contact, const b2ContactPoint* 
 }
 void ContactListener::ContactPointPersist(b2Contact* contact, const b2ContactPoint* point)
 {
-	contact;
-
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
 	
@@ -155,8 +151,6 @@ void ContactListener::ContactPointPersist(b2Contact* contact, const b2ContactPoi
 }
 void ContactListener::ContactPointRemove(b2Contact* contact, const b2ContactPoint* point)
 {
-	contact;
-
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
 	
@@ -184,7 +178,6 @@ void ContactListener::ContactPointRemove(b2Contact* contact, const b2ContactPoin
 }
 void ContactListener::ContactPointResponse(b2Contact* contact, const b2ContactResult* point)
 {
-	contact;
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
 	

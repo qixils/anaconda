@@ -7,7 +7,7 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR, 
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
-    LADDER_OBSTACLE, ANIMATION)
+    LADDER_OBSTACLE, ANIMATION, APPEARING)
 
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
@@ -34,7 +34,11 @@ class Active(ObjectWriter):
         writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
         writer.putlnc('auto_rotate = %s;', bool(flags['AutomaticRotation']))
         writer.putlnc('transparent = %s;', self.get_transparent())
-        writer.putln('animation = %s;' % get_animation_name(min(animations)))
+        if APPEARING in animations:
+            start_anim = APPEARING
+        else:
+            start_anim = min(animations)
+        writer.putln('animation = %s;' % get_animation_name(start_anim))
         writer.putln('initialize_active();')
 
     def get_transparent(self):
@@ -47,9 +51,11 @@ class Active(ObjectWriter):
                 for image in direction.frames:
                     bank_image = self.converter.game.images.itemDict[image]
                     has_alpha = bank_image.flags['Alpha']
-                    if has_back == has_alpha:
-                        return has_alpha
-        return False
+                    if has_back and has_alpha:
+                        return True
+        if has_back:
+            return False
+        return True
 
     def write_class(self, writer):
         animations = self.common.animations.loadedAnimations

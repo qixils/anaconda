@@ -74,4 +74,6 @@ float get_joystick_rt(int n);
 float get_joystick_x(int n);
 float get_joystick_y(int n);
 
+int remap_button(int n);
+
 #endif // CHOWDREN_INPUT_H

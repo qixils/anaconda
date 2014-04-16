@@ -26,42 +26,35 @@ from mmfparser.bytereader import ByteReader
 
 import sys
 import os
-from PySide.QtCore import *
-from PySide.QtGui import *
- 
+
 def main():
     print 'MMF2 EXE->MFA translator by Mathias Kaerlev'
     print '(only for internal use)'
     print ''
 
-    app = QApplication(sys.argv)
+    input = sys.argv[1]
+    output = sys.argv[2]
 
-    input = QFileDialog.getOpenFileName(caption = 'Select input EXE file')[0]
-    if not input:
-        return
-    output = QFileDialog.getExistingDirectory(
-        caption = 'Select output directory')
-    if not output:
-        return
     fp = ByteReader(open(input, 'rb'))
     if input.endswith('.ccn'):
         newGame = GameData(fp)
     else:
         newExe = ExecutableData(fp)
-        
+
         for file in newExe.packData.items:
             name = file.filename.split('\\')[-1]
             print 'Writing pack file %r' % name
             open(os.path.join(output, name), 'wb').write(file.data)
 
         newGame = newExe.gameData
-        
+
     if newGame.files is not None:
         for file in newGame.files.items:
             name = file.name.split('\\')[-1]
             print 'Writing embedded file %r' % name
             open(os.path.join(output, name), 'wb').write(str(file.data))
-            
+    newGame.files = None
+
     def out(value):
         print value
 

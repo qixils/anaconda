@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
 
+import tempfile
 from mmfparser.data.mfa import (MFA, MFA_CURRENT_VERSION, ValueList, ValueItem,
-    ChunkList, Frame, Events, Layer, FrameItem, FrameInstance, 
+    ChunkList, Frame, Events, Layer, FrameItem, FrameInstance,
     FRAME_ITEM_LOADERS, EXTENSION_BASE, ExtensionObject, Movements,
     Behaviours, Transition, Animation, AnimationDirection, ItemFolder, Movement,
     EventObject, FRAME_ITEM_TYPE, Paragraph, SYSTEM_ITEM_TYPE)
@@ -26,8 +27,8 @@ from mmfparser.data.chunkloaders.musicbank import MusicBank
 from mmfparser.data.mfaloaders.imagebank import AGMIBank
 from mmfparser.data.mfaloaders.playercontrols import Controls, PlayerControl
 from mmfparser.bytereader import ByteReader
-from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE, 
-    TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT, 
+from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
+    TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT,
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, objectTypes)
 from mmfparser.data.chunkloaders.frame import NONE_PARENT
 from mmfparser.data.chunkloaders.objects import HIDDEN
@@ -59,6 +60,24 @@ def convert_transition(transition):
 
 def dummy_out(*arg, **kw):
     return
+
+class DataWrapper(object):
+    def __init__(self, fp):
+        self.fp = fp
+
+    def write(self, reader):
+        self.fp.seek(0)
+        reader.write(self.fp.read())
+        self.fp.close()
+
+def save_data_loader(loader):
+    writer = ByteReader()
+    loader.write(writer)
+    loader.parent = None
+    data = str(writer)
+    fp = tempfile.TemporaryFile()
+    fp.write(data)
+    return DataWrapper(fp)
 
 def translate(game, print_func = dummy_out):
     onepointfive = game.settings.get('old', False)
@@ -123,7 +142,7 @@ def translate(game, print_func = dummy_out):
         newControl = controls.new(PlayerControl)
         newControl.controlType = 4
         keys = control.keys
-        for key in ('up', 'down', 'left', 'right', 'button1', 'button2', 
+        for key in ('up', 'down', 'left', 'right', 'button1', 'button2',
         'button3', 'button4'):
             try:
                 key_value = getattr(keys, key).getValue()
@@ -154,9 +173,9 @@ def translate(game, print_func = dummy_out):
     # mfa.iconImages = []
     mfa.customQualifiers = {}
     mfa.chunks = mfa.new(ChunkList)
-    
+
     frameItems = {}
-    
+
     for itemIndex, item in enumerate(game.frameItems.items):
         newItem = mfa.new(FrameItem)
         newItem.name = item.name or ('Unnamed %s' % itemIndex)
@@ -221,7 +240,7 @@ def translate(game, print_func = dummy_out):
                     newMovement.directionAtStart = movement.directionAtStart
                 newMovement.loader = movement.loader
                 movements.items.append(newMovement)
-            
+
             newLoader.behaviours = newLoader.new(Behaviours)
             newLoader.fadeIn = convert_transition(itemLoader.fadeIn)
             newLoader.fadeOut = convert_transition(itemLoader.fadeOut)
@@ -353,10 +372,10 @@ def translate(game, print_func = dummy_out):
         frameItems[newItem.handle] = newItem
 
     qualifiers = {}
-    
+
     indexHandles = dict(
         [(v, index) for (index, v) in enumerate(game.frameHandles)])
-    
+
     for index, frame in enumerate(game.frames):
         frame.load()
         newFrame = mfa.new(Frame)
@@ -502,7 +521,7 @@ def translate(game, print_func = dummy_out):
                     for ace in aceList:
                         for parameter in ace.items:
                             yield parameter.getName(), parameter.loader
-        
+
         for name, parameter in loop_parameters():
             if name == 'GROUP':
                 offset = parameter.offset
@@ -511,13 +530,14 @@ def translate(game, print_func = dummy_out):
                 groups[offset] = groupId
                 parameter.id = groupId
                 groupId += 1
-        
+
         for name, parameter in loop_parameters():
             if name == 'GROUPOINTER':
                 parameter.id = groups[parameter.pointer]
                 parameter.savedPointer = parameter.pointer = 0
-                        
+
         newFrame.chunks = mfa.new(ChunkList)
-        mfa.frames.append(newFrame)
-    
+        mfa.frames.append(save_data_loader(newFrame))
+        frame.close()
+
     return mfa

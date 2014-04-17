@@ -6,10 +6,10 @@ from mmfparser.data.exe import ExecutableData
 from mmfparser.data.gamedata import GameData
 from mmfparser.bytereader import ByteReader
 from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
-    TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT, 
+    TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT,
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, EXTENSION_BASE,
-    INK_EFFECTS, NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT, 
-    XOR_EFFECT, AND_EFFECT, OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT, 
+    INK_EFFECTS, NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT,
+    XOR_EFFECT, AND_EFFECT, OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT,
     SUBTRACT_EFFECT, HWA_EFFECT, SHADER_EFFECT)
 from mmfparser.data.chunkloaders.shaders import INT, FLOAT, INT_FLOAT4, IMAGE
 from mmfparser.data.chunkloaders.frame import NONE_PARENT
@@ -26,7 +26,7 @@ from chowdren.writers.events import default_writers
 from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
-from chowdren.common import (get_method_name, get_class_name, check_digits, 
+from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs,
     is_qualifier, get_qualifier)
 from chowdren.writers.extensions import load_extension_module
@@ -109,10 +109,10 @@ class CodeWriter(object):
     def __init__(self, filename = None):
         self.fp = StringIO()
         self.filename = filename
-    
+
     def format_line(self, line):
         return self.get_spaces() + line
-    
+
     def putln(self, *lines, **kw):
         wrap = kw.get('wrap', False)
         indent = kw.get('indent', True)
@@ -141,15 +141,15 @@ class CodeWriter(object):
         if isinstance(value, str):
             value = '"%s"' % value
         self.putln('#define %s %s' % (name, value))
-    
+
     def putindent(self, extra = 0):
         self.fp.write(self.get_spaces(extra))
-    
+
     def put(self, value, indent = False):
         if indent:
             self.putindent()
         self.fp.write(value)
-    
+
     def get_data(self):
         fp = self.fp
         pos = fp.tell()
@@ -162,7 +162,7 @@ class CodeWriter(object):
         data = writer.get_data().splitlines()
         for line in data:
             self.putln(line)
-    
+
     def putclass(self, name, subclass = None):
         text = 'class %s' % name
         if subclass is not None:
@@ -180,7 +180,7 @@ class CodeWriter(object):
         if semicolon:
             text += ';'
         self.putln(text)
-    
+
     def putdef(self, name, value, wrap = False):
         new_value = '%r' % (value,)
         self.putln('%s = %s' % (name, new_value), wrap = wrap)
@@ -206,23 +206,23 @@ class CodeWriter(object):
     def close_guard(self, name):
         self.putln('')
         self.putln('#endif // %s' % name)
-    
+
     def putend(self):
         self.putln('pass')
         self.dedent()
         self.putln('')
-    
+
     def indent(self):
         self.indentation += 1
-        
+
     def dedent(self):
         self.indentation -= 1
         if self.indentation < 0:
             raise ValueError('indentation cannot be lower than 0')
-        
+
     def get_spaces(self, extra = 0):
         return (self.indentation + extra) * '    '
-    
+
     def close(self):
         data = self.get_data()
         self.fp.close()
@@ -242,7 +242,7 @@ class CodeWriter(object):
 
     def get_line_count(self):
         return self.get_data().count('\n')
-    
+
     # misc. helpers
 
     def putfont(self, font):
@@ -259,7 +259,7 @@ class CodeWriter(object):
             bold = font.isBold()
             italic = bool(font.italic)
             underline = bool(font.underline)
-        self.putln('font = Font(%r, %r, %r, %r, %r)' % (face, size, bold, 
+        self.putln('font = Font(%r, %r, %r, %r, %r)' % (face, size, bold,
             italic, underline))
 
 native_extension_cache = {}
@@ -404,7 +404,7 @@ class EventGroup(object):
     or_final = False
     or_type = None
 
-    def __init__(self, conditions, actions, container, global_id, 
+    def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
         self.conditions = fix_conditions(conditions)
         self.actions = actions
@@ -492,8 +492,8 @@ class Converter(object):
     iterated_object = iterated_index = None
 
     debug = False
-    def __init__(self, filename, outdir, image_file = 'Sprites.dat', 
-                 win_ico = None, mac_icns = None, company = None, 
+    def __init__(self, filename, outdir, image_file = 'Sprites.dat',
+                 win_ico = None, mac_icns = None, company = None,
                  version = None, copyright = None, base_only = False,
                  wiiu=False):
         self.filename = filename
@@ -535,7 +535,7 @@ class Converter(object):
         version_number = ', '.join(version.split('.'))
         copyright = copyright or game.author
         self.base_path = get_base_path()
-        self.info_dict = dict(company = company, version = version, 
+        self.info_dict = dict(company = company, version = version,
             copyright = copyright, description = game.name,
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
@@ -547,7 +547,7 @@ class Converter(object):
         self.copy_file('icon.icns', overwrite=False)
 
         self.open('config.py').write(repr(self.info_dict))
-        
+
         # write keys file
         keys_file = self.open_code('keys.h')
         keys_file.start_guard('CHOWDREN_KEYS_H')
@@ -563,7 +563,7 @@ class Converter(object):
         keys_file.putln('return -1;')
         keys_file.end_brace()
 
-        keys_file.putmeth('inline int translate_string_to_key', 
+        keys_file.putmeth('inline int translate_string_to_key',
                           'const std::string & name')
         for vk, name in VK_TO_SDL.iteritems():
             string_name = VK_TO_NAME.get(vk, None)
@@ -615,14 +615,14 @@ class Converter(object):
                     font_name = 'font%s' % font.handle
                     all_fonts.append(font_name)
                     fonts_file.putln(to_c('Font %s = Font(%r, %s, %s, %s, %s);',
-                        font_name, logfont.faceName, logfont.getSize(), 
-                        logfont.isBold(), bool(logfont.italic), 
+                        font_name, logfont.faceName, logfont.getSize(),
+                        logfont.isBold(), bool(logfont.italic),
                         bool(logfont.underline)))
                     fonts_header.putln('extern Font %s;' % font_name)
             fonts_header.close_guard('FONTS_H')
             fonts_file.close()
             fonts_header.close()
-        
+
         # images
 
         # print 'Image count:', len(game.images.items)
@@ -648,7 +648,7 @@ class Converter(object):
                     image_data.writeInt(image.actionX)
                     image_data.writeInt(image.actionY)
                     handle = image.handle
-                    pil_image = Image.fromstring('RGBA', (image.width, 
+                    pil_image = Image.fromstring('RGBA', (image.width,
                         image.height), image.getImageData())
                     temp = StringIO()
                     pil_image.save(temp, 'PNG')
@@ -657,7 +657,7 @@ class Converter(object):
                     image_data.write(temp)
             image_header.writeReader(image_data)
             image_fp.close()
-        
+
         # sounds
         if WRITE_SOUNDS:
             dir_created = False
@@ -678,13 +678,13 @@ class Converter(object):
                         makedirs(self.get_filename('sounds'))
                         dir_created = True
                     self.open('sounds', filename).write(data)
-                    sounds_file.putln(to_c('media->add_cache(%r, %r);', 
+                    sounds_file.putln(to_c('media->add_cache(%r, %r);',
                         sound.name, filename))
             sounds_file.end_brace()
             sounds_file.close_guard('SOUNDS_H')
             sounds_file.putln('')
             sounds_file.close()
-        
+
         # objects
         objects_header = self.open_code('objects.h')
         objects_header.start_guard('CHOWDREN_OBJECTS_H')
@@ -697,7 +697,7 @@ class Converter(object):
         objects_file.putln('#include "fonts.h"')
         objects_file.putln('#include "font.h"')
         objects_file.putln('')
-        
+
         self.object_names = {}
         self.all_objects = {}
         self.instance_names = {}
@@ -707,7 +707,7 @@ class Converter(object):
         self.event_callback_ids = itertools.count()
 
         type_id = itertools.count(1)
-        
+
         for frameitem in game.frameItems.items:
             name = frameitem.name
             self.name_to_item[name] = frameitem
@@ -721,7 +721,7 @@ class Converter(object):
                 object_writer = self.get_object_writer(object_type)(
                     self, frameitem)
             except (KeyError, AttributeError, NotImplementedError):
-                print 'not implemented:', repr(frameitem.name), object_type, 
+                print 'not implemented:', repr(frameitem.name), object_type,
                 print handle
                 continue
             self.all_objects[handle] = object_writer
@@ -736,20 +736,20 @@ class Converter(object):
             self.instance_names[handle] = get_method_name(class_name)
             object_writer.write_pre(objects_file)
             object_type_id = '%s_type' % class_name
-            objects_header.putln('#define %s %s' % 
+            objects_header.putln('#define %s %s' %
                 (object_type_id, type_id.next()))
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
             object_writer.write_constants(objects_file)
             parameters = ['x', 'y', object_type_id]
-            extra_parameters = [str(item) 
+            extra_parameters = [str(item)
                 for item in object_writer.get_parameters()]
             parameters = ', '.join(extra_parameters + parameters)
             init_list = [to_c('%s(%s)', subclass, parameters)]
             for name, value in object_writer.get_init_list():
                 init_list.append(to_c('%s(%r)', name, value))
             init_list = ', '.join(init_list)
-            objects_file.putln(to_c('%s(int x, int y) : %s', class_name, 
+            objects_file.putln(to_c('%s(int x, int y) : %s', class_name,
                 init_list))
             objects_file.start_brace()
             objects_file.putraw('#ifndef NDEBUG')
@@ -763,7 +763,7 @@ class Converter(object):
                 objects_file.putln('scroll = false;')
 
             object_writer.write_init(objects_file)
-            
+
             shader_name = None
             if frameitem.shaderId is not None:
                 # raise NotImplementedError('has shader')
@@ -800,8 +800,9 @@ class Converter(object):
                         objects_file.putlnc('blend_color = %s;', make_color(
                             (255, 255, 255, a)))
                 else:
-                    raise NotImplementedError(
-                        'unknown inkeffect: %s' % ink_effect)
+                    print 'unknown inkeffect: %s' % ink_effect
+                    # raise NotImplementedError(
+                    #     'unknown inkeffect: %s' % ink_effect)
             if shader_name is not None:
                 objects_file.putln('set_shader(%s);' % shader.get_name(
                     shader_name))
@@ -818,11 +819,14 @@ class Converter(object):
                         elif parameter.type == FLOAT:
                             value = reader.readFloat()
                         elif parameter.type == INT_FLOAT4:
-                            value = make_color((reader.readByte(True), 
+                            value = make_color((reader.readByte(True),
                                 reader.readByte(True),
-                                reader.readByte(True), 
+                                reader.readByte(True),
                                 reader.readByte(True)))
                         else:
+                            print 'shader parameter type not supported:',
+                            print parameter.type
+                            continue
                             raise NotImplementedError
                         parameters[parameter.name].value = value
                 for name, value in parameters.iteritems():
@@ -857,11 +861,11 @@ class Converter(object):
             object_instances = 'ObjectList %s_instances' % get_method_name(
                 class_name, True)
 
-            objects_header.putln('FrameObject * %s(int x, int y);' 
+            objects_header.putln('FrameObject * %s(int x, int y);'
                 % object_func)
             objects_header.putln('extern %s;' % object_instances)
 
-            objects_file.putmeth('FrameObject * %s' % object_func, 
+            objects_file.putmeth('FrameObject * %s' % object_func,
                 'int x', 'int y')
             objects_file.putln('return new %s(x, y);' % class_name)
             objects_file.end_brace()
@@ -883,9 +887,9 @@ class Converter(object):
             extensions_file.putln('#include "%s"' % include)
         extensions_file.close_guard('CHOWDREN_EXTENSIONS_H')
         extensions_file.close()
-        
+
         processed_frames = []
-        
+
         # frames
         for frame_index, frame in enumerate(game.frames):
             frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
@@ -898,7 +902,7 @@ class Converter(object):
             frame_file.putln('#include "media.h"')
             frame_file.putln('#include "objects.h"')
             frame_file.putln('')
-            
+
             startup_instances = []
             self.multiple_instances = set()
             startup_set = set()
@@ -989,7 +993,7 @@ class Converter(object):
 
                     action_name = self.get_action_name(action)
                     action_dict[action_name].append(action_writer)
-                    if action_name in ('CreateObject', 'Shoot', 
+                    if action_name in ('CreateObject', 'Shoot',
                                        'DisplayText', 'Destroy'):
                         if action_name == 'Destroy':
                             create_info = action.objectInfo
@@ -999,15 +1003,15 @@ class Converter(object):
                             # the case for DisplayText
                             create_info = action.objectInfo
                         self.multiple_instances.add(create_info)
-                    elif action_name in ('DeactivateGroup', 
+                    elif action_name in ('DeactivateGroup',
                                          'ActivateGroup'):
                         pointer = action.items[0].loader.pointer
                         changed_containers.add(pointer)
 
                 all_groups = []
                 for or_index, conditions in enumerate(condition_groups):
-                    new_group = EventGroup(conditions, actions, 
-                        current_container, group_index+1, 
+                    new_group = EventGroup(conditions, actions,
+                        current_container, group_index+1,
                         or_index, not_always, or_type)
                     all_groups.append(new_group)
                     first_writer = new_group.conditions[0]
@@ -1049,25 +1053,25 @@ class Converter(object):
             self.qualifier_types = {}
             for qualifier in events.qualifiers.values():
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
-                object_names = ['%s_type' % self.object_names[item] 
+                object_names = ['%s_type' % self.object_names[item]
                     for item in object_infos] + ['0']
                 class_name = 'qualifier_%s' % qualifier.qualifier
                 frame_file.putln('static unsigned int %s[] = '
-                    '{%s};' % (class_name, ', '.join(object_names)), 
+                    '{%s};' % (class_name, ', '.join(object_names)),
                     wrap = True)
                 frame_file.putln('static ObjectList %s_instances;' % (
                     class_name))
                 frame_file.putln('')
                 self.qualifiers[qualifier.qualifier] = object_infos
                 self.qualifier_types[qualifier.qualifier] = qualifier.type
-            
+
             frame_file.putclass(frame_class_name, 'Frame')
             frame_file.put_access('public')
             for container in containers.values():
                 frame_file.putln('bool %s;' % container.code_name)
             frame_file.putln(to_c('%s(GameManager * manager) : '
                 'Frame(%r, %s, %s, %s, %s, manager)',
-                frame_class_name, frame.name, frame.width, frame.height, 
+                frame_class_name, frame.name, frame.width, frame.height,
                 make_color(frame.background), frame_index))
             frame_file.start_brace()
             if frame.flags['TimedMovements']:
@@ -1086,7 +1090,7 @@ class Converter(object):
             # print 'Startup images:', len(startup_images)
 
             frame_file.putmeth('void on_start')
-            
+
             # load images on startup
             if False:
                 frame_file.putln('static bool images_initialized = false;')
@@ -1095,7 +1099,7 @@ class Converter(object):
                 frame_file.putln('images_initialized = true;')
                 for image_handle in startup_images:
                     img = game.images.itemDict[image_handle]
-                    frame_file.putln('%s->load(true);' % 
+                    frame_file.putln('%s->load(true);' %
                                      get_image_name(image_handle))
                 frame_file.end_brace()
 
@@ -1107,7 +1111,7 @@ class Converter(object):
 
             for layer in frame.layers.items:
                 frame_file.putln(to_c('add_layer(%s, %s, %s);',
-                    layer.xCoefficient, layer.yCoefficient, 
+                    layer.xCoefficient, layer.yCoefficient,
                     not layer.flags['ToHide']))
 
             frame_file.putraw('#if defined(CHOWDREN_IS_WIIU) || '
@@ -1132,7 +1136,7 @@ class Converter(object):
                 object_func = 'create_%s' % get_method_name(
                     self.object_names[frameitem.handle])
                 frame_file.putln('%s(%s(%s, %s), %s);' %
-                    (method, object_func, instance.x, instance.y, 
+                    (method, object_func, instance.x, instance.y,
                      instance.layer))
 
             for object_writer in object_writers:
@@ -1178,7 +1182,7 @@ class Converter(object):
                     frame_file.dedent()
                 frame_file.end_brace()
             frame_file.end_brace()
-            
+
             # write 'always' event subfunctions
             group_index = 0
             call_groups = []
@@ -1191,14 +1195,14 @@ class Converter(object):
                 if group.is_container_mark:
                     group_index += 1
                     continue
-                frame_file.putmeth('inline void event_func_%s' 
+                frame_file.putmeth('inline void event_func_%s'
                     % group.global_id)
                 while True:
                     try:
                         new_group = always_groups[group_index]
                     except IndexError:
                         break
-                    if (new_group.is_container_mark or 
+                    if (new_group.is_container_mark or
                     new_group.global_id != group.global_id):
                         break
                     self.write_event(frame_file, new_group)
@@ -1247,17 +1251,17 @@ class Converter(object):
             for end_marker in end_markers:
                 frame_file.put_label(end_marker)
             frame_file.end_brace()
-            
+
             frame_file.end_brace(True) # end of frame
 
             frame_func = 'create_frame_%s' % (frame_index + 1)
-            frame_file.putmeth('Frame * %s' % frame_func, 
+            frame_file.putmeth('Frame * %s' % frame_func,
                 'GameManager * manager')
             frame_file.putln('return new %s(manager);' % frame_class_name)
             frame_file.end_brace()
 
             frame_file.close()
-                
+
             if generated_groups:
                 missing_groups = []
                 for k, v in generated_groups.iteritems():
@@ -1330,7 +1334,7 @@ class Converter(object):
                 frames_file.putln('values->set(%s, %s);' % (index, value))
         if game.globalStrings:
             for index, value in enumerate(game.globalStrings.items):
-                frames_file.putln(to_c('strings->set(%s, %r);', index, 
+                frames_file.putln(to_c('strings->set(%s, %r);', index,
                     value))
         frames_file.end_brace()
 
@@ -1375,7 +1379,7 @@ class Converter(object):
             writer.start_brace()
             writer.putln('ObjectList::const_iterator %s = %s.begin();' % (
                 name, selected_name))
-        writer.putln('while (%s != %s.end()) {' % 
+        writer.putln('while (%s != %s.end()) {' %
             (name, selected_name))
         writer.indent()
 
@@ -1412,7 +1416,7 @@ class Converter(object):
 
     def clear_selection(self):
         self.has_selection = {}
-    
+
     def write_instance_check(self, object_info, writer):
         writer.putln('if (%s.size() == 0) %s' % (
             self.get_object(object_info, True), self.event_break))
@@ -1587,7 +1591,7 @@ class Converter(object):
                         self.set_iterator(object_info, selected_name)
                         writer.putln('item = %s.begin();' %
                             selected_name)
-                        writer.putln('while (item != %s.end()) {' % 
+                        writer.putln('while (item != %s.end()) {' %
                             selected_name)
                         writer.indent()
                         object_name = '(*item)'
@@ -1620,7 +1624,7 @@ class Converter(object):
                     writer.putln('else ++item;')
                     writer.end_brace()
                     writer.indented = False
-                    writer.putln('if (%s.empty()) %s' % (selected_name, 
+                    writer.putln('if (%s.empty()) %s' % (selected_name,
                         event_break))
                     self.set_iterator(None)
                 else:
@@ -1744,7 +1748,7 @@ class Converter(object):
             new_list = group.or_selected[obj]
             writer.putlnc('append_list(%s, %s);', new_list, list_name)
         writer.end_brace()
-    
+
     def convert_static_expression(self, items, start=0, end=-1):
         expressions = items[start:end]
         out = ''
@@ -1786,7 +1790,7 @@ class Converter(object):
                 object_info, object_type = expression_writer.get_object()
                 self.current_object = (object_info, object_type)
                 if expression_writer.static:
-                    out += '%s::' % self.get_object_class(object_type, 
+                    out += '%s::' % self.get_object_class(object_type,
                         star = False)
                 elif object_info is not None:
                     try:
@@ -1950,7 +1954,7 @@ class Converter(object):
         else:
             return ('%s_type' % self.object_names[handle], False)
 
-    def get_object_class(self, object_type = None, object_info = None, 
+    def get_object_class(self, object_type = None, object_info = None,
                          star = True):
         if object_info is not None:
             if self.current_object and object_info == self.current_object[0]:
@@ -1990,7 +1994,7 @@ class Converter(object):
 
     def get_expression_name(self, item):
         return self.get_ace_name(item, 'expressions')
-    
+
     def get_ace_name(self, item, key):
         if item.getType() == EXTENSION_BASE:
             num = item.getExtensionNum()
@@ -2057,16 +2061,16 @@ class Converter(object):
             return klass
         else:
             return klass(self, item)
-    
+
     def get_extension(self, item):
         return item.getExtension(self.game.extensions)
-    
+
     def open_code(self, *path):
         return CodeWriter(self.get_filename(*path))
 
     def open(self, *path):
         return open(self.get_filename(*path), 'wb')
-    
+
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)
 

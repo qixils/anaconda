@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter, 
+from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
 
 from mmfparser.bitdict import BitDict
@@ -32,7 +32,7 @@ class KcList(ObjectWriter):
         data.readString(40)
         data.skipBytes(16 * 4)
         back_color = data.readColor()
-        flags.set_flags(data.readInt())
+        flags.setFlags(data.readInt())
         line_count = data.readShort(True)
         index_offset = -1 if data.readInt() == 1 else 0
         data.skipBytes(4 * 3)
@@ -40,7 +40,7 @@ class KcList(ObjectWriter):
         for _ in xrange(line_count):
             line = data.readString()
             writer.putln(to_c('add_line(%r);', line))
-        
+
         if flags['HideOnStart']:
             writer.putln('set_visible(false);')
 

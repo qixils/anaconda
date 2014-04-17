@@ -1,10 +1,10 @@
 from chowdren.writers.objects import ObjectWriter
 
-from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP, 
+from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP,
     ACTIVE, TEXT, QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION)
 
-from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES, 
-    ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR, 
+from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
+    ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING)
@@ -176,9 +176,9 @@ class QuickBackdrop(ObjectWriter):
         if self.common.getObstacleType() == 'Solid':
             writer.putln('collision = new InstanceBox(this);')
 
-        # objects_file.putln('const static int obstacle_type = %s;' % 
+        # objects_file.putln('const static int obstacle_type = %s;' %
         #     common.getObstacleType())
-        # objects_file.putdef('collision_mode', 
+        # objects_file.putdef('collision_mode',
         #     common.getCollisionMode())
         # objects_file.putln('image = image%s' % common.image)
 
@@ -203,7 +203,7 @@ class Text(ObjectWriter):
         writer.putln('bold = font%s.bold;' % font)
         writer.putln('italic = font%s.italic;' % font)
         writer.putln('size = font%s.size;' % font)
-        
+
         paragraph = text.items[0]
         if paragraph.flags['HorizontalCenter']:
             horizontal = 'ALIGN_HCENTER'
@@ -261,6 +261,7 @@ class Counter(ObjectWriter):
                         get_image_name(counters.frames[char_index])))
             elif display_type == HORIZONTAL_BAR:
                 print 'horizontal bar not implemented'
+                return
                 raise NotImplementedError
                 shape_object = counters.shape
                 shape = shape_object.shape
@@ -292,6 +293,7 @@ class Counter(ObjectWriter):
                 writer.putln('color1 = %s;' % make_color(shape_object.color1))
             else:
                 print 'type', counters.getDisplayType(), 'not implemented'
+                return
                 raise NotImplementedError
         else:
             writer.putln('type = HIDDEN_COUNTER;')

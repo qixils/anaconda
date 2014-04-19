@@ -30,10 +30,11 @@ public:
      *
      * @param string  The buffer to iterate.  No copy is made.
      */
-    FTUnicodeStringItr(const T* string) : curPos(string), nextPos(string)
+    FTUnicodeStringItr(const T* string)
+    : cur(string), next(string)
     {
         (*this)++;
-    };
+    }
 
     /**
      * Pre-increment operator.  Reads the next unicode character and sets
@@ -42,10 +43,9 @@ public:
      */
     FTUnicodeStringItr& operator++()
     {
-        curPos = nextPos;
+        cur = next;
         // unicode handling
-        switch (sizeof(T))
-        {
+        switch (sizeof(T)) {
             case 1: // UTF-8
                 // get this character
                 readUTF8(); break;
@@ -54,7 +54,7 @@ public:
             case 4: // UTF-32
                 // fall through
             default: // error condition really, but give it a shot anyway
-                curChar = *nextPos++;
+                curChar = *next_32++;
         }
         return *this;
     }
@@ -77,7 +77,7 @@ public:
      */
     bool operator==(const FTUnicodeStringItr& right) const
     {
-        if (curPos == right.getBufferFromHere())
+        if (cur == right.getBufferFromHere())
             return true;
         return false;
     }
@@ -98,7 +98,7 @@ public:
      * starting at the currently-iterated character for functions which
      * require a Unicode string as input.
      */
-    const T* getBufferFromHere() const { return curPos; }
+    const T* getBufferFromHere() const { return cur; }
 
 private:
     /**
@@ -116,7 +116,12 @@ private:
     /**
      * The buffer position of the first element in the current character.
      */
-    const T* curPos;
+    union {
+        const T * cur;
+        const unsigned char * cur_8;
+        const unsigned short * cur_16;
+        const unsigned int * cur_32;
+    };
 
     /**
      * The character stored at the current buffer position (prefetched on
@@ -127,7 +132,12 @@ private:
     /**
      * The buffer position of the first element in the next character.
      */
-    const T* nextPos;
+    union {
+        const T * next;
+        const unsigned char * next_8;
+        const unsigned short * next_16;
+        const unsigned int * next_32;
+    };
 
     // unicode magic numbers
     static const unsigned char utf8bytes[256];
@@ -168,16 +178,15 @@ template <typename T>
 inline void FTUnicodeStringItr<T>::readUTF8()
 {
     unsigned int ch = 0;
-    unsigned int extraBytesToRead = utf8bytes[(unsigned char)(*nextPos)];
+    unsigned int extraBytesToRead = utf8bytes[*next_8];
     // falls through
-    switch (extraBytesToRead)
-    {
-          case 6: ch += *nextPos++; ch <<= 6; /* remember, illegal UTF-8 */
-          case 5: ch += *nextPos++; ch <<= 6; /* remember, illegal UTF-8 */
-          case 4: ch += *nextPos++; ch <<= 6;
-          case 3: ch += *nextPos++; ch <<= 6;
-          case 2: ch += *nextPos++; ch <<= 6;
-          case 1: ch += *nextPos++;
+    switch (extraBytesToRead) {
+          case 6: ch += *next_8++; ch <<= 6; /* remember, illegal UTF-8 */
+          case 5: ch += *next_8++; ch <<= 6; /* remember, illegal UTF-8 */
+          case 4: ch += *next_8++; ch <<= 6;
+          case 3: ch += *next_8++; ch <<= 6;
+          case 2: ch += *next_8++; ch <<= 6;
+          case 1: ch += *next_8++;
     }
     ch -= offsetsFromUTF8[extraBytesToRead-1];
     curChar = ch;
@@ -200,17 +209,17 @@ const unsigned long FTUnicodeStringItr<T>::lowSurrogateBase = 0x0010000UL;
 template <typename T>
 inline void FTUnicodeStringItr<T>::readUTF16()
 {
-    unsigned int ch = *nextPos++;
+    unsigned int ch = *next_16++;
     // if we have the first half of the surrogate pair
     if (ch >= highSurrogateStart && ch <= highSurrogateEnd)
     {
-        unsigned int ch2 = *curPos;
+        unsigned int ch2 = *cur_16;
         // complete the surrogate pair
         if (ch2 >= lowSurrogateStart && ch2 <= lowSurrogateEnd)
         {
             ch = ((ch - highSurrogateStart) << highSurrogateShift)
                 + (ch2 - lowSurrogateStart) + lowSurrogateBase;
-            ++nextPos;
+            ++next_16;
         }
     }
     curChar = ch;
@@ -494,7 +503,7 @@ bool FTTextureFont::CheckGlyph(const unsigned int characterCode)
 
     if (glyph == NULL) {
         return false;
-    }    
+    }
 
     if (glyph->loaded)
         return true;
@@ -520,7 +529,7 @@ bool FTTextureFont::CheckGlyph(const unsigned int characterCode)
                 textureWidth, textureHeight);
     xOffset += int(glyph->BBox().Upper().X() -
                    glyph->BBox().Lower().X() + padding + 0.5);
- 
+
     --remGlyphs;
     return true;
 }
@@ -817,7 +826,7 @@ void FTSimpleLayout::Render(const wchar_t* string, const int len,
 }
 
 
-bool is_linebreak(char v)
+bool is_linebreak(unsigned int v)
 {
     switch (v) {
         case '\n':
@@ -827,13 +836,41 @@ bool is_linebreak(char v)
     return false;
 }
 
+bool is_line_extender(unsigned int v)
+{
+    switch (v) {
+        case 12289: // japanese comma
+        case 12290: // japanese dot
+        case 65289: // japanese end paranthesis
+        case 65281: // japanese exclamation mark
+        case 65311: // japanese question mark
+        case 0x2026: // triple quote
+        case 0x300D: // japanese right corner bracket
+        case 0x300F: // japanese white corner bracket
+        case 0x3011: // japanese right black lenticular bracket
+            return true;
+    }
+    return false;
+}
+
+bool is_break_start(unsigned int v)
+{
+    switch (v) {
+        case 0xFF08:
+        case 0x300C:
+        case 0x300E:
+        case 0x3010:
+            return true;
+    }
+    return false;
+}
 
 template <typename T>
 inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
                                       FTPoint position, FTBBox *bounds)
 {
-    FTUnicodeStringItr<T> breakItr(buf);          // points to the last break character
-    FTUnicodeStringItr<T> lineStart(buf);         // points to the line start
+    FTUnicodeStringItr<T> breakItr(buf); // points to the last break character
+    FTUnicodeStringItr<T> lineStart(buf); // points to the line start
     float nextStart = 0.0;     // total width of the current line
     float breakWidth = 0.0;    // width of the line up to the last word break
     float currentWidth = 0.0;  // width of all characters on the current line
@@ -848,9 +885,10 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
     pen.Y(0);
 
     // If we have bounds mark them invalid
-    if(bounds) {
+    if (bounds)
         bounds->Invalidate();
-    }
+
+    bool restore_break = false;
 
     // Scan the input for all characters that need output
     FTUnicodeStringItr<T> prevItr(buf);
@@ -864,26 +902,31 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
         // Compute the width of all glyphs up to the end of buf[i]
         currentWidth = nextStart + glyphWidth;
         // Compute the position of the next glyph
+
+        bool width_test = !is_line_extender(*itr) && currentWidth > lineLength;
+        bool linebreak = is_linebreak(*itr);
+
         nextStart += advance;
 
-        // See if the current character is a space, a break or a regular character
-        if((currentWidth > lineLength) || is_linebreak(*itr))
-        {
+        // See if the current character is a space, a break or a regular
+        // character
+        if (width_test || linebreak) {
             // A non whitespace character has exceeded the line length.  Or a
             // newline character has forced a line break.  Output the last
             // line and start a new line after the break character.
             // If we have not yet found a break, break on the last character
-            if(breakItr == lineStart || is_linebreak(*itr))
-            {
+            if(breakItr == lineStart || is_linebreak(*itr)) {
                 // Break on the previous character
                 breakItr = prevItr;
                 breakCharCount = charCount - 1;
                 breakWidth = prevWidth;
                 // None of the previous words will be carried to the next line
                 wordLength = 0;
-                // If the current character is a newline discard its advance
-                if(is_linebreak(*itr)) advance = 0;
             }
+
+            // If the current character is a newline discard its advance
+            if (is_linebreak(*itr))
+                advance = 0;
 
             float remainingWidth = lineLength - breakWidth;
 
@@ -908,7 +951,6 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
             }
 
             OutputWrapped(lineStart.getBufferFromHere(), breakCharCount,
-                          //breakItr.getBufferFromHere() - lineStart.getBufferFromHere(),
                           position, remainingWidth, bounds);
 
             // Store the start of the next line
@@ -922,39 +964,42 @@ inline void FTSimpleLayout::WrapTextI(const T *buf, const int len,
             // Reset the safe break for the next line
             breakItr = lineStart;
             charCount -= breakCharCount;
-        }
-        else if(iswspace(*itr))
-        {
+        } else if(iswspace(*itr)) {
             // This is the last word break position
             wordLength = 0;
             breakItr = itr;
             breakCharCount = charCount;
 
             // Check to see if this is the first whitespace character in a run
-            if(buf == itr.getBufferFromHere() || !iswspace(*prevItr))
-            {
+            if(buf == itr.getBufferFromHere() || !iswspace(*prevItr)) {
                 // Record the width of the start of the block
                 breakWidth = currentWidth;
             }
-        }
-        else
-        {
+        } else {
             wordLength += advance;
+        }
+
+        if (restore_break)
+            breakItr = lineStart;
+
+        if (is_break_start(*itr)) {
+            wordLength = 0;
+            breakItr = prevItr;
+            breakCharCount = charCount-1;
+            wordLength += advance;
+            restore_break = true;
         }
     }
 
     float remainingWidth = lineLength - currentWidth;
     // Render any remaining text on the last line
     // Disable justification for the last row
-    if(alignment == ALIGN_JUSTIFY)
-    {
+    if(alignment == ALIGN_JUSTIFY) {
         alignment = ALIGN_LEFT;
         OutputWrapped(lineStart.getBufferFromHere(), -1, position,
                       remainingWidth, bounds);
         alignment = ALIGN_JUSTIFY;
-    }
-    else
-    {
+    }  else {
         OutputWrapped(lineStart.getBufferFromHere(), -1, position,
                       remainingWidth, bounds);
     }

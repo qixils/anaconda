@@ -1149,6 +1149,9 @@ class Converter(object):
                     self.write_event(frame_file, group, True)
             fade = frame.fadeIn
             if fade:
+                if fade.duration == 0:
+                    print 'invalid fade duration:', fade.duration
+                    fade.duration = 0.00001
                 frame_file.putln(to_c('manager->set_fade(%s, %s);',
                     make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
             frame_file.end_brace()
@@ -1274,33 +1277,7 @@ class Converter(object):
                 print 'unimplemented generated groups in %r: %r' % (
                     frame.name, missing_groups)
 
-        # general configuration
         header = game.header
-        config_file = self.open_code('chowconfig.h')
-        config_file.start_guard("CHOWDREN_CONFIG_H")
-
-        # small hack to make applications with Ultimate Fullscreen not open
-        # a window before "Make Fullscreen" or "Make Windowed" are called
-        # explicitly.
-        extension_names = set([item.name for item in  game.extensions.items])
-        if 'ultimatefullscreen' not in extension_names:
-            config_file.putln('#define CHOWDREN_STARTUP_WINDOW')
-            config_file.putln('')
-
-        config_file.putdefine('NAME', game.name)
-        config_file.putdefine('COPYRIGHT', game.copyright)
-        config_file.putdefine('ABOUT', game.aboutText)
-        config_file.putdefine('AUTHOR', game.author)
-        config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
-        config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
-        config_file.putdefine('FRAMERATE', header.frameRate)
-        config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
-        if header.newFlags['SamplesOverFrames']:
-            config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
-        hacks.write_defines(self, config_file)
-
-        config_file.close_guard("CHOWDREN_CONFIG_H")
-        config_file.close()
 
         frames_file = self.open_code('frames.h')
         frames_file.putln('')
@@ -1339,6 +1316,35 @@ class Converter(object):
         frames_file.end_brace()
 
         frames_file.close()
+
+        # general configuration
+        # this is the last thing we should do
+        config_file = self.open_code('chowconfig.h')
+        config_file.start_guard("CHOWDREN_CONFIG_H")
+
+        # small hack to make applications with Ultimate Fullscreen not open
+        # a window before "Make Fullscreen" or "Make Windowed" are called
+        # explicitly.
+        extension_names = set([item.name for item in  game.extensions.items])
+        if 'ultimatefullscreen' not in extension_names:
+            config_file.putln('#define CHOWDREN_STARTUP_WINDOW')
+            config_file.putln('')
+
+        config_file.putdefine('NAME', game.name)
+        config_file.putdefine('COPYRIGHT', game.copyright)
+        config_file.putdefine('ABOUT', game.aboutText)
+        config_file.putdefine('AUTHOR', game.author)
+        config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
+        config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+        config_file.putdefine('FRAMERATE', header.frameRate)
+        config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
+        if header.newFlags['SamplesOverFrames']:
+            config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
+        hacks.write_defines(self, config_file)
+        extra.write_defines(self, config_file)
+
+        config_file.close_guard("CHOWDREN_CONFIG_H")
+        config_file.close()
 
         fp.close()
 

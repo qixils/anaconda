@@ -39,7 +39,7 @@
 extern std::string newline_character;
 
 template <typename A, typename B, typename C>
-inline typename A::iterator set_map_value(A & map, const B & key, 
+inline typename A::iterator set_map_value(A & map, const B & key,
                                           const C & value)
 {
 
@@ -51,7 +51,7 @@ inline typename A::iterator set_map_value(A & map, const B & key,
     return it;
 }
 
-inline void split_string(const std::string &s, char delim, 
+inline void split_string(const std::string &s, char delim,
                   std::vector<std::string> &elems)
 {
     std::stringstream ss(s);
@@ -76,7 +76,7 @@ inline void split_string(const std::string & str, const std::string & delims,
 
 // string helpers
 
-inline int string_find(const std::string & a, const std::string & b, 
+inline int string_find(const std::string & a, const std::string & b,
                           size_t pos)
 {
     size_t ret = a.find(b, pos);
@@ -85,7 +85,7 @@ inline int string_find(const std::string & a, const std::string & b,
     return ret;
 }
 
-inline int string_rfind(const std::string & a, const std::string & b, 
+inline int string_rfind(const std::string & a, const std::string & b,
                            size_t pos)
 {
     size_t ret = a.rfind(b, pos);
@@ -159,8 +159,8 @@ public:
     ~Background();
     void reset(bool clear_items = true);
     void destroy_at(int x, int y);
-    void paste(Image * img, int dest_x, int dest_y, 
-               int src_x, int src_y, int src_width, int src_height, 
+    void paste(Image * img, int dest_x, int dest_y,
+               int src_x, int src_y, int src_width, int src_height,
                int collision_type);
     void draw();
     bool collide(CollisionBase * a);
@@ -199,8 +199,8 @@ public:
     void destroy_backgrounds(int x, int y, bool fine);
     bool test_background_collision(CollisionBase * a);
     bool test_background_collision(int x, int y);
-    void paste(Image * img, int dest_x, int dest_y, 
-               int src_x, int src_y, int src_width, int src_height, 
+    void paste(Image * img, int dest_x, int dest_y,
+               int src_x, int src_y, int src_width, int src_height,
                int collision_type);
     void draw();
 
@@ -272,7 +272,7 @@ public:
     int timer_base;
     float timer_mul;
 
-    Frame(const std::string & name, int width, int height, 
+    Frame(const std::string & name, int width, int height,
           Color background_color, int index, GameManager * manager);
     virtual void event_callback(int id);
     virtual void on_start();
@@ -344,7 +344,7 @@ public:
     int loop_count;
     std::vector<Image*> frames;
 
-    Direction(int index, int min_speed, int max_speed, int loop_count, 
+    Direction(int index, int min_speed, int max_speed, int loop_count,
               int back_to);
     Direction();
 };
@@ -596,7 +596,7 @@ public:
                        const std::string & value);
     void set_group(const std::string & name, bool new_group);
     std::string get_string(const std::string & item);
-    std::string get_string(const std::string & group, const std::string & item, 
+    std::string get_string(const std::string & group, const std::string & item,
                            const std::string & def);
     std::string get_string(const std::string & item, const std::string & def);
     std::string get_string_index(const std::string & group, unsigned int index);
@@ -605,19 +605,19 @@ public:
     std::string get_item_name(unsigned int index);
     std::string get_group_name(unsigned int index);
     double get_value(const std::string & item);
-    double get_value(const std::string & group, const std::string & item, 
+    double get_value(const std::string & group, const std::string & item,
                      double def);
     double get_value(const std::string & item, double def);
     double get_value_index(const std::string & group, unsigned int index);
     double get_value_index(unsigned int index);
-    void set_value(const std::string & group, const std::string & item, 
+    void set_value(const std::string & group, const std::string & item,
                    int pad, double value);
     void set_value(const std::string & item, int pad, double value);
     void set_value(const std::string & item, double value);
-    void set_string(const std::string & group, const std::string & item, 
+    void set_string(const std::string & group, const std::string & item,
                     const std::string & value);
     void set_string(const std::string & item, const std::string & value);
-    void load_file(const std::string & fn, bool read_only = false, 
+    void load_file(const std::string & fn, bool read_only = false,
                    bool merge = false, bool overwrite = false);
     void load_string(const std::string & data, bool merge);
     void merge_file(const std::string & fn, bool overwrite);
@@ -632,9 +632,9 @@ public:
     bool has_group(const std::string & group);
     bool has_item(const std::string & group, const std::string & option);
     bool has_item(const std::string & option);
-    void search(const std::string & group, const std::string & item, 
+    void search(const std::string & group, const std::string & item,
                 const std::string & value);
-    void delete_pattern(const std::string & group, const std::string & item, 
+    void delete_pattern(const std::string & group, const std::string & item,
                         const std::string & value);
     void sort_group_by_name(const std::string & group);
     void reset(bool save = true);
@@ -644,14 +644,14 @@ public:
     void delete_item(const std::string & item);
     void set_global_data(const std::string & key);
     void merge_object(INI * other, bool overwrite);
-    void merge_group(INI * other, const std::string & src_group, 
+    void merge_group(INI * other, const std::string & src_group,
                      const std::string & dst_group, bool overwrite);
     void merge_map(const SectionMap & data2, bool overwrite);
-    void merge_map(SectionMap & data2, const std::string & src_group, 
+    void merge_map(SectionMap & data2, const std::string & src_group,
                    const std::string & dst_group, bool overwrite);
     size_t get_search_count();
     std::string get_search_result_group(int index);
-    std::string get_item_part(const std::string & group, 
+    std::string get_item_part(const std::string & group,
                               const std::string & item, int index,
                               const std::string & def);
     ~INI();
@@ -848,7 +848,7 @@ public:
     bool jump_through, through_collision_top;
 
     bool obstacle_collision;
-    bool platform_collision;    
+    bool platform_collision;
 
     ObstacleOverlapCallback obstacle_callback;
     PlatformOverlapCallback platform_callback;
@@ -899,7 +899,7 @@ public:
     int get_height();
     void draw();
     CollisionBase * get_collision();
-    void paste(int dest_x, int dest_y, int src_x, int src_y, 
+    void paste(int dest_x, int dest_y, int src_x, int src_y,
                int src_width, int src_height, int collision_type);
 };
 
@@ -962,6 +962,8 @@ inline MathHelper & operator%(double lhs, MathHelper& rhs)
 
 inline double operator%(const MathHelper& lhs, double rhs)
 {
+    if (rhs == 0.0)
+        return 0.0;
     return fmod(lhs.lhs, rhs);
 }
 
@@ -1057,7 +1059,7 @@ inline FrameObject * get_single(const ObjectList & list, int index)
     return list[index % list.size()];
 }
 
-inline bool check_overlap_save(ObjectList in_a, ObjectList in_b, 
+inline bool check_overlap_save(ObjectList in_a, ObjectList in_b,
                                ObjectList & out_a, ObjectList & out_b)
 {
     out_a.clear();
@@ -1090,7 +1092,7 @@ inline bool check_overlap_save(ObjectList in_a, ObjectList in_b,
     return ret;
 }
 
-inline bool check_overlap(ObjectList in_a, ObjectList in_b, 
+inline bool check_overlap(ObjectList in_a, ObjectList in_b,
                           ObjectList & out_a, ObjectList & out_b)
 {
     out_a.clear();

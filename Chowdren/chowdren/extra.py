@@ -1,6 +1,6 @@
 # Extra features for Chowdren
 
-from chowdren.writers.events import (ExpressionWriter, ActionWriter, 
+from chowdren.writers.events import (ExpressionWriter, ActionWriter,
     ConditionWriter)
 from chowdren.common import to_c
 
@@ -14,10 +14,11 @@ STEAM_STRING = 'Chowdren: Steam'
 LANGUAGE_STRING = 'Chowdren: Language'
 REMOTE_STRING = 'Chowdren: Remote'
 BORDER_STRING = 'Chowdren: Border'
+UTF8_STRING = 'Chowdren: UTF8'
 
-SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING, 
+SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING,
     RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING,
-    LANGUAGE_STRING, REMOTE_STRING, BORDER_STRING])
+    LANGUAGE_STRING, REMOTE_STRING, BORDER_STRING, UTF8_STRING])
 
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
@@ -66,6 +67,16 @@ class SetString(ActionWriter):
         elif name == BORDER_STRING:
             v = convert_repr_bool(self.convert_index(0))
             writer.put(to_c('platform_set_border(%s);', v))
+        elif name == UTF8_STRING:
+            v = convert_repr_bool(self.convert_index(0))
+            if v:
+                defines.append('#define CHOWDREN_TEXT_USE_UTF8')
+
+defines = []
+
+def write_defines(converter, writer):
+    for define in defines:
+        writer.putln(define)
 
 actions = {
     'SetString' : SetString

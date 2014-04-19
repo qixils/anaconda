@@ -58,7 +58,7 @@ void on_key(SDL_KeyboardEvent & e)
     global_manager->on_key(e.keysym.sym, e.state == SDL_PRESSED);
 }
 
-void on_mouse(SDL_MouseButtonEvent & e) 
+void on_mouse(SDL_MouseButtonEvent & e)
 {
     global_manager->on_mouse(e.button, e.state == SDL_PRESSED);
 }
@@ -266,7 +266,7 @@ void platform_create_display(bool fullscreen)
     global_window = SDL_CreateWindow(NAME,
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
-                                     WINDOW_WIDTH, WINDOW_HEIGHT, 
+                                     WINDOW_WIDTH, WINDOW_HEIGHT,
                                      flags);
     if (global_window == NULL) {
         std::cout << "Could not open window: " << SDL_GetError() << std::endl;
@@ -281,7 +281,8 @@ void platform_create_display(bool fullscreen)
         return;
     }
 
-    SDL_GL_SetSwapInterval(0);
+    if (!SDL_GL_SetSwapInterval(-1)) // late swap tearing
+        SDL_GL_SetSwapInterval(1); // normal vsync
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL extensions
@@ -290,7 +291,7 @@ void platform_create_display(bool fullscreen)
 
     // check extensions
     if (!check_opengl_extensions()) {
-        std::cout << "Not all OpenGL extensions supported. Quitting..." 
+        std::cout << "Not all OpenGL extensions supported. Quitting..."
             << std::endl;
         exit(EXIT_FAILURE);
         return;
@@ -303,7 +304,7 @@ void platform_create_display(bool fullscreen)
 
 void platform_begin_draw()
 {
-    
+
 }
 
 void platform_swap_buffers()

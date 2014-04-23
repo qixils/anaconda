@@ -23,7 +23,7 @@
 
 class b2ConstantForceControllerDef;
 
-static int e_constantForceController = 'cfc ';
+static int e_constantForceController = MAKE_INT('c', 'f', 'c', ' ');
 
 /// Applies a force every frame
 class b2ConstantForceController : public b2Controller

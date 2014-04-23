@@ -76,7 +76,8 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/media.cpp
     ${CHOWDREN_BASE_DIR}/fpslimit.cpp
     ${CHOWDREN_BASE_DIR}/include/tinythread/tinythread.cpp
-    ${CHOWDREN_BASE_DIR}/coltree.cpp)
+    ${CHOWDREN_BASE_DIR}/coltree.cpp
+    ${CHOWDREN_BASE_DIR}/profiler.cpp)
 
 if (USE_STEAM)
     add_definitions(-DCHOWDREN_USE_STEAM)
@@ -179,6 +180,7 @@ if(MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
     # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305")
+    add_definitions("-D_CRT_SECURE_NO_WARNINGS")
     # multicore compile
     add_definitions("/MP")
 endif()
@@ -217,7 +219,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 set(CMAKE_INSTALL_NAME_DIR "@executable_path")
 
 if(APPLE)
-    set_source_files_properties(${DATA_SRCS} PROPERTIES 
+    set_source_files_properties(${DATA_SRCS} PROPERTIES
         MACOSX_PACKAGE_LOCATION Resources)
     set(SRCS ${SRCS} ${DATA_SRCS})
 endif()

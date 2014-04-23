@@ -71,8 +71,8 @@ public:
     void set_visible(bool value);
     void set_blend_color(int color);
     virtual void draw();
-    void draw_image(Image * img, double x, double y, double angle = 0.0, 
-        double scale_x = 1.0, double scale_y = 1.0, 
+    void draw_image(Image * img, double x, double y, double angle = 0.0,
+        double scale_x = 1.0, double scale_y = 1.0,
         bool flip_x = false, bool flip_y = false);
     virtual void update(float dt);
     virtual void set_direction(int value, bool set_movement = true);
@@ -106,6 +106,7 @@ public:
     void look_at(int x, int y);
     void update_flash(float dt, float interval, float & time);
     virtual void flash(float value);
+    virtual void set_animation(int value);
 };
 
 typedef std::vector<FrameObject*> ObjectList;

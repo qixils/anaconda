@@ -6,12 +6,12 @@
 
 inline unsigned char clamp_color_component(int v)
 {
-    return (unsigned char)std::min<int>(std::max<int>(v, 0), 255);   
+    return (unsigned char)std::min<int>(std::max<int>(v, 0), 255);
 }
 
 inline unsigned char clamp_color_component(float v)
 {
-    return (unsigned char)std::min<float>(std::max<float>(v, 0.0f), 1.0f);   
+    return (unsigned char)std::min<float>(std::max<float>(v, 0.0f), 1.0f);
 }
 
 inline int make_color_int(unsigned char r, unsigned char g, unsigned char b,
@@ -19,6 +19,8 @@ inline int make_color_int(unsigned char r, unsigned char g, unsigned char b,
 {
     return r | (g << 8) | (b << 16) | (a << 24);
 }
+
+#include <iostream>
 
 class Color
 {

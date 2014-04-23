@@ -23,7 +23,7 @@
 
 class b2TensorDampingControllerDef;
 
-static int e_tensorDampingController = 'tdc ';
+static int e_tensorDampingController = MAKE_INT('t', 'd', 'c', ' ');
 
 /// Applies top down linear damping to the controlled bodies
 /// The damping is calculated by multiplying velocity by a matrix in local co-ordinates.

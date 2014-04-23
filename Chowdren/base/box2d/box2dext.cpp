@@ -15,7 +15,7 @@ static DebugDraw * global_debug_draw = NULL;
 
 bool AssertFail(const char* expression, const char* file, int line)
 {
-    std::cout << "Assertion failed at: " << expression << ", file " << file 
+    std::cout << "Assertion failed at: " << expression << ", file " << file
         << ", line " << line << std::endl;
     return true;
 }
@@ -52,7 +52,7 @@ void Debug(float d)
 
 // Box2D
 
-Box2D::Box2D(int x, int y, int type_id) 
+Box2D::Box2D(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
 }
@@ -151,7 +151,7 @@ void Box2D::initialize_box2d()
     DD->rdPtr = this;
 
     memset(collReg,0,sizeof(char)*16*16);
-    
+
     eventBody = -2;
     eventJoint = -2;
     eventShape = -2;
@@ -194,7 +194,7 @@ void Box2D::create_body(FrameObject * obj, float x, float y, int rot, int dest)
 {
     if (!obj)
         return;
-    
+
     if (hasAttachment(obj, this))
         removeAttachment(obj, this);
 
@@ -210,10 +210,10 @@ void Box2D::create_body(FrameObject * obj, float x, float y, int rot, int dest)
         def.angle = obj->get_angle() * DEG_TO_RAD;
     else
         def.angle = int(obj->get_angle()) * DEG_TO_RAD;
-    def.position.Set((float(obj->x) + x)/scale, 
+    def.position.Set((float(obj->x) + x)/scale,
                      (float(obj->y) + y)/scale);
     def.fixedRotation = rot == -1;
-    
+
 
     if ((bodies[n] = world->CreateBody(&def)) == NULL) {
         def.userData.BodyDie();
@@ -249,7 +249,7 @@ void Box2D::create_shape(FrameObject * obj, const std::string & value)
 {
     if (!obj)
         return;
-    
+
     if (!hasAttachment(obj, this))
         return;
 
@@ -280,14 +280,14 @@ void Box2D::create_shape(FrameObject * obj, const std::string & value)
         b->SetMassFromShapes();
 }
 
-void Box2D::create_shape(FrameObject * obj, const std::string & value, 
+void Box2D::create_shape(FrameObject * obj, const std::string & value,
                          float x, float y, float density, float friction,
                          float elasticity)
 {
     char * verts = (char*)value.c_str();
     if (!obj)
         return;
-    
+
     if (!hasAttachment(obj, this))
         return;
 
@@ -324,7 +324,7 @@ void Box2D::set_joint_target(int id, float x, float y)
 
     if(!j)
         return;
-    
+
     if(j->GetType() != e_mouseJoint)
         return;
 
@@ -334,7 +334,7 @@ void Box2D::set_joint_target(int id, float x, float y)
 void Box2D::create_mouse_joint(FrameObject * obj, float x, float y,
                                float max_force)
 {
-    if (!obj) 
+    if (!obj)
         return;
 
     if (!hasAttachment(obj, this))
@@ -371,7 +371,7 @@ void Box2D::create_mouse_joint(FrameObject * obj, float x, float y,
 }
 
 void Box2D::create_distance_joint(FrameObject * obj2, FrameObject * obj,
-                                  float x2, float y2, int local2, 
+                                  float x2, float y2, int local2,
                                   float x, float y, int local,
                                   int collide)
 {
@@ -414,7 +414,7 @@ void Box2D::create_distance_joint(FrameObject * obj2, FrameObject * obj,
     b2DistanceJointDef def;
     def.Initialize(b, b2, anchor, anchor2);
     def.collideConnected = collide != 0;
-    
+
     def.userData.body1 = n;
     def.userData.body2 = n2;
     def.userData.ID = j;
@@ -426,7 +426,7 @@ void Box2D::create_distance_joint(FrameObject * obj2, FrameObject * obj,
 
     b->GetUserData()->numJoints++;
     b2->GetUserData()->numJoints++;
-    
+
     lastJoint = j;
 }
 
@@ -436,7 +436,7 @@ void Box2D::create_box(FrameObject * obj, float width, float height,
 {
     if(!obj)
         return;
-    
+
     if (!hasAttachment(obj, this))
         return;
 
@@ -672,7 +672,7 @@ void Box2D::reset_world()
     eventJoint = -2;
     eventShape = -2;
     memset(&collData, 0, sizeof(CollData));
-    
+
     enumBody = -2;
     enumJoint = -2;
     enumShape = -2;
@@ -713,14 +713,14 @@ void Box2D::update_world(float dt)
                     bud->attachment = a->Next;
                 }
                 bud->RemAttachment(a);
-                
+
                 LostAttachmentCallback* c = new LostAttachmentCallback;
                 c->bodyID = i;
                 addCallback(c, this);
                 continue;
             } else {
                 a->obj->set_position(
-                    int_round(bodies[i]->GetWorldPoint(a->offset).x*scale), 
+                    int_round(bodies[i]->GetWorldPoint(a->offset).x*scale),
                     int_round(bodies[i]->GetWorldPoint(a->offset).y*scale));
 
                 switch (a->rotation) {

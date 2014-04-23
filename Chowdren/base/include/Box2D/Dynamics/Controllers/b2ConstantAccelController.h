@@ -23,7 +23,7 @@
 
 class b2ConstantAccelControllerDef;
 
-static int e_constantAccelController = 'cac ';
+static int e_constantAccelController = MAKE_INT('c', 'a', 'c', ' ');
 
 /// Applies a force every frame
 class b2ConstantAccelController : public b2Controller{

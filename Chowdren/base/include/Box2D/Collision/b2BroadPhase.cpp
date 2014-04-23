@@ -63,7 +63,7 @@ static int32 BinarySearch(b2Bound* bounds, int32 count, uint16 value)
 			return (uint16)mid;
 		}
 	}
-	
+
 	return low;
 }
 
@@ -726,7 +726,7 @@ int32 b2BroadPhase::QuerySegment(const b2Segment& segment, void** userData, int3
 
 	uint16 proxyId;
 	b2Proxy* proxy;
-	
+
 	// TODO_ERIN implement fast float to uint16 conversion.
 	startValues[0] = (uint16)(p1x) & (B2BROADPHASE_MAX - 1);
 	startValues2[0] = (uint16)(p1x) | 1;
@@ -967,7 +967,7 @@ int32 b2BroadPhase::QuerySegment(const b2Segment& segment, void** userData, int3
 	// Prepare for next query.
 	m_queryResultCount = 0;
 	IncrementTimeStamp();
-	
+
 	return count;
 
 }

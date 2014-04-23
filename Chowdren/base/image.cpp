@@ -50,7 +50,7 @@ void open_image_file()
         image_file.open(image_path.c_str(), "r");
 }
 
-Image::Image(int handle) 
+Image::Image(int handle)
 :
 #ifndef CHOWDREN_IS_WIIU
   alpha(NULL),
@@ -76,9 +76,9 @@ Image::~Image()
     tex = 0;
 }
 
-Image::Image(const std::string & filename, int hot_x, int hot_y, 
-             int act_x, int act_y, Color * color) 
-: 
+Image::Image(const std::string & filename, int hot_x, int hot_y,
+             int act_x, int act_y, Color * color)
+:
 #ifndef CHOWDREN_IS_WIIU
   alpha(NULL),
 #endif
@@ -93,7 +93,7 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
         return;
     }
 
-    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp, 
+    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp,
         &width, &height, &channels, 4);
 
     fp.close();
@@ -112,14 +112,14 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
     }
 }
 
-Image::Image(Image & img) 
+Image::Image(Image & img)
 :
 #ifndef CHOWDREN_IS_WIIU
   alpha(img.alpha),
 #endif
-  hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y), 
+  hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y),
   action_x(img.action_x), action_y(img.action_y),
-  tex(img.tex), image(img.image), ref(&img), width(img.width), 
+  tex(img.tex), image(img.image), ref(&img), width(img.width),
   height(img.height), handle(img.handle)
 {
 }
@@ -144,7 +144,7 @@ void Image::load(bool upload)
     stream >> action_x;
     stream >> action_y;
     int channels;
-    image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file, 
+    image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file,
         &width, &height, &channels, 4);
     if (upload)
         upload_texture();
@@ -166,7 +166,7 @@ void Image::upload_texture()
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, 
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, image);
 #ifdef CHOWDREN_QUICK_SCALE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -239,7 +239,7 @@ const float back_texcoords[8] = {
 };
 #endif
 
-void Image::draw(double x, double y, double angle, 
+void Image::draw(double x, double y, double angle,
                  double scale_x, double scale_y,
                  bool flip_x, bool flip_y, GLuint background)
 {

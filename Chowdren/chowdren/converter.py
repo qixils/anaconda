@@ -43,8 +43,8 @@ import struct
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-PROFILE = False
-PROFILE_TIME = 0.002
+PROFILE = True
+PROFILE_TIME = 0.0005
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -137,6 +137,9 @@ class CodeWriter(object):
 
     def putdefine(self, name, value):
         if value is None:
+            return
+        if value == '':
+            self.putlnc('#define %s', name)
             return
         if isinstance(value, str):
             value = '"%s"' % value
@@ -489,8 +492,6 @@ def fix_sound(data, extension):
     return fp.getvalue()
 
 class Converter(object):
-    iterated_object = iterated_index = None
-
     debug = False
     def __init__(self, filename, outdir, image_file = 'Sprites.dat',
                  win_ico = None, mac_icns = None, company = None,
@@ -506,6 +507,9 @@ class Converter(object):
         self.has_single_selection = {}
         self.has_selection = {}
         self.container_tree = []
+        self.collision_objects = set()
+        self.current_object = None
+        self.iterated_index = self.iterated_object = None
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
@@ -781,9 +785,11 @@ class Converter(object):
                         objects_file.putln('blend_color = %s;' % make_color(
                             (r, g, b, a)))
                     ink_effect &= ~HWA_EFFECT
-                    if ink_effect == SHADER_EFFECT:
-                        shader_data = game.shaders.items[frameitem.shaderId]
-                        shader_name = shader_data.name
+                if ink_effect == NONE_EFFECT:
+                    pass
+                elif ink_effect == SHADER_EFFECT:
+                    shader_data = game.shaders.items[frameitem.shaderId]
+                    shader_name = shader_data.name
                 elif ink_effect == ADD_EFFECT:
                     shader_name = 'Add'
                 elif ink_effect == SUBTRACT_EFFECT:
@@ -799,7 +805,7 @@ class Converter(object):
                     else:
                         objects_file.putlnc('blend_color = %s;', make_color(
                             (255, 255, 255, a)))
-                else:
+                elif shader_name is None:
                     print 'unknown inkeffect: %s' % ink_effect
                     # raise NotImplementedError(
                     #     'unknown inkeffect: %s' % ink_effect)
@@ -855,6 +861,12 @@ class Converter(object):
                 object_writer.write_dtor(objects_file)
                 objects_file.end_brace()
 
+            if PROFILE:
+                objects_file.putmeth('void update', 'float dt')
+                objects_file.putlnc('PROFILE_BLOCK(%s_update);', class_name)
+                objects_file.putlnc('%s::update(dt);', subclass)
+                objects_file.end_brace()
+
             objects_file.end_brace(True)
 
             object_func = 'create_%s' % get_method_name(class_name)
@@ -866,7 +878,7 @@ class Converter(object):
             objects_header.putln('extern %s;' % object_instances)
 
             objects_file.putmeth('FrameObject * %s' % object_func,
-                'int x', 'int y')
+                                 'int x', 'int y')
             objects_file.putln('return new %s(x, y);' % class_name)
             objects_file.end_brace()
             objects_file.putln('%s;' % object_instances)
@@ -1059,8 +1071,8 @@ class Converter(object):
                 frame_file.putln('static unsigned int %s[] = '
                     '{%s};' % (class_name, ', '.join(object_names)),
                     wrap = True)
-                frame_file.putln('static ObjectList %s_instances;' % (
-                    class_name))
+                frame_file.putlnc('static ObjectList %s_instances;',
+                                  class_name)
                 frame_file.putln('')
                 self.qualifiers[qualifier.qualifier] = object_infos
                 self.qualifier_types[qualifier.qualifier] = qualifier.type
@@ -1127,17 +1139,20 @@ class Converter(object):
                     remote_type))
             frame_file.putraw('#endif')
 
+            frame_file.putln('FrameObject * obj_create;')
+
             for instance, frameitem in startup_instances:
                 object_writer = self.all_objects[frameitem.handle]
                 if object_writer.is_background():
                     method = 'add_background_object'
-                else:
-                    method = 'add_object'
-                object_func = 'create_%s' % get_method_name(
-                    self.object_names[frameitem.handle])
-                frame_file.putln('%s(%s(%s, %s), %s);' %
-                    (method, object_func, instance.x, instance.y,
-                     instance.layer))
+                    object_func = 'create_%s' % get_method_name(
+                        self.object_names[frameitem.handle])
+                    frame_file.putlnc('%s(%s(%s, %s), %s);',
+                                      method, object_func, instance.x,
+                                      instance.y, instance.layer)
+                    continue
+                self.create_object(frameitem.handle, instance.x, instance.y,
+                                   instance.layer, 'obj_create', frame_file)
 
             for object_writer in object_writers:
                 object_writer.write_start(frame_file)
@@ -1214,8 +1229,8 @@ class Converter(object):
 
             # write main 'always' handler
             frame_file.putmeth('void handle_events')
-            if PROFILE:
-                frame_file.putln('double profile_time, profile_dt;')
+            # if PROFILE:
+            #     frame_file.putln('double profile_time, profile_dt;')
             end_markers = []
             self.begin_events()
 
@@ -1238,18 +1253,18 @@ class Converter(object):
                         # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
                         #     container.code_name, group.mark))
                     continue
-                if PROFILE:
-                    frame_file.putln('profile_time = platform_get_time();')
+                # if PROFILE:
+                #     frame_file.putln('profile_time = platform_get_time();')
                 frame_file.putln('event_func_%s();' % (group.global_id))
-                if PROFILE:
-                    frame_file.putln('profile_dt = platform_get_time() '
-                                                  '- profile_time;')
-                    frame_file.putln('if (profile_dt > %s)' % PROFILE_TIME)
-                    frame_file.indent()
-                    frame_file.putln(
-                        ('std::cout << "Event %s took " << '
-                         'profile_dt << std::endl;') % group.global_id)
-                    frame_file.dedent()
+                # if PROFILE:
+                #     frame_file.putln('profile_dt = platform_get_time() '
+                #                                   '- profile_time;')
+                #     frame_file.putln('if (profile_dt > %s)' % PROFILE_TIME)
+                #     frame_file.indent()
+                #     frame_file.putln(
+                #         ('std::cout << "Event %s took " << '
+                #          'profile_dt << std::endl;') % group.global_id)
+                #     frame_file.dedent()
 
             for end_marker in end_markers:
                 frame_file.put_label(end_marker)
@@ -1340,6 +1355,8 @@ class Converter(object):
         config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
+        if PROFILE:
+            config_file.putdefine('CHOWDREN_USE_PROFILER', '')
         hacks.write_defines(self, config_file)
         extra.write_defines(self, config_file)
 
@@ -1374,10 +1391,8 @@ class Converter(object):
         make_dict = self.get_object(object_info, True)
         if object_info not in self.has_selection or copy:
             if copy:
-                prefix = 'ObjectList '
-            else:
-                prefix = ''
-            writer.putln('%s%s = %s;' % (prefix, selected_name, make_dict))
+                writer.putlnc('static ObjectList %s;', selected_name)
+            writer.putln('%s = %s;' % (selected_name, make_dict))
         self.set_iterator(object_info, selected_name, '*' + name)
         if name == 'item':
             writer.putln('%s = %s.begin();' % (name, selected_name))
@@ -1399,7 +1414,7 @@ class Converter(object):
 
     def set_iterator(self, object_info, object_list=None, name='*item'):
         self.iterated_object = object_info
-        self.iterated_list = object_list
+        # self.iterated_list = object_list
         if object_info is None:
             self.iterated_name = None
             self.iterated_index = None
@@ -1410,6 +1425,13 @@ class Converter(object):
         else:
             self.iterated_index = '%s - %s.begin()' % (name.replace('*', ''),
                                                        object_list)
+
+    def create_object(self, object_info, x, y, layer, object_name, writer):
+        name = self.get_object_name(object_info)
+        obj_create_func = 'create_%s' % get_method_name(name)
+        arguments = [str(x), str(y)]
+        writer.putlnc('%s = add_object(%s(%s), %s);', object_name,
+                      obj_create_func, ', '.join(arguments), layer)
 
     def begin_events(self):
         pass
@@ -1479,10 +1501,12 @@ class Converter(object):
                 end_x = end_y = 0
                 for i, step in enumerate(path.steps):
                     if reposition:
-                        end_x += math.floor(step.cosinus * step.length)
-                        end_y += math.floor(step.sinus * step.length)
+                        end_x += step.destinationX
+                        end_y += step.destinationY
                     args = []
                     args.append(step.speed)
+                    args.append(step.destinationX)
+                    args.append(step.destinationY)
                     args.append(step.cosinus)
                     args.append(step.sinus)
                     args.append(step.length)
@@ -1536,11 +1560,9 @@ class Converter(object):
                 writer.putlnc('movement->start();')
 
     def write_event(self, outwriter, group, triggered = False):
-        self.current_object = None
         self.current_group = group
         self.current_event_id = group.global_id
         self.event_settings = {}
-        self.collision_objects = set()
         actions = group.actions
         conditions = group.conditions
         container = group.container
@@ -1560,6 +1582,10 @@ class Converter(object):
             writer.putln('bool %s = false;' % group.or_temp_result)
 
         writer.start_brace() # new scope
+
+        if PROFILE:
+            writer.putlnc('PROFILE_BLOCK(event_%s);', group.global_id)
+
         hacks.write_pre(self, writer, group)
         if conditions or has_container_check:
             if has_container_check:
@@ -1734,6 +1760,8 @@ class Converter(object):
         outwriter.putcode(writer)
         self.has_single_selection = {}
         self.has_selection = {}
+        self.collision_objects = set()
+        self.current_object = None
 
     def write_instance_save(self, group, writer):
         if not self.has_selection:
@@ -1823,12 +1851,10 @@ class Converter(object):
                     position = loader
                 elif parameter_name == 'Shoot':
                     details['shoot_speed'] = loader.shootSpeed
-                    details['shoot_object'] = self.get_object_name(
-                        loader.objectInfo)
+                    details['shoot_object'] = loader.objectInfo
                 elif parameter_name == 'Create':
                     create_info = loader.objectInfo
-                    details['create_object'] = self.get_object_name(
-                        create_info)
+                    details['create_object'] = create_info
                 if parameter_name in ('Shoot', 'Create'):
                     position = loader.position
                 flags = position.flags

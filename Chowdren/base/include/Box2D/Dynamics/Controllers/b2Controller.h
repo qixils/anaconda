@@ -27,6 +27,8 @@ class b2World;
 
 class b2Controller;
 
+#define MAKE_INT(a, b, c, d) ((a << 24) | (b << 16) | (c << 8) | (d))
+
 /// A controller edge is used to connect bodies and controllers together
 /// in a bipartite graph.
 struct b2ControllerEdge

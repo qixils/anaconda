@@ -5,7 +5,7 @@
 void DestructionListener::SayGoodbye(b2Joint *joint)
 {
 	JointDieCallback* c = new JointDieCallback;
-	
+
 	c->jointID = joint->GetUserData()->ID;
 	addCallback(c,rdPtr);
 
@@ -36,7 +36,7 @@ bool ContactListener::ContactStart(b2Contact* contact)
 {
 	shapeUserData* u1 = contact->GetShape1()->GetUserData();
 	shapeUserData* u2 = contact->GetShape2()->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	rdPtr->collMode = 0;
@@ -45,10 +45,10 @@ bool ContactListener::ContactStart(b2Contact* contact)
 
 	if(cr == 1) {
 		CollideCallback* c = new CollideCallback(12);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint.SetZero(); 
+		c->data.collPoint.SetZero();
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
 		c->data.type1 = u1->collType;
@@ -67,7 +67,7 @@ bool ContactListener::ContactStart(b2Contact* contact)
 		rdPtr->collData.shape2 = c->data.shape1;
 		rdPtr->collData.type1 = c->data.type2;
 		rdPtr->collData.type2 = c->data.type1;
-		
+
 		rdPtr->generate_event(19);
 		rdPtr->generate_event(20);
 	}
@@ -77,15 +77,15 @@ void ContactListener::ContactStop(b2Contact* contact)
 {
 	shapeUserData* u1 = contact->GetShape1()->GetUserData();
 	shapeUserData* u2 = contact->GetShape2()->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	if(cr == 1) {
 		CollideCallback* c = new CollideCallback(15);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint.SetZero(); 
+		c->data.collPoint.SetZero();
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
 		c->data.type1 = u1->collType;
@@ -99,16 +99,16 @@ void ContactListener::ContactPointAdd(b2Contact* contact, const b2ContactPoint* 
 {
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	if(cr == 1)
 	{
 		CollideCallback* c = new CollideCallback(21);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint = point->position; 
+		c->data.collPoint = point->position;
 		c->data.collPoint *= rdPtr->scale;
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
@@ -126,16 +126,16 @@ void ContactListener::ContactPointPersist(b2Contact* contact, const b2ContactPoi
 {
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	if(cr == 1)
 	{
 		CollideCallback* c = new CollideCallback(24);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint = point->position; 
+		c->data.collPoint = point->position;
 		c->data.collPoint *= rdPtr->scale;
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
@@ -153,16 +153,16 @@ void ContactListener::ContactPointRemove(b2Contact* contact, const b2ContactPoin
 {
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	if(cr == 1)
 	{
 		CollideCallback* c = new CollideCallback(27);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint = point->position; 
+		c->data.collPoint = point->position;
 		c->data.collPoint *= rdPtr->scale;
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
@@ -180,16 +180,16 @@ void ContactListener::ContactPointResponse(b2Contact* contact, const b2ContactRe
 {
 	shapeUserData* u1 = point->shape1->GetUserData();
 	shapeUserData* u2 = point->shape2->GetUserData();
-	
+
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
 	if(cr == 1)
 	{
 		CollideCallback* c = new CollideCallback(0);
-		
+
 		c->data.body1 = u1->body;
 		c->data.body2 = u2->body;
-		c->data.collPoint = point->position; 
+		c->data.collPoint = point->position;
 		c->data.collPoint *= rdPtr->scale;
 		c->data.shape1 = u1->ID;
 		c->data.shape2 = u2->ID;
@@ -221,7 +221,7 @@ bool ContactFilter::ShouldCollide(b2Shape* shape1, b2Shape* shape2)
 	//Handle Collision Reg
 	char cr = rdPtr->collReg[u1->collType][u2->collType] | rdPtr->collReg[u2->collType][u1->collType];
 
-	if(cr == -1) //No Collision
+	if (cr == -1) //No Collision
 		collide = false;
 	return collide;
 
@@ -243,6 +243,7 @@ bool ContactFilter::RayCollide(rayUserData* userData, b2Shape* shape)
 
 void DebugDraw::DrawPolygon(const b2Vec2* vertices, int32 vertexCount, const b2Color& color)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     glColor3f(color.r, color.g, color.b);
     glBegin(GL_LINE_LOOP);
     for (int32 i = 0; i < vertexCount; ++i)
@@ -250,10 +251,12 @@ void DebugDraw::DrawPolygon(const b2Vec2* vertices, int32 vertexCount, const b2C
         glVertex2f(vertices[i].x*rdPtr->scale, vertices[i].y*rdPtr->scale);
     }
     glEnd();
+#endif
 }
 
 void DebugDraw::DrawSolidPolygon(const b2Vec2* vertices, int32 vertexCount, const b2Color& color)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f);
@@ -272,10 +275,12 @@ void DebugDraw::DrawSolidPolygon(const b2Vec2* vertices, int32 vertexCount, cons
         glVertex2f(vertices[i].x*rdPtr->scale, vertices[i].y*rdPtr->scale);
     }
     glEnd();
+#endif
 }
 
 void DebugDraw::DrawCircle(const b2Vec2& center, float32 radius, const b2Color& color)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     const float32 k_segments = 16.0f;
     const float32 k_increment = 2.0f * b2_pi / k_segments;
     float32 theta = 0.0f;
@@ -288,10 +293,12 @@ void DebugDraw::DrawCircle(const b2Vec2& center, float32 radius, const b2Color& 
         theta += k_increment;
     }
     glEnd();
+#endif
 }
 
 void DebugDraw::DrawSolidCircle(const b2Vec2& center, float32 radius, const b2Vec2& axis, const b2Color& color)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     const float32 k_segments = 16.0f;
     const float32 k_increment = 2.0f * b2_pi / k_segments;
     float32 theta = 0.0f;
@@ -324,23 +331,27 @@ void DebugDraw::DrawSolidCircle(const b2Vec2& center, float32 radius, const b2Ve
     glVertex2f(center.x*rdPtr->scale, center.y*rdPtr->scale);
     glVertex2f(p.x*rdPtr->scale, p.y*rdPtr->scale);
     glEnd();
+#endif
 }
 
 void DebugDraw::DrawSegment(const b2Vec2& p1, const b2Vec2& p2, const b2Color& color)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     glColor3f(color.r, color.g, color.b);
     glBegin(GL_LINES);
     glVertex2f(p1.x*rdPtr->scale, p1.y*rdPtr->scale);
     glVertex2f(p2.x*rdPtr->scale, p2.y*rdPtr->scale);
     glEnd();
+#endif
 }
 
 void DebugDraw::DrawXForm(const b2XForm& xf)
 {
+#ifdef CHOWDREN_IS_DESKTOP
     b2Vec2 p1 = xf.position, p2;
     const float32 k_axisScale = 0.4f;
     glBegin(GL_LINES);
-    
+
     glColor3f(1.0f, 0.0f, 0.0f);
     glVertex2f(p1.x*rdPtr->scale, p1.y*rdPtr->scale);
     p2 = p1 + k_axisScale * xf.R.col1;
@@ -352,6 +363,7 @@ void DebugDraw::DrawXForm(const b2XForm& xf)
     glVertex2f(p2.x*rdPtr->scale, p2.y*rdPtr->scale);
 
     glEnd();
+#endif
 }
 
 // /// Draw a closed polygon provided in CCW order.

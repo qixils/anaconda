@@ -41,7 +41,7 @@ GameManager * global_manager;
 #define CHOWDREN_SHOW_DEBUGGER
 // #endif
 
-GameManager::GameManager() 
+GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
   fade_value(0.0f), fade_dir(0.0f), lives(0)
@@ -149,6 +149,10 @@ void GameManager::on_mouse(int key, bool state)
 
 int GameManager::update_frame()
 {
+#ifdef CHOWDREN_USE_PROFILER
+    PROFILE_FUNC();
+#endif
+
     double dt = fps_limit.dt;
     if (fade_dir != 0.0f) {
         fade_value += fade_dir * (float)dt;
@@ -217,11 +221,17 @@ void GameManager::draw()
         // for some reason, GLFW sets these properties to 0 when minimized.
         return;
 
+    PROFILE_FUNC();
+
+    PROFILE_BEGIN(platform_begin_draw);
     platform_begin_draw();
+    PROFILE_END();
 
     glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
+    PROFILE_BEGIN(frame_draw);
 #ifdef CHOWDREN_IS_WIIU
     int remote_setting = platform_get_remote_value();
     if (remote_setting == CHOWDREN_HYBRID_TARGET) {
@@ -241,6 +251,7 @@ void GameManager::draw()
 #else
     frame->draw(CHOWDREN_HYBRID_TARGET);
 #endif
+    PROFILE_END();
 
     glLoadIdentity();
 
@@ -312,7 +323,7 @@ void GameManager::draw()
 
     glColor4f(1.0, 1.0, 1.0, 1.0);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, screen_texture);   
+    glBindTexture(GL_TEXTURE_2D, screen_texture);
     glDisable(GL_BLEND);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 1.0);
@@ -329,7 +340,9 @@ void GameManager::draw()
 
 #endif // CHOWDREN_IS_DESKTOP
 
+    PROFILE_BEGIN(platform_swap_buffers);
     platform_swap_buffers();
+    PROFILE_END();
 }
 
 void GameManager::set_frame(int index)
@@ -399,7 +412,7 @@ bool GameManager::update()
     mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
 
     if (show_stats)
-        std::cout << "Framerate: " << fps_limit.current_framerate 
+        std::cout << "Framerate: " << fps_limit.current_framerate
             << std::endl;
 
     if (platform_has_error()) {
@@ -411,7 +424,7 @@ bool GameManager::update()
         int ret = update_frame();
 
         if (show_stats)
-            std::cout << "Event update took " << 
+            std::cout << "Event update took " <<
                 platform_get_time() - event_update_time << std::endl;
 
         if (ret == 0)
@@ -423,19 +436,30 @@ bool GameManager::update()
             return false;
     }
 
-    double draw_time = platform_get_time();
+    // double draw_time = platform_get_time();
 
     draw();
 
-    if (show_stats) {
-        std::cout << "Draw took " << platform_get_time() - draw_time
-            << std::endl;
-        std::cout << "Instance count: " << frame->instances.size()
-            << std::endl;   
-        platform_print_stats();
-    }
+    // if (show_stats) {
+    //     std::cout << "Draw took " << platform_get_time() - draw_time
+    //         << std::endl;
+    //     // std::cout << "Instance count: " << frame->instances.size()
+    //     //     << std::endl;
+    //     platform_print_stats();
+    // }
 
     fps_limit.finish();
+
+#ifdef CHOWDREN_USE_PROFILER
+    static int profile_time = 0;
+    profile_time -= 1;
+    if (profile_time <= 0) {
+        profile_time += 500;
+        PROFILE_UPDATE();
+        PROFILE_OUTPUT("./profile.txt");
+    }
+#endif
+
     return true;
 }
 

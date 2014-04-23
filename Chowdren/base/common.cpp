@@ -58,8 +58,8 @@ void Background::destroy_at(int x, int y)
     BackgroundItems::iterator it = items.begin();
     while (it != items.end()) {
         BackgroundItem * item = *it;
-        if (collides(item->dest_x, item->dest_y, 
-                     item->dest_x + item->src_width, 
+        if (collides(item->dest_x, item->dest_y,
+                     item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
             // tree.remove(item.tree_item);
@@ -72,8 +72,8 @@ void Background::destroy_at(int x, int y)
     it = col_items.begin();
     while (it != col_items.end()) {
         BackgroundItem * item = *it;
-        if (collides(item->dest_x, item->dest_y, 
-                     item->dest_x + item->src_width, 
+        if (collides(item->dest_x, item->dest_y,
+                     item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
 #ifdef CHOWDREN_USE_COLTREE
@@ -86,8 +86,8 @@ void Background::destroy_at(int x, int y)
     }
 }
 
-void Background::paste(Image * img, int dest_x, int dest_y, 
-                       int src_x, int src_y, int src_width, int src_height, 
+void Background::paste(Image * img, int dest_x, int dest_y,
+                       int src_x, int src_y, int src_width, int src_height,
                        int collision_type)
 {
     src_width = std::min(img->width, src_x + src_width) - src_x;
@@ -151,7 +151,7 @@ bool Background::collide(CollisionBase * a)
 
 // Layer
 
-Layer::Layer(double scroll_x, double scroll_y, bool visible, int index) 
+Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
   index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
 #ifdef CHOWDREN_USE_COLTREE
@@ -170,7 +170,7 @@ Layer::~Layer()
     delete back;
 
     // layers are in charge of deleting background instances
-    for (ObjectList::const_iterator it = background_instances.begin(); 
+    for (ObjectList::const_iterator it = background_instances.begin();
          it != background_instances.end(); it++) {
         delete (*it);
     }
@@ -255,9 +255,7 @@ void Layer::insert_object(FrameObject * instance, int index)
 
 void Layer::remove_object(FrameObject * instance)
 {
-    instances.erase(
-        std::remove(instances.begin(), instances.end(), instance), 
-        instances.end());
+    remove_list(instances, instance);
 }
 
 void Layer::set_level(FrameObject * instance, int index)
@@ -271,8 +269,8 @@ void Layer::set_level(FrameObject * instance, int index)
 
 int Layer::get_level(FrameObject * instance)
 {
-    return std::find(instances.begin(), instances.end(), 
-        instance) - instances.begin();
+    return std::find(instances.begin(), instances.end(),
+                     instance) - instances.begin();
 }
 
 void Layer::create_background()
@@ -338,8 +336,8 @@ bool Layer::test_background_collision(int x, int y)
     return test_background_collision(&col);
 }
 
-void Layer::paste(Image * img, int dest_x, int dest_y, 
-                  int src_x, int src_y, int src_width, int src_height, 
+void Layer::paste(Image * img, int dest_x, int dest_y,
+                  int src_x, int src_y, int src_width, int src_height,
                   int collision_type)
 {
     create_background();
@@ -357,12 +355,12 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
                        x1, y1, x2, y2);
         }
     }
-    back->paste(img, dest_x, dest_y, src_x, src_y, 
+    back->paste(img, dest_x, dest_y, src_x, src_y,
         src_width, src_height, collision_type);
 }
 
 void Layer::draw()
-{ 
+{
     if (!visible)
         return;
 
@@ -372,7 +370,7 @@ void Layer::draw()
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
-    for (ObjectList::const_iterator iter = background_instances.begin(); 
+    for (ObjectList::const_iterator iter = background_instances.begin();
          iter != background_instances.end(); iter++) {
         FrameObject * item = (*iter);
         if (!item->visible)
@@ -387,7 +385,7 @@ void Layer::draw()
         back->draw();
 
     // draw active instances
-    for (ObjectList::const_iterator iter = instances.begin(); 
+    for (ObjectList::const_iterator iter = instances.begin();
          iter != instances.end(); iter++) {
         FrameObject * item = (*iter);
         if (!item->visible)
@@ -405,37 +403,11 @@ void Layer::set_remote(int value)
 }
 #endif
 
-// InstanceMap
-
-InstanceMap::InstanceMap(size_t v)
-{
-    num = v;
-    items = new ObjectList*[num]();
-}
-
-ObjectList & InstanceMap::get(int id)
-{
-    ObjectList * item = items[id];
-    if (item == NULL) {
-        item = new ObjectList;
-        items[id] = item;
-    }
-    return *item;
-}
-
-void InstanceMap::clear()
-{
-    for (unsigned int i = 0; i < num; i++) {
-        delete items[i];
-        items[i] = NULL;
-    }
-}
-
 // Frame
 
-Frame::Frame(const std::string & name, int width, int height, 
+Frame::Frame(const std::string & name, int width, int height,
              Color background_color, int index, GameManager * manager)
-: name(name), width(width), height(height), index(index), 
+: name(name), width(width), height(height), index(index),
   background_color(background_color), manager(manager),
   off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
@@ -451,17 +423,22 @@ void Frame::on_start()
 {
 }
 
-void Frame::on_end() 
+void Frame::on_end()
 {
     ObjectList::const_iterator it;
-    for (it = instances.begin(); it != instances.end(); it++) {
-        delete *it;
+    for (unsigned int i = 0; i < instance_classes.num; i++) {
+        ObjectList * item = instance_classes.items[i];
+        if (item == NULL)
+            continue;
+        ObjectList & list = *item;
+        for (it = list.begin(); it != list.end(); it++) {
+            delete *it;
+        }
     }
     std::vector<Layer*>::const_iterator layer_it;
     for (layer_it = layers.begin(); layer_it != layers.end(); layer_it++) {
         delete *layer_it;
     }
-    instances.clear();
     layers.clear();
     instance_classes.clear();
     destroyed_instances.clear();
@@ -477,16 +454,12 @@ void Frame::handle_events() {}
 
 void Frame::clean_instances()
 {
-    for (ObjectList::const_iterator it = destroyed_instances.begin(); 
-         it != destroyed_instances.end(); it++) {
+    ObjectList::const_iterator it;
+    for (it = destroyed_instances.begin(); it != destroyed_instances.end();
+         it++) {
         FrameObject * instance = *it;
-        instances.erase(
-            std::remove(instances.begin(), instances.end(), instance), 
-            instances.end());
         ObjectList & class_instances = instance_classes.get(instance->id);
-        class_instances.erase(
-            std::remove(class_instances.begin(), class_instances.end(), 
-            instance), class_instances.end());
+        remove_list(class_instances, instance);
         layers[instance->layer_index]->remove_object(instance);
         delete instance;
     }
@@ -503,14 +476,20 @@ bool Frame::update(float dt)
         timer_mul = dt * timer_base;
     }
 
-    for (ObjectList::const_iterator it = instances.begin(); 
-         it != instances.end(); it++) {
-        FrameObject * instance = *it;
-        if (instance->destroying)
+    ObjectList::const_iterator it;
+    for (unsigned int i = 0; i < instance_classes.num; i++) {
+        ObjectList * item = instance_classes.items[i];
+        if (item == NULL)
             continue;
-        instance->update(dt);
-        if (instance->movement)
-            instance->movement->update(dt);
+        ObjectList & list = *item;
+        for (it = list.begin(); it != list.end(); it++) {
+            FrameObject * instance = *it;
+            if (instance->destroying)
+                continue;
+            instance->update(dt);
+            if (instance->movement)
+                instance->movement->update(dt);
+        }
     }
 
     clean_instances();
@@ -587,13 +566,27 @@ void Frame::draw(int remote)
 // #endif
 }
 
+class DefaultActive : public Active
+{
+public:
+    DefaultActive()
+    : Active(0, 0, 0)
+    {
+        create_alterables();
+    }
+};
+
+DefaultActive default_active_instance;
+
 ObjectList & Frame::get_instances(int object_id)
 {
+    PROFILE_BLOCK(get_instances);
     return instance_classes.get(object_id);
 }
 
 ObjectList Frame::get_instances(unsigned int qualifier[])
 {
+    PROFILE_BLOCK(get_qualifier_instances);
     ObjectList list;
     int index = 0;
     while (qualifier[index] != 0) {
@@ -627,18 +620,6 @@ FrameObject * Frame::get_instance(int object_id, int index)
     return instances[index % instances.size()];
 }
 
-class DefaultActive : public Active
-{
-public:
-    DefaultActive()
-    : Active(0, 0, 0)
-    {
-        create_alterables();
-    }
-};
-
-static DefaultActive default_active_instance;
-
 FrameObject * Frame::get_active_instance(int object_id)
 {
     ObjectList & instances = instance_classes.get(object_id);
@@ -668,8 +649,10 @@ FrameObject * Frame::get_instance(unsigned int qualifier[])
         }
         return b[0];
     }
+#ifndef NDEBUG
     std::cout << "Warning: invalid instance count for qualifier"
         << std::endl;
+#endif
     return NULL;
 }
 
@@ -677,8 +660,10 @@ FrameObject * Frame::get_instance(unsigned int qualifier[], int index)
 {
     ObjectList instances = get_instances(qualifier);
     if (instances.empty()) {
+#ifndef NDEBUG
         std::cout << "Warning: invalid instance count for qualifier"
             << std::endl;
+#endif
         return NULL;
     }
     return instances[index % instances.size()];
@@ -689,14 +674,14 @@ void Frame::add_layer(double scroll_x, double scroll_y, bool visible)
     layers.push_back(new Layer(scroll_x, scroll_y, visible, layers.size()));
 }
 
-void Frame::add_object(FrameObject * object, int layer_index)
+FrameObject * Frame::add_object(FrameObject * object, int layer_index)
 {
     layer_index = int_max(0, int_min(layer_index, layers.size() - 1));
     object->frame = this;
     object->layer_index = layer_index;
-    instances.push_back(object);
     instance_classes.get(object->id).push_back(object);
     layers[layer_index]->add_object(object);
+    return object;
 }
 
 void Frame::add_background_object(FrameObject * object, int layer_index)
@@ -704,12 +689,6 @@ void Frame::add_background_object(FrameObject * object, int layer_index)
     object->frame = this;
     object->layer_index = layer_index;
     layers[layer_index]->add_background_object(object);
-}
-
-FrameObject * Frame::create_object(FrameObject * object, int layer_index)
-{
-    add_object(object, layer_index);
-    return object;
 }
 
 void Frame::destroy_object(FrameObject * object)
@@ -858,9 +837,9 @@ void Frame::set_vsync(bool value)
 
 // FrameObject
 
-FrameObject::FrameObject(int x, int y, int type_id) 
-: x(x), y(y), id(type_id), visible(true), shader(NULL), 
-  values(NULL), strings(NULL), shader_parameters(NULL), direction(0), 
+FrameObject::FrameObject(int x, int y, int type_id)
+: x(x), y(y), id(type_id), visible(true), shader(NULL),
+  values(NULL), strings(NULL), shader_parameters(NULL), direction(0),
   destroying(false), scroll(true), movement(NULL), movements(NULL),
   movement_count(0)
 {
@@ -964,7 +943,7 @@ void FrameObject::set_direction(int value, bool set_movement)
         movement->set_direction(value);
 }
 
-int FrameObject::get_direction() 
+int FrameObject::get_direction()
 {
     return direction;
 }
@@ -1207,6 +1186,10 @@ void FrameObject::update_flash(float dt, float interval, float & t)
     }
 }
 
+void FrameObject::set_animation(int value)
+{
+}
+
 // FixedValue
 
 FixedValue::FixedValue(FrameObject * object)
@@ -1236,9 +1219,9 @@ FixedValue::operator FrameObject*() const
 
 // Direction
 
-Direction::Direction(int index, int min_speed, int max_speed, int loop_count, 
+Direction::Direction(int index, int min_speed, int max_speed, int loop_count,
                      int back_to)
-: index(index), min_speed(min_speed), max_speed(max_speed), 
+: index(index), min_speed(min_speed), max_speed(max_speed),
   loop_count(loop_count), back_to(back_to)
 {
 
@@ -1246,7 +1229,7 @@ Direction::Direction(int index, int min_speed, int max_speed, int loop_count,
 
 Direction::Direction()
 {
-    
+
 }
 
 // Animation
@@ -1286,9 +1269,9 @@ inline Direction * find_nearest_direction(int dir, Direction ** dirs)
     }
 }
 
-Active::Active(int x, int y, int type_id) 
-: FrameObject(x, y, type_id), animation(),
-  animation_frame(0), counter(0), angle(0.0), forced_frame(-1), 
+Active::Active(int x, int y, int type_id)
+: FrameObject(x, y, type_id), forced_animation(-1),
+  animation_frame(0), counter(0), angle(0.0), forced_frame(-1),
   forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
   animation_direction(0), stopped(false), flash_interval(0.0f),
   animation_finished(-1), transparent(false), flags(0)
@@ -1300,7 +1283,6 @@ void Active::initialize_active()
     collision = new SpriteCollision(this);
     collision->is_box = collision_box;
     update_direction();
-    update_frame();
 }
 
 Active::~Active()
@@ -1322,36 +1304,40 @@ void Active::initialize_animations()
     }
 }
 
-void Active::force_animation(int value)
+void Active::set_animation(int value)
 {
-    if (animation == DISAPPEARING)
-        return;
     if (value == animation)
         return;
-
-    if (!has_animation(value)) {
-        // XXX 
-        // std::cout << "Invalid animation: " << value 
-        //     << " (" << get_name() << ")" << std::endl;
-        for (value = 0; value < animations->count; value++) {
-            if (has_animation(value))
-                break;
-        }
-        if (value == animation)
-            return;
-    }
-
-    Animation * anim = animations->items[value];
+    value = get_animation(value);
+    if (value == animation)
+        return;
     animation = value;
+    if (forced_animation != -1)
+        return;
     if (forced_frame == -1)
         animation_frame = 0;
     update_direction();
-    update_frame();
+}
+
+void Active::force_animation(int value)
+{
+    if (value == forced_animation)
+        return;
+    value = get_animation(value);
+    if (value == forced_animation)
+        return;
+    int old_anim = get_animation();
+    forced_animation = value;
+    if (old_anim == forced_animation)
+        return;
+    if (forced_frame == -1)
+        animation_frame = 0;
+    update_direction();
 }
 
 void Active::force_frame(int value)
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return;
     forced_frame = value;
     update_frame();
@@ -1359,7 +1345,7 @@ void Active::force_frame(int value)
 
 void Active::force_speed(int value)
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return;
     forced_speed = value;
 }
@@ -1371,16 +1357,19 @@ void Active::force_direction(int value)
         return;
     forced_direction = value;
     update_direction();
-    update_frame();
 }
 
 void Active::restore_animation()
 {
+    forced_animation = -1;
+    if (forced_frame == -1)
+        animation_frame = 0;
+    update_direction();
 }
 
 void Active::restore_frame()
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return;
     animation_frame = forced_frame;
     forced_frame = -1;
@@ -1401,7 +1390,7 @@ void Active::add_direction(int animation, int direction,
         anim = new Animation;
         animations->items[animation] = anim;
     }
-    anim->dirs[direction] = new Direction(direction, min_speed, max_speed, 
+    anim->dirs[direction] = new Direction(direction, min_speed, max_speed,
                                           loop_count, back_to);
 }
 
@@ -1428,12 +1417,13 @@ void Active::update_frame()
 void Active::update_direction()
 {
     loop_count = get_direction_data()->loop_count;
+    update_frame();
 }
 
 void Active::update_action_point()
 {
     Image * img = get_image();
-    collision->get_transform(img->action_x, img->action_y, 
+    collision->get_transform(img->action_x, img->action_y,
                              action_x, action_y);
     action_x -= collision->hotspot_x;
     action_y -= collision->hotspot_y;
@@ -1454,6 +1444,7 @@ void Active::update(float dt)
     Direction * dir = get_direction_data();
     counter += int(get_speed() * frame->timer_mul);
     int old_frame = animation_frame;
+
     while (counter > 100) {
         counter -= 100;
         animation_frame++;
@@ -1465,13 +1456,13 @@ void Active::update(float dt)
             animation_frame = dir->back_to;
             continue;
         }
-        animation_finished = animation;
+        animation_finished = get_animation();
         animation_frame--;
 
-        if (animation == DISAPPEARING)
+        if (forced_animation == DISAPPEARING)
             FrameObject::destroy();
-        else if (animation == APPEARING)
-            force_animation(STOPPED);
+        else if (forced_animation == APPEARING)
+            restore_animation();
     }
     if (animation_frame != old_frame)
         update_frame();
@@ -1495,9 +1486,9 @@ void Active::draw()
 
 inline Image * Active::get_image()
 {
-    Animation * anim = animations->items[animation];
+    Animation * anim = animations->items[get_animation()];
     if (anim == NULL) {
-        std::cout << "Invalid animation: " << animation << std::endl;
+        std::cout << "Invalid animation: " << get_animation() << std::endl;
         return NULL;
     }
     Direction * dir = anim->dirs[get_animation_direction()];
@@ -1560,27 +1551,42 @@ Direction * Active::get_direction_data()
 
 int Active::get_animation()
 {
+    if (forced_animation != -1)
+        return forced_animation;
     return animation;
+}
+
+int Active::get_animation(int value)
+{
+    if (has_animation(value))
+        return value;
+    for (value = 0; value < animations->count; value++) {
+        if (has_animation(value))
+            break;
+    }
+    return value;
 }
 
 CollisionBase * Active::get_collision()
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return NULL;
     return collision;
 }
 
 void Active::set_direction(int value, bool set_movement)
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
         set_angle(double(value) * 11.25);
         value = 0;
     }
+    Direction * old_dir = get_direction_data();
     animation_direction = direction;
-    update_frame();
+    if (old_dir == get_direction_data())
+        return;
     update_direction();
 }
 
@@ -1616,8 +1622,8 @@ void Active::set_y_scale(double value)
 void Active::paste(int collision_type)
 {
     Image * img = get_image();
-    frame->layers[layer_index]->paste(img, 
-        x-img->hotspot_x, y-img->hotspot_y, 0, 0, 
+    frame->layers[layer_index]->paste(img,
+        x-img->hotspot_x, y-img->hotspot_y, 0, 0,
         img->width, img->height, collision_type);
 }
 
@@ -1634,7 +1640,7 @@ bool Active::test_directions(int value)
 
 bool Active::test_animation(int value)
 {
-    return value == animation;
+    return value == get_animation();
 }
 
 void Active::stop_animation()
@@ -1710,7 +1716,7 @@ bool Active::is_animation_finished(int anim)
 
 void Active::destroy()
 {
-    if (animation == DISAPPEARING)
+    if (forced_animation == DISAPPEARING)
         return;
     if (!has_animation(DISAPPEARING)) {
         FrameObject::destroy();
@@ -1761,7 +1767,7 @@ FTTextureFont * get_font(int size)
         return small_font;
 }
 
-Text::Text(int x, int y, int type_id) 
+Text::Text(int x, int y, int type_id)
 : FrameObject(x, y, type_id), initialized(false), current_paragraph(0),
   draw_text_set(false), layout(NULL)
 {
@@ -1806,7 +1812,7 @@ void Text::draw()
 
         if (alignment & ALIGN_HCENTER)
             off_x += 0.5 * (width - box_w);
-        else if (alignment & ALIGN_RIGHT) 
+        else if (alignment & ALIGN_RIGHT)
             off_x += width - box_w;
 
         if (alignment & ALIGN_VCENTER) {
@@ -1957,7 +1963,7 @@ std::string FontInfo::vertical_tab("\x0B");
 
 // Backdrop
 
-Backdrop::Backdrop(int x, int y, int type_id) 
+Backdrop::Backdrop(int x, int y, int type_id)
 : FrameObject(x, y, type_id), collision(NULL)
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
@@ -1990,7 +1996,7 @@ void Backdrop::draw()
 
 // QuickBackdrop
 
-QuickBackdrop::QuickBackdrop(int x, int y, int type_id) 
+QuickBackdrop::QuickBackdrop(int x, int y, int type_id)
 : FrameObject(x, y, type_id), collision(NULL), image(NULL)
 {
 }
@@ -2050,7 +2056,7 @@ void QuickBackdrop::draw()
 
 // Counter
 
-Counter::Counter(int x, int y, int type_id) 
+Counter::Counter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), collision(NULL), flash_interval(0.0f)
 {
     for (int i = 0; i < 14; i++)
@@ -2079,7 +2085,7 @@ void Counter::calculate_box()
         return;
     width = 0;
     height = 0;
-    for (std::string::const_iterator it = cached_string.begin(); 
+    for (std::string::const_iterator it = cached_string.begin();
          it != cached_string.end(); it++) {
         Image * image = get_image(it[0]);
         width += image->width;
@@ -2173,7 +2179,7 @@ void Counter::draw()
 
     if (type == IMAGE_COUNTER) {
         double current_x = x;
-        for (std::string::reverse_iterator it = cached_string.rbegin(); 
+        for (std::string::reverse_iterator it = cached_string.rbegin();
              it != cached_string.rend(); it++) {
             Image * image = get_image(it[0]);
             if (image == NULL)
@@ -2183,7 +2189,7 @@ void Counter::draw()
             current_x -= image->width;
         }
     } else if (type == VERTICAL_UP_COUNTER) {
-        float p = (value - minimum) / 
+        float p = (value - minimum) /
                   (maximum - minimum);
         int draw_height = p * height;
         int x2 = x + width;
@@ -2201,7 +2207,7 @@ void Counter::draw()
 
 // Lives
 
-Lives::Lives(int x, int y, int type_id) 
+Lives::Lives(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f)
 {
 }
@@ -2234,7 +2240,7 @@ void Lives::draw()
 
 #include "ini.cpp"
 
-inline bool match_wildcard(const std::string & pattern, 
+inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
 {
     if (pattern.empty() || value.empty())
@@ -2252,14 +2258,14 @@ inline bool match_wildcard(const std::string & pattern,
             return false;
         return pattern.compare(0, size, value, 0, size) == 0;
     } else if (std::count(pattern.begin(), pattern.end(), '*') > 0) {
-        std::cout << "Generic wildcard not implemented yet: " << pattern 
+        std::cout << "Generic wildcard not implemented yet: " << pattern
             << std::endl;
         return false;
     }
     return value == pattern;
 }
 
-INI::INI(int x, int y, int type_id) 
+INI::INI(int x, int y, int type_id)
 : FrameObject(x, y, type_id), overwrite(false), auto_save(false)
 {
 }
@@ -2290,7 +2296,7 @@ void INI::set_group(const std::string & name, bool new_group)
     current_group = name;
 }
 
-std::string INI::get_string(const std::string & group, const std::string & item, 
+std::string INI::get_string(const std::string & group, const std::string & item,
                             const std::string & def)
 {
     SectionMap::const_iterator it = data.find(group);
@@ -2367,7 +2373,7 @@ std::string INI::get_group_name(unsigned int index)
     return empty_string;
 }
 
-double INI::get_value(const std::string & group, const std::string & item, 
+double INI::get_value(const std::string & group, const std::string & item,
                       double def)
 {
     SectionMap::const_iterator it = data.find(group);
@@ -2410,7 +2416,7 @@ double INI::get_value_index(unsigned int index)
     return get_value_index(current_group, index);
 }
 
-void INI::set_value(const std::string & group, const std::string & item, 
+void INI::set_value(const std::string & group, const std::string & item,
                     int pad, double value)
 {
     set_string(group, item, number_to_string(value));
@@ -2426,7 +2432,7 @@ void INI::set_value(const std::string & item, double value)
     set_value(item, 0, value);
 }
 
-void INI::set_string(const std::string & group, const std::string & item, 
+void INI::set_string(const std::string & group, const std::string & item,
                      const std::string & value)
 {
     data[group][item] = value;
@@ -2445,7 +2451,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
     filename = convert_path(fn);
     if (!merge)
         reset(false);
-    std::cout << "Loading " << filename << " (" << get_name() << ")" 
+    std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
     create_directories(filename);
     int e = ini_parse_file(filename.c_str(), _parse_handler, this);
@@ -2477,7 +2483,7 @@ void INI::get_data(std::stringstream & out)
     OptionMap::const_iterator it2;
     for (it1 = data.begin(); it1 != data.end(); it1++) {
         out << "[" << (*it1).first << "]" << std::endl;
-        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end(); 
+        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
              it2++) {
             out << (*it2).first << "=" << (*it2).second << std::endl;
         }
@@ -2557,7 +2563,7 @@ bool INI::has_item(const std::string & option)
     return has_item(current_group, option);
 }
 
-void INI::search(const std::string & group, const std::string & item, 
+void INI::search(const std::string & group, const std::string & item,
                  const std::string & value)
 {
     search_results.clear();
@@ -2566,7 +2572,7 @@ void INI::search(const std::string & group, const std::string & item,
     for (it1 = data.begin(); it1 != data.end(); it1++) {
         if (!match_wildcard(group, (*it1).first))
             continue;
-        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end(); 
+        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
              it2++) {
             if (!match_wildcard(item, (*it2).first))
                 continue;
@@ -2581,7 +2587,7 @@ void INI::search(const std::string & group, const std::string & item,
     }
 }
 
-void INI::delete_pattern(const std::string & group, const std::string & item, 
+void INI::delete_pattern(const std::string & group, const std::string & item,
                          const std::string & value)
 {
     SectionMap::iterator it1;
@@ -2592,7 +2598,7 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
         OptionMap & option_map = (*it1).second;
         it2 = option_map.begin();
         while (it2 != option_map.end()) {
-            if (!match_wildcard(item, (*it2).first) || 
+            if (!match_wildcard(item, (*it2).first) ||
                 !match_wildcard(value, (*it2).second)) {
                 it2++;
                 continue;
@@ -2648,7 +2654,7 @@ void INI::merge_object(INI * other, bool overwrite)
     merge_map(other->data, overwrite);
 }
 
-void INI::merge_group(INI * other, const std::string & src_group, 
+void INI::merge_group(INI * other, const std::string & src_group,
                      const std::string & dst_group, bool overwrite)
 {
     merge_map(other->data, src_group, dst_group, overwrite);
@@ -2659,7 +2665,7 @@ void INI::merge_map(const SectionMap & data2, bool overwrite)
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
     for (it1 = data2.begin(); it1 != data2.end(); it1++) {
-        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end(); 
+        for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
              it2++) {
             if (!overwrite && has_item((*it1).first, (*it2).first))
                 continue;
@@ -2669,7 +2675,7 @@ void INI::merge_map(const SectionMap & data2, bool overwrite)
     save_auto();
 }
 
-void INI::merge_map(SectionMap & data2, const std::string & src_group, 
+void INI::merge_map(SectionMap & data2, const std::string & src_group,
                     const std::string & dst_group, bool overwrite)
 {
     OptionMap & items = data2[src_group];
@@ -2692,7 +2698,7 @@ std::string INI::get_search_result_group(int index)
     return search_results[index].first;
 }
 
-std::string INI::get_item_part(const std::string & group, 
+std::string INI::get_item_part(const std::string & group,
                                const std::string & item, int index,
                                const std::string & def)
 {
@@ -2717,12 +2723,12 @@ boost::unordered_map<std::string, SectionMap> INI::global_data;
 
 // StringTokenizer
 
-StringTokenizer::StringTokenizer(int x, int y, int type_id) 
+StringTokenizer::StringTokenizer(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
 }
 
-void StringTokenizer::split(const std::string & text, 
+void StringTokenizer::split(const std::string & text,
                             const std::string & delims)
 {
     elements.clear();
@@ -2852,7 +2858,7 @@ Workspace::Workspace(const std::string & name)
 
 // BinaryArray
 
-BinaryArray::BinaryArray(int x, int y, int type_id) 
+BinaryArray::BinaryArray(int x, int y, int type_id)
 : FrameObject(x, y, type_id), current(NULL)
 {
 
@@ -2934,7 +2940,7 @@ size_t BinaryArray::get_size()
 
 // BinaryObject
 
-BinaryObject::BinaryObject(int x, int y, int type_id) 
+BinaryObject::BinaryObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), data(NULL), size(0)
 {
 
@@ -2989,7 +2995,7 @@ int BinaryObject::get_short(size_t addr)
 
 // ArrayObject
 
-ArrayObject::ArrayObject(int x, int y, int type_id) 
+ArrayObject::ArrayObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), array(NULL), strings(NULL)
 {
 
@@ -3053,7 +3059,7 @@ int LayerObject::sort_index;
 bool LayerObject::sort_reverse;
 double LayerObject::def;
 
-LayerObject::LayerObject(int x, int y, int type_id) 
+LayerObject::LayerObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), current_layer(0)
 {
 
@@ -3101,7 +3107,7 @@ double LayerObject::get_alterable(FrameObject * instance)
     if (instance->values == NULL)
         return def;
     return instance->values->get(sort_index);
-} 
+}
 
 bool LayerObject::sort_func(FrameObject * a, FrameObject * b)
 {
@@ -3124,7 +3130,7 @@ void LayerObject::sort_alt_decreasing(int index, double def)
 
 // Viewport
 
-Viewport::Viewport(int x, int y, int type_id) 
+Viewport::Viewport(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
     glGenTextures(1, &texture);
@@ -3303,13 +3309,19 @@ void TextBlitter::draw()
 
 // PlatformObject
 
-PlatformObject::PlatformObject(int x, int y, int type_id) 
+// XXX hack
+static PlatformObject * last_instance = NULL;
+
+PlatformObject::PlatformObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), instance(NULL), paused(false),
   add_x_vel(0), add_y_vel(0), x_move_count(0), y_move_count(0), x_vel(0),
   y_vel(0), left(false), right(false), obstacle_collision(false),
   platform_collision(false), on_ground(false), through_collision_top(false),
   jump_through(false)
 {
+    // XXX hack
+    if (x == -424 && y == -352)
+        last_instance = this;
 }
 
 void PlatformObject::update(float dt)
@@ -3317,8 +3329,12 @@ void PlatformObject::update(float dt)
     bool l = left;
     bool r = right;
     left = right = false;
-    
+
     if (instance == NULL || paused || instance->destroying)
+        return;
+
+    // XXX hack
+    if (this != last_instance && !last_instance->paused)
         return;
 
     if (r && !l)
@@ -3335,35 +3351,45 @@ void PlatformObject::update(float dt)
     y_vel = std::min(std::max(y_vel + gravity, -max_y_vel), max_y_vel);
     int x_vel_2 = x_vel + add_x_vel;
     int y_vel_2 = y_vel + add_y_vel;
+    int x_vel_sign = sign_int(x_vel_2);
+    int y_vel_sign = sign_int(y_vel_2);
     x_move_count += get_abs(x_vel_2);
     y_move_count += get_abs(y_vel_2);
-    
+
+    bool overlaps;
+
     while (x_move_count > 100) {
-        if (!overlaps_obstacle())
-            instance->set_x(instance->x + x_vel_2 / get_abs(x_vel_2));
-        if (overlaps_obstacle()) {
+        overlaps = overlaps_obstacle();
+        if (!overlaps) {
+            instance->set_x(instance->x + x_vel_sign);
+            overlaps = overlaps_obstacle();
+        }
+        if (overlaps) {
             for (int i = 0; i < step_up; i++) {
                 instance->set_y(instance->y - 1);
-                if (!overlaps_obstacle())
+                overlaps = overlaps_obstacle();
+                if (!overlaps)
                     break;
             }
-            if (overlaps_obstacle()) {
+            if (overlaps) {
                 instance->set_position(
-                    instance->x - x_vel_2 / get_abs(x_vel_2),
+                    instance->x - x_vel_sign,
                     instance->y + step_up);
                 x_vel = x_move_count = 0;
             }
         }
         x_move_count -= 100;
     }
-    
+
     while (y_move_count > 100) {
-        if (!overlaps_obstacle()) {
-            instance->set_y(instance->y + y_vel_2 / get_abs(y_vel_2));
+        overlaps = overlaps_obstacle();
+        if (!overlaps) {
+            instance->set_y(instance->y + y_vel_sign);
             on_ground = false;
+            overlaps = overlaps_obstacle();
         }
-        if (overlaps_obstacle()) {
-            instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+        if (overlaps) {
+            instance->set_y(instance->y - y_vel_sign);
             if (y_vel_2 > 0)
                 on_ground = true;
             y_vel = y_move_count = 0;
@@ -3372,13 +3398,13 @@ void PlatformObject::update(float dt)
             if (through_collision_top) {
                 instance->set_y(instance->y - 1);
                 if (!overlaps_platform()) {
-                    instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+                    instance->set_y(instance->y - y_vel_sign);
                     y_vel = y_move_count = 0;
                     on_ground = true;
                 }
                 instance->set_y(instance->y + 1);
             } else {
-                instance->set_y(instance->y - y_vel_2 / get_abs(y_vel_2));
+                instance->set_y(instance->y - y_vel_sign);
                 y_vel = y_move_count = 0;
                 on_ground = true;
             }
@@ -3448,7 +3474,7 @@ void PlatformObject::jump()
 
 // ActivePicture
 
-ActivePicture::ActivePicture(int x, int y, int type_id) 
+ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
   scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
 {
@@ -3478,7 +3504,7 @@ void ActivePicture::load(const std::string & fn)
     std::string dir = fn.substr(dir_start+1, dir_end-dir_start-1);
     if (dir == "Menu") {
         std::string name = fn.substr(dir_end + 1);
-        filename = convert_path(fn.substr(0, dir_end+1) + 
+        filename = convert_path(fn.substr(0, dir_end+1) +
                                 platform_get_language() + "/" + name);
 
     } else
@@ -3586,14 +3612,14 @@ CollisionBase * ActivePicture::get_collision()
     return collision;
 }
 
-void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y, 
+void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,
                           int src_width, int src_height, int collision_type)
 {
     if (image == NULL) {
         std::cout << "Invalid image paste: " << filename << std::endl;
         return;
     }
-    frame->layers[layer_index]->paste(cached_image, dest_x, dest_y, 
+    frame->layers[layer_index]->paste(cached_image, dest_x, dest_y,
         src_x, src_y, src_width, src_height, collision_type);
 }
 
@@ -3601,7 +3627,7 @@ ImageCache ActivePicture::image_cache;
 
 // ListObject
 
-ListObject::ListObject(int x, int y, int type_id) 
+ListObject::ListObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
 

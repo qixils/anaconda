@@ -19,7 +19,7 @@
 #ifndef B2_SETTINGS_H
 #define B2_SETTINGS_H
 
-#pragma warning(disable:4127)
+// #pragma warning(disable:4127)
 
 #include <assert.h>
 #include <math.h>
@@ -39,7 +39,7 @@ bool AssertFail2(const char* message);
 
 //#define b2Assert(A) assert(A)
 
-// need to include NDS jtypes.h instead of 
+// need to include NDS jtypes.h instead of
 // usual typedefs because NDS jtypes defines
 // them slightly differently, oh well.
 #ifdef TARGET_IS_NDS

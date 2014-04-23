@@ -31,7 +31,7 @@ inline double get_accelerator(int value)
     return value;
 }
 
-static const int movement_directions[] = 
+static const int movement_directions[] =
 {
     -1,             // 0000 Static
     8,              // 0001
@@ -241,7 +241,7 @@ bool Movement::fix_position()
         instance->set_position(x, y);
         return true;
     }
-    
+
     instance->set_position(old_x, old_y);
     return false;
 }
@@ -364,7 +364,7 @@ void BallMovement::bounce(bool collision)
 
 PathMovement::PathMovement(FrameObject * instance)
 : Movement(instance), current_node(-1), distance_left(0.0f),
-  dir(1), node_changed(false)
+  dir(1), node_changed(false), start_x(0), start_y(0)
 {
 
 }
@@ -377,13 +377,15 @@ void PathMovement::set_path(bool loop, bool reverse, int end_x, int end_y)
     this->end_y = end_y;
 }
 
-void PathMovement::add_node(int speed, float x, float y, int length,
-                            int dir, float pause)
+void PathMovement::add_node(int speed, int x, int y, float dir_x, float dir_y,
+                            int length, int dir, float pause)
 {
     PathNode node;
     node.speed = speed;
     node.x = x;
     node.y = y;
+    node.dir_x = dir_x;
+    node.dir_y = dir_y;
     node.length = length;
     node.direction = dir;
     node.pause = pause;
@@ -400,6 +402,7 @@ void PathMovement::add_named_node(int i, const std::string & name)
 
 void PathMovement::set_current_node(int i)
 {
+    start_x = start_y = 0;
     current_node = i;
     PathNode & node = nodes[i];
     distance_left = float(node.length);
@@ -425,16 +428,27 @@ void PathMovement::stop(bool collision)
 void PathMovement::update(float dt)
 {
     node_changed = false;
-    if (current_node < 0)
+    if (current_node < 0) {
+        instance->set_animation(STOPPED);
         return;
+    }
+    instance->set_animation(WALKING);
     PathNode & node = nodes[current_node];
     float m = get_pixels(speed) * instance->frame->timer_mul;
     float move_dist = std::min<float>(m, distance_left);
     float move_val = move_dist * dir;
-    move(node.x * move_val, node.y * move_val);
+    int old_x = instance->x;
+    int old_y = instance->y;
+    move(node.dir_x * move_val, node.dir_y * move_val);
+    start_x -= instance->x - old_x;
+    start_y -= instance->y - old_y;
     distance_left -= move_dist;
     if (distance_left <= 0.0f) {
-        add_x = add_y = 0.0;
+        int final_x = instance->x + start_x + node.x * dir;
+        int final_y = instance->y + start_y + node.y * dir;
+        instance->set_position(final_x, final_y);
+        add_x = add_y = 0;
+        start_x = start_y = 0;
         node_changed = true;
         int next_node = current_node+dir;
         bool is_last = next_node == nodes.size() || next_node == -1;
@@ -478,7 +492,10 @@ void PathMovement::reverse()
 {
     dir = -dir;
     if (current_node >= 0) {
-        distance_left = nodes[current_node].length - distance_left;
+        PathNode & node = nodes[current_node];
+        distance_left = node.length - distance_left;
+        start_x += node.x * -dir;
+        start_y += node.y * -dir;
         return;
     }
     int n;

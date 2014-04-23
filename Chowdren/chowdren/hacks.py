@@ -24,27 +24,16 @@ def init(converter):
             values[i] = convert_key(values[i])
 
 object_checks = {
-    # (4, 326) : 'BulletShock_67',
-    # (4, 2556) : 'SAVEInventoryANNEPieces76100UNUSED_459',
-    # (3, 186) : 'BulletShock_67',
-    # (3, 2215) : 'SAVEInventoryANNEPieces76100UNUSED_459'
 }
 
 def write_pre(converter, writer, group):
-    if not is_anne:
-        return
-    obj = object_checks.get((converter.current_frame_index, group.global_id),
-                            None)
-    if obj is None:
-        return
-    writer.putlnc('if (get_instances(%s_type).empty()) %s',
-                  obj, converter.event_break)
+    pass
 
 def use_simple_or(converter):
     return is_knytt
 
 def use_iteration_index(converter):
-    return is_avgn or is_anne
+    return is_avgn
 
 alterable_int_objects = [
     'MenuMainMapObject_',

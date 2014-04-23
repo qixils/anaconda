@@ -1,7 +1,7 @@
 #ifdef CHOWDREN_IS_DESKTOP
 #include "desktop/audio.h"
 #else
-#include "wiiu/audio.h"
+#include "audio.h"
 #endif
 
 #include "math.h"
@@ -46,7 +46,7 @@ class SoundFile : public SoundData
 public:
     std::string filename;
 
-    SoundFile(const std::string & name, const std::string & filename) 
+    SoundFile(const std::string & name, const std::string & filename)
     : SoundData(name), filename(filename)
     {
 
@@ -87,7 +87,7 @@ public:
 
 // Channel
 
-Channel::Channel() 
+Channel::Channel()
 : locked(false), volume(100), frequency(0), pan(0), sound(NULL)
 {
 
@@ -421,9 +421,10 @@ void Media::add_file(const std::string & name, const std::string & fn)
         delete it->second;
     }
     SoundData * data;
-    if (get_path_ext(filename) == "wav")
-        data = new SoundMemory(name, filename);
-    else if (get_file_size(filename.c_str()) > STREAM_THRESHOLD * 1024 * 1024)
+    // if (get_path_ext(filename) == "wav")
+    //     data = new SoundMemory(name, filename);
+    // else
+    if (get_file_size(filename.c_str()) > STREAM_THRESHOLD * 1024 * 1024)
         data = new SoundFile(name, filename);
     else
         data = new SoundMemory(name, filename);

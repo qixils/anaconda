@@ -1,8 +1,13 @@
 #ifndef CHOWDREN_COMMON_H
 #define CHOWDREN_COMMON_H
 
-#include "keys.h"
 #include "chowconfig.h"
+
+#ifdef CHOWDREN_USE_PROFILER
+#include "profiler.h"
+#endif
+
+#include "keys.h"
 #include "manager.h"
 #include "platform.h"
 #include "include_gl.h"
@@ -37,19 +42,6 @@
 #include "movement.h"
 
 extern std::string newline_character;
-
-template <typename A, typename B, typename C>
-inline typename A::iterator set_map_value(A & map, const B & key,
-                                          const C & value)
-{
-
-    std::pair<typename A::iterator, bool> res = map.insert(
-        std::make_pair(key, value));
-    typename A::iterator it = res.first;
-    if (!res.second)
-        it->second = value;
-    return it;
-}
 
 inline void split_string(const std::string &s, char delim,
                   std::vector<std::string> &elems)
@@ -239,9 +231,29 @@ public:
     size_t num;
     ObjectList ** items;
 
-    InstanceMap(size_t num);
-    ObjectList & get(int id);
-    void clear();
+    InstanceMap(size_t v)
+    {
+        num = v;
+        items = new ObjectList*[num]();
+    }
+
+    ObjectList & get(int id)
+    {
+        ObjectList * item = items[id];
+        if (item == NULL) {
+            item = new ObjectList;
+            items[id] = item;
+        }
+        return *item;
+    }
+
+    void clear()
+    {
+        for (unsigned int i = 0; i < num; i++) {
+            delete items[i];
+            items[i] = NULL;
+        }
+    }
 };
 
 class Media;
@@ -253,7 +265,6 @@ public:
     int width, height;
     int index;
     GameManager * manager;
-    ObjectList instances;
     ObjectList destroyed_instances;
     std::vector<Layer*> layers;
     InstanceMap instance_classes;
@@ -282,18 +293,9 @@ public:
     void pause();
     void restart();
     void draw(int remote);
-    ObjectList & get_instances(int object_id);
-    ObjectList get_instances(unsigned int qualifier[]);
-    FrameObject * get_instance(int object_id);
-    FrameObject * get_instance(int object_id, int index);
-    FrameObject * get_active_instance(int object_id);
-    FrameObject * get_active_instance(int object_id, int index);
-    FrameObject * get_instance(unsigned int qualifier[]);
-    FrameObject * get_instance(unsigned int qualifier[], int index);
     void add_layer(double scroll_x, double scroll_y, bool visible);
-    void add_object(FrameObject * object, int layer_index);
+    FrameObject * add_object(FrameObject * object, int layer_index);
     void add_background_object(FrameObject * object, int layer_index);
-    FrameObject * create_object(FrameObject * object, int layer_index);
     void destroy_object(FrameObject * object);
     void set_object_layer(FrameObject * object, int new_layer);
     int get_loop_index(const std::string & name);
@@ -314,6 +316,16 @@ public:
     bool is_joystick_direction_changed(int n);
     void clean_instances();
     void set_vsync(bool value);
+
+    // instance functions
+    ObjectList & get_instances(int object_id);
+    ObjectList get_instances(unsigned int qualifier[]);
+    FrameObject * get_instance(int object_id);
+    FrameObject * get_instance(int object_id, int index);
+    FrameObject * get_active_instance(int object_id);
+    FrameObject * get_active_instance(int object_id, int index);
+    FrameObject * get_instance(unsigned int qualifier[]);
+    FrameObject * get_instance(unsigned int qualifier[], int index);
 };
 
 // object types
@@ -373,7 +385,7 @@ public:
 
     int animation;
     int animation_direction, animation_frame;
-    int forced_frame, forced_speed, forced_direction;
+    int forced_animation, forced_frame, forced_speed, forced_direction;
     unsigned int counter;
     double angle;
     SpriteCollision * collision;
@@ -418,7 +430,9 @@ public:
     Direction * get_direction_data(int & dir);
     Direction * get_direction_data();
     int get_animation();
+    int get_animation(int anim);
     CollisionBase * get_collision();
+    void set_animation(int value);
     void set_direction(int value, bool set_movement = true);
     int & get_animation_direction();
     void set_scale(double scale);
@@ -1032,8 +1046,11 @@ inline void make_single_list(FrameObject * item, ObjectList & list)
 
 inline void add_unique_object(FrameObject * obj, ObjectList & list)
 {
-    if (std::find(list.begin(), list.end(), obj) != list.end())
-        return;
+    ObjectList::const_iterator it;
+    for (it = list.begin(); it != list.end(); it++) {
+        if (*it == obj)
+            return;
+    }
     list.push_back(obj);
 }
 
@@ -1042,6 +1059,17 @@ inline void append_list(ObjectList & a, ObjectList & b)
     ObjectList::const_iterator it;
     for (it = b.begin(); it != b.end(); it++) {
         add_unique_object(*it, a);
+    }
+}
+
+inline void remove_list(ObjectList & a, FrameObject * obj)
+{
+    ObjectList::iterator it;
+    for (it = a.begin(); it != a.end(); it++) {
+        if (*it != obj)
+            continue;
+        a.erase(it);
+        return;
     }
 }
 

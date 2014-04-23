@@ -58,7 +58,8 @@ class PathNode
 {
 public:
     int speed;
-    float x, y;
+    int x, y;
+    float dir_x, dir_y;
     int length;
     int direction;
     float pause;
@@ -85,11 +86,12 @@ public:
     int dir;
     bool node_changed;
     int end_x, end_y;
+    int start_x, start_y;
 
     PathMovement(FrameObject * instance);
     void set_path(bool loop, bool reverse, int end_x, int end_y);
-    void add_node(int speed, float x, float y, int length, int dir,
-                  float pause);
+    void add_node(int speed, int x, int y, float dir_x, float dir_y,
+                  int length, int dir, float pause);
     void add_named_node(int i, const std::string & name);
     void set_current_node(int i);
     void set_node(const std::string & node);

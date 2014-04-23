@@ -44,7 +44,6 @@ public:
     void end(FrameObject * instance)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_ADD);
     }
 };
 
@@ -80,7 +79,7 @@ public:
         b = get_uniform("b");
     }
 
-    void set_parameters(FrameObject * instance) 
+    void set_parameters(FrameObject * instance)
     {
         set_vec4(instance, "r", r);
         set_vec4(instance, "g", g);
@@ -99,7 +98,7 @@ public:
 
     }
 
-    void set_parameters(FrameObject * instance) 
+    void set_parameters(FrameObject * instance)
     {
         set_float(instance, "fHue", hue);
     }
@@ -128,7 +127,7 @@ public:
         height = get_uniform("height");
     }
 
-    void set_parameters(FrameObject * instance) 
+    void set_parameters(FrameObject * instance)
     {
         set_float(instance, "width", width);
         set_float(instance, "height", height);
@@ -163,7 +162,7 @@ public:
         radius = get_uniform("radius");
     }
 
-    void set_parameters(FrameObject * instance) 
+    void set_parameters(FrameObject * instance)
     {
         set_float(instance, "vertical", vertical);
         set_float(instance, "radius", radius);
@@ -174,7 +173,7 @@ public:
 class BasicShader : public GLSLShader
 {
 public:
-    BasicShader() 
+    BasicShader()
     : GLSLShader("basic", false)
     {
     }
@@ -183,7 +182,7 @@ public:
 class TextureShader : public GLSLShader
 {
 public:
-    TextureShader() 
+    TextureShader()
     : GLSLShader("texture", false)
     {
     }

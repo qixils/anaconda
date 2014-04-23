@@ -1,5 +1,5 @@
-from chowdren.writers.events import (ActionWriter, ConditionWriter, 
-    ExpressionWriter, ComparisonWriter, ActionMethodWriter, 
+from chowdren.writers.events import (ActionWriter, ConditionWriter,
+    ExpressionWriter, ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
@@ -28,6 +28,7 @@ class SystemObject(ObjectWriter):
     def write_frame(self, writer):
         self.write_group_activated(writer)
         self.write_loops(writer)
+        # self.write_collisions(writer)
 
     def write_start(self, writer):
         for container, names in self.group_activations.iteritems():
@@ -60,6 +61,45 @@ class SystemObject(ObjectWriter):
             check_name = cond.get_group_check()
             writer.putln('bool %s;' % (check_name))
             self.group_activations[container].append(check_name)
+
+    def write_collisions(self, writer):
+        converter = self.converter
+
+        # XXX group based on saved collision need?
+        groups = defaultdict(list)
+        for group in self.get_conditions('OnCollision'):
+            cond = group.conditions[0]
+            data = cond.data
+            object_info = data.objectInfo
+            other_info = data.items[0].loader.objectInfo
+            key = (object_info, other_info)
+            key = tuple(sorted(key))
+            key = key + (cond.has_collisions(group),)
+            groups[key].append(group)
+
+        writer.putmeth('void test_collisions')
+        for key, groups in groups.iteritems():
+            object_info, other_info, has_col = key
+            selected_name = converter.get_list_name(converter.get_object_name(
+                object_info))
+            other_selected = converter.get_list_name(converter.get_object_name(
+                other_info))
+            self.converter.begin_events()
+            cond = group.conditions[0]
+            end_name = 'col_end_%s' % get_id(cond)
+            func_name = 'check_overlap_save'
+            writer.putlnc('if (!%s(%s, %s, %s, %s)) goto %s;', func_name,
+                          converter.get_object(object_info, True),
+                          converter.get_object(other_info, True),
+                          selected_name, other_selected, end_name)
+            for group in groups:
+
+                cond.add_collision_objects(object_info, other_info)
+                converter.set_list(object_info, selected_name)
+                converter.set_list(other_info, other_selected)
+                converter.write_event(writer, group, True)
+            writer.put_label(end_name)
+        writer.end_brace()
 
     def write_loops(self, writer):
         self.loop_names = set()
@@ -134,11 +174,13 @@ class SystemObject(ObjectWriter):
 
 class CollisionCondition(ConditionWriter):
     save_collision = False
+    is_always = True
 
-    def has_collisions(self):
+    def has_collisions(self, group=None):
         if not self.save_collision:
             return False
-        actions = self.converter.current_group.actions
+        group = group or self.converter.current_group
+        actions = group.actions
         for action in actions:
             if action.data.getName() in ('Stop', 'Bounce'):
                 return True
@@ -151,7 +193,6 @@ class CollisionCondition(ConditionWriter):
 
 class IsOverlapping(CollisionCondition):
     has_object = False
-    is_always = True
 
     def write(self, writer):
         data = self.data
@@ -162,7 +203,7 @@ class IsOverlapping(CollisionCondition):
         if negated:
             writer.put(to_c(
                 'check_not_overlap(%s, %s)',
-                converter.get_object(object_info, True), 
+                converter.get_object(object_info, True),
                 converter.get_object(other_info, True)))
         else:
             selected_name = converter.get_list_name(converter.get_object_name(
@@ -176,8 +217,8 @@ class IsOverlapping(CollisionCondition):
                 func_name = 'check_overlap'
             writer.put(to_c(
                 '%s(%s, %s, %s, %s)', func_name,
-                converter.get_object(object_info, True), 
-                converter.get_object(other_info, True), 
+                converter.get_object(object_info, True),
+                converter.get_object(other_info, True),
                 selected_name, other_selected))
             converter.set_list(object_info, selected_name)
             converter.set_list(other_info, other_selected)
@@ -187,9 +228,10 @@ class IsOverlapping(CollisionCondition):
 
 class OnCollision(IsOverlapping):
     save_collision = True
+    # is_always = False
 
 class OnBackgroundCollision(CollisionCondition):
-    is_always = True
+    # is_always = False
     save_collision = True
 
     def write(self, writer):
@@ -508,7 +550,8 @@ class CreateBase(ActionWriter):
             create_object = details['create_object']
         if object_info != parent:
             if object_info not in self.converter.has_selection:
-                list_name = self.converter.get_list_name(create_object)
+                create_name = self.converter.get_object_name(create_object)
+                list_name = self.converter.get_list_name(create_name)
                 writer.putlnc('%s.clear();', list_name)
                 self.converter.set_list(object_info, list_name)
         if parent is not None:
@@ -537,12 +580,9 @@ class CreateBase(ActionWriter):
             layer = 'parent->layer_index'
         else:
             layer = details['layer']
-        arguments = [x, y]
-        obj_create_func = 'create_%s' % get_method_name(create_object)
-        create_method = 'create_object'
-        writer.putln('FrameObject * new_obj = %s(%s(%s), %s); // %s' % (
-            create_method, obj_create_func, ', '.join(arguments), layer,
-            details))
+        writer.putlnc('FrameObject * new_obj; // %s', details)
+        self.converter.create_object(create_object, x, y, layer, 'new_obj',
+                                     writer)
         if object_info != parent:
             list_name = self.converter.has_selection[object_info]
             writer.putln('%s.push_back(new_obj);' % (list_name))
@@ -613,7 +653,7 @@ class LookAt(ActionWriter):
         parent = self.converter.get_object(parent)
         x = '%s->x + %s' % (parent, x)
         y = '%s->y + %s' % (parent, y)
-        writer.put('set_direction(get_direction_int(%s->x, %s->y, %s, %s));' 
+        writer.put('set_direction(get_direction_int(%s->x, %s->y, %s, %s));'
             % (instance, instance, x, y))
 
 class MoveInFront(ActionWriter):
@@ -694,28 +734,17 @@ class StartLoop(ActionWriter):
         if is_dynamic:
             writer.putlnc('DynamicLoop & dyn_loop = loops[%s];',
                           self.convert_index(0))
-        # writer.putln('static const std::string name = %s;' %
-        #              self.convert_index(0))
         writer.putln('%s = true;' % running_name)
-        # writer.putln('RunningLoops::iterator running_it '
-        #     '= set_map_value(running_loops, name, false);')
-        # writer.putln('running_it->second = true;')
         if not is_infinite:
             writer.putln('int times = int(%s);' % times)
         writer.putln('%s = 0;' % index_name)
-        # writer.putln('LoopIndexes::iterator index_it '
-        #     '= set_map_value(loop_indexes, name, 0);')
-        # writer.putln('index_it->second = 0;')
         writer.putln('while (%s) {' % comparison)
         writer.indent()
         writer.putln('%s;' % func_call)
-        # writer.putln('if (!running_it->second) break;')
         writer.putln('if (!%s) break;' % running_name)
-        # writer.putln('index_it->second++;')
         writer.putln('%s++;' % index_name)
         writer.end_brace()
         writer.end_brace()
-        # self.converter.write_container_check(self.group, writer)
         self.converter.clear_selection()
 
 class DeactivateGroup(ActionWriter):

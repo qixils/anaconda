@@ -34,11 +34,9 @@ class Active(ObjectWriter):
         writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
         writer.putlnc('auto_rotate = %s;', bool(flags['AutomaticRotation']))
         writer.putlnc('transparent = %s;', self.get_transparent())
+        writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
-            start_anim = APPEARING
-        else:
-            start_anim = min(animations)
-        writer.putln('animation = %s;' % get_animation_name(start_anim))
+            writer.putln('forced_animation = APPEARING;')
         writer.putln('initialize_active();')
 
     def get_transparent(self):

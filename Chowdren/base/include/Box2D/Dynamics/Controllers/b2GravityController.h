@@ -23,7 +23,7 @@
 
 class b2GravityControllerDef;
 
-static int e_gravityController = 'gc  ';
+static int e_gravityController = MAKE_INT('g', 'c', ' ', ' ');
 
 /// Applies simplified gravity between every pair of bodies
 class b2GravityController : public b2Controller{

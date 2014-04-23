@@ -23,7 +23,7 @@
 
 class b2BuoyancyControllerDef;
 
-static int e_buoyancyController = 'bc  ';
+static int e_buoyancyController = MAKE_INT('b', 'c', ' ', ' ');
 
 /// Calculates buoyancy forces for fluids in the form of a half plane.
 class b2BuoyancyController : public b2Controller{

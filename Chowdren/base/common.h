@@ -1121,7 +1121,6 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     }
 
     bool ret = false;
-    int temp_offset = 0;
     for (ObjectIterator it2(list2); !it2.end(); it2++) {
         FrameObject * instance = *it2;
         CollisionBase * col = instance->get_collision();
@@ -1132,6 +1131,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
         int v[4];
         col->get_box(v);
         bool added = false;
+        int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
             int * temp_off_1 = temp1 + temp_offset;
@@ -1188,7 +1188,6 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     }
 
     bool ret = false;
-    int temp_offset = 0;
     for (QualifierIterator it2(list2); !it2.end(); it2++) {
         FrameObject * instance = *it2;
         CollisionBase * col = instance->get_collision();
@@ -1199,6 +1198,8 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
         int v[4];
         col->get_box(v);
         bool added = false;
+
+        int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
             int * temp_off_1 = temp1 + temp_offset;

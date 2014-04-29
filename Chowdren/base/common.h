@@ -1094,7 +1094,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
             it.deselect();
     }
 
-    return ret;
+    return true;
 }
 
 template <bool save>
@@ -1115,7 +1115,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     for (int i = 0; i < list1.count; i++) {
         ObjectList & list = *list1.items[i];
         for (ObjectIterator it(list); !it.end(); it++) {
-            temp1[it.index - 1 + total_index] = 1;
+            temp1[total_index + it.index - 1] = 1;
         }
         total_index += list.size();
     }
@@ -1150,12 +1150,17 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     if (!ret)
         return false;
 
-    for (QualifierIterator it(list1); !it.end(); it++) {
-        if (!temp2[it.index-1])
-            it.deselect();
+    total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); it++) {
+            if (!temp2[total_index + it.index - 1])
+                it.deselect();
+        }
+        total_index += list.size();
     }
 
-    return ret;
+    return true;
 }
 
 template <bool save>
@@ -1218,12 +1223,17 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     if (!ret)
         return false;
 
-    for (QualifierIterator it(list1); !it.end(); it++) {
-        if (!temp2[it.index-1])
-            it.deselect();
+    total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); it++) {
+            if (!temp2[total_index + it.index - 1])
+                it.deselect();
+        }
+        total_index += list.size();
     }
 
-    return ret;
+    return true;
 }
 
 struct NotOverlapCallback
@@ -1242,7 +1252,7 @@ struct NotOverlapCallback
             return true;
         if (!int_temp[other->index-1])
             return true;
-        if (instance->overlaps(other))
+        if (!instance->overlaps(other))
             return true;
         return false;
     }

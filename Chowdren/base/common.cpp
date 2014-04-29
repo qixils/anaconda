@@ -859,7 +859,6 @@ void FrameObject::set_position(int x, int y)
         return;
     ((InstanceCollision*)col)->update_aabb();
 #endif
-    // update_aabb();
 }
 
 void FrameObject::set_global_position(int x, int y)
@@ -870,6 +869,12 @@ void FrameObject::set_global_position(int x, int y)
 void FrameObject::set_x(int x)
 {
     this->x = x - layer->off_x;
+#ifdef CHOWDREN_USE_DYNTREE
+    CollisionBase * col = get_collision();
+    if (col == NULL)
+        return;
+    ((InstanceCollision*)col)->update_aabb();
+#endif
 }
 
 int FrameObject::get_x()
@@ -880,6 +885,12 @@ int FrameObject::get_x()
 void FrameObject::set_y(int y)
 {
     this->y = y - layer->off_y;
+#ifdef CHOWDREN_USE_DYNTREE
+    CollisionBase * col = get_collision();
+    if (col == NULL)
+        return;
+    ((InstanceCollision*)col)->update_aabb();
+#endif
 }
 
 int FrameObject::get_y()

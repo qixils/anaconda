@@ -35,9 +35,8 @@ typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef unsigned int uint32;
 
-// #define chow_aabbExtension      0.1f
 #define chow_maxInt32 0x7FFFFFFF
-#define chow_aabbExtension 3 // 3 pixels
+#define chow_aabbExtension 10 // 10 pixels
 #define chow_aabbMultiplier 2
 #define chowAlloc malloc
 #define chowFree free

@@ -54,10 +54,10 @@ public:
         {
             T* old = m_stack;
             m_capacity *= 2;
-            m_stack = (T*)::chowAlloc(m_capacity * sizeof(T));
+            m_stack = (T*)chowAlloc(m_capacity * sizeof(T));
             memcpy(m_stack, old, m_count * sizeof(T));
             if (old != m_array) {
-                ::chowFree(old);
+                chowFree(old);
             }
         }
 

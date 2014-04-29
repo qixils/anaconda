@@ -24,6 +24,7 @@ This is a fork from Box2D, changed for use in Chowdren
 #define CHOWDREN_SETTINGS_H
 
 #include <assert.h>
+#include <stdlib.h>
 
 #define chowAssert(A) assert(A)
 

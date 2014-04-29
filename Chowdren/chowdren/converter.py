@@ -1893,11 +1893,11 @@ class Converter(object):
             writer.putlnc('%s = true;', group.or_result)
             writer.putlnc('%s = true;', group.or_temp_result)
 
+        writer.end_brace()
         if group.or_final:
             writer.putln('or_final_%s_end: ;' % group.name)
         else:
             writer.putln('%s_end: ;' % group.name)
-        writer.end_brace()
 
         if group.or_save:
             self.write_instance_save(group, writer)

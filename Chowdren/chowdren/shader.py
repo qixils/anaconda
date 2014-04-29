@@ -48,7 +48,7 @@ SHADER_TYPES = {
     'in_tex_coord1': 'attribute vec2 in_tex_coord1',
     'in_tex_coord2': 'attribute vec2 in_tex_coord2',
     'in_pos': 'attribute vec4 in_pos',
-    'in_blend_color': 'uniform vec4 in_blend_color'
+    'in_blend_color': 'attribute vec4 in_blend_color'
 }
 
 def translate_shader_data(data, typ, profile):

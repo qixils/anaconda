@@ -1,7 +1,7 @@
 from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
-from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter, 
+from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
     make_static_expression)
 from collections import defaultdict
@@ -13,8 +13,8 @@ class Python(ObjectWriter):
     includes = ['pythonext.h']
 
     def write_frame(self, writer):
-        writer.putln('PyObject * python_args;')
-        writer.putln('PyObject * python_returns;')
+        writer.add_member('PyObject * python_args')
+        writer.add_member('PyObject * python_returns')
         functions = defaultdict(list)
         arguments = {}
         for func in self.get_conditions(ON_FUNCTION):
@@ -30,13 +30,13 @@ class Python(ObjectWriter):
 
         frame_class = self.converter.frame_class
         for name, groups in functions.iteritems():
-            writer.putmeth('static PyObject * _python_%s' % name, 
+            writer.putmeth('static PyObject * _python_%s' % name,
                 'PyObject * self', 'PyObject * args')
             writer.putln(('return ((%s*)global_manager->frame)->python_%s('
                           'self, args);') % (frame_class, name))
             writer.end_brace()
 
-            writer.putmeth('PyObject * python_%s' % name, 
+            writer.putmeth('PyObject * python_%s' % name,
                 'PyObject * self', 'PyObject * args')
             writer.putln('python_args = args;')
             writer.putln('python_returns = PythonInterpreter::get_none();')

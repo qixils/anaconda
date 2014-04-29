@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color, get_method_name)
 
-from chowdren.writers.events import (StaticConditionWriter, 
+from chowdren.writers.events import (StaticConditionWriter,
     StaticActionWriter, ExpressionMethodWriter, make_table,
     ActionWriter, make_comparison)
 
@@ -69,7 +69,7 @@ class ForEach(ObjectWriter):
 
         for real_name in loops.keys():
             name = 'foreach_instance_' + get_method_name(real_name)
-            writer.putln('FrameObject * %s;' % name)
+            writer.add_member('FrameObject * %s' % name)
 
         self.converter.begin_events()
         for real_name, groups in loops.iteritems():
@@ -78,7 +78,7 @@ class ForEach(ObjectWriter):
             profile = name in PROFILE_FUNCTIONS
             object_class = self.converter.get_object_class(
                 object_info = object_info)
-            writer.putmeth('bool foreach_%s' % name, '%s selected' % 
+            writer.putmeth('bool foreach_%s' % name, '%s selected' %
                 object_class)
             if profile:
                 writer.putln('double profile_time, profile_dt;')
@@ -105,7 +105,7 @@ class ForEach(ObjectWriter):
             object_info = loop_objects[name]
             object_class = self.converter.get_object_class(
                 object_info = object_info)
-            writer.putln(to_c('if (name == %r) return foreach_%s((%s)selected);', 
+            writer.putln(to_c('if (name == %r) return foreach_%s((%s)selected);',
                 name, get_method_name(name), object_class))
         writer.putln('return false;')
         writer.end_brace()

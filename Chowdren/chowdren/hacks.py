@@ -57,9 +57,13 @@ def use_alterable_int(expression):
             return True
     return False
 
+def use_global_instances(converter):
+    return True
+
 def write_defines(converter, writer):
     if is_anne:
         writer.putln('#define CHOWDREN_SNES_CONTROLLER')
+        writer.putln('#define CHOWDREN_FORCE_REMOTE')
     if is_anne or is_avgn:
         writer.putln('#define CHOWDREN_QUICK_SCALE')
     if is_knytt_japan:
@@ -70,3 +74,5 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_STARTUP_WINDOW')
+    if not is_knytt or is_knytt_japan:
+        writer.putln('#define CHOWDREN_USE_DYNTREE')

@@ -2,11 +2,7 @@
 #define CHOWDREN_COMMON_H
 
 #include "chowconfig.h"
-
-#ifdef CHOWDREN_USE_PROFILER
 #include "profiler.h"
-#endif
-
 #include "keys.h"
 #include "manager.h"
 #include "platform.h"
@@ -144,7 +140,7 @@ public:
     BackgroundItems items;
     BackgroundItems col_items;
 #ifdef CHOWDREN_USE_COLTREE
-    CollisionTree tree;
+    StaticTree tree;
 #endif
 
     Background();
@@ -161,8 +157,8 @@ public:
 class Layer
 {
 public:
-    ObjectList instances;
-    ObjectList background_instances;
+    FlatObjectList instances;
+    FlatObjectList background_instances;
     bool visible;
     double scroll_x, scroll_y;
     Background * back;
@@ -171,9 +167,10 @@ public:
     int off_x, off_y;
     int x, y;
     int x1, y1, x2, y2;
+    DynamicTree aabb_tree;
 #ifdef CHOWDREN_USE_COLTREE
-    CollisionTree tree;
-    TreeItems tree_items;
+    StaticTree display_tree;
+    StaticTree tree;
 #endif
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
@@ -225,37 +222,6 @@ public:
 
 typedef boost::unordered_map<std::string, DynamicLoop> DynamicLoops;
 
-class InstanceMap
-{
-public:
-    size_t num;
-    ObjectList ** items;
-
-    InstanceMap(size_t v)
-    {
-        num = v;
-        items = new ObjectList*[num]();
-    }
-
-    ObjectList & get(int id)
-    {
-        ObjectList * item = items[id];
-        if (item == NULL) {
-            item = new ObjectList;
-            items[id] = item;
-        }
-        return *item;
-    }
-
-    void clear()
-    {
-        for (unsigned int i = 0; i < num; i++) {
-            delete items[i];
-            items[i] = NULL;
-        }
-    }
-};
-
 class Media;
 
 class Frame
@@ -265,9 +231,8 @@ public:
     int width, height;
     int index;
     GameManager * manager;
-    ObjectList destroyed_instances;
+    FlatObjectList destroyed_instances;
     std::vector<Layer*> layers;
-    InstanceMap instance_classes;
     DynamicLoops loops;
     Color background_color;
     GlobalValues * global_values;
@@ -294,7 +259,8 @@ public:
     void restart();
     void draw(int remote);
     void add_layer(double scroll_x, double scroll_y, bool visible);
-    FrameObject * add_object(FrameObject * object, int layer_index);
+    FrameObject * add_object(FrameObject * object, int layer_indcex);
+    FrameObject * add_object(FrameObject * object, Layer * layer);
     void add_background_object(FrameObject * object, int layer_index);
     void destroy_object(FrameObject * object);
     void set_object_layer(FrameObject * object, int new_layer);
@@ -316,16 +282,6 @@ public:
     bool is_joystick_direction_changed(int n);
     void clean_instances();
     void set_vsync(bool value);
-
-    // instance functions
-    ObjectList & get_instances(int object_id);
-    ObjectList get_instances(unsigned int qualifier[]);
-    FrameObject * get_instance(int object_id);
-    FrameObject * get_instance(int object_id, int index);
-    FrameObject * get_active_instance(int object_id);
-    FrameObject * get_active_instance(int object_id, int index);
-    FrameObject * get_instance(unsigned int qualifier[]);
-    FrameObject * get_instance(unsigned int qualifier[], int index);
 };
 
 // object types
@@ -815,7 +771,8 @@ public:
     FrameObject * closest;
 
     AdvancedDirection(int x, int y, int type_id);
-    void find_closest(ObjectList instances, int x, int y);
+    void find_closest(ObjectList & instances, int x, int y);
+    void find_closest(QualifierList & instances, int x, int y);
     FixedValue get_closest(int n);
     static float get_object_angle(FrameObject * a, FrameObject * b);
 };
@@ -1031,132 +988,312 @@ inline FrameObject * get_object_from_fixed(FixedValue fixed)
     return fixed.object;
 }
 
-inline ObjectList make_single_list(FrameObject * item)
+inline void remove_list(FlatObjectList & a, FrameObject * obj)
 {
-    ObjectList new_list;
-    new_list.push_back(item);
-    return new_list;
-}
-
-inline void make_single_list(FrameObject * item, ObjectList & list)
-{
-    list.clear();
-    list.push_back(item);
-}
-
-inline void add_unique_object(FrameObject * obj, ObjectList & list)
-{
-    ObjectList::const_iterator it;
-    for (it = list.begin(); it != list.end(); it++) {
-        if (*it == obj)
-            return;
-    }
-    list.push_back(obj);
-}
-
-inline void append_list(ObjectList & a, ObjectList & b)
-{
-    ObjectList::const_iterator it;
-    for (it = b.begin(); it != b.end(); it++) {
-        add_unique_object(*it, a);
-    }
-}
-
-inline void remove_list(ObjectList & a, FrameObject * obj)
-{
-    ObjectList::iterator it;
+    FlatObjectList::iterator it;
     for (it = a.begin(); it != a.end(); it++) {
         if (*it != obj)
             continue;
         a.erase(it);
-        return;
+        break;
     }
 }
 
 inline FrameObject * get_single(const ObjectList & list)
 {
-    if (list.empty())
-        return NULL;
-    return list.back();
+    return list.back_selection();
 }
 
-inline FrameObject * get_single(const ObjectList & list, int index)
+inline FrameObject * get_single(const QualifierList & list)
 {
-    if (list.empty())
-        return NULL;
-    return list[index % list.size()];
+    return list.back_selection();
 }
 
-inline bool check_overlap_save(ObjectList in_a, ObjectList in_b,
-                               ObjectList & out_a, ObjectList & out_b)
+inline FrameObject * get_single(ObjectList & list, int index)
 {
-    out_a.clear();
-    out_b.clear();
-    ObjectList::const_iterator item1, item2;
-    bool ret = false;
-    for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        FrameObject * f1 = *item1;
-        bool added = false;
-        for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f2 = *item2;
-            if (f1 == f2)
-                continue;
-            if (!f1->overlaps(f2))
-                continue;
-            if (f1->movement != NULL) {
-                f1->movement->add_collision(f2);
-            }
-            if (f2->movement != NULL) {
-                f2->movement->add_collision(f1);
-            }
-            ret = true;
-            if (!added) {
-                added = true;
-                add_unique_object(f1, out_a);
-            }
-            add_unique_object(f2, out_b);
-        }
+    return list.get_wrapped_selection(index);
+}
+
+extern std::vector<int> int_temp;
+
+template <bool save>
+struct OverlapCallback
+{
+    FrameObject * instance;
+    bool added;
+    int * temp1;
+    int * temp2;
+
+    OverlapCallback(FrameObject * instance, int * temp1, int * temp2)
+    : instance(instance), added(false), temp1(temp1), temp2(temp2)
+    {
     }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * other = (FrameObject*)data;
+        if (other == instance)
+            return true;
+        if (!temp1[other->index-1])
+            return true;
+        if (!instance->overlaps(other))
+            return true;
+        if (save) {
+            if (instance->movement != NULL)
+                instance->movement->add_collision(other);
+            if (other->movement != NULL)
+                other->movement->add_collision(instance);
+        }
+        temp2[other->index-1] = 1;
+        added = true;
+        return true;
+    }
+};
+
+template <bool save>
+inline bool check_overlap(ObjectList & list1, ObjectList & list2)
+{
+    int size = list2.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size*2);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    // all currently selected objects
+    int * temp1 = &int_temp[0];
+    // new objects selected due to overlap
+    int * temp2 = &int_temp[size];
+
+    for (ObjectIterator it(list2); !it.end(); it++) {
+        temp1[it.index-1] = 1;
+    }
+
+    bool ret = false;
+    for (ObjectIterator it1(list1); !it1.end(); it1++) {
+        FrameObject * instance = *it1;
+        OverlapCallback<save> callback(instance, temp1, temp2);
+        CollisionBase * col = instance->get_collision();
+        if (col == NULL) {
+            it1.deselect();
+            continue;
+        }
+        int v[4];
+        col->get_box(v);
+        list2.tree.query(v, callback);
+        if (callback.added)
+            ret = true;
+        else
+            it1.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    for (ObjectIterator it(list2); !it.end(); it++) {
+        if (!temp2[it.index-1])
+            it.deselect();
+    }
+
     return ret;
 }
 
-inline bool check_overlap(ObjectList in_a, ObjectList in_b,
-                          ObjectList & out_a, ObjectList & out_b)
+template <bool save>
+inline bool check_overlap(QualifierList & list1, ObjectList & list2)
 {
-    out_a.clear();
-    out_b.clear();
-    ObjectList::const_iterator item1, item2;
-    bool ret = false;
-    for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        FrameObject * f1 = *item1;
-        bool added = false;
-        for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f2 = *item2;
-            if (f1 == f2)
-                continue;
-            if (!f1->overlaps(f2))
-                continue;
-            ret = true;
-            if (!added) {
-                added = true;
-                add_unique_object(f1, out_a);
-            }
-            add_unique_object(f2, out_b);
+    int size = list1.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size*2);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    // all currently selected objects
+    int * temp1 = &int_temp[0];
+    // new objects selected due to overlap
+    int * temp2 = &int_temp[size];
+
+    int total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); it++) {
+            temp1[it.index - 1 + total_index] = 1;
         }
+        total_index += list.size();
     }
+
+    bool ret = false;
+    int temp_offset = 0;
+    for (ObjectIterator it2(list2); !it2.end(); it2++) {
+        FrameObject * instance = *it2;
+        CollisionBase * col = instance->get_collision();
+        if (col == NULL) {
+            it2.deselect();
+            continue;
+        }
+        int v[4];
+        col->get_box(v);
+        bool added = false;
+        for (int i = 0; i < list1.count; i++) {
+            ObjectList & list = *list1.items[i];
+            int * temp_off_1 = temp1 + temp_offset;
+            int * temp_off_2 = temp2 + temp_offset;
+            OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
+            list.tree.query(v, callback);
+            if (callback.added) {
+                ret = added = true;
+            }
+            temp_offset += list.size();
+        }
+        if (!added)
+            it2.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    for (QualifierIterator it(list1); !it.end(); it++) {
+        if (!temp2[it.index-1])
+            it.deselect();
+    }
+
     return ret;
 }
 
-inline bool check_not_overlap(ObjectList in_a, ObjectList in_b)
+template <bool save>
+inline bool check_overlap(ObjectList & list1, QualifierList & list2)
 {
-    ObjectList::const_iterator item1, item2;
-    for (item1 = in_a.begin(); item1 != in_a.end(); item1++) {
-        for (item2 = in_b.begin(); item2 != in_b.end(); item2++) {
-            FrameObject * f1 = *item1;
-            FrameObject * f2 = *item2;
-            if (f1 == f2)
-                continue;
-            if (f1->overlaps(f2))
+    return check_overlap<save>(list2, list1);
+}
+
+template <bool save>
+inline bool check_overlap(QualifierList & list1, QualifierList & list2)
+{
+    int size = list1.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size*2);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    // all currently selected objects
+    int * temp1 = &int_temp[0];
+    // new objects selected due to overlap
+    int * temp2 = &int_temp[size];
+
+    int total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); it++) {
+            temp1[it.index - 1 + total_index] = 1;
+        }
+        total_index += list.size();
+    }
+
+    bool ret = false;
+    int temp_offset = 0;
+    for (QualifierIterator it2(list2); !it2.end(); it2++) {
+        FrameObject * instance = *it2;
+        CollisionBase * col = instance->get_collision();
+        if (col == NULL) {
+            it2.deselect();
+            continue;
+        }
+        int v[4];
+        col->get_box(v);
+        bool added = false;
+        for (int i = 0; i < list1.count; i++) {
+            ObjectList & list = *list1.items[i];
+            int * temp_off_1 = temp1 + temp_offset;
+            int * temp_off_2 = temp2 + temp_offset;
+            OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
+            list.tree.query(v, callback);
+            if (callback.added) {
+                ret = added = true;
+            }
+            temp_offset += list.size();
+        }
+        if (!added)
+            it2.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    for (QualifierIterator it(list1); !it.end(); it++) {
+        if (!temp2[it.index-1])
+            it.deselect();
+    }
+
+    return ret;
+}
+
+struct NotOverlapCallback
+{
+    FrameObject * instance;
+
+    NotOverlapCallback(FrameObject * instance)
+    : instance(instance)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * other = (FrameObject*)data;
+        if (other == instance)
+            return true;
+        if (!int_temp[other->index-1])
+            return true;
+        if (instance->overlaps(other))
+            return true;
+        return false;
+    }
+};
+
+inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
+{
+    int size = list2.size();
+    if (size <= 0)
+        return true;
+    int_temp.resize(size);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    for (ObjectIterator it(list2); !it.end(); it++) {
+        int_temp[it.index-1] = 1;
+    }
+
+    for (ObjectIterator it1(list1); !it1.end(); it1++) {
+        FrameObject * instance = *it1;
+        CollisionBase * col = instance->get_collision();
+        if (col == NULL) {
+            it1.deselect();
+            continue;
+        }
+        NotOverlapCallback callback(instance);
+        int v[4];
+        col->get_box(v);
+        if (!list2.tree.query(v, callback))
+            return false;
+    }
+    return true;
+}
+
+inline bool check_not_overlap(QualifierList & list1, ObjectList & list2)
+{
+    for (int i = 0; i < list1.count; i++) {
+        if (!check_not_overlap(*list1.items[i], list2))
+            return false;
+    }
+    return true;
+}
+
+inline bool check_not_overlap(ObjectList & list1, QualifierList & list2)
+{
+    return check_not_overlap(list2, list1);
+}
+
+inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
+{
+    for (int i = 0; i < list1.count; i++) {
+        for (int ii = 0; ii < list2.count; ii++) {
+            if (!check_not_overlap(*list1.items[i], *list2.items[ii]))
                 return false;
         }
     }
@@ -1165,18 +1302,30 @@ inline bool check_not_overlap(ObjectList in_a, ObjectList in_b)
 
 inline void pick_random(ObjectList & instances)
 {
-    if (instances.empty())
+    if (!instances.has_selection())
         return;
-    FrameObject * instance = instances[randrange(instances.size())];
-    instances = make_single_list(instance);
+    int index = randrange(instances.get_selection_size());
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        if (index == 0) {
+            it.select_single();
+            break;
+        }
+        index--;
+    }
 }
 
-inline void spread_value(const ObjectList & instances, int alt, int start)
+inline void spread_value(ObjectList & instances, int alt, int start)
 {
-    ObjectList::const_iterator item;
-    for (item = instances.begin(); item != instances.end(); item++) {
-        FrameObject * object = *item;
-        object->values->set(alt, start);
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        (*it)->values->set(alt, start);
+        start++;
+    }
+}
+
+inline void spread_value(QualifierList & instances, int alt, int start)
+{
+    for (QualifierIterator it(instances); !it.end(); it++) {
+        (*it)->values->set(alt, start);
         start++;
     }
 }
@@ -1230,7 +1379,5 @@ inline std::string get_platform()
     return "Chowdren ???";
 #endif
 }
-
-static ObjectList::iterator item;
 
 #endif // CHOWDREN_COMMON_H

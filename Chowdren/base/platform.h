@@ -95,6 +95,7 @@ bool platform_should_reset();
 #define CHOWDREN_REMOTE_ONLY 3
 void platform_clone_buffers();
 void platform_set_display_target(int value);
+void platform_set_remote_value(int value);
 void platform_set_remote_setting(const std::string & v);
 const std::string & platform_get_remote_setting();
 int platform_get_remote_value();

@@ -116,6 +116,16 @@ def is_qualifier(handle):
 def get_qualifier(handle):
     return handle & 2047
 
+def get_iter_type(object_info):
+    if is_qualifier(object_info):
+        return 'QualifierIterator'
+    return 'ObjectIterator'
+
+def get_list_type(object_info):
+    if is_qualifier(object_info):
+        return 'QualifierList'
+    return 'ObjectList'
+
 def get_directions(value):
     directions = []
     for i in xrange(32):
@@ -160,7 +170,7 @@ def parse_direction(value):
 
 ACCELERATORS = [0.0078125, 0.01171875, 0.015625, 0.0234375, 0.03125, 0.0390625,
     0.046875, 0.0625, 0.078125, 0.09375, 0.1875, 0.21875, 0.25, 0.28125,
-    0.3125, 0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5625, 0.625, 0.6875, 
+    0.3125, 0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5625, 0.625, 0.6875,
     0.75, 0.8125, 0.875, 0.9375, 1.0, 1.0625, 1.125, 1.25, 1.3125, 1.375,
     1.4375, 1.5, 1.5625, 1.625, 1.6875, 1.75, 1.875, 2.0, 2.125, 2.1875,
     2.3125, 2.4375, 2.5, 2.625, 2.6875, 2.8125, 2.875, 3.0, 3.0625, 3.1875,

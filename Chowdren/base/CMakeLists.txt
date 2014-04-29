@@ -49,6 +49,7 @@ else()
 endif()
 
 FILE(GLOB FRAMESRCS "frame*.cpp")
+FILE(GLOB OBJECTSRCS "objects*.cpp")
 
 if (EMSCRIPTEN)
     set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/emscriptenplatform.cpp)
@@ -60,7 +61,7 @@ else()
 endif()
 
 set(SRCS
-    objects.cpp
+    ${OBJECTSRCS}
     fonts.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp

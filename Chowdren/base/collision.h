@@ -1,3 +1,6 @@
+#ifndef CHOWDREN_COLLISION_H
+#define CHOWDREN_COLLISION_H
+
 #include "frameobject.h"
 #include <algorithm>
 #include "mathcommon.h"
@@ -19,7 +22,7 @@ public:
     CollisionType type;
     bool is_box;
 
-    CollisionBase(CollisionType type, bool is_box) 
+    CollisionBase(CollisionType type, bool is_box)
     : is_box(is_box), type(type)
     {
     }
@@ -30,10 +33,6 @@ public:
     }
 
     virtual void get_box(int v[4]) = 0;
-    virtual FrameObject * get_instance()
-    {
-        return NULL;
-    }
 };
 
 inline bool collide_line(int x1, int y1, int x2, int y2,
@@ -75,14 +74,50 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
     }
 }
 
-class InstanceBox : public CollisionBase
+class InstanceCollision : public CollisionBase
 {
 public:
     FrameObject * instance;
 
-    InstanceBox(FrameObject * instance)
-    : CollisionBase(INSTANCE_BOX, true), instance(instance)
+#ifdef CHOWDREN_USE_DYNTREE
+    int proxy;
+#endif
+
+    InstanceCollision(FrameObject * instance, CollisionType type, bool is_box)
+    : instance(instance), CollisionBase(type, is_box), proxy(-1)
     {
+    }
+
+#ifdef CHOWDREN_USE_DYNTREE
+    ~InstanceCollision()
+    {
+        if (proxy == -1)
+            return;
+        get_instances(instance->id).tree.remove(proxy);
+    }
+#endif
+
+    void update_aabb()
+    {
+#ifdef CHOWDREN_USE_DYNTREE
+        int v[4];
+        get_box(v);
+
+        if (proxy == -1)
+            proxy = get_instances(instance->id).tree.add(instance, v);
+        else
+            get_instances(instance->id).tree.move(proxy, v);
+#endif
+    }
+};
+
+class InstanceBox : public InstanceCollision
+{
+public:
+    InstanceBox(FrameObject * instance)
+    : InstanceCollision(instance, INSTANCE_BOX, true)
+    {
+        update_aabb();
     }
 
     void get_box(int v[4])
@@ -92,23 +127,18 @@ public:
         v[2] = instance->x + instance->width;
         v[3] = instance->y + instance->height;
     }
-
-    FrameObject * get_instance()
-    {
-        return instance;
-    }
 };
 
-class OffsetInstanceBox : public CollisionBase
+class OffsetInstanceBox : public InstanceCollision
 {
 public:
-    FrameObject * instance;
     int off_x, off_y;
 
     OffsetInstanceBox(FrameObject * instance)
-    : CollisionBase(OFFSET_INSTANCE_BOX, true), instance(instance),
+    : InstanceCollision(instance, OFFSET_INSTANCE_BOX, true),
       off_x(0), off_y(0)
     {
+        update_aabb();
     }
 
     void get_box(int v[4])
@@ -123,11 +153,7 @@ public:
     {
         off_x = x;
         off_y = y;
-    }
-
-    FrameObject * get_instance()
-    {
-        return instance;
+        update_aabb();
     }
 };
 
@@ -149,8 +175,8 @@ inline int int_max_4(int a, int b, int c, int d)
     );
 }
 
-inline void transform_rect(int width, int height, double co, double si, 
-                           double x_scale, double y_scale, 
+inline void transform_rect(int width, int height, double co, double si,
+                           double x_scale, double y_scale,
                            int & x1, int & y1, int & x2, int & y2)
 {
     int top_right_x = int(width * x_scale * co);
@@ -165,10 +191,9 @@ inline void transform_rect(int width, int height, double co, double si,
     y2 = int_max_4(0, top_right_y, bottom_left_y, bottom_right_y);
 }
 
-class SpriteCollision : public CollisionBase
+class SpriteCollision : public InstanceCollision
 {
 public:
-    FrameObject * instance;
     Image * image;
     double angle;
     double x_scale, y_scale;
@@ -182,8 +207,8 @@ public:
     int hotspot_x, hotspot_y;
 
     SpriteCollision(FrameObject * instance, Image * image = NULL)
-    : CollisionBase(SPRITE_COLLISION, false), instance(instance), 
-      image(image), transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
+    : InstanceCollision(instance, SPRITE_COLLISION, false), image(image),
+      transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
     {
         if (image == NULL)
             return;
@@ -191,6 +216,7 @@ public:
         height = image->height;
         hotspot_x = image->hotspot_x;
         hotspot_y = image->hotspot_y;
+        update_aabb();
     }
 
     void set_image(Image * image)
@@ -227,7 +253,7 @@ public:
         angle = value;
         update_transform();
     }
-    
+
     void set_scale(double value)
     {
         x_scale = y_scale = value;
@@ -254,20 +280,25 @@ public:
             hotspot_x = image->hotspot_x;
             hotspot_y = image->hotspot_y;
             transform = false;
+            update_aabb();
             return;
         }
         transform = true;
         co = cos_deg(angle);
-        co_divx = float(co / x_scale);
-        co_divy = float(co / y_scale);
+        float x_scale_inv = 1.0f / x_scale;
+        float y_scale_inv = 1.0f / y_scale;
+        co_divx = float(co * x_scale_inv);
+        co_divy = float(co * y_scale_inv);
         si = sin_deg(angle);
-        si_divx = float(si / x_scale);
-        si_divy = float(si / y_scale);
-        transform_rect(image->width, image->height, co, si, x_scale, y_scale, 
+        si_divx = float(si * x_scale_inv);
+        si_divy = float(si * y_scale_inv);
+        transform_rect(image->width, image->height, co, si, x_scale, y_scale,
                        x1, y1, x2, y2);
         width = x2 - x1;
         height = y2 - y1;
-        get_transform(image->hotspot_x, image->hotspot_y, hotspot_x, hotspot_y);
+        get_transform(image->hotspot_x, image->hotspot_y,
+                      hotspot_x, hotspot_y);
+        update_aabb();
     }
 
     void get_transform(int & x, int & y, int & r_x, int & r_y)
@@ -296,11 +327,6 @@ public:
         if (is_box)
             return true;
         return image->get_alpha(x, y);
-    }
-
-    FrameObject * get_instance()
-    {
-        return instance;
     }
 };
 
@@ -350,7 +376,7 @@ public:
     int collision_type;
 
 #ifdef CHOWDREN_USE_COLTREE
-    TreeItem tree_item;
+    unsigned int col;
 #endif
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
@@ -359,9 +385,6 @@ public:
       src_width(src_width), src_height(src_height), collision_type(type),
       image(img), CollisionBase(BACKGROUND_ITEM, false)
     {
-#ifdef CHOWDREN_USE_COLTREE
-        tree_item.data = this;
-#endif
     }
 
     void get_box(int v[4])
@@ -448,7 +471,7 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     int v2[4];
     b->get_box(v2);
 
-    if (!collides(v1[0], v1[1], v1[2], v1[3], 
+    if (!collides(v1[0], v1[1], v1[2], v1[3],
                   v2[0], v2[1], v2[2], v2[3]))
         return false;
 
@@ -457,7 +480,7 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 
     // calculate the overlapping area
     int x1, y1, x2, y2;
-    intersect(v1[0], v1[1], v1[2], v1[3], 
+    intersect(v1[0], v1[1], v1[2], v1[3],
               v2[0], v2[1], v2[2], v2[3],
               x1, y1, x2, y2);
 
@@ -469,7 +492,7 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 
     int w = x2 - x1;
     int h = y2 - y1;
-    
+
     switch (a->type) {
         case SPRITE_COLLISION:
             switch (b->type) {
@@ -516,8 +539,10 @@ inline bool collide_box(FrameObject * a, int x1, int y1, int x2, int y2)
         a->get_box(v1);
     }
 
-    if (!collides(v1[0], v1[1], v1[2], v1[3], 
+    if (!collides(v1[0], v1[1], v1[2], v1[3],
                   x1, y1, x2, y2))
         return false;
     return true;
 }
+
+#endif // #define CHOWDREN_COLLISION_H

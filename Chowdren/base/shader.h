@@ -4,16 +4,17 @@
 #include <string>
 
 // GLES attrib indexes
-#define MAX_ATTRIB 3
+#define MAX_ATTRIB 4
 #define POSITION_ATTRIB_IDX 0
 #define POSITION_ATTRIB_NAME "in_pos"
-#define TEXCOORD1_ATTRIB_IDX 1
+#define COLOR_ATTRIB_IDX 1
+#define COLOR_ATTRIB_NAME "in_blend_color"
+#define TEXCOORD1_ATTRIB_IDX 2
 #define TEXCOORD1_ATTRIB_NAME "in_tex_coord1"
-#define TEXCOORD2_ATTRIB_IDX 2
+#define TEXCOORD2_ATTRIB_IDX 3
 #define TEXCOORD2_ATTRIB_NAME "in_tex_coord2"
 #define TEXTURE_SAMPLER_NAME "texture"
 #define BACKTEX_SAMPLER_NAME "background_texture"
-#define COLOR_UNIFORM_NAME "in_blend_color"
 #define SIZE_UNIFORM_NAME "texture_size"
 
 class FrameObject;

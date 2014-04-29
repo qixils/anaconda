@@ -3,7 +3,8 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
-                             parse_direction, get_flag_direction)
+                             parse_direction, get_flag_direction,
+                             get_list_type, get_iter_type)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
@@ -59,7 +60,7 @@ class SystemObject(ObjectWriter):
             cond = group.conditions[0]
             container = cond.container
             check_name = cond.get_group_check()
-            writer.putln('bool %s;' % (check_name))
+            writer.add_member('bool %s' % check_name)
             self.group_activations[container].append(check_name)
 
     def write_collisions(self, writer):
@@ -126,8 +127,8 @@ class SystemObject(ObjectWriter):
         for name in loops.keys():
             running_name = get_loop_running_name(name)
             index_name = get_loop_index_name(name)
-            writer.putln('bool %s;' % running_name)
-            writer.putln('int %s;' % index_name)
+            writer.add_member('bool %s' % running_name)
+            writer.add_member('int %s' % index_name)
 
         for start_loop in self.converter.action_dict['StartLoop']:
             names = start_loop.get_loop_names(loops.keys())
@@ -193,6 +194,7 @@ class CollisionCondition(ConditionWriter):
 
 class IsOverlapping(CollisionCondition):
     has_object = False
+    custom = True
 
     def write(self, writer):
         data = self.data
@@ -201,27 +203,20 @@ class IsOverlapping(CollisionCondition):
         other_info = data.items[0].loader.objectInfo
         converter = self.converter
         if negated:
-            writer.put(to_c(
-                'check_not_overlap(%s, %s)',
-                converter.get_object(object_info, True),
-                converter.get_object(other_info, True)))
+            condition = to_c('check_not_overlap(%s, %s)',
+                             converter.get_object(object_info, True),
+                             converter.get_object(other_info, True))
         else:
-            selected_name = converter.get_list_name(converter.get_object_name(
-                object_info))
-            other_selected = converter.get_list_name(converter.get_object_name(
-                other_info))
+            selected_name = converter.create_list(object_info, writer)
+            other_selected = converter.create_list(other_info, writer)
             if self.has_collisions():
-                func_name = 'check_overlap_save'
+                func_name = 'check_overlap<true>'
                 self.add_collision_objects(object_info, other_info)
             else:
-                func_name = 'check_overlap'
-            writer.put(to_c(
-                '%s(%s, %s, %s, %s)', func_name,
-                converter.get_object(object_info, True),
-                converter.get_object(other_info, True),
-                selected_name, other_selected))
-            converter.set_list(object_info, selected_name)
-            converter.set_list(other_info, other_selected)
+                func_name = 'check_overlap<false>'
+            condition = to_c('%s(%s, %s)', func_name, selected_name,
+                             other_selected)
+        writer.putlnc('if (!%s) %s', condition, self.converter.event_break)
 
     def is_negated(self):
         return False
@@ -426,20 +421,16 @@ class PickRandom(ConditionWriter):
     def write(self, writer):
         object_info, object_type = self.get_object()
         converter = self.converter
-        selected_name = converter.get_list_name(converter.get_object_name(
-            object_info))
-        if object_info not in converter.has_selection:
-            get_list = converter.get_object(object_info, True)
-            writer.putln('%s = %s;' % (selected_name, get_list))
-            converter.set_list(object_info, selected_name)
+        selected_name = converter.create_list(object_info, writer)
         writer.putln('pick_random(%s);' % selected_name)
 
 class NumberOfObjects(ComparisonWriter):
+    has_object = False
     iterate_objects = False
 
     def get_comparison_value(self):
-        object_info, object_type = self.get_object()
-        return '%s.size()' % self.converter.get_object(object_info, True)
+        object_info = self.data.objectInfo
+        return '%s.size()' % self.converter.get_all_objects(object_info)
 
 class CompareFixedValue(ConditionWriter):
     custom = True
@@ -464,23 +455,23 @@ class CompareFixedValue(ConditionWriter):
         get_list = converter.get_object(object_info, True)
 
         fixed_name = 'fixed_test_%s' % get_id(self)
-        writer.start_brace()
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         if is_equal:
             event_break = converter.event_break
         else:
             event_break = 'goto %s;' % end_label
         if test_all and not has_selection:
-            writer.putln('%s = %s;' % (selected_name, get_list))
+            list_type = get_list_type(object_info)
+            writer.putlnc('%s & %s = %s;', list_type, selected_name, get_list)
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
         if test_all:
-            writer.putln('item = %s.begin();' % (selected_name))
-            writer.putln('while (item != %s.end()) {' % selected_name)
+            iter_type = get_iter_type(object_info)
+            writer.putlnc('for (%s it(%s); !it.end(); it++) {', iter_type,
+                          selected_name)
             writer.indent()
-            writer.putln('if (!((*item) %s %s)) item = %s.erase(item);' % (
-                comparison, fixed_name, selected_name))
-            writer.putln('else ++item;')
+            writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
+                          fixed_name)
             writer.end_brace()
             if not is_equal:
                 writer.put_label(end_label)
@@ -492,7 +483,6 @@ class CompareFixedValue(ConditionWriter):
             if not is_equal:
                 writer.put_label(end_label)
 
-        writer.end_brace()
         converter.set_list(object_info, selected_name)
 
 class AnyKeyPressed(ConditionMethodWriter):
@@ -530,7 +520,6 @@ class CreateBase(ActionWriter):
         details = self.convert_index(0)
         if details is None:
             return
-        writer.start_brace()
         end_name = 'create_%s_end' % get_id(self)
         is_shoot = self.is_shoot
         x = str(details['x'])
@@ -552,12 +541,15 @@ class CreateBase(ActionWriter):
             if object_info not in self.converter.has_selection:
                 create_name = self.converter.get_object_name(create_object)
                 list_name = self.converter.get_list_name(create_name)
-                writer.putlnc('%s.clear();', list_name)
+                getter = self.converter.get_all_objects(create_object)
+                writer.putlnc('ObjectList & %s = %s;', list_name, getter)
+                writer.putlnc('%s.empty_selection();', list_name)
                 self.converter.set_list(object_info, list_name)
         if parent is not None:
             self.converter.start_object_iteration(parent, writer, 'p_it',
                                                   copy=False)
             writer.putln('FrameObject * parent = *p_it;')
+        writer.start_brace()
         if parent is not None and not is_shoot:
             if use_action_point:
                 parent_x = 'get_action_x()'
@@ -575,26 +567,26 @@ class CreateBase(ActionWriter):
                 direction = 'parent->direction'
             x = 'parent->%s + %s' % (parent_x, x)
             y = 'parent->%s + %s' % (parent_y, y)
-            layer = 'parent->layer_index'
+            layer = 'parent->layer'
         elif is_shoot:
-            layer = 'parent->layer_index'
+            layer = 'parent->layer'
         else:
             layer = details['layer']
         writer.putlnc('FrameObject * new_obj; // %s', details)
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
-        if object_info != parent:
-            list_name = self.converter.has_selection[object_info]
-            writer.putln('%s.push_back(new_obj);' % (list_name))
+        # if object_info != parent:
+        #     list_name = self.converter.has_selection[object_info]
+        #     writer.putln('%s.push_back(new_obj);' % (list_name))
         if is_shoot:
             writer.putlnc('parent->shoot(new_obj, %s, %s);',
                           details['shoot_speed'], direction)
         elif direction:
             writer.putln('new_obj->set_direction(%s);' % direction)
+        writer.end_brace()
         if parent is not None:
             self.converter.end_object_iteration(parent, writer, 'p_it',
                                                 copy=False)
-        writer.end_brace()
         if False: # action_name == 'DisplayText':
             paragraph = parameters[1].loader.value
             if paragraph != 0:
@@ -633,11 +625,11 @@ class SetPosition(ActionWriter):
                     x = 'x_off'
                     y = 'y_off'
                 if details.get('use_direction', False):
-                    writer.putln('(*item)->set_direction(parent->direction);')
+                    writer.putln('(*it)->set_direction(parent->direction);')
                 x = 'parent->%s + %s' % (parent_x, x)
                 y = 'parent->%s + %s' % (parent_y, y)
             arguments = [x, y]
-            writer.putln('(*item)->set_global_position(%s); // %s' % (
+            writer.putln('(*it)->set_global_position(%s); // %s' % (
                 ', '.join(arguments), details))
 
 class LookAt(ActionWriter):
@@ -745,6 +737,12 @@ class StartLoop(ActionWriter):
         writer.putln('%s++;' % index_name)
         writer.end_brace()
         writer.end_brace()
+
+        # since we have cleared the object selection list, we need to
+        # remove and insert a new scope
+        writer.end_brace()
+        writer.start_brace()
+
         self.converter.clear_selection()
 
 class DeactivateGroup(ActionWriter):
@@ -888,7 +886,7 @@ class SpreadValue(ActionWriter):
     def write(self, writer):
         alt = self.convert_index(0)
         start = self.convert_index(1)
-        object_list = self.converter.get_all_objects(self.data.objectInfo)
+        object_list = self.converter.get_object(self.data.objectInfo, True)
         writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
 
 # expressions
@@ -1261,7 +1259,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetSamplePosition' : 'media->get_sample_position',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
-    'ObjectLayer' : '.layer_index+1',
+    'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',
     'XRightFrame' : 'frame_right()',

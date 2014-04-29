@@ -39,13 +39,19 @@ class ObjectWriter(BaseWriter):
         pass
 
     def write_frame(self, writer):
-        pass    
+        pass
 
     def write_init(self, writer):
         pass
 
     def write_post(self, writer):
         pass
+
+    def get_qualifiers(self):
+        try:
+            return self.common.qualifiers
+        except AttributeError:
+            return []
 
     def get_data(self):
         return ByteReader(self.common.extensionData)

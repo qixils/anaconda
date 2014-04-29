@@ -201,7 +201,7 @@ bool Movement::test_position(int x, int y)
     if (back_col)
         ret = instance->overlaps_background();
     if (!ret) {
-        ObjectList::const_iterator it;
+        FlatObjectList::const_iterator it;
         for (it = collisions.begin(); it != collisions.end(); it++) {
             FrameObject * obj = *it;
             if (!instance->overlaps(obj))

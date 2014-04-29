@@ -1027,6 +1027,11 @@ void platform_set_remote_setting(const std::string & v)
 
 }
 
+void platform_set_remote_value(int v)
+{
+
+}
+
 int platform_get_remote_value()
 {
     return CHOWDREN_TV_TARGET;

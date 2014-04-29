@@ -20,8 +20,7 @@ Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
 
 Background::Background()
 #ifdef CHOWDREN_USE_COLTREE
-: tree(0, 0, global_manager->frame->width, global_manager->frame->height, 0,
-       MAX_TREE_LEVEL)
+: tree(0, 0, global_manager->frame->width, global_manager->frame->height)
 #endif
 {
 }
@@ -77,7 +76,7 @@ void Background::destroy_at(int x, int y)
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
 #ifdef CHOWDREN_USE_COLTREE
-            tree.remove(&item->tree_item);
+            tree.remove(item->col);
 #endif
             delete item;
             it = col_items.erase(it);
@@ -105,7 +104,7 @@ void Background::paste(Image * img, int dest_x, int dest_y,
 #ifdef CHOWDREN_USE_COLTREE
         int x2 = dest_x + src_width;
         int y2 = dest_y + src_height;
-        tree.add(&item->tree_item, dest_x, dest_y, x2, y2);
+        item->col = tree.add(&item, dest_x, dest_y, x2, y2);
 #endif
     } else {
         items.push_back(item);
@@ -122,22 +121,33 @@ void Background::draw()
     }
 }
 
+struct BackgroundItemCallback
+{
+    CollisionBase * col;
+
+    BackgroundItemCallback(CollisionBase * col)
+    : col(col)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        BackgroundItem * item = (BackgroundItem*)data;
+        if (collide(col, item))
+            return false;
+        return true;
+    }
+};
+
 bool Background::collide(CollisionBase * a)
 {
 #ifdef CHOWDREN_USE_COLTREE
     TreeItems tree_items;
     int box[4];
     a->get_box(box);
-    tree.get(box[0], box[1], box[2], box[3], tree_items);
-
-    TreeItems::iterator it;
-
-    for (it = tree_items.begin(); it != tree_items.end(); it++) {
-        TreeItem * tree_item = *it;
-        BackgroundItem * item = (BackgroundItem*)tree_item->data;
-        if (::collide(a, item))
-            return true;
-    }
+    BackgroundItemCallback callback(a);
+    if (!tree.query(box[0], box[1], box[2], box[3], callback))
+        return true;
 #else
     BackgroundItems::iterator it;
     for (it = col_items.begin(); it != col_items.end(); it++) {
@@ -155,8 +165,9 @@ Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
   index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
 #ifdef CHOWDREN_USE_COLTREE
-  , tree(0, 0, global_manager->frame->width, global_manager->frame->height, 0,
-         MAX_TREE_LEVEL)
+  , tree(0, 0, global_manager->frame->width, global_manager->frame->height),
+    display_tree(0, 0, global_manager->frame->width,
+                 global_manager->frame->height)
 #endif
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
@@ -170,17 +181,10 @@ Layer::~Layer()
     delete back;
 
     // layers are in charge of deleting background instances
-    for (ObjectList::const_iterator it = background_instances.begin();
+    for (FlatObjectList::const_iterator it = background_instances.begin();
          it != background_instances.end(); it++) {
         delete (*it);
     }
-
-#ifdef CHOWDREN_USE_COLTREE
-    TreeItems::const_iterator it;
-    for (it = tree_items.begin(); it != tree_items.end(); it++) {
-        delete (*it);
-    }
-#endif
 }
 
 void Layer::scroll(int off_x, int off_y, int dx, int dy)
@@ -188,7 +192,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     this->off_x = off_x;
     this->off_y = off_y;
 
-    ObjectList::const_iterator it;
+    FlatObjectList::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
         if (object->scroll)
@@ -203,7 +207,7 @@ void Layer::set_position(int x, int y)
     int dy = y - this->y;
     this->x = x;
     this->y = y;
-    ObjectList::const_iterator it;
+    FlatObjectList::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
         if (!object->scroll)
@@ -221,8 +225,8 @@ void Layer::set_position(int x, int y)
 void Layer::add_background_object(FrameObject * instance)
 {
     CollisionBase * col = instance->get_collision();
+    int b[4];
     if (col != NULL) {
-        int b[4];
         col->get_box(b);
         if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
             x1 = b[0];
@@ -235,11 +239,21 @@ void Layer::add_background_object(FrameObject * instance)
                        x1, y1, x2, y2);
         }
 #ifdef CHOWDREN_USE_COLTREE
-        TreeItem * new_item = new TreeItem((void*)col);
-        tree_items.push_back(new_item);
-        tree.add(new_item, b[0], b[1], b[2], b[3]);
+        tree.add(col, b[0], b[1], b[2], b[3]);
 #endif
     }
+
+#ifdef CHOWDREN_USE_COLTREE
+    if (col == NULL) {
+        b[0] = instance->x;
+        b[1] = instance->y;
+        b[2] = b[0] + instance->width;
+        b[3] = b[1] + instance->height;
+    }
+
+    display_tree.add(instance, b[0], b[1], b[2], b[3]);
+#endif
+
     background_instances.push_back(instance);
 }
 
@@ -294,6 +308,24 @@ void Layer::destroy_backgrounds(int x, int y, bool fine)
     back->destroy_at(x, y);
 }
 
+struct BackgroundCallback
+{
+    CollisionBase * col;
+
+    BackgroundCallback(CollisionBase * col)
+    : col(col)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        CollisionBase * item = (CollisionBase*)data;
+        if (collide(col, item))
+            return false;
+        return true;
+    }
+};
+
 bool Layer::test_background_collision(CollisionBase * a)
 {
     if (a == NULL)
@@ -305,17 +337,9 @@ bool Layer::test_background_collision(CollisionBase * a)
     if (back != NULL && back->collide(a))
         return true;
 #ifdef CHOWDREN_USE_COLTREE
-    TreeItems tree_items;
-    tree.get(b[0], b[1], b[2], b[3], tree_items);
-
-    TreeItems::iterator it;
-
-    for (it = tree_items.begin(); it != tree_items.end(); it++) {
-        TreeItem * tree_item = *it;
-        CollisionBase * item = (CollisionBase*)tree_item->data;
-        if (::collide(a, item))
-            return true;
-    }
+    BackgroundCallback callback(a);
+    if (!tree.query(b[0], b[1], b[2], b[3], callback))
+        return true;
 #else
     ObjectList::const_iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
@@ -359,6 +383,20 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
         src_width, src_height, collision_type);
 }
 
+struct BackgroundDrawCallback
+{
+    BackgroundDrawCallback()
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * item = (FrameObject*)data;
+        item->draw();
+        return true;
+    }
+};
+
 void Layer::draw()
 {
     if (!visible)
@@ -370,30 +408,46 @@ void Layer::draw()
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
-    for (ObjectList::const_iterator iter = background_instances.begin();
-         iter != background_instances.end(); iter++) {
-        FrameObject * item = (*iter);
-        if (!item->visible)
-            continue;
+    PROFILE_BEGIN(Layer_draw_background_instances);
+
+    FlatObjectList::const_iterator it;
+
+#ifdef CHOWDREN_USE_COLTREE
+    BackgroundDrawCallback callback;
+    display_tree.query(x1-x, y1-y, x2-x, y2-y, callback);
+#else
+    for (it = background_instances.begin(); it != background_instances.end();
+         it++) {
+        FrameObject * item = *it;
         if (!collide_box(item, x1, y1, x2, y2))
             continue;
         item->draw();
     }
+#endif
+
+    PROFILE_END();
+
+    PROFILE_BEGIN(Layer_draw_pasted);
 
     // draw pasted items
     if (back != NULL)
         back->draw();
 
+    PROFILE_END();
+
+    PROFILE_BEGIN(Layer_draw_instances);
+
     // draw active instances
-    for (ObjectList::const_iterator iter = instances.begin();
-         iter != instances.end(); iter++) {
-        FrameObject * item = (*iter);
+    for (it = instances.begin(); it != instances.end(); it++) {
+        FrameObject * item = *it;
         if (!item->visible)
             continue;
         if (!collide_box(item, x1, y1, x2, y2))
             continue;
         item->draw();
     }
+
+    PROFILE_END();
 }
 
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
@@ -411,7 +465,7 @@ Frame::Frame(const std::string & name, int width, int height,
   background_color(background_color), manager(manager),
   off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
-  frame_iteration(0), instance_classes(MAX_OBJECT_ID)
+  frame_iteration(0)
 {
 }
 
@@ -425,14 +479,11 @@ void Frame::on_start()
 
 void Frame::on_end()
 {
-    ObjectList::const_iterator it;
-    for (unsigned int i = 0; i < instance_classes.num; i++) {
-        ObjectList * item = instance_classes.items[i];
-        if (item == NULL)
-            continue;
-        ObjectList & list = *item;
+    ObjectList::iterator it;
+    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
+        ObjectList & list = GameManager::instances.items[i];
         for (it = list.begin(); it != list.end(); it++) {
-            delete *it;
+            delete it->obj;
         }
     }
     std::vector<Layer*>::const_iterator layer_it;
@@ -440,7 +491,8 @@ void Frame::on_end()
         delete *layer_it;
     }
     layers.clear();
-    instance_classes.clear();
+    GameManager::instances.clear();
+    // GameManager::qualifiers.clear();
     destroyed_instances.clear();
     next_frame = -1;
     loop_count = 0;
@@ -454,13 +506,19 @@ void Frame::handle_events() {}
 
 void Frame::clean_instances()
 {
-    ObjectList::const_iterator it;
+    FlatObjectList::const_iterator it;
     for (it = destroyed_instances.begin(); it != destroyed_instances.end();
          it++) {
         FrameObject * instance = *it;
-        ObjectList & class_instances = instance_classes.get(instance->id);
-        remove_list(class_instances, instance);
-        layers[instance->layer_index]->remove_object(instance);
+        GameManager::instances.items[instance->id].remove(instance);
+        // if (instance->qualifiers != 0) {
+        //     for (int i = 0; i < MAX_QUALIFIER_ID; i++) {
+        //         if ((instance->qualifiers & (1 << i)) == 0)
+        //             continue;
+        //         GameManager::qualifiers.items[i].remove(instance);
+        //     }
+        // }
+        instance->layer->remove_object(instance);
         delete instance;
     }
     destroyed_instances.clear();
@@ -476,14 +534,13 @@ bool Frame::update(float dt)
         timer_mul = dt * timer_base;
     }
 
-    ObjectList::const_iterator it;
-    for (unsigned int i = 0; i < instance_classes.num; i++) {
-        ObjectList * item = instance_classes.items[i];
-        if (item == NULL)
-            continue;
-        ObjectList & list = *item;
+    PROFILE_BEGIN(frame_update_objects);
+
+    ObjectList::iterator it;
+    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
+        ObjectList & list = GameManager::instances.items[i];
         for (it = list.begin(); it != list.end(); it++) {
-            FrameObject * instance = *it;
+            FrameObject * instance = it->obj;
             if (instance->destroying)
                 continue;
             instance->update(dt);
@@ -491,6 +548,8 @@ bool Frame::update(float dt)
                 instance->movement->update(dt);
         }
     }
+
+    PROFILE_END();
 
     clean_instances();
     handle_events();
@@ -515,6 +574,7 @@ void Frame::restart()
 
 void Frame::draw(int remote)
 {
+    PROFILE_BEGIN(frame_draw_start);
     // first, draw the actual window contents
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
     glMatrixMode(GL_PROJECTION);
@@ -536,6 +596,8 @@ void Frame::draw(int remote)
     {
         glClear(GL_COLOR_BUFFER_BIT);
     }
+
+    PROFILE_END();
 
     std::vector<Layer*>::const_iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
@@ -576,134 +638,59 @@ public:
     }
 };
 
-DefaultActive default_active_instance;
-
-ObjectList & Frame::get_instances(int object_id)
-{
-    PROFILE_BLOCK(get_instances);
-    return instance_classes.get(object_id);
-}
-
-ObjectList Frame::get_instances(unsigned int qualifier[])
-{
-    PROFILE_BLOCK(get_qualifier_instances);
-    ObjectList list;
-    int index = 0;
-    while (qualifier[index] != 0) {
-        ObjectList & b = get_instances(qualifier[index]);
-        list.reserve(list.size() + b.size());
-        list.insert(list.end(), b.begin(), b.end());
-        index++;
-    }
-    return list;
-}
-
-FrameObject * Frame::get_instance(int object_id)
-{
-    ObjectList & instances = instance_classes.get(object_id);
-    if (instances.empty()) {
-        // std::cout << "Warning: invalid instance count for " << object_id
-        //     << std::endl;
-        return NULL;
-    }
-    return instances.back();
-}
-
-FrameObject * Frame::get_instance(int object_id, int index)
-{
-    ObjectList & instances = instance_classes.get(object_id);
-    if (instances.empty()) {
-        // std::cout << "Warning: invalid instance count for " << object_id
-        //     << std::endl;
-        return NULL;
-    }
-    return instances[index % instances.size()];
-}
-
-FrameObject * Frame::get_active_instance(int object_id)
-{
-    ObjectList & instances = instance_classes.get(object_id);
-    if (instances.size() == 0) {
-        return &default_active_instance;
-    }
-    return instances.back();
-}
-
-FrameObject * Frame::get_active_instance(int object_id, int index)
-{
-    ObjectList & instances = instance_classes.get(object_id);
-    if (instances.size() == 0) {
-        return &default_active_instance;
-    }
-    return instances[index % instances.size()];
-}
-
-FrameObject * Frame::get_instance(unsigned int qualifier[])
-{
-    int index = 0;
-    while (qualifier[index] != 0) {
-        ObjectList & b = get_instances(qualifier[index]);
-        if (b.empty()) {
-            index++;
-            continue;
-        }
-        return b[0];
-    }
-#ifndef NDEBUG
-    std::cout << "Warning: invalid instance count for qualifier"
-        << std::endl;
-#endif
-    return NULL;
-}
-
-FrameObject * Frame::get_instance(unsigned int qualifier[], int index)
-{
-    ObjectList instances = get_instances(qualifier);
-    if (instances.empty()) {
-#ifndef NDEBUG
-        std::cout << "Warning: invalid instance count for qualifier"
-            << std::endl;
-#endif
-        return NULL;
-    }
-    return instances[index % instances.size()];
-}
+DefaultActive default_active;
+FrameObject * default_active_instance = &default_active;
 
 void Frame::add_layer(double scroll_x, double scroll_y, bool visible)
 {
     layers.push_back(new Layer(scroll_x, scroll_y, visible, layers.size()));
 }
 
-FrameObject * Frame::add_object(FrameObject * object, int layer_index)
+FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
+{
+    instance->frame = this;
+    instance->layer = layer;
+    GameManager::instances.items[instance->id].add(instance);
+    // if (instance->qualifiers != 0) {
+    //     for (int i = 0; i < MAX_QUALIFIER_ID; i++) {
+    //         if ((instance->qualifiers & (1 << i)) == 0)
+    //             continue;
+    //         GameManager::qualifiers.items[i].add(instance);
+    //     }
+    // }
+    layer->add_object(instance);
+    return instance;
+}
+
+FrameObject * Frame::add_object(FrameObject * instance, int layer_index)
 {
     layer_index = int_max(0, int_min(layer_index, layers.size() - 1));
-    object->frame = this;
-    object->layer_index = layer_index;
-    instance_classes.get(object->id).push_back(object);
-    layers[layer_index]->add_object(object);
-    return object;
+    Layer * layer = layers[layer_index];
+    return add_object(instance, layer);
 }
 
-void Frame::add_background_object(FrameObject * object, int layer_index)
+void Frame::add_background_object(FrameObject * instance, int layer_index)
 {
-    object->frame = this;
-    object->layer_index = layer_index;
-    layers[layer_index]->add_background_object(object);
+    instance->frame = this;
+    Layer * layer = layers[layer_index];
+    instance->layer = layer;
+    layer->add_background_object(instance);
 }
 
-void Frame::destroy_object(FrameObject * object)
+void Frame::destroy_object(FrameObject * instance)
 {
-    if (object->destroying)
+    if (instance->destroying)
         return;
-    object->destroying = true;
-    destroyed_instances.push_back(object);
+    instance->destroying = true;
+    destroyed_instances.push_back(instance);
 }
 
-void Frame::set_object_layer(FrameObject * object, int new_layer)
+void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
-    layers[object->layer_index]->remove_object(object);
-    layers[new_layer]->add_object(object);
-    object->layer_index = new_layer;
+    instance->layer->remove_object(instance);
+    Layer * layer = layers[new_layer];
+    layer->add_object(instance);
+    instance->layer = layer;
 }
 
 int Frame::get_loop_index(const std::string & name)
@@ -880,33 +867,38 @@ void FrameObject::set_position(int x, int y)
 {
     this->x = x;
     this->y = y;
+#ifdef CHOWDREN_USE_DYNTREE
+    CollisionBase * col = get_collision();
+    if (col == NULL)
+        return;
+    ((InstanceCollision*)col)->update_aabb();
+#endif
+    // update_aabb();
 }
 
 void FrameObject::set_global_position(int x, int y)
 {
-    Layer * layer = frame->layers[layer_index];
-    this->x = x  - layer->off_x;
-    this->y = y - layer->off_y;
+    set_position(x - layer->off_x, y - layer->off_y);
 }
 
 void FrameObject::set_x(int x)
 {
-    this->x = x  - frame->layers[layer_index]->off_x;
+    this->x = x - layer->off_x;
 }
 
 int FrameObject::get_x()
 {
-    return x + frame->layers[layer_index]->off_x;
+    return x + layer->off_x;
 }
 
 void FrameObject::set_y(int y)
 {
-    this->y = y - frame->layers[layer_index]->off_y;
+    this->y = y - layer->off_y;
 }
 
 int FrameObject::get_y()
 {
-    return y + frame->layers[layer_index]->off_y;
+    return y + layer->off_y;
 }
 
 void FrameObject::create_alterables()
@@ -967,7 +959,7 @@ bool FrameObject::overlaps(FrameObject * other)
 {
     if (destroying || other->destroying)
         return false;
-    if (other->layer_index != layer_index)
+    if (other->layer != layer)
         return false;
     return collide(other->get_collision(), get_collision());
 }
@@ -976,7 +968,6 @@ bool FrameObject::overlaps_background()
 {
     if (destroying)
         return false;
-    Layer * layer = frame->layers[layer_index];
     return layer->test_background_collision(get_collision());
 }
 
@@ -984,7 +975,6 @@ bool FrameObject::overlaps_background_save()
 {
     if (destroying)
         return false;
-    Layer * layer = frame->layers[layer_index];
     bool ret = layer->test_background_collision(get_collision());
     if (movement != NULL) {
         movement->set_background_collision();
@@ -1007,9 +997,9 @@ int FrameObject::get_box_index(int index)
     get_collision()->get_box(box);
     int ret = box[index];
     if (index == 0 || index == 2)
-        ret += frame->layers[layer_index]->off_x;
+        ret += layer->off_x;
     else
-        ret += frame->layers[layer_index]->off_y;
+        ret += layer->off_y;
     return ret;
 }
 
@@ -1052,17 +1042,17 @@ void FrameObject::destroy()
 
 void FrameObject::set_level(int index)
 {
-    frame->layers[layer_index]->set_level(this, index);
+    layer->set_level(this, index);
 }
 
 int FrameObject::get_level()
 {
-    return frame->layers[layer_index]->get_level(this);
+    return layer->get_level(this);
 }
 
 void FrameObject::move_back(FrameObject * other)
 {
-    if (other->layer_index != layer_index)
+    if (other->layer != layer)
         return;
     int level = get_level();
     int level2 = other->get_level();
@@ -1085,7 +1075,7 @@ void FrameObject::move_front(FrameObject * other)
 {
     if (!other)
         return;
-    if (other->layer_index != layer_index)
+    if (other->layer != layer)
         return;
     int level = get_level();
     int level2 = other->get_level();
@@ -1622,9 +1612,8 @@ void Active::set_y_scale(double value)
 void Active::paste(int collision_type)
 {
     Image * img = get_image();
-    frame->layers[layer_index]->paste(img,
-        x-img->hotspot_x, y-img->hotspot_y, 0, 0,
-        img->width, img->height, collision_type);
+    layer->paste(img, x-img->hotspot_x, y-img->hotspot_y, 0, 0,
+                 img->width, img->height, collision_type);
 }
 
 bool Active::test_direction(int value)
@@ -3124,7 +3113,7 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     sort_index = index;
     sort_reverse = true;
     this->def = def;
-    ObjectList & instances = frame->layers[current_layer]->instances;
+    FlatObjectList & instances = frame->layers[current_layer]->instances;
     std::sort(instances.begin(), instances.end(), sort_func);
 }
 
@@ -3198,12 +3187,25 @@ AdvancedDirection::AdvancedDirection(int x, int y, int type_id)
 {
 }
 
-void AdvancedDirection::find_closest(ObjectList instances, int x, int y)
+void AdvancedDirection::find_closest(ObjectList & instances, int x, int y)
 {
-    ObjectList::const_iterator it;
     float lowest_dist;
     closest = NULL;
-    for (it = instances.begin(); it != instances.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        FrameObject * instance = *it;
+        float dist = get_distance(x, y, instance->x, instance->y);
+        if (closest != NULL && dist > lowest_dist)
+            continue;
+        closest = instance;
+        lowest_dist = dist;
+    }
+}
+
+void AdvancedDirection::find_closest(QualifierList & instances, int x, int y)
+{
+    float lowest_dist;
+    closest = NULL;
+    for (QualifierIterator it(instances); !it.end(); it++) {
         FrameObject * instance = *it;
         float dist = get_distance(x, y, instance->x, instance->y);
         if (closest != NULL && dist > lowest_dist)
@@ -3320,8 +3322,8 @@ PlatformObject::PlatformObject(int x, int y, int type_id)
   jump_through(false)
 {
     // XXX hack
-    if (x == -424 && y == -352)
-        last_instance = this;
+    // if (x == -424 && y == -352)
+    //     last_instance = this;
 }
 
 void PlatformObject::update(float dt)
@@ -3334,8 +3336,8 @@ void PlatformObject::update(float dt)
         return;
 
     // XXX hack
-    if (this != last_instance && !last_instance->paused)
-        return;
+    // if (this != last_instance && !last_instance->paused)
+    //     return;
 
     if (r && !l)
         x_vel += x_accel;
@@ -3619,8 +3621,8 @@ void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,
         std::cout << "Invalid image paste: " << filename << std::endl;
         return;
     }
-    frame->layers[layer_index]->paste(cached_image, dest_x, dest_y,
-        src_x, src_y, src_width, src_height, collision_type);
+    layer->paste(cached_image, dest_x, dest_y, src_x, src_y,
+                 src_width, src_height, collision_type);
 }
 
 ImageCache ActivePicture::image_cache;
@@ -3805,3 +3807,6 @@ float get_joystick_y(int n)
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
 }
 
+// for checking overlap
+
+std::vector<int> int_temp;

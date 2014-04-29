@@ -28,7 +28,7 @@ from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs,
-    is_qualifier, get_qualifier)
+    is_qualifier, get_qualifier, get_iter_type, get_list_type)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -43,7 +43,7 @@ import struct
 
 WRITE_FONTS = True
 WRITE_SOUNDS = True
-PROFILE = True
+PROFILE = False
 PROFILE_TIME = 0.0005
 
 # enabled for porting
@@ -106,7 +106,12 @@ def copytree(src, dst, excludes=[]):
 
 class CodeWriter(object):
     indentation = 0
-    def __init__(self, filename = None):
+    fp = None
+
+    def __init__(self, *arg, **kw):
+        self.open(*arg, **kw)
+
+    def open(self, filename=None):
         self.fp = StringIO()
         self.filename = filename
 
@@ -125,9 +130,9 @@ class CodeWriter(object):
                 line = self.format_line(line)
             self.fp.write(line + '\n')
 
-    def putlnc(self, line, *arg):
+    def putlnc(self, line, *arg, **kw):
         line = to_c(line, *arg)
-        self.putln(line)
+        self.putln(line, **kw)
 
     def putraw(self, *arg, **kw):
         indentation = self.indentation
@@ -229,6 +234,7 @@ class CodeWriter(object):
     def close(self):
         data = self.get_data()
         self.fp.close()
+        self.fp = None
         if self.filename is None:
             return
         try:
@@ -280,7 +286,7 @@ EXTENSION_ALIAS = {
 }
 
 IGNORE_EXTENSIONS = set([
-    'kcwctrl', 'SteamChowdren', 'ChowdrenFont'
+    'kcwctrl', 'SteamChowdren', 'ChowdrenFont', 'INI++'
 ])
 
 def load_native_extension(name):
@@ -465,6 +471,103 @@ class EventGroup(object):
     def set_generated(self, value):
         self.generated = value
 
+class ObjectFileWriter(CodeWriter):
+    index = 1
+    object_count = 0
+
+    def __init__(self, converter, max_count=100):
+        self.max_count = max_count
+        self.converter = converter
+        self.open_next()
+
+    def open_next(self):
+        filename = 'objects%s.cpp' % self.index
+        filename = self.converter.get_filename(filename)
+        if self.fp:
+            CodeWriter.close(self)
+        self.open(filename)
+        self.putln('#include "objects.h"')
+        self.putln('#include "common.h"')
+        self.putln('#include "fonts.h"')
+        self.putln('#include "font.h"')
+        self.putln('#include "qualifiers.h"')
+        self.putln('')
+        self.index += 1
+
+    def next(self):
+        self.object_count += 1
+        if self.object_count >= self.max_count:
+            self.object_count = 0
+            self.open_next()
+
+
+class FrameFileWriter(CodeWriter):
+    index = 1
+    function_count = 0
+
+    def __init__(self, index, converter, max_count=100):
+        self.frame_index = index
+        self.max_count = max_count
+        self.converter = converter
+
+        filename = 'frame%s.h' % self.frame_index
+        self.header = converter.open_code(filename)
+        self.header.start_guard('CHOWDREN_FRAME%s_H' % self.frame_index)
+        self.header.putln('#include "common.h"')
+        self.header.putln('')
+        self.class_name = 'Frame%s' % self.frame_index
+        self.header.putclass(self.class_name, 'Frame')
+        self.header.put_access('public')
+
+        self.open_next()
+
+        self.putlnc('Frame * create_frame_%s(GameManager * manager)',
+                    self.frame_index)
+        self.start_brace()
+        self.putlnc('return new %s(manager);', self.class_name)
+        self.end_brace()
+
+    def close(self):
+        CodeWriter.close(self)
+        self.header.end_brace(True)
+        self.header.close_guard('COWDREN_FRAME%s_H' % self.frame_index)
+        self.header.close()
+
+    def add_member(self, name):
+        self.header.putlnc('%s;', name)
+
+    def open_next(self):
+        filename = 'frame%s_%s.cpp' % (self.frame_index, self.index)
+        filename = self.converter.get_filename(filename)
+        if self.fp:
+            CodeWriter.close(self)
+        self.open(filename)
+        self.putlnc('#include "frame%s.h"', self.frame_index)
+        self.putln('#include "qualifiers.h"')
+        self.putln('#include "media.h"')
+        self.putln('#include "objects.h"')
+        self.putln('')
+        self.index += 1
+
+    def putmeth(self, name, *arg, **kw):
+        self.function_count += 1
+        if self.function_count >= self.max_count:
+            self.open_next()
+            self.function_count = 0
+        fullarg = list(arg)
+        prototype = '%s(%s)' % (name, ', '.join(fullarg))
+        self.add_member(prototype)
+        # add FrameXX::method qualifier
+        name = name.split(' ')
+        name[-1] = '%s::%s' % (self.class_name, name[-1])
+        try:
+            name.remove('static')
+        except ValueError:
+            pass
+        name = ' '.join(name)
+        CodeWriter.putmeth(self, name, *arg, **kw)
+
+
 def fix_sound(data, extension):
     data = str(data)
     if extension != 'wav':
@@ -490,6 +593,7 @@ def fix_sound(data, extension):
     wav.writeframesraw(frames)
     wav.close()
     return fp.getvalue()
+
 
 class Converter(object):
     debug = False
@@ -689,18 +793,12 @@ class Converter(object):
             sounds_file.putln('')
             sounds_file.close()
 
-        # objects
         objects_header = self.open_code('objects.h')
         objects_header.start_guard('CHOWDREN_OBJECTS_H')
         objects_header.putln('#include "frameobject.h"')
         objects_header.putln('')
 
-        objects_file = self.open_code('objects.cpp')
-        objects_file.putln('#include "objects.h"')
-        objects_file.putln('#include "common.h"')
-        objects_file.putln('#include "fonts.h"')
-        objects_file.putln('#include "font.h"')
-        objects_file.putln('')
+        objects_file = ObjectFileWriter(self)
 
         self.object_names = {}
         self.all_objects = {}
@@ -711,6 +809,7 @@ class Converter(object):
         self.event_callback_ids = itertools.count()
 
         type_id = itertools.count(1)
+        qualifier_id = itertools.count(1)
 
         for frameitem in game.frameItems.items:
             name = frameitem.name
@@ -759,6 +858,19 @@ class Converter(object):
             objects_file.putraw('#ifndef NDEBUG')
             objects_file.putln(to_c('name = %r;', name))
             objects_file.putraw('#endif')
+
+            # qualifiers = object_writer.get_qualifiers()
+            # if qualifiers:
+            #     qualifier_names = []
+            #     for qualifier in qualifiers:
+            #         if qualifier in self.qualifier_names:
+            #             qualifier_name = self.qualifier_names[qualifier]
+            #             qualifier_mask_name = '%s_mask' % qualifier_name
+            #         else:
+            #             qualifier_name = 'Qualifier_%s' % qualifier
+            #             shift = qualifier_id.next()
+            #             qualifiers_header.putdefine(qualifier_name, shift)
+            #             self.qualifier_names[qualifier] = qualifier_name
 
             if not object_writer.is_visible():
                 objects_file.putln('set_visible(false);')
@@ -866,30 +978,31 @@ class Converter(object):
                 objects_file.putlnc('PROFILE_BLOCK(%s_update);', class_name)
                 objects_file.putlnc('%s::update(dt);', subclass)
                 objects_file.end_brace()
+                objects_file.putmeth('void draw')
+                objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
+                objects_file.putlnc('%s::draw();', subclass)
+                objects_file.end_brace()
 
             objects_file.end_brace(True)
 
             object_func = 'create_%s' % get_method_name(class_name)
-            object_instances = 'ObjectList %s_instances' % get_method_name(
-                class_name, True)
 
             objects_header.putln('FrameObject * %s(int x, int y);'
-                % object_func)
-            objects_header.putln('extern %s;' % object_instances)
+                                 % object_func)
 
             objects_file.putmeth('FrameObject * %s' % object_func,
                                  'int x', 'int y')
             objects_file.putln('return new %s(x, y);' % class_name)
             objects_file.end_brace()
-            objects_file.putln('%s;' % object_instances)
 
             object_writer.write_post(objects_file)
 
-            objects_file.putln('')
+            objects_file.next()
 
         self.max_type_id = type_id.next()
+        self.max_qualifier_id = qualifier_id.next()
 
-        objects_header.close_guard('OBJECTS_H')
+        objects_header.close_guard('CHOWDREN_OBJECTS_H')
         objects_file.close()
         objects_header.close()
 
@@ -902,18 +1015,18 @@ class Converter(object):
 
         processed_frames = []
 
+        qualifiers_header = self.open_code('qualifiers.h')
+        qualifiers_header.start_guard('CHOWDREN_QUALIFIERS_H')
+        qualifiers_header.putln('')
+
         # frames
         for frame_index, frame in enumerate(game.frames):
-            frame_class_name = self.frame_class = 'Frame%s' % (frame_index+1)
+            frame_file = FrameFileWriter(frame_index+1, self)
+            frame_class_name = self.frame_class = frame_file.class_name
             frame.load()
             self.current_frame = frame
             self.current_frame_index = frame_index
             processed_frames.append(frame_index + 1)
-            frame_file = self.open_code('frame%s.cpp' % (frame_index + 1))
-            frame_file.putln('#include "common.h"')
-            frame_file.putln('#include "media.h"')
-            frame_file.putln('#include "objects.h"')
-            frame_file.putln('')
 
             startup_instances = []
             self.multiple_instances = set()
@@ -1061,30 +1174,35 @@ class Converter(object):
                         continue
                     v.is_static = True
 
+            self.qualifier_names = {}
             self.qualifiers = {}
             self.qualifier_types = {}
             for qualifier in events.qualifiers.values():
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
-                object_names = ['%s_type' % self.object_names[item]
-                    for item in object_infos] + ['0']
-                class_name = 'qualifier_%s' % qualifier.qualifier
-                frame_file.putln('static unsigned int %s[] = '
-                    '{%s};' % (class_name, ', '.join(object_names)),
-                    wrap = True)
-                frame_file.putlnc('static ObjectList %s_instances;',
-                                  class_name)
-                frame_file.putln('')
                 self.qualifiers[qualifier.qualifier] = object_infos
                 self.qualifier_types[qualifier.qualifier] = qualifier.type
+                name = 'frame_%s_qualifier_%s' % (frame_index,
+                                                  qualifier.qualifier)
+                self.qualifier_names[qualifier.qualifier] = name
+                qualifiers_header.putlnc('extern QualifierList %s;',
+                                         name)
+                instances = []
+                for obj in object_infos:
+                    instances.append('&' + self.get_object(obj, True))
+                instances = ', '.join(instances)
+                frame_file.putlnc('QualifierList %s(%s, %s);', name,
+                                  len(object_infos), instances)
 
-            frame_file.putclass(frame_class_name, 'Frame')
-            frame_file.put_access('public')
+
             for container in containers.values():
-                frame_file.putln('bool %s;' % container.code_name)
-            frame_file.putln(to_c('%s(GameManager * manager) : '
-                'Frame(%r, %s, %s, %s, %s, manager)',
-                frame_class_name, frame.name, frame.width, frame.height,
-                make_color(frame.background), frame_index))
+                frame_file.add_member('bool %s' % container.code_name)
+
+            prototype = '%s(GameManager * manager)' % frame_class_name
+            frame_file.add_member(prototype)
+            frame_file.putlnc('%s::%s : Frame(%r, %s, %s, %s, %s, manager)',
+                              frame_class_name, prototype, frame.name,
+                              frame.width, frame.height,
+                              make_color(frame.background), frame_index)
             frame_file.start_brace()
             if frame.flags['TimedMovements']:
                 timer_base = frame.movementTimer
@@ -1139,7 +1257,7 @@ class Converter(object):
                     remote_type))
             frame_file.putraw('#endif')
 
-            frame_file.putln('FrameObject * obj_create;')
+            # frame_file.putln('FrameObject * obj_create;')
 
             for instance, frameitem in startup_instances:
                 object_writer = self.all_objects[frameitem.handle]
@@ -1152,7 +1270,7 @@ class Converter(object):
                                       instance.y, instance.layer)
                     continue
                 self.create_object(frameitem.handle, instance.x, instance.y,
-                                   instance.layer, 'obj_create', frame_file)
+                                   instance.layer, None, frame_file)
 
             for object_writer in object_writers:
                 object_writer.write_start(frame_file)
@@ -1169,6 +1287,8 @@ class Converter(object):
                     fade.duration = 0.00001
                 frame_file.putln(to_c('manager->set_fade(%s, %s);',
                     make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
+
+            frame_file.putln('Frame::on_start();')
             frame_file.end_brace()
 
             frame_end_groups = generated_groups.pop('EndOfFrame', None)
@@ -1213,7 +1333,7 @@ class Converter(object):
                 if group.is_container_mark:
                     group_index += 1
                     continue
-                frame_file.putmeth('inline void event_func_%s'
+                frame_file.putmeth('void event_func_%s'
                     % group.global_id)
                 while True:
                     try:
@@ -1270,14 +1390,6 @@ class Converter(object):
                 frame_file.put_label(end_marker)
             frame_file.end_brace()
 
-            frame_file.end_brace(True) # end of frame
-
-            frame_func = 'create_frame_%s' % (frame_index + 1)
-            frame_file.putmeth('Frame * %s' % frame_func,
-                'GameManager * manager')
-            frame_file.putln('return new %s(manager);' % frame_class_name)
-            frame_file.end_brace()
-
             frame_file.close()
 
             if generated_groups:
@@ -1291,6 +1403,9 @@ class Converter(object):
                     missing_groups.append((object_class, num))
                 print 'unimplemented generated groups in %r: %r' % (
                     frame.name, missing_groups)
+
+        qualifiers_header.close_guard('CHOWDREN_QUALIFIERS_H')
+        qualifiers_header.close()
 
         header = game.header
 
@@ -1353,6 +1468,7 @@ class Converter(object):
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
         config_file.putdefine('FRAMERATE', header.frameRate)
         config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
+        config_file.putdefine('MAX_QUALIFIER_ID', self.max_qualifier_id)
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
         if PROFILE:
@@ -1383,36 +1499,35 @@ class Converter(object):
         yield
         self.end_object_iteration(*arg, **kw)
 
-    def start_object_iteration(self, object_info, writer, name = 'item',
+    def start_object_iteration(self, object_info, writer, name = 'it',
                                copy=True):
         selected_name = self.get_list_name(self.get_object_name(object_info))
         if copy:
             selected_name = 'extra_%s' % selected_name
         make_dict = self.get_object(object_info, True)
+        iter_type = get_iter_type(object_info)
         if object_info not in self.has_selection or copy:
             if copy:
-                writer.putlnc('static ObjectList %s;', selected_name)
-            writer.putln('%s = %s;' % (selected_name, make_dict))
-        self.set_iterator(object_info, selected_name, '*' + name)
-        if name == 'item':
-            writer.putln('%s = %s.begin();' % (name, selected_name))
+                writer.putlnc('static FlatObjectList %s;', selected_name)
+                writer.putlnc('%s.copy(%s);', make_dict, selected_name)
+            else:
+                list_type = get_list_type(object_info)
+                writer.putlnc('%s & %s = %s;', list_type, selected_name,
+                              make_dict)
+                self.set_list(object_info, selected_name)
         else:
-            writer.start_brace()
-            writer.putln('ObjectList::const_iterator %s = %s.begin();' % (
-                name, selected_name))
-        writer.putln('while (%s != %s.end()) {' %
-            (name, selected_name))
+            selected_name = self.has_selection[object_info]
+        self.set_iterator(object_info, selected_name, '*' + name)
+        writer.putlnc('for (%s %s(%s); !%s.end(); %s++) {',
+                      iter_type, name, selected_name, name, name)
         writer.indent()
 
-    def end_object_iteration(self, object_info, writer, name = 'item',
+    def end_object_iteration(self, object_info, writer, name = 'it',
                              copy=True):
-        writer.putln('%s++;' % (name or self.iterated_name))
         writer.end_brace()
-        if name != 'item':
-            writer.end_brace()
         self.set_iterator(None)
 
-    def set_iterator(self, object_info, object_list=None, name='*item'):
+    def set_iterator(self, object_info, object_list=None, name='*it'):
         self.iterated_object = object_info
         # self.iterated_list = object_list
         if object_info is None:
@@ -1430,11 +1545,26 @@ class Converter(object):
         name = self.get_object_name(object_info)
         obj_create_func = 'create_%s' % get_method_name(name)
         arguments = [str(x), str(y)]
-        writer.putlnc('%s = add_object(%s(%s), %s);', object_name,
+        if object_name:
+            prefix = '%s = ' % object_name
+        else:
+            prefix = ''
+        writer.putlnc('%sadd_object(%s(%s), %s);', prefix,
                       obj_create_func, ', '.join(arguments), layer)
 
     def begin_events(self):
         pass
+
+    def create_list(self, object_info, writer):
+        if object_info in self.has_selection:
+            return self.has_selection[object_info]
+        name = self.get_object_name(object_info)
+        list_name = self.get_list_name(name)
+        list_type = get_list_type(object_info)
+        writer.putlnc('%s & %s = %s;', list_type, list_name,
+                      self.get_object(object_info, True))
+        self.set_list(object_info, list_name)
+        return list_name
 
     def set_object(self, object_info, name):
         self.has_single_selection[object_info] = name
@@ -1616,17 +1746,18 @@ class Converter(object):
                         self.get_object_name(object_info))
                     if object_info not in self.has_selection:
                         make_dict = self.get_object(object_info, True)
-                        writer.putln('%s = %s;' % (selected_name, make_dict))
+                        list_type = get_list_type(object_info)
+                        writer.putlnc('%s & %s = %s;', list_type,
+                                      selected_name, make_dict)
                         self.has_selection[object_info] = selected_name
                     if condition_writer.iterate_objects is not False:
                         has_multiple = True
                         self.set_iterator(object_info, selected_name)
-                        writer.putln('item = %s.begin();' %
-                            selected_name)
-                        writer.putln('while (item != %s.end()) {' %
-                            selected_name)
+                        iter_type = get_iter_type(object_info)
+                        writer.putlnc('for (%s it(%s); !it.end(); '
+                                      'it++) {', iter_type, selected_name)
                         writer.indent()
-                        object_name = '(*item)'
+                        object_name = '(*it)'
                 writer.putindent()
                 if negated:
                     writer.put('if (!(')
@@ -1652,11 +1783,10 @@ class Converter(object):
                 if negated:
                     writer.put(')')
                 if has_multiple:
-                    writer.put(') item = %s.erase(item);\n' % selected_name)
-                    writer.putln('else ++item;')
+                    writer.put(') it.deselect();\n')
                     writer.end_brace()
                     writer.indented = False
-                    writer.putln('if (%s.empty()) %s' % (selected_name,
+                    writer.putln('if (!%s.has_selection()) %s' % (selected_name,
                         event_break))
                     self.set_iterator(None)
                 else:
@@ -1671,17 +1801,29 @@ class Converter(object):
             writer.putlnc('if (!%s) goto or_final_%s_end;', group.or_result,
                           group.name)
             self.has_selection = {}
+            new_selection = {}
             if group.or_type == 'OrLogical':
                 for obj, or_bools in group.or_instance_groups.iteritems():
+                    list_name = self.get_list_name(self.get_object_name(obj))
+                    list_name = 'final_%s_%s' % (group.global_id, list_name)
+                    new_selection[obj] = list_name
+                    list_type = get_list_type(obj)
+                    writer.putlnc('%s & %s = %s;', list_type, list_name,
+                                  self.get_all_objects(obj))
                     or_list = group.or_selected[obj]
-                    check = '!(%s)' % (' || '.join(or_bools))
+                    check = '%s' % (' || '.join(or_bools))
                     writer.putlnc('if (%s) {', check)
                     writer.indent()
+                    writer.putlnc('%s.restore(%s);', or_list, list_name)
+                    # blah blah copy over
+                    writer.dedent()
+                    writer.putlnc('} else {')
+                    writer.indent()
                     instance_list = self.get_object(obj, True)
-                    writer.putlnc('%s = %s;', or_list, instance_list)
+                    writer.putlnc('%s.clear_selection();', list_name)
                     writer.end_brace()
             writer.start_brace()
-            self.has_selection = group.or_selected
+            self.has_selection = new_selection # group.or_selected
 
         for action_writer in actions:
             if action_writer.custom:
@@ -1715,13 +1857,16 @@ class Converter(object):
                     list_name = self.get_list_name(
                         self.get_object_name(object_info))
                     make_dict = self.get_object(object_info, True)
-                    writer.putln('%s = %s;' % (list_name, make_dict))
+                    list_type = get_list_type(object_info)
+                    writer.putlnc('%s & %s = %s;', list_type, list_name,
+                                  make_dict)
                     self.has_selection[object_info] = list_name
-                writer.putln('for (item = %s.begin(); item != %s.end(); '
-                             'item++) {' % (list_name, list_name))
+                iter_type = get_iter_type(object_info)
+                writer.putlnc('for (%s it(%s); !it.end(); '
+                              'it++) {', iter_type, list_name)
                 writer.indent()
                 self.set_iterator(object_info, list_name)
-                object_name = '*item'
+                object_name = '*it'
             elif object_info is not None:
                 writer.putindent()
                 writer.put('%s->' % self.get_object(object_info))
@@ -1766,6 +1911,7 @@ class Converter(object):
     def write_instance_save(self, group, writer):
         if not self.has_selection:
             return
+        if_first = set()
         for obj, list_name in self.has_selection.iteritems():
             group.or_instance_groups[obj].append(group.or_temp_result)
             new_list = group.or_selected.get(obj, None)
@@ -1773,14 +1919,19 @@ class Converter(object):
                 continue
             new_list = 'or_%s_%s' % (list_name, group.global_id)
             group.or_selected[obj] = new_list
-            writer.putlnc('static ObjectList %s;', new_list)
+            if is_qualifier(obj):
+                class_name = 'SavedQualifierSelection'
+            else:
+                class_name = 'SavedSelection'
+            writer.putlnc('static %s %s;', class_name, new_list)
             writer.putlnc('%s.clear();', new_list)
 
         writer.putlnc('if (%s) {', group.or_temp_result)
         writer.indent()
         for obj, list_name in self.has_selection.iteritems():
             new_list = group.or_selected[obj]
-            writer.putlnc('append_list(%s, %s);', new_list, list_name)
+            writer.putlnc('%s.add(%s);', new_list,
+                          self.get_all_objects(obj))
         writer.end_brace()
 
     def convert_static_expression(self, items, start=0, end=-1):
@@ -1953,12 +2104,17 @@ class Converter(object):
             type_id, is_qual = self.get_object_handle(handle)
             args = [type_id]
             if as_list:
-                getter_name = 'get_instances'
+                if is_qual:
+                    getter_name = 'get_qualifiers'
+                else:
+                    getter_name = 'get_instances'
             else:
                 if use_index:
                     args.append(self.iterated_index)
                 if object_type == 'Active*' and not is_qual and use_default:
                     getter_name = 'get_active_instance'
+                elif is_qual:
+                    getter_name = 'get_qualifier'
                 else:
                     getter_name = 'get_instance'
             args = ', '.join(args)
@@ -1969,20 +2125,23 @@ class Converter(object):
 
     def get_all_objects(self, handle):
         type_id, is_qual = self.get_object_handle(handle)
-        return 'get_instances(%s)' % type_id
+        if is_qual:
+            return type_id
+        func = 'get_all_instances'
+        return '%s(%s)' % (func, type_id)
 
     def get_object_name(self, handle):
         if is_qualifier(handle):
-            return 'qualifier_%s' % get_qualifier(handle)
+            return self.qualifier_names[get_qualifier(handle)]
         else:
-            return '%s' % self.object_names[handle]
+            return self.object_names[handle]
 
     def get_list_name(self, object_name):
         return '%s_instances' % get_method_name(object_name, True)
 
     def get_object_handle(self, handle):
         if is_qualifier(handle):
-            return ('qualifier_%s' % get_qualifier(handle), True)
+            return (self.qualifier_names[get_qualifier(handle)], True)
         else:
             return ('%s_type' % self.object_names[handle], False)
 

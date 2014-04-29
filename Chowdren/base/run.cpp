@@ -221,6 +221,10 @@ void GameManager::draw()
         // for some reason, GLFW sets these properties to 0 when minimized.
         return;
 
+#ifdef CHOWDREN_FORCE_REMOTE
+    platform_set_remote_value(CHOWDREN_REMOTE_TARGET);
+#endif
+
     PROFILE_FUNC();
 
     PROFILE_BEGIN(platform_begin_draw);
@@ -237,11 +241,14 @@ void GameManager::draw()
     if (remote_setting == CHOWDREN_HYBRID_TARGET) {
         platform_set_display_target(CHOWDREN_REMOTE_TARGET);
         frame->draw(CHOWDREN_REMOTE_TARGET);
+        draw_fade();
         platform_set_display_target(CHOWDREN_TV_TARGET);
         frame->draw(CHOWDREN_TV_TARGET);
+        draw_fade();
     } else {
         platform_set_display_target(CHOWDREN_TV_TARGET);
         frame->draw(CHOWDREN_HYBRID_TARGET);
+        draw_fade();
         if (remote_setting == CHOWDREN_REMOTE_TARGET) {
             platform_clone_buffers();
             platform_set_display_target(CHOWDREN_REMOTE_TARGET);
@@ -250,6 +257,7 @@ void GameManager::draw()
     }
 #else
     frame->draw(CHOWDREN_HYBRID_TARGET);
+    draw_fade();
 #endif
     PROFILE_END();
 
@@ -269,17 +277,6 @@ void GameManager::draw()
         glPopMatrix();
     }
 #endif
-
-    if (fade_dir != 0.0f) {
-        glBegin(GL_QUADS);
-        glColor4ub(fade_color.r, fade_color.g, fade_color.b,
-                      int(fade_value * 255));
-        glVertex2f(0.0f, 0.0f);
-        glVertex2f(WINDOW_WIDTH, 0.0f);
-        glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
-        glVertex2f(0.0f, WINDOW_HEIGHT);
-        glEnd();
-    }
 
 #ifdef CHOWDREN_IS_DESKTOP
     bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
@@ -343,6 +340,21 @@ void GameManager::draw()
     PROFILE_BEGIN(platform_swap_buffers);
     platform_swap_buffers();
     PROFILE_END();
+}
+
+void GameManager::draw_fade()
+{
+    if (fade_dir == 0.0f)
+        return;
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+    glColor4ub(fade_color.r, fade_color.g, fade_color.b,
+               int(fade_value * 255));
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(WINDOW_WIDTH, 0.0f);
+    glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glVertex2f(0.0f, WINDOW_HEIGHT);
+    glEnd();
 }
 
 void GameManager::set_frame(int index)
@@ -436,17 +448,20 @@ bool GameManager::update()
             return false;
     }
 
-    // double draw_time = platform_get_time();
+    double draw_time = platform_get_time();
 
     draw();
 
-    // if (show_stats) {
-    //     std::cout << "Draw took " << platform_get_time() - draw_time
-    //         << std::endl;
-    //     // std::cout << "Instance count: " << frame->instances.size()
-    //     //     << std::endl;
-    //     platform_print_stats();
-    // }
+    if (show_stats) {
+        std::cout << "Draw took " << platform_get_time() - draw_time
+            << std::endl;
+        int count = 0;
+        for (int i = 0; i < MAX_OBJECT_ID; i++) {
+            count += get_all_instances(i).size();
+        }
+        std::cout << "Instance count: " << count << std::endl;
+        platform_print_stats();
+    }
 
     fps_limit.finish();
 
@@ -483,6 +498,8 @@ void GameManager::run()
     platform_exit();
 #endif
 }
+
+InstanceMap GameManager::instances;
 
 // InputList
 

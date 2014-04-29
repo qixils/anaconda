@@ -15,7 +15,7 @@ public:
     int old_x, old_y;
     double add_x, add_y;
     FrameObject * instance;
-    ObjectList collisions;
+    FlatObjectList collisions;
     bool back_col;
     unsigned int directions;
 

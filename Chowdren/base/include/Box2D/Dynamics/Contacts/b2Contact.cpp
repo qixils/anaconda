@@ -28,6 +28,7 @@
 #include "../../Common/b2BlockAllocator.h"
 #include "../../Dynamics/b2World.h"
 #include "../../Dynamics/b2Body.h"
+#include <string.h>
 
 b2ContactRegister b2Contact::s_registers[e_shapeTypeCount][e_shapeTypeCount];
 bool b2Contact::s_initialized = false;
@@ -37,7 +38,7 @@ void b2Contact::InitializeRegisters()
 	AddType(b2CircleContact::Create, b2CircleContact::Destroy, e_circleShape, e_circleShape);
 	AddType(b2PolyAndCircleContact::Create, b2PolyAndCircleContact::Destroy, e_polygonShape, e_circleShape);
 	AddType(b2PolygonContact::Create, b2PolygonContact::Destroy, e_polygonShape, e_polygonShape);
-	
+
 	AddType(b2EdgeAndCircleContact::Create, b2EdgeAndCircleContact::Destroy, e_edgeShape, e_circleShape);
 	AddType(b2PolyAndEdgeContact::Create, b2PolyAndEdgeContact::Destroy, e_polygonShape, e_edgeShape);
 }
@@ -47,7 +48,7 @@ void b2Contact::AddType(b2ContactCreateFcn* createFcn, b2ContactDestroyFcn* dest
 {
 	b2Assert(e_unknownShape < type1 && type1 < e_shapeTypeCount);
 	b2Assert(e_unknownShape < type2 && type2 < e_shapeTypeCount);
-	
+
 	s_registers[type1][type2].createFcn = createFcn;
 	s_registers[type1][type2].destroyFcn = destoryFcn;
 	s_registers[type1][type2].primary = true;
@@ -73,7 +74,7 @@ b2Contact* b2Contact::Create(b2Shape* shape1, b2Shape* shape2, b2BlockAllocator*
 
 	b2Assert(e_unknownShape < type1 && type1 < e_shapeTypeCount);
 	b2Assert(e_unknownShape < type2 && type2 < e_shapeTypeCount);
-	
+
 	b2ContactCreateFcn* createFcn = s_registers[type1][type2].createFcn;
 	if (createFcn)
 	{
@@ -144,7 +145,7 @@ b2Contact::b2Contact(b2Shape* s1, b2Shape* s2)
 	m_node2.prev = NULL;
 	m_node2.next = NULL;
 	m_node2.other = NULL;
-	
+
 	m_userData = NULL;
 }
 
@@ -195,12 +196,12 @@ void b2SingleManifoldContact::Evaluate(b2ContactListener* listener)
 	cp.shape2 = m_shape2;
 	cp.friction = b2MixFriction(m_shape1->GetFriction(), m_shape2->GetFriction());
 	cp.restitution = b2MixRestitution(m_shape1->GetRestitution(), m_shape2->GetRestitution());
-	
-	
+
+
 	// Match contact ids to facilitate warm starting.
 	if (m_manifold.pointCount > 0)
 	{
-		
+
 		// Report start of contact, and update solidity
 		if (listener)
 		{
@@ -213,7 +214,7 @@ void b2SingleManifoldContact::Evaluate(b2ContactListener* listener)
 				}
 			}
 		}
-		
+
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
 		for (int32 i = 0; i < m_manifold.pointCount; ++i)
@@ -293,7 +294,7 @@ void b2SingleManifoldContact::Evaluate(b2ContactListener* listener)
 			{
 				continue;
 			}
-			
+
 			b2ManifoldPoint* mp0 = m0.points + i;
 			cp.position = b1->GetWorldPoint(mp0->localPoint1);
 			b2Vec2 v1 = b1->GetLinearVelocityFromLocalPoint(mp0->localPoint1);
@@ -304,7 +305,7 @@ void b2SingleManifoldContact::Evaluate(b2ContactListener* listener)
 			cp.id = mp0->id;
 			listener->ContactPointRemove(this, &cp);
 		}
-		
+
 		// Report end of contact
 		if (0 == m_manifold.pointCount)
 		{
@@ -328,7 +329,7 @@ void b2SinglePointContact::Evaluate(b2ContactListener* listener)
 	cp.shape2 = m_shape2;
 	cp.friction = b2MixFriction(m_shape1->GetFriction(), m_shape2->GetFriction());
 	cp.restitution = b2MixRestitution(m_shape1->GetRestitution(), m_shape2->GetRestitution());
-	
+
 	if (m_manifold.pointCount > 0)
 	{
 		m_manifoldCount = 1;
@@ -353,7 +354,7 @@ void b2SinglePointContact::Evaluate(b2ContactListener* listener)
 						}
 					}
 				}
-				
+
 				if (listener)
 				{
 					cp.position = b1->GetWorldPoint(mp->localPoint1);

@@ -61,35 +61,15 @@ public:
 
 extern FrameObject * default_active_instance;
 
-inline ObjectList & get_instances(int object_id)
+inline FrameObject * get_instance(ObjectList & list)
 {
-    ObjectList & list = GameManager::instances.items[object_id];
-    list.clear_selection();
-    return list;
-}
-
-inline ObjectList & get_all_instances(int object_id)
-{
-    return GameManager::instances.items[object_id];
-}
-
-inline QualifierList & get_qualifiers(QualifierList & list)
-{
-    list.clear_selection();
-    return list;
-}
-
-inline FrameObject * get_instance(int object_id)
-{
-    ObjectList & list = GameManager::instances.items[object_id];
     if (list.empty())
         return NULL;
     return list.back();
 }
 
-inline FrameObject * get_instance(int object_id, int index)
+inline FrameObject * get_instance(ObjectList & list, int index)
 {
-    ObjectList & list = GameManager::instances.items[object_id];
     if (list.empty())
         return NULL;
     return list[index % list.size()];
@@ -97,8 +77,6 @@ inline FrameObject * get_instance(int object_id, int index)
 
 inline FrameObject * get_qualifier(QualifierList & list)
 {
-    if (list.empty())
-        return NULL;
     return list.back();
 }
 
@@ -109,17 +87,15 @@ inline FrameObject * get_qualifier(QualifierList & list, int index)
     return list[index % list.size()];
 }
 
-inline FrameObject * get_active_instance(int object_id)
+inline FrameObject * get_active_instance(ObjectList & list)
 {
-    ObjectList & list = GameManager::instances.items[object_id];
     if (list.empty())
         return default_active_instance;
     return list.back();
 }
 
-inline FrameObject * get_active_instance(int object_id, int index)
+inline FrameObject * get_active_instance(ObjectList & list, int index)
 {
-    ObjectList & list = GameManager::instances.items[object_id];
     if (list.empty())
         return default_active_instance;
     return list[index % list.size()];

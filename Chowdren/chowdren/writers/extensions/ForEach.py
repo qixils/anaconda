@@ -75,27 +75,13 @@ class ForEach(ObjectWriter):
         for real_name, groups in loops.iteritems():
             object_info = loop_objects[real_name]
             name = get_method_name(real_name)
-            profile = name in PROFILE_FUNCTIONS
             object_class = self.converter.get_object_class(
                 object_info = object_info)
             writer.putmeth('bool foreach_%s' % name, '%s selected' %
                 object_class)
-            if profile:
-                writer.putln('double profile_time, profile_dt;')
             for group in groups:
                 self.converter.set_object(object_info, 'selected')
-                if profile:
-                    writer.putln('profile_time = platform_get_time();')
                 self.converter.write_event(writer, group, True)
-                if profile:
-                    writer.putln('profile_dt = platform_get_time() '
-                                              '- profile_time;')
-                    writer.putln('if (profile_dt > 0.0001)')
-                    writer.indent()
-                    writer.putln(
-                        ('std::cout << "Event %s took " << '
-                         'profile_dt << std::endl;') % group.global_id)
-                    writer.dedent()
             writer.putln('return true;')
             writer.end_brace()
 

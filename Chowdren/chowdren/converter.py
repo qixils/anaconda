@@ -490,7 +490,7 @@ class ObjectFileWriter(CodeWriter):
         self.putln('#include "common.h"')
         self.putln('#include "fonts.h"')
         self.putln('#include "font.h"')
-        self.putln('#include "qualifiers.h"')
+        self.putln('#include "lists.h"')
         self.putln('')
         self.index += 1
 
@@ -543,7 +543,7 @@ class FrameFileWriter(CodeWriter):
             CodeWriter.close(self)
         self.open(filename)
         self.putlnc('#include "frame%s.h"', self.frame_index)
-        self.putln('#include "qualifiers.h"')
+        self.putln('#include "lists.h"')
         self.putln('#include "media.h"')
         self.putln('#include "objects.h"')
         self.putln('')
@@ -772,7 +772,6 @@ class Converter(object):
             sounds_file = self.open_code('sounds.h')
             sounds_file.putln('#include "common.h"')
             sounds_file.start_guard('SOUNDS_H')
-            sounds_file.putln('')
             sounds_file.putmeth('void setup_sounds', 'Media * media')
 
             if game.sounds:
@@ -799,6 +798,15 @@ class Converter(object):
         objects_header.putln('')
 
         objects_file = ObjectFileWriter(self)
+
+        lists_header = self.open_code('lists.h')
+        lists_header.start_guard('CHOWDREN_LISTS_H')
+        lists_header.putln('#include "objects.h"')
+
+        lists_file = self.open_code('lists.cpp')
+        lists_file.putln('#include "lists.h"')
+        lists_file.putln('#include "manager.h"')
+        lists_file.putln('#include "frameobject.h"')
 
         self.object_names = {}
         self.all_objects = {}
@@ -999,6 +1007,10 @@ class Converter(object):
 
             objects_file.next()
 
+            name = self.get_object_list(handle)
+            lists_header.putlnc('#define %s GameManager::instances.items[%s]',
+                                name, object_type_id)
+
         self.max_type_id = type_id.next()
         self.max_qualifier_id = qualifier_id.next()
 
@@ -1014,10 +1026,6 @@ class Converter(object):
         extensions_file.close()
 
         processed_frames = []
-
-        qualifiers_header = self.open_code('qualifiers.h')
-        qualifiers_header.start_guard('CHOWDREN_QUALIFIERS_H')
-        qualifiers_header.putln('')
 
         # frames
         for frame_index, frame in enumerate(game.frames):
@@ -1184,13 +1192,12 @@ class Converter(object):
                 name = 'frame_%s_qualifier_%s' % (frame_index,
                                                   qualifier.qualifier)
                 self.qualifier_names[qualifier.qualifier] = name
-                qualifiers_header.putlnc('extern QualifierList %s;',
-                                         name)
+                lists_header.putlnc('extern QualifierList %s;', name)
                 instances = []
                 for obj in object_infos:
-                    instances.append('&' + self.get_object(obj, True))
+                    instances.append('&' + self.get_object_list(obj))
                 instances = ', '.join(instances)
-                frame_file.putlnc('QualifierList %s(%s, %s);', name,
+                lists_file.putlnc('QualifierList %s(%s, %s);', name,
                                   len(object_infos), instances)
 
 
@@ -1349,8 +1356,6 @@ class Converter(object):
 
             # write main 'always' handler
             frame_file.putmeth('void handle_events')
-            # if PROFILE:
-            #     frame_file.putln('double profile_time, profile_dt;')
             end_markers = []
             self.begin_events()
 
@@ -1360,8 +1365,6 @@ class Converter(object):
                     if container.is_static:
                         continue
                     if group.mark == 'NewGroup':
-                        # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
-                        #     container.code_name, group.mark))
                         frame_file.putln('if (!%s) goto %s;' % (
                             container.code_name, container.end_label))
                         end_markers.insert(0, container.end_label)
@@ -1370,21 +1373,8 @@ class Converter(object):
                         end_markers.remove(container.end_label)
                         frame_file.put_label(container.end_label)
                         self.container_tree.remove(container)
-                        # frame_file.putln('std::cout << "%s %s" << std::endl;' % (
-                        #     container.code_name, group.mark))
                     continue
-                # if PROFILE:
-                #     frame_file.putln('profile_time = platform_get_time();')
                 frame_file.putln('event_func_%s();' % (group.global_id))
-                # if PROFILE:
-                #     frame_file.putln('profile_dt = platform_get_time() '
-                #                                   '- profile_time;')
-                #     frame_file.putln('if (profile_dt > %s)' % PROFILE_TIME)
-                #     frame_file.indent()
-                #     frame_file.putln(
-                #         ('std::cout << "Event %s took " << '
-                #          'profile_dt << std::endl;') % group.global_id)
-                #     frame_file.dedent()
 
             for end_marker in end_markers:
                 frame_file.put_label(end_marker)
@@ -1404,8 +1394,10 @@ class Converter(object):
                 print 'unimplemented generated groups in %r: %r' % (
                     frame.name, missing_groups)
 
-        qualifiers_header.close_guard('CHOWDREN_QUALIFIERS_H')
-        qualifiers_header.close()
+        lists_header.close_guard('CHOWDREN_LISTS_H')
+        lists_header.close()
+
+        lists_file.close()
 
         header = game.header
 
@@ -1501,25 +1493,17 @@ class Converter(object):
 
     def start_object_iteration(self, object_info, writer, name = 'it',
                                copy=True):
-        selected_name = self.get_list_name(self.get_object_name(object_info))
-        if copy:
-            selected_name = 'extra_%s' % selected_name
-        make_dict = self.get_object(object_info, True)
         iter_type = get_iter_type(object_info)
-        if object_info not in self.has_selection or copy:
-            if copy:
-                writer.putlnc('static FlatObjectList %s;', selected_name)
-                writer.putlnc('%s.copy(%s);', make_dict, selected_name)
-            else:
-                list_type = get_list_type(object_info)
-                writer.putlnc('%s & %s = %s;', list_type, selected_name,
-                              make_dict)
-                self.set_list(object_info, selected_name)
+        getter = self.create_list(object_info, writer)
+        if copy:
+            list_name = 'extra_%s' % self.get_object_list(object_info)
+            writer.putlnc('static FlatObjectList %s;', list_name)
+            writer.putlnc('%s.copy(%s);', list_name, getter)
         else:
-            selected_name = self.has_selection[object_info]
-        self.set_iterator(object_info, selected_name, '*' + name)
+            list_name = getter
+        self.set_iterator(object_info, list_name, '*' + name)
         writer.putlnc('for (%s %s(%s); !%s.end(); %s++) {',
-                      iter_type, name, selected_name, name, name)
+                      iter_type, name, list_name, name, name)
         writer.indent()
 
     def end_object_iteration(self, object_info, writer, name = 'it',
@@ -1555,17 +1539,6 @@ class Converter(object):
     def begin_events(self):
         pass
 
-    def create_list(self, object_info, writer):
-        if object_info in self.has_selection:
-            return self.has_selection[object_info]
-        name = self.get_object_name(object_info)
-        list_name = self.get_list_name(name)
-        list_type = get_list_type(object_info)
-        writer.putlnc('%s & %s = %s;', list_type, list_name,
-                      self.get_object(object_info, True))
-        self.set_list(object_info, list_name)
-        return list_name
-
     def set_object(self, object_info, name):
         self.has_single_selection[object_info] = name
 
@@ -1574,10 +1547,6 @@ class Converter(object):
 
     def clear_selection(self):
         self.has_selection = {}
-
-    def write_instance_check(self, object_info, writer):
-        writer.putln('if (%s.size() == 0) %s' % (
-            self.get_object(object_info, True), self.event_break))
 
     def write_container_check(self, group, writer):
         container = group.container
@@ -1742,14 +1711,7 @@ class Converter(object):
                     self.set_iterator(object_info, None, object_name)
                 elif object_name is not None and self.has_multiple_instances(
                         object_info):
-                    selected_name = self.get_list_name(
-                        self.get_object_name(object_info))
-                    if object_info not in self.has_selection:
-                        make_dict = self.get_object(object_info, True)
-                        list_type = get_list_type(object_info)
-                        writer.putlnc('%s & %s = %s;', list_type,
-                                      selected_name, make_dict)
-                        self.has_selection[object_info] = selected_name
+                    selected_name = self.create_list(object_info, writer)
                     if condition_writer.iterate_objects is not False:
                         has_multiple = True
                         self.set_iterator(object_info, selected_name)
@@ -1804,12 +1766,8 @@ class Converter(object):
             new_selection = {}
             if group.or_type == 'OrLogical':
                 for obj, or_bools in group.or_instance_groups.iteritems():
-                    list_name = self.get_list_name(self.get_object_name(obj))
-                    list_name = 'final_%s_%s' % (group.global_id, list_name)
+                    list_name = self.get_object_list(obj)
                     new_selection[obj] = list_name
-                    list_type = get_list_type(obj)
-                    writer.putlnc('%s & %s = %s;', list_type, list_name,
-                                  self.get_all_objects(obj))
                     or_list = group.or_selected[obj]
                     check = '%s' % (' || '.join(or_bools))
                     writer.putlnc('if (%s) {', check)
@@ -1851,16 +1809,7 @@ class Converter(object):
             if has_single:
                 object_name = self.has_single_selection[object_info]
             elif has_multiple:
-                if object_info in self.has_selection:
-                    list_name = self.has_selection[object_info]
-                else:
-                    list_name = self.get_list_name(
-                        self.get_object_name(object_info))
-                    make_dict = self.get_object(object_info, True)
-                    list_type = get_list_type(object_info)
-                    writer.putlnc('%s & %s = %s;', list_type, list_name,
-                                  make_dict)
-                    self.has_selection[object_info] = list_name
+                list_name = self.create_list(object_info, writer)
                 iter_type = get_iter_type(object_info)
                 writer.putlnc('for (%s it(%s); !it.end(); '
                               'it++) {', iter_type, list_name)
@@ -1931,7 +1880,7 @@ class Converter(object):
         for obj, list_name in self.has_selection.iteritems():
             new_list = group.or_selected[obj]
             writer.putlnc('%s.add(%s);', new_list,
-                          self.get_all_objects(obj))
+                          self.get_object_list(obj))
         writer.end_brace()
 
     def convert_static_expression(self, items, start=0, end=-1):
@@ -2080,8 +2029,15 @@ class Converter(object):
             return True
         return handle in self.multiple_instances
 
+    def create_list(self, object_info, writer):
+        list_name = self.get_object_list(object_info)
+        if object_info in self.has_selection:
+            return list_name
+        writer.putlnc('%s.clear_selection();', list_name)
+        self.set_list(object_info, list_name)
+        return list_name
 
-    def get_object(self, handle, as_list = False, use_default = False):
+    def get_object(self, handle, as_list=False, use_default=False):
         object_type = self.get_object_class(object_info = handle)
         use_index = hacks.use_iteration_index(self) and self.iterated_index
         if handle in self.has_single_selection:
@@ -2101,34 +2057,28 @@ class Converter(object):
                 ret = '((%s)get_single(%s))' % (object_type, args)
             return ret
         else:
+            name = self.get_object_list(handle)
+            if as_list:
+                self.set_list(handle, name)
+                return '%s.clear_selection()' % name
             type_id, is_qual = self.get_object_handle(handle)
-            args = [type_id]
-            if as_list:
-                if is_qual:
-                    getter_name = 'get_qualifiers'
-                else:
-                    getter_name = 'get_instances'
+            args = [name]
+            if use_index:
+                args.append(self.iterated_index)
+            if object_type == 'Active*' and not is_qual and use_default:
+                getter_name = 'get_active_instance'
+            elif is_qual:
+                getter_name = 'get_qualifier'
             else:
-                if use_index:
-                    args.append(self.iterated_index)
-                if object_type == 'Active*' and not is_qual and use_default:
-                    getter_name = 'get_active_instance'
-                elif is_qual:
-                    getter_name = 'get_qualifier'
-                else:
-                    getter_name = 'get_instance'
+                getter_name = 'get_instance'
             args = ', '.join(args)
-            if as_list:
-                return '%s(%s)' % (getter_name, args)
-            else:
-                return '((%s)%s(%s))' % (object_type, getter_name, args)
+            return '((%s)%s(%s))' % (object_type, getter_name, args)
 
-    def get_all_objects(self, handle):
+    def get_object_list(self, handle):
         type_id, is_qual = self.get_object_handle(handle)
         if is_qual:
             return type_id
-        func = 'get_all_instances'
-        return '%s(%s)' % (func, type_id)
+        return self.get_list_name(self.get_object_name(handle))
 
     def get_object_name(self, handle):
         if is_qualifier(handle):

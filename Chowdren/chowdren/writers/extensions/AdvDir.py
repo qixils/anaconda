@@ -17,7 +17,7 @@ class FindClosest(ActionWriter):
     def write(self, writer):
         writer.start_brace()
         object_info = self.parameters[0].loader.objectInfo
-        instances = self.converter.get_object(object_info, True)
+        instances = self.converter.create_list(object_info, writer)
         details = self.convert_index(1)
         x = str(details['x'])
         y = str(details['y'])

@@ -93,7 +93,7 @@ public:
     {
         if (proxy == -1)
             return;
-        get_instances(instance->id).tree.remove(proxy);
+        GameManager::instances.items[instance->id].tree.remove(proxy);
     }
 #endif
 
@@ -103,10 +103,12 @@ public:
         int v[4];
         get_box(v);
 
+        ObjectList & list = GameManager::instances.items[instance->id];
+
         if (proxy == -1)
-            proxy = get_instances(instance->id).tree.add(instance, v);
+            proxy = list.tree.add(instance, v);
         else
-            get_instances(instance->id).tree.move(proxy, v);
+            list.tree.move(proxy, v);
 #endif
     }
 };

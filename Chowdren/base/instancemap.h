@@ -4,24 +4,21 @@
 #include "chowconfig.h"
 #include "frameobject.h"
 
-template <int size>
-class BaseMap
+class InstanceMap
 {
 public:
-    ObjectList items[size];
+    ObjectList items[MAX_OBJECT_ID];
 
-    BaseMap()
+    InstanceMap()
     {
     }
 
     void clear()
     {
-        for (unsigned int i = 0; i < size; i++) {
+        for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
             items[i].clear();
         }
     }
 };
-
-typedef BaseMap<MAX_OBJECT_ID> InstanceMap;
 
 #endif // CHOWDREN_INSTANCEMAP_H

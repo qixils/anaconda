@@ -189,12 +189,13 @@ public:
         obj->index = i;
     }
 
-    void clear_selection()
+    ObjectList & clear_selection()
     {
         int size = items.size();
         items[0].next = size-1;
         for (int i = 1; i < size; i++)
             items[i].next = i-1;
+        return *this;
     }
 
     int get_selection_size();
@@ -360,11 +361,12 @@ public:
         return size;
     }
 
-    void clear_selection()
+    QualifierList & clear_selection()
     {
         for (int i = 0; i < count; i++) {
             items[i]->clear_selection();
         }
+        return *this;
     }
 
     bool has_selection()

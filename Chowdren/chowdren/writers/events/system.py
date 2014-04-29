@@ -94,10 +94,10 @@ class SystemObject(ObjectWriter):
                           converter.get_object(other_info, True),
                           selected_name, other_selected, end_name)
             for group in groups:
-
                 cond.add_collision_objects(object_info, other_info)
-                converter.set_list(object_info, selected_name)
-                converter.set_list(other_info, other_selected)
+
+                # converter.set_list(object_info, selected_name)
+                # converter.set_list(other_info, other_selected)
                 converter.write_event(writer, group, True)
             writer.put_label(end_name)
         writer.end_brace()
@@ -430,7 +430,7 @@ class NumberOfObjects(ComparisonWriter):
 
     def get_comparison_value(self):
         object_info = self.data.objectInfo
-        return '%s.size()' % self.converter.get_all_objects(object_info)
+        return '%s.size()' % self.converter.get_object_list(object_info)
 
 class CompareFixedValue(ConditionWriter):
     custom = True
@@ -450,9 +450,7 @@ class CompareFixedValue(ConditionWriter):
         else:
             instance_value = 'get_object_from_fixed(%s)' % value
 
-        selected_name = converter.get_list_name(converter.get_object_name(
-            object_info))
-        get_list = converter.get_object(object_info, True)
+        list_name = converter.create_list(object_info, writer)
 
         fixed_name = 'fixed_test_%s' % get_id(self)
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
@@ -460,30 +458,22 @@ class CompareFixedValue(ConditionWriter):
             event_break = converter.event_break
         else:
             event_break = 'goto %s;' % end_label
-        if test_all and not has_selection:
-            list_type = get_list_type(object_info)
-            writer.putlnc('%s & %s = %s;', list_type, selected_name, get_list)
+
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
         if test_all:
-            iter_type = get_iter_type(object_info)
-            writer.putlnc('for (%s it(%s); !it.end(); it++) {', iter_type,
-                          selected_name)
-            writer.indent()
-            writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
-                          fixed_name)
-            writer.end_brace()
+            with converter.iterate_object(object_info, writer, copy=False):
+                writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
+                              fixed_name)
             if not is_equal:
                 writer.put_label(end_label)
-            writer.putln('if (%s.empty()) %s' % (selected_name,
-                                                 converter.event_break))
+            writer.putlnc('if (!%s.has_selection()) %s', list_name,
+                          converter.event_break)
         else:
             writer.putln('make_single_list(%s, %s);' % (fixed_name,
-                                                        selected_name))
+                                                        list_name))
             if not is_equal:
                 writer.put_label(end_label)
-
-        converter.set_list(object_info, selected_name)
 
 class AnyKeyPressed(ConditionMethodWriter):
     is_always = True
@@ -539,10 +529,7 @@ class CreateBase(ActionWriter):
             create_object = details['create_object']
         if object_info != parent:
             if object_info not in self.converter.has_selection:
-                create_name = self.converter.get_object_name(create_object)
-                list_name = self.converter.get_list_name(create_name)
-                getter = self.converter.get_all_objects(create_object)
-                writer.putlnc('ObjectList & %s = %s;', list_name, getter)
+                list_name = self.converter.get_object_list(object_info)
                 writer.putlnc('%s.empty_selection();', list_name)
                 self.converter.set_list(object_info, list_name)
         if parent is not None:
@@ -966,7 +953,7 @@ class ObjectCount(ExpressionWriter):
     has_object = False
 
     def get_string(self):
-        instances = self.converter.get_all_objects(self.data.objectInfo)
+        instances = self.converter.get_object_list(self.data.objectInfo)
         return '%s.size()' % instances
 
 class ToString(ExpressionWriter):

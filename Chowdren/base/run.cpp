@@ -457,7 +457,7 @@ bool GameManager::update()
             << std::endl;
         int count = 0;
         for (int i = 0; i < MAX_OBJECT_ID; i++) {
-            count += get_all_instances(i).size();
+            count += GameManager::instances.items[i].size();
         }
         std::cout << "Instance count: " << count << std::endl;
         platform_print_stats();

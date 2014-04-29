@@ -511,13 +511,6 @@ void Frame::clean_instances()
          it++) {
         FrameObject * instance = *it;
         GameManager::instances.items[instance->id].remove(instance);
-        // if (instance->qualifiers != 0) {
-        //     for (int i = 0; i < MAX_QUALIFIER_ID; i++) {
-        //         if ((instance->qualifiers & (1 << i)) == 0)
-        //             continue;
-        //         GameManager::qualifiers.items[i].remove(instance);
-        //     }
-        // }
         instance->layer->remove_object(instance);
         delete instance;
     }
@@ -651,13 +644,6 @@ FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
     instance->frame = this;
     instance->layer = layer;
     GameManager::instances.items[instance->id].add(instance);
-    // if (instance->qualifiers != 0) {
-    //     for (int i = 0; i < MAX_QUALIFIER_ID; i++) {
-    //         if ((instance->qualifiers & (1 << i)) == 0)
-    //             continue;
-    //         GameManager::qualifiers.items[i].add(instance);
-    //     }
-    // }
     layer->add_object(instance);
     return instance;
 }

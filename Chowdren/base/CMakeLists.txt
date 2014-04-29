@@ -63,6 +63,7 @@ endif()
 set(SRCS
     ${OBJECTSRCS}
     fonts.cpp
+    lists.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${CHOWDREN_BASE_DIR}/desktop/glc.cpp

@@ -60,6 +60,7 @@ public:
     ~DynamicTree();
     int32 CreateProxy(const AABB& aabb, void* userData);
     void remove(int32 proxyId);
+    void clear();
     bool MoveProxy(int32 proxyId, const AABB& aabb1,
                    const chowVec2& displacement);
     void* GetUserData(int32 proxyId) const;

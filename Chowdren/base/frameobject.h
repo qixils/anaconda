@@ -43,6 +43,7 @@ public:
     std::string name;
 #endif
     int index;
+    int depth; // only for background instances
     int x, y;
     int width, height;
     int direction;
@@ -146,7 +147,7 @@ Its layout is as such:
 When the current selection is cleared, the first item points to the end of
 the array, so the most recently added instance is always iterated first.
 The next instance will be set to current_index-1, etc., until the first item
-is met.
+is met. The first item is then always the last item pointed to by another item.
 */
 
 class ObjectList

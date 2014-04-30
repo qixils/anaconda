@@ -281,8 +281,9 @@ void platform_create_display(bool fullscreen)
         return;
     }
 
-    if (!SDL_GL_SetSwapInterval(-1)) // late swap tearing
-        SDL_GL_SetSwapInterval(1); // normal vsync
+    SDL_GL_SetSwapInterval(0);
+    // if (!SDL_GL_SetSwapInterval(-1)) // late swap tearing
+    //     SDL_GL_SetSwapInterval(1); // normal vsync
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL extensions

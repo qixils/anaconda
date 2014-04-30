@@ -57,8 +57,7 @@ DynamicTree::~DynamicTree()
 int32 DynamicTree::AllocateNode()
 {
     // Expand the node pool as needed.
-    if (m_freeList == chow_nullNode)
-    {
+    if (m_freeList == chow_nullNode) {
         chowAssert(m_nodeCount == m_nodeCapacity);
 
         // The free list is empty. Rebuild a bigger pool.
@@ -70,8 +69,7 @@ int32 DynamicTree::AllocateNode()
 
         // Build a linked list for the free list. The parent
         // pointer becomes the "next" pointer.
-        for (int32 i = m_nodeCount; i < m_nodeCapacity - 1; ++i)
-        {
+        for (int32 i = m_nodeCount; i < m_nodeCapacity - 1; ++i) {
             m_nodes[i].next = i + 1;
             m_nodes[i].height = -1;
         }
@@ -135,6 +133,26 @@ void DynamicTree::remove(int32 proxyId)
 
     RemoveLeaf(proxyId);
     FreeNode(proxyId);
+}
+
+void DynamicTree::clear()
+{
+    memset(m_nodes, 0, m_nodeCapacity * sizeof(TreeNode));
+
+    // Build a linked list for the free list.
+    for (int32 i = 0; i < m_nodeCapacity - 1; ++i)
+    {
+        m_nodes[i].next = i + 1;
+        m_nodes[i].height = -1;
+    }
+    m_nodes[m_nodeCapacity-1].next = chow_nullNode;
+    m_nodes[m_nodeCapacity-1].height = -1;
+    m_freeList = 0;
+    m_nodeCount = 0;
+
+    m_path = 0;
+
+    m_insertionCount = 0;
 }
 
 bool DynamicTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displacement)

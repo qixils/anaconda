@@ -19,9 +19,6 @@ Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
 // Background
 
 Background::Background()
-#ifdef CHOWDREN_USE_COLTREE
-: tree(0, 0, global_manager->frame->width, global_manager->frame->height)
-#endif
 {
 }
 
@@ -104,7 +101,8 @@ void Background::paste(Image * img, int dest_x, int dest_y,
 #ifdef CHOWDREN_USE_COLTREE
         int x2 = dest_x + src_width;
         int y2 = dest_y + src_height;
-        item->col = tree.add(&item, dest_x, dest_y, x2, y2);
+        int v[4] = {dest_x, dest_y, x2, y2};
+        item->col = tree.add(&item, v);
 #endif
     } else {
         items.push_back(item);
@@ -146,7 +144,7 @@ bool Background::collide(CollisionBase * a)
     int box[4];
     a->get_box(box);
     BackgroundItemCallback callback(a);
-    if (!tree.query(box[0], box[1], box[2], box[3], callback))
+    if (!tree.query(box, callback))
         return true;
 #else
     BackgroundItems::iterator it;
@@ -164,11 +162,6 @@ bool Background::collide(CollisionBase * a)
 Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
   index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
-#ifdef CHOWDREN_USE_COLTREE
-  , tree(0, 0, global_manager->frame->width, global_manager->frame->height)//,
-    // display_tree(0, 0, global_manager->frame->width,
-    //              global_manager->frame->height)
-#endif
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_TV_TARGET;
@@ -239,7 +232,7 @@ void Layer::add_background_object(FrameObject * instance)
                        x1, y1, x2, y2);
         }
 #ifdef CHOWDREN_USE_COLTREE
-        tree.add(col, b[0], b[1], b[2], b[3]);
+        tree.add(col, b);
 #endif
     }
 
@@ -253,7 +246,7 @@ void Layer::add_background_object(FrameObject * instance)
 
     display_tree.add(instance, b);
 #endif
-
+    instance->depth = background_instances.size();
     background_instances.push_back(instance);
 }
 
@@ -338,7 +331,7 @@ bool Layer::test_background_collision(CollisionBase * a)
         return true;
 #ifdef CHOWDREN_USE_COLTREE
     BackgroundCallback callback(a);
-    if (!tree.query(b[0], b[1], b[2], b[3], callback))
+    if (!tree.query(b, callback))
         return true;
 #else
     FlatObjectList::const_iterator it;
@@ -385,17 +378,39 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
 
 struct BackgroundDrawCallback
 {
-    BackgroundDrawCallback()
+    FlatObjectList & list;
+
+    BackgroundDrawCallback(FlatObjectList & list)
+    : list(list)
     {
     }
 
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
-        item->draw();
+        list.push_back(item);
         return true;
     }
 };
+
+inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
+{
+    return obj1->depth < obj2->depth;
+}
+
+inline void sort_depth(FlatObjectList & list)
+{
+    std::sort(list.begin(), list.end(), sort_depth_comp);
+}
+
+inline void draw_sorted_list(FlatObjectList & list)
+{
+    sort_depth(list);
+    FlatObjectList::const_iterator it;
+    for (it = list.begin(); it != list.end(); it++) {
+        (*it)->draw();
+    }
+}
 
 void Layer::draw()
 {
@@ -413,9 +428,12 @@ void Layer::draw()
     FlatObjectList::const_iterator it;
 
 #ifdef CHOWDREN_USE_COLTREE
-    BackgroundDrawCallback callback;
+    static FlatObjectList draw_list;
+    draw_list.clear();
+    BackgroundDrawCallback callback(draw_list);
     int v[4] = {x1-x, y1-y, x2-x, y2-y};
     display_tree.query(v, callback);
+    draw_sorted_list(draw_list);
 #else
     for (it = background_instances.begin(); it != background_instances.end();
          it++) {
@@ -1427,6 +1445,11 @@ void Active::update(float dt)
     if (!visible)
         return;
 
+    if (animation_finished == DISAPPEARING) {
+        FrameObject::destroy();
+        return;
+    }
+
     animation_finished = -1;
 
     if (forced_frame != -1 || stopped)
@@ -1455,9 +1478,7 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-        if (forced_animation == DISAPPEARING)
-            FrameObject::destroy();
-        else if (forced_animation == APPEARING)
+        if (forced_animation == APPEARING)
             restore_animation();
     }
     if (animation_frame != old_frame)

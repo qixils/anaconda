@@ -24,7 +24,7 @@
 #include "../../Collision/Shapes/b2PolygonShape.h"
 
 #include <new>
-#include <cstring>
+#include <string.h>
 
 b2Contact* b2PolyAndEdgeContact::Create(b2Shape* shape1, b2Shape* shape2, b2BlockAllocator* allocator)
 {
@@ -55,9 +55,9 @@ void b2PolyAndEdgeContact::Collide()
 }
 
 void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
-														  const b2PolygonShape* polygon, 
+														  const b2PolygonShape* polygon,
 														  const b2XForm& xf1,
-														  const b2EdgeShape* edge, 
+														  const b2EdgeShape* edge,
 														  const b2XForm& xf2)
 {
 	manifold->pointCount = 0;
@@ -67,7 +67,7 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 	b2Vec2 v1Local = b2MulT(xf1, v1);
 	b2Vec2 v2Local = b2MulT(xf1, v2);
 	b2Vec2 nLocal = b2MulT(xf1.R, n);
-		
+
 	float32 separation1;
 	int32 separationIndex1 = -1; // which normal on the poly found the shallowest depth?
 	float32 separationMax1 = -B2_FLT_MAX; // the shallowest depth of edge in poly
@@ -77,29 +77,29 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 	float32 separationMax = -B2_FLT_MAX; // the shallowest depth of edge in poly
 	bool separationV1 = false; // is the shallowest depth from edge's v1 or v2 vertex?
 	int32 separationIndex = -1; // which normal on the poly found the shallowest depth?
-		
+
 	int32 vertexCount = polygon->GetVertexCount();
 	const b2Vec2* vertices = polygon->GetVertices();
 	const b2Vec2* normals = polygon->GetNormals();
-		
+
 	int32 enterStartIndex = -1; // the last poly vertex above the edge
 	int32 enterEndIndex = -1; // the first poly vertex below the edge
 	int32 exitStartIndex = -1; // the last poly vertex below the edge
 	int32 exitEndIndex = -1; // the first poly vertex above the edge
 	//int32 deepestIndex;
-	
-	// the "N" in the following variables refers to the edge's normal. 
-	// these are projections of poly vertices along the edge's normal, 
-	// a.k.a. they are the separation of the poly from the edge. 
+
+	// the "N" in the following variables refers to the edge's normal.
+	// these are projections of poly vertices along the edge's normal,
+	// a.k.a. they are the separation of the poly from the edge.
 	float32 prevSepN = 0.0f;
 	float32 nextSepN = 0.0f;
 	float32 enterSepN = 0.0f; // the depth of enterEndIndex under the edge (stored as a separation, so it's negative)
 	float32 exitSepN = 0.0f; // the depth of exitStartIndex under the edge (stored as a separation, so it's negative)
 	float32 deepestSepN = B2_FLT_MAX; // the depth of the deepest poly vertex under the end (stored as a separation, so it's negative)
-	
-	
-	// for each poly normal, get the edge's depth into the poly. 
-	// for each poly vertex, get the vertex's depth into the edge. 
+
+
+	// for each poly normal, get the edge's depth into the poly.
+	// for each poly vertex, get the vertex's depth into the edge.
 	// use these calculations to define the remaining variables declared above.
 	prevSepN = b2Dot(vertices[vertexCount-1] - v1Local, nLocal);
 	for (int32 i = 0; i < vertexCount; i++)
@@ -127,7 +127,7 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 			separationMax2 = separation2;
 			separationIndex2 = i;
 		}
-		
+
 		nextSepN = b2Dot(vertices[i] - v1Local, nLocal);
 		if (nextSepN >= 0.0f && prevSepN < 0.0f) {
 			exitStartIndex = (i == 0) ? vertexCount-1 : i-1;
@@ -144,7 +144,7 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 		}
 		prevSepN = nextSepN;
 	}
-	
+
 	if (enterStartIndex == -1) {
 		// poly is entirely below or entirely above edge, return with no contact:
 		return;
@@ -153,13 +153,13 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 		// poly is laterally disjoint with edge, return with no contact:
 		return;
 	}
-	
+
 	// if the poly is near a convex corner on the edge
 	if ((separationV1 && edge->Corner1IsConvex()) || (!separationV1 && edge->Corner2IsConvex())) {
-		// if shallowest depth was from edge into poly, 
+		// if shallowest depth was from edge into poly,
 		// use the edge's vertex as the contact point:
 		if (separationMax > deepestSepN + edge->settings->b2_linearSlop) {
-			// if -normal angle is closer to adjacent edge than this edge, 
+			// if -normal angle is closer to adjacent edge than this edge,
 			// let the adjacent edge handle it and return with no contact:
 			if (separationV1) {
 				if (b2Dot(normals[separationIndex1], b2MulT(xf1.R, b2Mul(xf2.R, edge->GetCorner1Vector()))) >= 0.0f) {
@@ -170,7 +170,7 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 					return;
 				}
 			}
-			
+
 			manifold->pointCount = 1;
 			manifold->normal = b2Mul(xf1.R, normals[separationIndex]);
 			manifold->points[0].separation = separationMax;
@@ -188,10 +188,10 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 			return;
 		}
 	}
-	
+
 	// We're going to use the edge's normal now.
 	manifold->normal = (-1.0f) * n;
-	
+
 	// Check whether we only need one contact point.
 	if (enterEndIndex == exitStartIndex) {
 		manifold->pointCount = 1;
@@ -204,17 +204,17 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 		manifold->points[0].separation = enterSepN;
 		return;
 	}
-		
+
 	manifold->pointCount = 2;
-	
+
 	// dirLocal should be the edge's direction vector, but in the frame of the polygon.
 	b2Vec2 dirLocal = b2Cross(nLocal, -1.0f); // TODO: figure out why this optimization didn't work
 	//b2Vec2 dirLocal = b2MulT(xf1.R, b2Mul(xf2.R, edge->GetDirectionVector()));
-	
+
 	float32 dirProj1 = b2Dot(dirLocal, vertices[enterEndIndex] - v1Local);
 	float32 dirProj2;
-	
-	// The contact resolution is more robust if the two manifold points are 
+
+	// The contact resolution is more robust if the two manifold points are
 	// adjacent to each other on the polygon. So pick the first two poly
 	// vertices that are under the edge:
 	exitEndIndex = (enterEndIndex == vertexCount - 1) ? 0 : enterEndIndex + 1;
@@ -223,12 +223,12 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 		exitSepN = b2Dot(nLocal, vertices[exitStartIndex] - v1Local);
 	}
 	dirProj2 = b2Dot(dirLocal, vertices[exitStartIndex] - v1Local);
-	
+
 	manifold->points[0].id.features.incidentEdge = (uint8)enterEndIndex;
 	manifold->points[0].id.features.incidentVertex = b2_nullFeature;
 	manifold->points[0].id.features.referenceEdge = 0;
 	manifold->points[0].id.features.flip = 0;
-	
+
 	if (dirProj1 > edge->GetLength()) {
 		manifold->points[0].localPoint1 = v2Local;
 		manifold->points[0].localPoint2 = edge->GetVertex2();
@@ -243,12 +243,12 @@ void b2PolyAndEdgeContact::b2CollidePolyAndEdge(b2Manifold* manifold,
 		manifold->points[0].localPoint2 = b2MulT(xf2, b2Mul(xf1, vertices[enterEndIndex]));
 		manifold->points[0].separation = enterSepN;
 	}
-		
+
 	manifold->points[1].id.features.incidentEdge = (uint8)exitStartIndex;
 	manifold->points[1].id.features.incidentVertex = b2_nullFeature;
 	manifold->points[1].id.features.referenceEdge = 0;
 	manifold->points[1].id.features.flip = 0;
-		
+
 	if (dirProj2 < 0.0f) {
 		manifold->points[1].localPoint1 = v1Local;
 		manifold->points[1].localPoint2 = edge->GetVertex1();

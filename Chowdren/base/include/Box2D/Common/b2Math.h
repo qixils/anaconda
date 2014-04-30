@@ -21,8 +21,8 @@
 
 #include "b2Settings.h"
 #include <math.h>
-#include <cfloat>
-#include <cstdlib>
+#include <float.h>
+#include <stdlib.h>
 
 #include <stdio.h>
 

@@ -29,7 +29,7 @@ Bullet (http:/www.bulletphysics.com).
 #include "../Common/b2Settings.h"
 #include "b2Collision.h"
 #include "b2PairManager.h"
-#include <climits>
+#include <limits.h>
 
 #ifdef TARGET_FLOAT32_IS_FIXED
 #define	B2BROADPHASE_MAX	(USHRT_MAX/2)

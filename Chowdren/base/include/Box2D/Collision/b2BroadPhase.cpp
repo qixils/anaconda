@@ -21,7 +21,7 @@
 #include "../Dynamics/b2Body.h"
 #include <algorithm>
 
-#include <cstring>
+#include <string.h>
 
 // Notes:
 // - we use bound arrays instead of linked lists for cache coherence.

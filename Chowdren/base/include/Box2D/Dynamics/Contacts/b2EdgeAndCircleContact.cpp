@@ -23,7 +23,7 @@
 #include "../../Collision/Shapes/b2EdgeShape.h"
 
 #include <new>
-#include <cstring>
+#include <string.h>
 
 b2Contact* b2EdgeAndCircleContact::Create(b2Shape* shape1, b2Shape* shape2, b2BlockAllocator* allocator)
 {
@@ -57,9 +57,9 @@ void b2EdgeAndCircleContact::Collide()
 }
 
 void b2EdgeAndCircleContact::b2CollideEdgeAndCircle(b2Manifold* manifold,
-																const b2EdgeShape* edge, 
+																const b2EdgeShape* edge,
 																const b2XForm& xf1,
-																const b2CircleShape* circle, 
+																const b2CircleShape* circle,
 																const b2XForm& xf2)
 {
 	manifold->pointCount = 0;
@@ -71,7 +71,7 @@ void b2EdgeAndCircleContact::b2CollideEdgeAndCircle(b2Manifold* manifold,
 	b2Vec2 v2 = edge->GetVertex2();
 	float32 radius = circle->GetRadius();
 	float32 separation;
-	
+
 	float32 dirDist = b2Dot((cLocal - v1), edge->GetDirectionVector());
 	if (dirDist <= 0) {
 		d = cLocal - v1;
@@ -100,13 +100,13 @@ void b2EdgeAndCircleContact::b2CollideEdgeAndCircle(b2Manifold* manifold,
 		manifold->points[0].localPoint2 = b2MulT(xf2, c);
 		return;
 	}
-	
+
 	float32 distSqr = b2Dot(d,d);
 	if (distSqr > radius * radius)
 	{
 		return;
 	}
-	
+
 	if (distSqr < B2_FLT_EPSILON)
 	{
 		separation = -radius;
@@ -117,7 +117,7 @@ void b2EdgeAndCircleContact::b2CollideEdgeAndCircle(b2Manifold* manifold,
 		separation = d.Normalize() - radius;
 		manifold->normal = d;
 	}
-	
+
 	manifold->pointCount = 1;
 	manifold->points[0].id.key = 0;
 	manifold->points[0].separation = separation;

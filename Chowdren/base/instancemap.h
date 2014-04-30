@@ -4,10 +4,23 @@
 #include "chowconfig.h"
 #include "frameobject.h"
 
+class ManagerObjectList : public ObjectList
+{
+public:
+#ifdef CHOWDREN_USE_DYNTREE
+    DynamicTree tree;
+#endif
+
+    ManagerObjectList()
+    : ObjectList()
+    {
+    }
+};
+
 class InstanceMap
 {
 public:
-    ObjectList items[MAX_OBJECT_ID];
+    ManagerObjectList items[MAX_OBJECT_ID];
 
     InstanceMap()
     {

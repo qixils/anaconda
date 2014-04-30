@@ -45,7 +45,7 @@ void FPSLimiter::start()
 
 void FPSLimiter::finish()
 {
-#ifndef CHOWDREN_IS_EMSCRIPTEN
+#ifdef CHOWDREN_IS_DESKTOP
     if (framerate >= 100)
         return;
     platform_sleep(next_update - platform_get_time());

@@ -16,7 +16,7 @@ typedef enum
 
 #ifdef CHOWDREN_USE_FT2
 
-#include <cmath>
+#include <math.h>
 #include "include_gl.h"
 #include <vector>
 #include "datastream.h"
@@ -344,11 +344,11 @@ public:
     virtual float Ascender() const;
     virtual float Descender() const;
     virtual float LineHeight() const;
-    virtual FTBBox BBox(const char *s, const int len = -1, 
-                        FTPoint position = FTPoint(), 
+    virtual FTBBox BBox(const char *s, const int len = -1,
+                        FTPoint position = FTPoint(),
                         FTPoint spacing = FTPoint());
-    virtual FTBBox BBox(const wchar_t *s, const int len = -1, 
-                        FTPoint position = FTPoint(), 
+    virtual FTBBox BBox(const wchar_t *s, const int len = -1,
+                        FTPoint position = FTPoint(),
                         FTPoint spacing = FTPoint());
     virtual float Advance(const char *s, const int len = -1,
                           FTPoint spacing = FTPoint());

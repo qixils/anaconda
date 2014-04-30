@@ -165,9 +165,9 @@ Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
   index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
 #ifdef CHOWDREN_USE_COLTREE
-  , tree(0, 0, global_manager->frame->width, global_manager->frame->height),
-    display_tree(0, 0, global_manager->frame->width,
-                 global_manager->frame->height)
+  , tree(0, 0, global_manager->frame->width, global_manager->frame->height)//,
+    // display_tree(0, 0, global_manager->frame->width,
+    //              global_manager->frame->height)
 #endif
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
@@ -251,7 +251,7 @@ void Layer::add_background_object(FrameObject * instance)
         b[3] = b[1] + instance->height;
     }
 
-    display_tree.add(instance, b[0], b[1], b[2], b[3]);
+    display_tree.add(instance, b);
 #endif
 
     background_instances.push_back(instance);
@@ -341,7 +341,7 @@ bool Layer::test_background_collision(CollisionBase * a)
     if (!tree.query(b[0], b[1], b[2], b[3], callback))
         return true;
 #else
-    ObjectList::const_iterator it;
+    FlatObjectList::const_iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
          it++) {
         CollisionBase * col = (*it)->get_collision();
@@ -414,7 +414,8 @@ void Layer::draw()
 
 #ifdef CHOWDREN_USE_COLTREE
     BackgroundDrawCallback callback;
-    display_tree.query(x1-x, y1-y, x2-x, y2-y, callback);
+    int v[4] = {x1-x, y1-y, x2-x, y2-y};
+    display_tree.query(v, callback);
 #else
     for (it = background_instances.begin(); it != background_instances.end();
          it++) {
@@ -492,7 +493,6 @@ void Frame::on_end()
     }
     layers.clear();
     GameManager::instances.clear();
-    // GameManager::qualifiers.clear();
     destroyed_instances.clear();
     next_frame = -1;
     loop_count = 0;
@@ -544,9 +544,14 @@ bool Frame::update(float dt)
 
     PROFILE_END();
 
+    PROFILE_BEGIN(clean_instances);
     clean_instances();
+    PROFILE_END();
+
+    PROFILE_BEGIN(handle_events);
     handle_events();
     update_display_center();
+    PROFILE_END();
 
     last_key = -1;
 
@@ -1418,6 +1423,10 @@ void Active::update_action_point()
 
 void Active::update(float dt)
 {
+    // XXX is this a good idea?
+    if (!visible)
+        return;
+
     animation_finished = -1;
 
     if (forced_frame != -1 || stopped)

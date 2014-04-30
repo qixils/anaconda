@@ -20,7 +20,7 @@
 #define B2_MATH_H
 
 #include "b2Settings.h"
-#include <cmath>
+#include <math.h>
 #include <cfloat>
 #include <cstdlib>
 
@@ -56,14 +56,13 @@ inline bool b2IsValid(Fixed x)
 
 /// This function is used to ensure that a floating point number is
 /// not a NaN or infinity.
-#include <math.h>
 
 inline bool b2IsValid(float32 x)
 {
 #ifdef _MSC_VER
 	return _finite(x) != 0;
 #else
-	return std::isfinite(x) != 0;
+	return isfinite(x) != 0;
 #endif
 }
 

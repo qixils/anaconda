@@ -46,6 +46,10 @@ GameManager::GameManager()
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
   fade_value(0.0f), fade_dir(0.0f), lives(0)
 {
+#ifdef CHOWDREN_USE_PROFILER
+    PROFILE_SET_DAMPING(0.0);
+#endif
+
     global_manager = this;
 
 #ifdef CHOWDREN_IS_DEMO

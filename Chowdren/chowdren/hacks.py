@@ -70,9 +70,8 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_TEXT_USE_UTF8')
         writer.putln('#define CHOWDREN_TEXT_JAPANESE')
         writer.putln('#define CHOWDREN_BIG_FONT_OFFY 1')
-    if not is_knytt:
+    if is_anne or is_avgn:
         writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_STARTUP_WINDOW')
-    if not is_knytt or is_knytt_japan:
-        writer.putln('#define CHOWDREN_USE_DYNTREE')
+    writer.putln('#define CHOWDREN_USE_DYNTREE')

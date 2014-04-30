@@ -103,7 +103,7 @@ public:
         int v[4];
         get_box(v);
 
-        ObjectList & list = GameManager::instances.items[instance->id];
+        ManagerObjectList & list = GameManager::instances.items[instance->id];
 
         if (proxy == -1)
             proxy = list.tree.add(instance, v);

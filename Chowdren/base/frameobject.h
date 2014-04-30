@@ -154,9 +154,6 @@ class ObjectList
 public:
     ObjectListItems items;
     typedef ObjectListItems::iterator iterator;
-#ifdef CHOWDREN_USE_DYNTREE
-    DynamicTree tree;
-#endif
 
     ObjectList()
     {
@@ -250,6 +247,11 @@ public:
         items[0].next = LAST_SELECTED;
     }
 
+    void copy(ObjectList & other)
+    {
+        items = other.items;
+    }
+
     void remove(FrameObject * obj)
     {
         for (int i = obj->index+1; i < int(items.size()); i++) {
@@ -258,6 +260,12 @@ public:
         }
 
         items.resize(items.size()-1);
+    }
+
+    void select_single(FrameObject * obj)
+    {
+        items[0].next = obj->index;
+        items[obj->index].next = LAST_SELECTED;
     }
 };
 
@@ -338,6 +346,12 @@ public:
     ObjectList ** items;
     ObjectList * last;
 
+    QualifierList()
+    : count(0), items(NULL), last(NULL)
+    {
+        // for copies
+    }
+
     QualifierList(int n, ...)
     {
         count = n;
@@ -357,6 +371,15 @@ public:
         int size = 0;
         for (int i = 0; i < count; i++) {
             size += items[i]->size();
+        }
+        return size;
+    }
+
+    int get_selection_size()
+    {
+        int size = 0;
+        for (int i = 0; i < count; i++) {
+            size += items[i]->get_selection_size();
         }
         return size;
     }
@@ -415,6 +438,49 @@ public:
             index -= size;
         }
         return NULL;
+    }
+
+    void select_single(FrameObject * obj)
+    {
+        int i;
+        for (i = 0; i < count; i++) {
+            ObjectList & list = *items[i];
+            if (list.empty()) {
+                list.empty_selection();
+                continue;
+            }
+            if (list[0]->id != obj->id) {
+                list.empty_selection();
+                continue;
+            }
+            list.select_single(obj);
+            break;
+        }
+
+        while (i < count) {
+            items[i]->empty_selection();
+            i++;
+        }
+    }
+
+    void copy(QualifierList & list)
+    {
+        if (items == NULL) {
+            // XXX this currently leaks, but we always declare copied lists
+            // as static variables, so we should never have to free anything
+            // anyway
+            count = list.count;
+            items = new ObjectList*[count+1];
+            for (int i = 0; i < count; i++) {
+                items[i] = new ObjectList;
+            }
+            items[count] = NULL;
+            last = items[count-1];
+        }
+
+        for (int i = 0; i < count; i++) {
+            items[i]->copy(*list.items[i]);
+        }
     }
 };
 

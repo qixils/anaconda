@@ -450,8 +450,6 @@ class CompareFixedValue(ConditionWriter):
         else:
             instance_value = 'get_object_from_fixed(%s)' % value
 
-        list_name = converter.create_list(object_info, writer)
-
         fixed_name = 'fixed_test_%s' % get_id(self)
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         if is_equal:
@@ -462,6 +460,7 @@ class CompareFixedValue(ConditionWriter):
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
         if test_all:
+            list_name = converter.create_list(object_info, writer)
             with converter.iterate_object(object_info, writer, copy=False):
                 writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
                               fixed_name)
@@ -470,10 +469,7 @@ class CompareFixedValue(ConditionWriter):
             writer.putlnc('if (!%s.has_selection()) %s', list_name,
                           converter.event_break)
         else:
-            writer.putln('make_single_list(%s, %s);' % (fixed_name,
-                                                        list_name))
-            if not is_equal:
-                writer.put_label(end_label)
+            converter.set_object(object_info, fixed_name)
 
 class AnyKeyPressed(ConditionMethodWriter):
     is_always = True
@@ -532,10 +528,14 @@ class CreateBase(ActionWriter):
                 list_name = self.converter.get_object_list(object_info)
                 writer.putlnc('%s.empty_selection();', list_name)
                 self.converter.set_list(object_info, list_name)
-        if parent is not None:
+        single_parent = self.converter.get_single(parent)
+        if single_parent:
+            parent = single_parent
+        elif parent is not None:
             self.converter.start_object_iteration(parent, writer, 'p_it',
                                                   copy=False)
-            writer.putln('FrameObject * parent = *p_it;')
+            writer.putlnc('FrameObject * parent = *p_it;')
+            parent = 'parent'
         writer.start_brace()
         if parent is not None and not is_shoot:
             if use_action_point:
@@ -547,31 +547,28 @@ class CreateBase(ActionWriter):
             if details.get('transform_position_direction', False):
                 writer.putln('int x_off = %s;' % x)
                 writer.putln('int y_off = %s;' % y)
-                writer.putln('transform_pos(x_off, y_off, parent);')
+                writer.putlnc('transform_pos(x_off, y_off, %s);', parent)
                 x = 'x_off'
                 y = 'y_off'
             if use_direction:
-                direction = 'parent->direction'
-            x = 'parent->%s + %s' % (parent_x, x)
-            y = 'parent->%s + %s' % (parent_y, y)
-            layer = 'parent->layer'
+                direction = '%s->direction' % parent
+            x = '%s->%s + %s' % (parent, parent_x, x)
+            y = '%s->%s + %s' % (parent, parent_y, y)
+            layer = '%s->layer' % parent
         elif is_shoot:
-            layer = 'parent->layer'
+            layer = '%s->layer' % parent
         else:
             layer = details['layer']
         writer.putlnc('FrameObject * new_obj; // %s', details)
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
-        # if object_info != parent:
-        #     list_name = self.converter.has_selection[object_info]
-        #     writer.putln('%s.push_back(new_obj);' % (list_name))
         if is_shoot:
-            writer.putlnc('parent->shoot(new_obj, %s, %s);',
+            writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
                           details['shoot_speed'], direction)
         elif direction:
             writer.putln('new_obj->set_direction(%s);' % direction)
         writer.end_brace()
-        if parent is not None:
+        if parent is not None and not single_parent:
             self.converter.end_object_iteration(parent, writer, 'p_it',
                                                 copy=False)
         if False: # action_name == 'DisplayText':
@@ -591,33 +588,44 @@ class SetPosition(ActionWriter):
     def write(self, writer):
         object_info, object_type = self.get_object()
 
-        with self.converter.iterate_object(object_info, writer, copy=False):
-            details = self.convert_index(0)
-            x = str(details['x'])
-            y = str(details['y'])
-            parent = details.get('parent', None)
-            if parent is not None:
-                parent = self.converter.get_object(parent)
-                writer.putln('FrameObject * parent = %s;' % parent)
-                if details.get('use_action_point', False):
-                    parent_x = 'get_action_x()'
-                    parent_y = 'get_action_y()'
-                else:
-                    parent_x = 'get_x()'
-                    parent_y = 'get_y()'
-                if details.get('transform_position_direction', False):
-                    writer.putln('int x_off = %s;' % x)
-                    writer.putln('int y_off = %s;' % y)
-                    writer.putln('transform_pos(x_off, y_off, parent);')
-                    x = 'x_off'
-                    y = 'y_off'
-                if details.get('use_direction', False):
-                    writer.putln('(*it)->set_direction(parent->direction);')
-                x = 'parent->%s + %s' % (parent_x, x)
-                y = 'parent->%s + %s' % (parent_y, y)
-            arguments = [x, y]
-            writer.putln('(*it)->set_global_position(%s); // %s' % (
-                ', '.join(arguments), details))
+        single = self.converter.get_single(object_info)
+        if single:
+            obj = single
+        else:
+            self.converter.start_object_iteration(object_info, writer,
+                                                  copy=False)
+            obj = '(*it)'
+
+        details = self.convert_index(0)
+        x = str(details['x'])
+        y = str(details['y'])
+        parent = details.get('parent', None)
+        if parent is not None:
+            parent = self.converter.get_object(parent)
+            writer.putln('FrameObject * parent = %s;' % parent)
+            if details.get('use_action_point', False):
+                parent_x = 'get_action_x()'
+                parent_y = 'get_action_y()'
+            else:
+                parent_x = 'get_x()'
+                parent_y = 'get_y()'
+            if details.get('transform_position_direction', False):
+                writer.putln('int x_off = %s;' % x)
+                writer.putln('int y_off = %s;' % y)
+                writer.putln('transform_pos(x_off, y_off, parent);')
+                x = 'x_off'
+                y = 'y_off'
+            if details.get('use_direction', False):
+                writer.putln('(*it)->set_direction(parent->direction);')
+            x = 'parent->%s + %s' % (parent_x, x)
+            y = 'parent->%s + %s' % (parent_y, y)
+        arguments = [x, y]
+        writer.putlnc('%s->set_global_position(%s); // %s', obj,
+                      ', '.join(arguments), details)
+
+        if not single:
+            self.converter.end_object_iteration(object_info, writer,
+                                                copy=False)
 
 class LookAt(ActionWriter):
     def write(self, writer):

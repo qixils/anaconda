@@ -1491,13 +1491,14 @@ class Converter(object):
         yield
         self.end_object_iteration(*arg, **kw)
 
-    def start_object_iteration(self, object_info, writer, name = 'it',
+    def start_object_iteration(self, object_info, writer, name='it',
                                copy=True):
         iter_type = get_iter_type(object_info)
         getter = self.create_list(object_info, writer)
         if copy:
             list_name = 'extra_%s' % self.get_object_list(object_info)
-            writer.putlnc('static FlatObjectList %s;', list_name)
+            list_type = get_list_type(object_info)
+            writer.putlnc('static %s %s;', list_type, list_name)
             writer.putlnc('%s.copy(%s);', list_name, getter)
         else:
             list_name = getter
@@ -2030,6 +2031,9 @@ class Converter(object):
         return handle in self.multiple_instances
 
     def create_list(self, object_info, writer):
+        single = self.get_single(object_info)
+        if single is not None:
+            return single
         list_name = self.get_object_list(object_info)
         if object_info in self.has_selection:
             return list_name
@@ -2037,14 +2041,18 @@ class Converter(object):
         self.set_list(object_info, list_name)
         return list_name
 
+    def get_single(self, handle):
+        if handle in self.has_single_selection:
+            return self.has_single_selection[handle]
+        elif handle == self.iterate_object:
+            return self.iterated_name
+        return None
+
     def get_object(self, handle, as_list=False, use_default=False):
         object_type = self.get_object_class(object_info = handle)
         use_index = hacks.use_iteration_index(self) and self.iterated_index
         if handle in self.has_single_selection:
-            ret = self.has_single_selection[handle]
-            if as_list:
-                ret = 'make_single_list(%s)' % ret
-            return ret
+            return self.has_single_selection[handle]
         if self.iterated_object == handle:
             return '((%s)%s)' % (object_type, self.iterated_name)
         elif handle in self.has_selection:
@@ -2075,6 +2083,8 @@ class Converter(object):
             return '((%s)%s(%s))' % (object_type, getter_name, args)
 
     def get_object_list(self, handle):
+        if self.get_single(handle) is not None:
+            raise NotImplementedError()
         type_id, is_qual = self.get_object_handle(handle)
         if is_qual:
             return type_id

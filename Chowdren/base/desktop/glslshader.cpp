@@ -5,6 +5,7 @@
 #include "../filecommon.h"
 #include "../image.h"
 #include "glslshader.h"
+#include "collision.h"
 
 static bool background_initialized = false;
 static GLuint background_texture;
@@ -27,7 +28,7 @@ static void initialize_background()
 
 GLSLShader * GLSLShader::current = NULL;
 
-GLSLShader::GLSLShader(const std::string & name, bool has_back) 
+GLSLShader::GLSLShader(const std::string & name, bool has_back)
 : initialized(false), name(name), has_background(has_back)
 {
 }
@@ -56,7 +57,7 @@ void GLSLShader::initialize()
         std::cout << "Linker failure: " << info_log << std::endl;
         delete[] info_log;
     }
-    
+
     glDetachShader(program, vert_shader);
     glDetachShader(program, frag_shader);
 
@@ -84,7 +85,7 @@ void GLSLShader::initialize()
     initialized = true;
 }
 
-void GLSLShader::initialize_parameters() 
+void GLSLShader::initialize_parameters()
 {
 }
 
@@ -118,7 +119,7 @@ GLuint GLSLShader::attach_source(const std::string & ext, GLenum type)
         GLint info_len;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
         GLchar * info_log = new GLchar[info_len + 1];
-        glGetShaderInfoLog(shader, info_len, NULL, info_log);            
+        glGetShaderInfoLog(shader, info_len, NULL, info_log);
         std::cout << "Compile error in " << type << ":" << std::endl <<
             info_log << std::endl;
         delete[] info_log;
@@ -134,8 +135,7 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
         initialize();
 
     if (has_background) {
-        int box[4];
-        instance->get_box(box);
+        int * box = instance->collision->aabb;
         glc_copy_color_buffer_rect(background_texture, box[0], box[1],
                                    box[2], box[3]);
     }
@@ -143,7 +143,7 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
     glUseProgram(program);
 
     if (has_background)
-        glUniform2f(size_uniform, 1.0f / image->width, 
+        glUniform2f(size_uniform, 1.0f / image->width,
                                   1.0f / image->height);
 
     set_parameters(instance);
@@ -151,7 +151,7 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
     current = this;
 }
 
-void GLSLShader::set_parameters(FrameObject * instance) 
+void GLSLShader::set_parameters(FrameObject * instance)
 {
 
 }

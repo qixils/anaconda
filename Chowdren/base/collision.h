@@ -21,6 +21,7 @@ class CollisionBase
 public:
     CollisionType type;
     bool is_box;
+    int aabb[4];
 
     CollisionBase(CollisionType type, bool is_box)
     : is_box(is_box), type(type)
@@ -31,8 +32,6 @@ public:
     {
 
     }
-
-    virtual void get_box(int v[4]) = 0;
 };
 
 inline bool collide_line(int x1, int y1, int x2, int y2,
@@ -97,18 +96,15 @@ public:
     }
 #endif
 
-    void update_aabb()
+    virtual void update_aabb()
     {
 #ifdef CHOWDREN_USE_DYNTREE
-        int v[4];
-        get_box(v);
-
         ManagerObjectList & list = GameManager::instances.items[instance->id];
 
         if (proxy == -1)
-            proxy = list.tree.add(instance, v);
+            proxy = list.tree.add(instance, aabb);
         else
-            list.tree.move(proxy, v);
+            list.tree.move(proxy, aabb);
 #endif
     }
 };
@@ -122,12 +118,13 @@ public:
         update_aabb();
     }
 
-    void get_box(int v[4])
+    void update_aabb()
     {
-        v[0] = instance->x;
-        v[1] = instance->y;
-        v[2] = instance->x + instance->width;
-        v[3] = instance->y + instance->height;
+        aabb[0] = instance->x;
+        aabb[1] = instance->y;
+        aabb[2] = aabb[0] + instance->width;
+        aabb[3] = aabb[1] + instance->height;
+        InstanceCollision::update_aabb();
     }
 };
 
@@ -143,12 +140,13 @@ public:
         update_aabb();
     }
 
-    void get_box(int v[4])
+    void update_aabb()
     {
-        v[0] = instance->x + off_x;
-        v[1] = instance->y + off_y;
-        v[2] = v[0] + instance->width;
-        v[3] = v[1] + instance->height;
+        aabb[0] = instance->x + off_x;
+        aabb[1] = instance->y + off_y;
+        aabb[2] = aabb[0] + instance->width;
+        aabb[3] = aabb[1] + instance->height;
+        InstanceCollision::update_aabb();
     }
 
     void set_offset(int x, int y)
@@ -227,29 +225,6 @@ public:
         update_transform();
     }
 
-    void get_box(int v[4])
-    {
-        if (image == NULL) {
-            v[0] = v[2] = instance->x;
-            v[1] = v[3] = instance->y;
-            return;
-        }
-
-        int h_x, h_y;
-        if (transform) {
-            h_x = hotspot_x;
-            h_y = hotspot_y;
-        } else {
-            h_x = image->hotspot_x;
-            h_y = image->hotspot_y;
-        }
-
-        v[0] = instance->x - h_x;
-        v[1] = instance->y - h_y;
-        v[2] = v[0] + width;
-        v[3] = v[1] + height;
-    }
-
     void set_angle(double value)
     {
         angle = value;
@@ -312,8 +287,8 @@ public:
         }
         int new_x = int(x * x_scale * co + y * y_scale * si);
         int new_y = int(y * y_scale * co - x * x_scale * si);
-        r_x = -(x1 - new_x);
-        r_y = -(y1 - new_y);
+        r_x = new_x - x1;
+        r_y = new_y - y1;
     }
 
     inline bool get_bit(int x, int y)
@@ -330,6 +305,22 @@ public:
             return true;
         return image->get_alpha(x, y);
     }
+
+    void update_aabb()
+    {
+        if (image == NULL) {
+            aabb[0] = aabb[2] = instance->x;
+            aabb[1] = aabb[3] = instance->y;
+            InstanceCollision::update_aabb();
+            return;
+        }
+
+        aabb[0] = instance->x - hotspot_x;
+        aabb[1] = instance->y - hotspot_y;
+        aabb[2] = aabb[0] + width;
+        aabb[3] = aabb[1] + height;
+        InstanceCollision::update_aabb();
+    }
 };
 
 class PointCollision : public CollisionBase
@@ -340,14 +331,10 @@ public:
     PointCollision(int x, int y)
     : CollisionBase(POINT_COLLISION, true), x(x), y(y)
     {
-    }
-
-    void get_box(int v[4])
-    {
-        v[0] = x;
-        v[1] = y;
-        v[2] = x + 1;
-        v[3] = y + 1;
+        aabb[0] = x;
+        aabb[1] = y;
+        aabb[2] = x + 1;
+        aabb[3] = y + 1;
     }
 };
 
@@ -359,14 +346,10 @@ public:
     BoundingBox(int x1, int y1, int x2, int y2)
     : CollisionBase(BOUNDING_BOX, true), x1(x1), y1(y1), x2(y2), y2(y2)
     {
-    }
-
-    void get_box(int v[4])
-    {
-        v[0] = x1;
-        v[1] = y1;
-        v[2] = x2;
-        v[3] = y2;
+        aabb[0] = x1;
+        aabb[1] = y1;
+        aabb[2] = x2;
+        aabb[3] = y2;
     }
 };
 
@@ -387,14 +370,10 @@ public:
       src_width(src_width), src_height(src_height), collision_type(type),
       image(img), CollisionBase(BACKGROUND_ITEM, false)
     {
-    }
-
-    void get_box(int v[4])
-    {
-        v[0] = dest_x;
-        v[1] = dest_y;
-        v[2] = dest_x + src_width;
-        v[3] = dest_y + src_height;
+        aabb[0] = dest_x;
+        aabb[1] = dest_y;
+        aabb[2] = dest_x + src_width;
+        aabb[3] = dest_y + src_height;
     }
 
     inline bool get_bit(int x, int y)
@@ -468,10 +447,8 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 {
     if (a == NULL || b == NULL)
         return false;
-    int v1[4];
-    a->get_box(v1);
-    int v2[4];
-    b->get_box(v2);
+    int * v1 = a->aabb;
+    int * v2 = b->aabb;
 
     if (!collides(v1[0], v1[1], v1[2], v1[3],
                   v2[0], v2[1], v2[2], v2[3]))
@@ -530,21 +507,18 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 
 inline bool collide_box(FrameObject * a, int x1, int y1, int x2, int y2)
 {
-    int v1[4];
     CollisionBase * col = a->collision;
     if (col == NULL) {
-        v1[0] = a->x;
-        v1[1] = a->y;
-        v1[2] = v1[0] + a->width;
-        v1[3] = v1[1] + a->height;
-    } else {
-        col->get_box(v1);
+        int xx1 = a->x;
+        int yy1 = a->y;
+        int xx2 = x1 + a->width;
+        int yy2 = y1 + a->height;
+        return collides(xx1, yy1, xx2, yy2,
+                        x1, y1, x2, y2);
     }
-
-    if (!collides(v1[0], v1[1], v1[2], v1[3],
-                  x1, y1, x2, y2))
-        return false;
-    return true;
+    int * v1 = col->aabb;
+    return collides(v1[0], v1[1], v1[2], v1[3],
+                    x1, y1, x2, y2);
 }
 
 #endif // #define CHOWDREN_COLLISION_H

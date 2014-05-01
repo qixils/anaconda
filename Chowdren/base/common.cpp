@@ -141,10 +141,8 @@ bool Background::collide(CollisionBase * a)
 {
 #ifdef CHOWDREN_USE_COLTREE
     TreeItems tree_items;
-    int box[4];
-    a->get_box(box);
     BackgroundItemCallback callback(a);
-    if (!tree.query(box, callback))
+    if (!tree.query(a->aabb, callback))
         return true;
 #else
     BackgroundItems::iterator it;
@@ -218,9 +216,9 @@ void Layer::set_position(int x, int y)
 void Layer::add_background_object(FrameObject * instance)
 {
     CollisionBase * col = instance->collision;
-    int b[4];
+    int * b;
     if (col != NULL) {
-        col->get_box(b);
+        b = col->aabb;
         if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
             x1 = b[0];
             y1 = b[1];
@@ -238,13 +236,14 @@ void Layer::add_background_object(FrameObject * instance)
 
 #ifdef CHOWDREN_USE_COLTREE
     if (col == NULL) {
-        b[0] = instance->x;
-        b[1] = instance->y;
-        b[2] = b[0] + instance->width;
-        b[3] = b[1] + instance->height;
+        int bb[4] = {instance->x,
+                     instance->y,
+                     instance->x + instance->width,
+                     instance->y + instance->height};
+        display_tree.add(instance, bb);
+    } else {
+        display_tree.add(instance, b);
     }
-
-    display_tree.add(instance, b);
 #endif
     instance->depth = background_instances.size();
     background_instances.push_back(instance);
@@ -323,8 +322,7 @@ bool Layer::test_background_collision(CollisionBase * a)
 {
     if (a == NULL)
         return false;
-    int b[4];
-    a->get_box(b);
+    int * b = a->aabb;
     if (!collides(b[0], b[1], b[2], b[3], x1, y1, x2, y2))
         return false;
     if (back != NULL && back->collide(a))
@@ -996,8 +994,7 @@ bool FrameObject::overlaps_background_save()
 
 bool FrameObject::outside_playfield()
 {
-    int box[4];
-    collision->get_box(box);
+    int * box = collision->aabb;
     return !collides(box[0], box[1], box[2], box[3],
                      frame->off_x, frame->off_y,
                      frame->width+frame->off_x, frame->height+frame->off_y);
@@ -1005,19 +1002,12 @@ bool FrameObject::outside_playfield()
 
 int FrameObject::get_box_index(int index)
 {
-    int box[4];
-    collision->get_box(box);
-    int ret = box[index];
+    int ret = collision->aabb[index];
     if (index == 0 || index == 2)
         ret += layer->off_x;
     else
         ret += layer->off_y;
     return ret;
-}
-
-void FrameObject::get_box(int box[4])
-{
-    collision->get_box(box);
 }
 
 void FrameObject::set_shader(Shader * value)
@@ -1692,8 +1682,7 @@ int Active::get_flag(int index)
 
 bool Active::is_near_border(int border)
 {
-    int box[4];
-    get_box(box);
+    int * box = active_col.aabb;
 
     if (box[0] <= frame->frame_left() + border)
         return true;

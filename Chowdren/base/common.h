@@ -1082,9 +1082,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
             it1.deselect();
             continue;
         }
-        int v[4];
-        col->get_box(v);
-        ((ManagerObjectList&)list2).tree.query(v, callback);
+        ((ManagerObjectList&)list2).tree.query(col->aabb, callback);
         if (callback.added)
             ret = true;
         else
@@ -1128,11 +1126,8 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
         temp1[it.index-1] = 1;
     }
 
-    int v[4];
-    col->get_box(v);
-
     OverlapCallback<save> callback(obj, temp1, temp2);
-    ((ManagerObjectList&)list).tree.query(v, callback);
+    ((ManagerObjectList&)list).tree.query(col->aabb, callback);
     if (!callback.added)
         return false;
 
@@ -1183,8 +1178,6 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
             it2.deselect();
             continue;
         }
-        int v[4];
-        col->get_box(v);
         bool added = false;
         int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
@@ -1192,7 +1185,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
             int * temp_off_1 = temp1 + temp_offset;
             int * temp_off_2 = temp2 + temp_offset;
             OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
-            ((ManagerObjectList&)list).tree.query(v, callback);
+            ((ManagerObjectList&)list).tree.query(col->aabb, callback);
             if (callback.added) {
                 ret = added = true;
             }
@@ -1254,8 +1247,6 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
         total_index += list2.size();
     }
 
-    int v[4];
-    col->get_box(v);
     bool ret = false;
 
     int temp_offset = 0;
@@ -1264,7 +1255,7 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
         int * temp_off_1 = temp1 + temp_offset;
         int * temp_off_2 = temp2 + temp_offset;
         OverlapCallback<save> callback(obj, temp_off_1, temp_off_2);
-        ((ManagerObjectList&)list2).tree.query(v, callback);
+        ((ManagerObjectList&)list2).tree.query(col->aabb, callback);
         if (callback.added) {
             ret = true;
         }
@@ -1326,8 +1317,6 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
             it2.deselect();
             continue;
         }
-        int v[4];
-        col->get_box(v);
         bool added = false;
 
         int temp_offset = 0;
@@ -1336,7 +1325,7 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
             int * temp_off_1 = temp1 + temp_offset;
             int * temp_off_2 = temp2 + temp_offset;
             OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
-            ((ManagerObjectList&)list).tree.query(v, callback);
+            ((ManagerObjectList&)list).tree.query(col->aabb, callback);
             if (callback.added) {
                 ret = added = true;
             }
@@ -1404,9 +1393,7 @@ inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
             continue;
         }
         NotOverlapCallback callback(instance);
-        int v[4];
-        col->get_box(v);
-        if (!((ManagerObjectList&)list2).tree.query(v, callback))
+        if (!((ManagerObjectList&)list2).tree.query(col->aabb, callback))
             return false;
     }
     return true;
@@ -1442,11 +1429,10 @@ inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
     CollisionBase * col = obj->collision;
     if (col == NULL)
         return true;
-    int v[4];
-    col->get_box(v);
     NotOverlapCallback callback(obj);
     for (int i = 0; i < list.count; i++) {
-        if (!((ManagerObjectList*)list.items[i])->tree.query(v, callback))
+        if (!((ManagerObjectList*)list.items[i])->tree.query(col->aabb,
+                                                             callback))
             return false;
     }
     return true;

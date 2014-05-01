@@ -104,7 +104,6 @@ public:
     virtual void destroy();
     FixedValue get_fixed();
     bool outside_playfield();
-    void get_box(int box[4]);
     int get_box_index(int index);
     bool overlaps_background();
     bool overlaps_background_save();

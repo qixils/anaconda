@@ -208,7 +208,7 @@ public:
     int width, height;
     int hotspot_x, hotspot_y;
 
-    SpriteCollision(FrameObject * instance, Image * image = NULL)
+    SpriteCollision(FrameObject * instance = NULL, Image * image = NULL)
     : InstanceCollision(instance, SPRITE_COLLISION, false), image(image),
       transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
     {
@@ -531,14 +531,14 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 inline bool collide_box(FrameObject * a, int x1, int y1, int x2, int y2)
 {
     int v1[4];
-    CollisionBase * col = a->get_collision();
+    CollisionBase * col = a->collision;
     if (col == NULL) {
         v1[0] = a->x;
         v1[1] = a->y;
         v1[2] = v1[0] + a->width;
         v1[3] = v1[1] + a->height;
     } else {
-        a->get_box(v1);
+        col->get_box(v1);
     }
 
     if (!collides(v1[0], v1[1], v1[2], v1[3],

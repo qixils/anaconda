@@ -1523,8 +1523,8 @@ class Converter(object):
         if object_list is None:
             self.iterated_index = '0'
         else:
-            self.iterated_index = '%s - %s.begin()' % (name.replace('*', ''),
-                                                       object_list)
+            it = name.replace('*', '')
+            self.iterated_index = '%s.index' % it
 
     def create_object(self, object_info, x, y, layer, object_name, writer):
         name = self.get_object_name(object_info)

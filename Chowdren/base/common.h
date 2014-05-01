@@ -343,7 +343,6 @@ public:
     int forced_animation, forced_frame, forced_speed, forced_direction;
     unsigned int counter;
     double angle;
-    SpriteCollision * collision;
     double x_scale, y_scale;
     int action_x, action_y;
     bool collision_box;
@@ -354,6 +353,7 @@ public:
     bool auto_rotate;
     bool transparent;
     int loop_count;
+    SpriteCollision active_col;
 
     Active(int x, int y, int type_id);
     void initialize_active();
@@ -386,7 +386,6 @@ public:
     Direction * get_direction_data();
     int get_animation();
     int get_animation(int anim);
-    CollisionBase * get_collision();
     void set_animation(int value);
     void set_direction(int value, bool set_movement = true);
     int & get_animation_direction();
@@ -426,7 +425,6 @@ public:
     unsigned int current_paragraph;
     bool initialized;
     int alignment;
-    CollisionBase * collision;
     bool bold, italic;
     int size;
     std::string draw_text;
@@ -446,7 +444,6 @@ public:
     bool get_italic();
     void set_bold(bool value);
     std::string get_paragraph(int index);
-    CollisionBase * get_collision();
     void set_width(int w);
     int get_width();
     int get_height();
@@ -467,14 +464,12 @@ class Backdrop : public FrameObject
 {
 public:
     Image * image;
-    CollisionBase * collision;
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     int remote;
 #endif
 
     Backdrop(int x, int y, int type_id);
     ~Backdrop();
-    CollisionBase * get_collision();
     void draw();
 };
 
@@ -488,12 +483,10 @@ public:
     Color color;
     int gradient_type;
     Color color2;
-    CollisionBase * collision;
     Image * image;
 
     QuickBackdrop(int x, int y, int type_id);
     ~QuickBackdrop();
-    CollisionBase * get_collision();
     void draw();
 };
 
@@ -508,14 +501,12 @@ public:
     double value;
     double minimum, maximum;
     std::string cached_string;
-    CollisionBase * collision;
     int type;
     float flash_time, flash_interval;
     Color color1;
 
     Counter(int x, int y, int type_id);
     ~Counter();
-    CollisionBase * get_collision();
     Image * get_image(char c);
     void add(double value);
     void subtract(double value);
@@ -850,7 +841,6 @@ public:
     bool has_transparent_color;
     double scale_x, scale_y;
     double angle;
-    SpriteCollision * collision;
     static ImageCache image_cache;
 
     ActivePicture(int x, int y, int type_id);
@@ -868,7 +858,6 @@ public:
     int get_width();
     int get_height();
     void draw();
-    CollisionBase * get_collision();
     void paste(int dest_x, int dest_y, int src_x, int src_y,
                int src_width, int src_height, int collision_type);
 };
@@ -1088,7 +1077,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
     for (ObjectIterator it1(list1); !it1.end(); it1++) {
         FrameObject * instance = *it1;
         OverlapCallback<save> callback(instance, temp1, temp2);
-        CollisionBase * col = instance->get_collision();
+        CollisionBase * col = instance->collision;
         if (col == NULL) {
             it1.deselect();
             continue;
@@ -1122,7 +1111,7 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
     if (size <= 0)
         return false;
 
-    CollisionBase * col = obj->get_collision();
+    CollisionBase * col = obj->collision;
     if (col == NULL) {
         return false;
     }
@@ -1189,7 +1178,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     bool ret = false;
     for (ObjectIterator it2(list2); !it2.end(); it2++) {
         FrameObject * instance = *it2;
-        CollisionBase * col = instance->get_collision();
+        CollisionBase * col = instance->collision;
         if (col == NULL) {
             it2.deselect();
             continue;
@@ -1244,7 +1233,7 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
     if (size <= 0)
         return false;
 
-    CollisionBase * col = obj->get_collision();
+    CollisionBase * col = obj->collision;
     if (col == NULL)
         return false;
 
@@ -1332,7 +1321,7 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     bool ret = false;
     for (QualifierIterator it2(list2); !it2.end(); it2++) {
         FrameObject * instance = *it2;
-        CollisionBase * col = instance->get_collision();
+        CollisionBase * col = instance->collision;
         if (col == NULL) {
             it2.deselect();
             continue;
@@ -1409,7 +1398,7 @@ inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
 
     for (ObjectIterator it1(list1); !it1.end(); it1++) {
         FrameObject * instance = *it1;
-        CollisionBase * col = instance->get_collision();
+        CollisionBase * col = instance->collision;
         if (col == NULL) {
             it1.deselect();
             continue;
@@ -1450,7 +1439,7 @@ inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
 
 inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
 {
-    CollisionBase * col = obj->get_collision();
+    CollisionBase * col = obj->collision;
     if (col == NULL)
         return true;
     int v[4];

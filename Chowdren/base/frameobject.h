@@ -14,7 +14,7 @@
 #include "coltree.h"
 #endif
 
-class CollisionBase;
+class InstanceCollision;
 class Frame;
 class Shader;
 class Image;
@@ -61,6 +61,7 @@ public:
     int movement_count;
     Movement ** movements;
     Movement * movement;
+    InstanceCollision * collision;
 #ifdef CHOWDREN_USE_BOX2D
     int body;
 #endif
@@ -87,7 +88,6 @@ public:
     virtual void update(float dt);
     virtual void set_direction(int value, bool set_movement = true);
     virtual int get_direction();
-    virtual CollisionBase * get_collision();
     bool mouse_over();
     bool overlaps(FrameObject * other);
     void set_layer(int layer);

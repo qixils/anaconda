@@ -61,12 +61,12 @@ inline bool b2IsValid(float32 x)
 {
 #ifdef _MSC_VER
 	return _finite(x) != 0;
-#elif __ghs__
-	return isfinite(x) != 0;
 #else
-	// make sure we aren't using the isfinite macro
-	#undef isfinite
-	return std::isfinite(x) != 0;
+	// make sure we either get std::isfinite or the isfinite macro.
+	#ifndef __ghs__
+	using namespace std;
+	#endif
+	return isfinite(x) != 0;
 #endif
 }
 

@@ -217,7 +217,7 @@ void Layer::set_position(int x, int y)
 
 void Layer::add_background_object(FrameObject * instance)
 {
-    CollisionBase * col = instance->get_collision();
+    CollisionBase * col = instance->collision;
     int b[4];
     if (col != NULL) {
         col->get_box(b);
@@ -337,7 +337,7 @@ bool Layer::test_background_collision(CollisionBase * a)
     FlatObjectList::const_iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
          it++) {
-        CollisionBase * col = (*it)->get_collision();
+        CollisionBase * col = (*it)->collision;
         if (col == NULL)
             continue;
         if (collide(a, col))
@@ -837,7 +837,7 @@ FrameObject::FrameObject(int x, int y, int type_id)
 : x(x), y(y), id(type_id), visible(true), shader(NULL),
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0),
   destroying(false), scroll(true), movement(NULL), movements(NULL),
-  movement_count(0)
+  movement_count(0), collision(NULL)
 {
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
@@ -877,10 +877,9 @@ void FrameObject::set_position(int x, int y)
     this->x = x;
     this->y = y;
 #ifdef CHOWDREN_USE_DYNTREE
-    CollisionBase * col = get_collision();
-    if (col == NULL)
+    if (collision == NULL)
         return;
-    ((InstanceCollision*)col)->update_aabb();
+    collision->update_aabb();
 #endif
 }
 
@@ -893,10 +892,9 @@ void FrameObject::set_x(int x)
 {
     this->x = x - layer->off_x;
 #ifdef CHOWDREN_USE_DYNTREE
-    CollisionBase * col = get_collision();
-    if (col == NULL)
+    if (collision == NULL)
         return;
-    ((InstanceCollision*)col)->update_aabb();
+    collision->update_aabb();
 #endif
 }
 
@@ -909,10 +907,9 @@ void FrameObject::set_y(int y)
 {
     this->y = y - layer->off_y;
 #ifdef CHOWDREN_USE_DYNTREE
-    CollisionBase * col = get_collision();
-    if (col == NULL)
+    if (collision == NULL)
         return;
-    ((InstanceCollision*)col)->update_aabb();
+    collision->update_aabb();
 #endif
 }
 
@@ -960,11 +957,6 @@ int FrameObject::get_direction()
     return direction;
 }
 
-CollisionBase * FrameObject::get_collision()
-{
-    return NULL;
-}
-
 bool FrameObject::mouse_over()
 {
     if (destroying)
@@ -972,7 +964,7 @@ bool FrameObject::mouse_over()
     int x, y;
     frame->get_mouse_pos(&x, &y);
     PointCollision col1(x, y);
-    return collide(&col1, get_collision());
+    return collide(&col1, collision);
 }
 
 bool FrameObject::overlaps(FrameObject * other)
@@ -981,21 +973,21 @@ bool FrameObject::overlaps(FrameObject * other)
         return false;
     if (other->layer != layer)
         return false;
-    return collide(other->get_collision(), get_collision());
+    return collide(other->collision, collision);
 }
 
 bool FrameObject::overlaps_background()
 {
     if (destroying)
         return false;
-    return layer->test_background_collision(get_collision());
+    return layer->test_background_collision(collision);
 }
 
 bool FrameObject::overlaps_background_save()
 {
     if (destroying)
         return false;
-    bool ret = layer->test_background_collision(get_collision());
+    bool ret = layer->test_background_collision(collision);
     if (movement != NULL) {
         movement->set_background_collision();
     }
@@ -1005,7 +997,7 @@ bool FrameObject::overlaps_background_save()
 bool FrameObject::outside_playfield()
 {
     int box[4];
-    get_collision()->get_box(box);
+    collision->get_box(box);
     return !collides(box[0], box[1], box[2], box[3],
                      frame->off_x, frame->off_y,
                      frame->width+frame->off_x, frame->height+frame->off_y);
@@ -1014,7 +1006,7 @@ bool FrameObject::outside_playfield()
 int FrameObject::get_box_index(int index)
 {
     int box[4];
-    get_collision()->get_box(box);
+    collision->get_box(box);
     int ret = box[index];
     if (index == 0 || index == 2)
         ret += layer->off_x;
@@ -1025,7 +1017,7 @@ int FrameObject::get_box_index(int index)
 
 void FrameObject::get_box(int box[4])
 {
-    get_collision()->get_box(box);
+    collision->get_box(box);
 }
 
 void FrameObject::set_shader(Shader * value)
@@ -1286,18 +1278,18 @@ Active::Active(int x, int y, int type_id)
   animation_direction(0), stopped(false), flash_interval(0.0f),
   animation_finished(-1), transparent(false), flags(0)
 {
+    active_col.instance = this;
+    collision = &active_col;
 }
 
 void Active::initialize_active()
 {
-    collision = new SpriteCollision(this);
-    collision->is_box = collision_box;
+    active_col.is_box = collision_box;
     update_direction();
 }
 
 Active::~Active()
 {
-    delete collision;
 }
 
 void Active::initialize_animations()
@@ -1420,7 +1412,7 @@ void Active::update_frame()
     if (img == NULL)
         return;
 
-    collision->set_image(img);
+    active_col.set_image(img);
     update_action_point();
 }
 
@@ -1433,10 +1425,10 @@ void Active::update_direction()
 void Active::update_action_point()
 {
     Image * img = get_image();
-    collision->get_transform(img->action_x, img->action_y,
+    active_col.get_transform(img->action_x, img->action_y,
                              action_x, action_y);
-    action_x -= collision->hotspot_x;
-    action_y -= collision->hotspot_y;
+    action_x -= active_col.hotspot_x;
+    action_y -= active_col.hotspot_y;
 }
 
 void Active::update(float dt)
@@ -1532,7 +1524,7 @@ void Active::set_angle(double angle, int quality)
 {
     angle = mod(angle, 360.0f);
     this->angle = angle;
-    collision->set_angle(angle);
+    active_col.set_angle(angle);
     update_action_point();
 }
 
@@ -1584,13 +1576,6 @@ int Active::get_animation(int value)
     return value;
 }
 
-CollisionBase * Active::get_collision()
-{
-    if (forced_animation == DISAPPEARING)
-        return NULL;
-    return collision;
-}
-
 void Active::set_direction(int value, bool set_movement)
 {
     if (forced_animation == DISAPPEARING)
@@ -1618,21 +1603,21 @@ void Active::set_scale(double value)
 {
     value = std::max<double>(0.0f, value);
     x_scale = y_scale = value;
-    collision->set_scale(value);
+    active_col.set_scale(value);
     update_action_point();
 }
 
 void Active::set_x_scale(double value)
 {
     x_scale = std::max<double>(0.0f, value);
-    collision->set_x_scale(x_scale);
+    active_col.set_x_scale(x_scale);
     update_action_point();
 }
 
 void Active::set_y_scale(double value)
 {
     y_scale = std::max<double>(0.0f, value);
-    collision->set_y_scale(y_scale);
+    active_col.set_y_scale(y_scale);
     update_action_point();
 }
 
@@ -1740,6 +1725,7 @@ void Active::destroy()
     }
     clear_movements();
     force_animation(DISAPPEARING);
+    collision = NULL;
 }
 
 bool Active::has_animation(int anim)
@@ -1900,11 +1886,6 @@ std::string Text::get_paragraph(int index)
     return paragraphs[index];
 }
 
-CollisionBase * Text::get_collision()
-{
-    return collision;
-}
-
 void Text::update_draw_text()
 {
     if (draw_text_set)
@@ -1980,7 +1961,7 @@ std::string FontInfo::vertical_tab("\x0B");
 // Backdrop
 
 Backdrop::Backdrop(int x, int y, int type_id)
-: FrameObject(x, y, type_id), collision(NULL)
+: FrameObject(x, y, type_id)
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_HYBRID_TARGET;
@@ -1991,11 +1972,6 @@ Backdrop::~Backdrop()
 {
     delete image;
     delete collision;
-}
-
-CollisionBase * Backdrop::get_collision()
-{
-    return collision;
 }
 
 void Backdrop::draw()
@@ -2013,7 +1989,7 @@ void Backdrop::draw()
 // QuickBackdrop
 
 QuickBackdrop::QuickBackdrop(int x, int y, int type_id)
-: FrameObject(x, y, type_id), collision(NULL), image(NULL)
+: FrameObject(x, y, type_id), image(NULL)
 {
 }
 
@@ -2021,11 +1997,6 @@ QuickBackdrop::~QuickBackdrop()
 {
     delete collision;
     delete image;
-}
-
-CollisionBase * QuickBackdrop::get_collision()
-{
-    return collision;
 }
 
 void QuickBackdrop::draw()
@@ -2073,7 +2044,7 @@ void QuickBackdrop::draw()
 // Counter
 
 Counter::Counter(int x, int y, int type_id)
-: FrameObject(x, y, type_id), collision(NULL), flash_interval(0.0f)
+: FrameObject(x, y, type_id), flash_interval(0.0f)
 {
     for (int i = 0; i < 14; i++)
         images[i] = NULL;
@@ -2082,17 +2053,6 @@ Counter::Counter(int x, int y, int type_id)
 Counter::~Counter()
 {
     delete collision;
-}
-
-CollisionBase * Counter::get_collision()
-{
-    if (type == HIDDEN_COUNTER)
-        return NULL;
-    if (collision == NULL) {
-        collision = new OffsetInstanceBox(this);
-        calculate_box();
-    }
-    return collision;
 }
 
 void Counter::calculate_box()
@@ -2159,8 +2119,11 @@ void Counter::set(double value)
     str << value;
     cached_string = str.str();
 
-    if (collision != NULL)
-        calculate_box();
+    if (collision == NULL) {
+        collision = new OffsetInstanceBox(this);
+    }
+
+    calculate_box();
 }
 
 void Counter::set_max(double value)
@@ -3559,7 +3522,7 @@ void ActivePicture::load(const std::string & fn)
 
     if (cached_image != NULL) {
         image = new Image(*cached_image);
-        collision->set_image(image);
+        ((SpriteCollision*)collision)->set_image(image);
         image->hotspot_x = image->hotspot_y = 0;
     }
 }
@@ -3594,7 +3557,7 @@ void ActivePicture::flip_horizontal()
 
 void ActivePicture::set_scale(double value)
 {
-    collision->set_scale(value);
+    ((SpriteCollision*)collision)->set_scale(value);
     scale_x = scale_y = value;
 }
 
@@ -3605,7 +3568,7 @@ void ActivePicture::set_zoom(double value)
 
 void ActivePicture::set_angle(double value, int quality)
 {
-    collision->set_angle(value);
+    ((SpriteCollision*)collision)->set_angle(value);
     angle = value;
 }
 
@@ -3634,11 +3597,6 @@ void ActivePicture::draw()
         return;
     blend_color.apply();
     draw_image(image, x, y, angle, scale_x, scale_y, horizontal_flip);
-}
-
-CollisionBase * ActivePicture::get_collision()
-{
-    return collision;
 }
 
 void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,

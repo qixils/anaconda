@@ -78,7 +78,7 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/media.cpp
     ${CHOWDREN_BASE_DIR}/fpslimit.cpp
     ${CHOWDREN_BASE_DIR}/include/tinythread/tinythread.cpp
-    ${CHOWDREN_BASE_DIR}/coltree.cpp
+    ${CHOWDREN_BASE_DIR}/broadphase.cpp
     ${CHOWDREN_BASE_DIR}/profiler.cpp)
 
 if (USE_STEAM)

@@ -140,7 +140,6 @@ struct BackgroundItemCallback
 bool Background::collide(CollisionBase * a)
 {
 #ifdef CHOWDREN_USE_COLTREE
-    TreeItems tree_items;
     BackgroundItemCallback callback(a);
     if (!tree.query(a->aabb, callback))
         return true;
@@ -312,9 +311,7 @@ struct BackgroundCallback
     bool on_callback(void * data)
     {
         CollisionBase * item = (CollisionBase*)data;
-        if (collide(col, item))
-            return false;
-        return true;
+        return !collide(col, item);
     }
 };
 
@@ -1266,7 +1263,7 @@ Active::Active(int x, int y, int type_id)
   animation_frame(0), counter(0), angle(0.0), forced_frame(-1),
   forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
   animation_direction(0), stopped(false), flash_interval(0.0f),
-  animation_finished(-1), transparent(false), flags(0)
+  animation_finished(-1), transparent(false), flags(0), image(NULL)
 {
     active_col.instance = this;
     collision = &active_col;
@@ -1398,11 +1395,11 @@ void Active::update_frame()
     int & current_frame = get_frame();
     current_frame = int_max(0, int_min(current_frame, frame_count - 1));
 
-    Image * img = get_image();
-    if (img == NULL)
+    image = get_image();
+    if (image == NULL)
         return;
 
-    active_col.set_image(img);
+    active_col.set_image(image);
     update_action_point();
 }
 
@@ -1414,8 +1411,7 @@ void Active::update_direction()
 
 void Active::update_action_point()
 {
-    Image * img = get_image();
-    active_col.get_transform(img->action_x, img->action_y,
+    active_col.get_transform(image->action_x, image->action_y,
                              action_x, action_y);
     action_x -= active_col.hotspot_x;
     action_y -= active_col.hotspot_y;
@@ -1469,8 +1465,7 @@ void Active::update(float dt)
 
 void Active::draw()
 {
-    Image * img = get_image();
-    if (img == NULL) {
+    if (image == NULL) {
         std::cout << "Invalid image draw (" << get_name() << ")" << std::endl;
         return;
     }
@@ -1478,7 +1473,7 @@ void Active::draw()
     bool blend = transparent || blend_color.a < 255;
     if (!blend)
         glDisable(GL_BLEND);
-    draw_image(img, x, y, angle, x_scale, y_scale, false, false);
+    draw_image(image, x, y, angle, x_scale, y_scale, false, false);
     if (!blend)
         glEnable(GL_BLEND);
 }
@@ -1613,9 +1608,8 @@ void Active::set_y_scale(double value)
 
 void Active::paste(int collision_type)
 {
-    Image * img = get_image();
-    layer->paste(img, x-img->hotspot_x, y-img->hotspot_y, 0, 0,
-                 img->width, img->height, collision_type);
+    layer->paste(image, x-image->hotspot_x, y-image->hotspot_y, 0, 0,
+                 image->width, image->height, collision_type);
 }
 
 bool Active::test_direction(int value)

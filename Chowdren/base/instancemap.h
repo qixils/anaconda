@@ -7,9 +7,7 @@
 class ManagerObjectList : public ObjectList
 {
 public:
-#ifdef CHOWDREN_USE_DYNTREE
     DynamicTree tree;
-#endif
 
     ManagerObjectList()
     : ObjectList()

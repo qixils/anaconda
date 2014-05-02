@@ -20,10 +20,10 @@
 This is a fork from Box2D, changed for use in Chowdren
 */
 
-#include "collision/dynamictree.h"
+#include "broadphase/aabbtree.h"
 #include <string.h>
 
-DynamicTree::DynamicTree()
+AABBTree::AABBTree()
 {
     m_root = chow_nullNode;
 
@@ -47,14 +47,14 @@ DynamicTree::DynamicTree()
     m_insertionCount = 0;
 }
 
-DynamicTree::~DynamicTree()
+AABBTree::~AABBTree()
 {
     // This frees the entire tree in one shot.
     chowFree(m_nodes);
 }
 
 // Allocate a node from the pool. Grow the pool if necessary.
-int32 DynamicTree::AllocateNode()
+int32 AABBTree::AllocateNode()
 {
     // Expand the node pool as needed.
     if (m_freeList == chow_nullNode) {
@@ -91,7 +91,7 @@ int32 DynamicTree::AllocateNode()
 }
 
 // Return a node to the pool.
-void DynamicTree::FreeNode(int32 nodeId)
+void AABBTree::FreeNode(int32 nodeId)
 {
     chowAssert(0 <= nodeId && nodeId < m_nodeCapacity);
     chowAssert(0 < m_nodeCount);
@@ -104,7 +104,7 @@ void DynamicTree::FreeNode(int32 nodeId)
 // Create a proxy in the tree as a leaf node. We return the index
 // of the node instead of a pointer so that we can grow
 // the node pool.
-int32 DynamicTree::CreateProxy(const AABB& aabb, void* userData)
+int32 AABBTree::CreateProxy(const AABB& aabb, void* userData)
 {
     int32 proxyId = AllocateNode();
 
@@ -120,13 +120,13 @@ int32 DynamicTree::CreateProxy(const AABB& aabb, void* userData)
     return proxyId;
 }
 
-int32 DynamicTree::add(void * data, int v[4])
+int32 AABBTree::add(void * data, int v[4])
 {
     AABB aabb = {chowVec2(v[0], v[1]), chowVec2(v[2], v[3])};
     return CreateProxy(aabb, data);
 }
 
-void DynamicTree::remove(int32 proxyId)
+void AABBTree::remove(int32 proxyId)
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
     chowAssert(m_nodes[proxyId].IsLeaf());
@@ -135,7 +135,7 @@ void DynamicTree::remove(int32 proxyId)
     FreeNode(proxyId);
 }
 
-void DynamicTree::clear()
+void AABBTree::clear()
 {
     memset(m_nodes, 0, m_nodeCapacity * sizeof(TreeNode));
 
@@ -155,7 +155,7 @@ void DynamicTree::clear()
     m_insertionCount = 0;
 }
 
-bool DynamicTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displacement)
+bool AABBTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displacement)
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
 
@@ -201,7 +201,7 @@ bool DynamicTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& dis
     return true;
 }
 
-void DynamicTree::move(int32 proxyId, int v[4])
+void AABBTree::move(int32 proxyId, int v[4])
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
     chowAssert(m_nodes[proxyId].IsLeaf());
@@ -222,7 +222,7 @@ void DynamicTree::move(int32 proxyId, int v[4])
     InsertLeaf(proxyId);
 }
 
-void DynamicTree::InsertLeaf(int32 leaf)
+void AABBTree::InsertLeaf(int32 leaf)
 {
     ++m_insertionCount;
 
@@ -362,7 +362,7 @@ void DynamicTree::InsertLeaf(int32 leaf)
     //Validate();
 }
 
-void DynamicTree::RemoveLeaf(int32 leaf)
+void AABBTree::RemoveLeaf(int32 leaf)
 {
     if (leaf == m_root)
     {
@@ -423,7 +423,7 @@ void DynamicTree::RemoveLeaf(int32 leaf)
 
 // Perform a left or right rotation if node A is imbalanced.
 // Returns the new root index.
-int32 DynamicTree::Balance(int32 iA)
+int32 AABBTree::Balance(int32 iA)
 {
     chowAssert(iA != chow_nullNode);
 
@@ -566,7 +566,7 @@ int32 DynamicTree::Balance(int32 iA)
     return iA;
 }
 
-int32 DynamicTree::GetHeight() const
+int32 AABBTree::GetHeight() const
 {
     if (m_root == chow_nullNode)
     {
@@ -577,7 +577,7 @@ int32 DynamicTree::GetHeight() const
 }
 
 //
-int32 DynamicTree::GetAreaRatio() const
+int32 AABBTree::GetAreaRatio() const
 {
     if (m_root == chow_nullNode)
     {
@@ -604,7 +604,7 @@ int32 DynamicTree::GetAreaRatio() const
 }
 
 // Compute the height of a sub-tree.
-int32 DynamicTree::ComputeHeight(int32 nodeId) const
+int32 AABBTree::ComputeHeight(int32 nodeId) const
 {
     chowAssert(0 <= nodeId && nodeId < m_nodeCapacity);
     TreeNode* node = m_nodes + nodeId;
@@ -619,13 +619,13 @@ int32 DynamicTree::ComputeHeight(int32 nodeId) const
     return 1 + chowMax(height1, height2);
 }
 
-int32 DynamicTree::ComputeHeight() const
+int32 AABBTree::ComputeHeight() const
 {
     int32 height = ComputeHeight(m_root);
     return height;
 }
 
-void DynamicTree::ValidateStructure(int32 index) const
+void AABBTree::ValidateStructure(int32 index) const
 {
     if (index == chow_nullNode)
     {
@@ -660,7 +660,7 @@ void DynamicTree::ValidateStructure(int32 index) const
     ValidateStructure(child2);
 }
 
-void DynamicTree::ValidateMetrics(int32 index) const
+void AABBTree::ValidateMetrics(int32 index) const
 {
     if (index == chow_nullNode)
     {
@@ -699,7 +699,7 @@ void DynamicTree::ValidateMetrics(int32 index) const
     ValidateMetrics(child2);
 }
 
-void DynamicTree::Validate() const
+void AABBTree::Validate() const
 {
     ValidateStructure(m_root);
     ValidateMetrics(m_root);
@@ -718,7 +718,7 @@ void DynamicTree::Validate() const
     chowAssert(m_nodeCount + freeCount == m_nodeCapacity);
 }
 
-int32 DynamicTree::GetMaxBalance() const
+int32 AABBTree::GetMaxBalance() const
 {
     int32 maxBalance = 0;
     for (int32 i = 0; i < m_nodeCapacity; ++i)
@@ -740,7 +740,7 @@ int32 DynamicTree::GetMaxBalance() const
     return maxBalance;
 }
 
-void DynamicTree::RebuildBottomUp()
+void AABBTree::RebuildBottomUp()
 {
     int32* nodes = (int32*)chowAlloc(m_nodeCount * sizeof(int32));
     int32 count = 0;
@@ -816,7 +816,7 @@ void DynamicTree::RebuildBottomUp()
     Validate();
 }
 
-void DynamicTree::ShiftOrigin(const chowVec2& newOrigin)
+void AABBTree::ShiftOrigin(const chowVec2& newOrigin)
 {
     // Build array of leaves. Free the rest.
     for (int32 i = 0; i < m_nodeCapacity; ++i)

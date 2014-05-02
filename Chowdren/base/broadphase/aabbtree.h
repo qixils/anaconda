@@ -23,8 +23,8 @@ This is a fork from Box2D, changed for use in Chowdren
 #ifndef B2_DYNAMIC_TREE_H
 #define B2_DYNAMIC_TREE_H
 
-#include "collision/growablestack.h"
-#include "collision/collision.h"
+#include "broadphase/growablestack.h"
+#include "broadphase/collision.h"
 
 #define chow_nullNode (-1)
 
@@ -53,11 +53,11 @@ struct TreeNode
     int32 height;
 };
 
-class DynamicTree
+class AABBTree
 {
 public:
-    DynamicTree();
-    ~DynamicTree();
+    AABBTree();
+    ~AABBTree();
     int32 CreateProxy(const AABB& aabb, void* userData);
     void remove(int32 proxyId);
     void clear();
@@ -122,20 +122,20 @@ private:
     int32 m_insertionCount;
 };
 
-inline void* DynamicTree::GetUserData(int32 proxyId) const
+inline void* AABBTree::GetUserData(int32 proxyId) const
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
     return m_nodes[proxyId].userData;
 }
 
-inline const AABB& DynamicTree::GetFatAABB(int32 proxyId) const
+inline const AABB& AABBTree::GetFatAABB(int32 proxyId) const
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
     return m_nodes[proxyId].aabb;
 }
 
 template <typename T>
-inline bool DynamicTree::query(const AABB& aabb, T & callback) const
+inline bool AABBTree::query(const AABB& aabb, T & callback) const
 {
     GrowableStack<int32, 256> stack;
     stack.Push(m_root);
@@ -164,7 +164,7 @@ inline bool DynamicTree::query(const AABB& aabb, T & callback) const
 }
 
 template <typename T>
-inline bool DynamicTree::query(int v[4], T & callback) const
+inline bool AABBTree::query(int v[4], T & callback) const
 {
     AABB aabb = {chowVec2(v[0], v[1]), chowVec2(v[2], v[3])};
     return query(aabb, callback);

@@ -23,7 +23,7 @@ This is a fork from Box2D, changed for use in Chowdren
 #ifndef CHOWDREN_COLLISION_COLLISION_H
 #define CHOWDREN_COLLISION_COLLISION_H
 
-#include "collision/settings.h"
+#include "broadphase/settings.h"
 
 struct chowVec2
 {

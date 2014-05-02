@@ -10,9 +10,7 @@
 #include <algorithm>
 #include <stdarg.h>
 #undef max
-#ifdef CHOWDREN_USE_DYNTREE
-#include "coltree.h"
-#endif
+#include "broadphase.h"
 
 class InstanceCollision;
 class Frame;

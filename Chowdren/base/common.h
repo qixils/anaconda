@@ -33,7 +33,7 @@
 #include "crossrand.h"
 #include "utility.h"
 #include <boost/unordered_map.hpp>
-#include "coltree.h"
+#include "broadphase.h"
 #include "input.h"
 #include "movement.h"
 
@@ -168,8 +168,8 @@ public:
     int x, y;
     int x1, y1, x2, y2;
 #ifdef CHOWDREN_USE_COLTREE
-    DynamicTree display_tree;
-    DynamicTree tree;
+    BackTree display_tree;
+    BackTree tree;
 #endif
 
     Layer(double scroll_x, double scroll_y, bool visible, int index);
@@ -354,6 +354,7 @@ public:
     bool transparent;
     int loop_count;
     SpriteCollision active_col;
+    Image * image;
 
     Active(int x, int y, int type_id);
     void initialize_active();

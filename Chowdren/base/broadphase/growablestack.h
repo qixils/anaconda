@@ -23,7 +23,7 @@ This is a fork from Box2D, changed for use in Chowdren
 #ifndef CHOWDREN_GROWABLESTACK_H
 #define CHOWDREN_GROWABLESTACK_H
 
-#include "collision/settings.h"
+#include "broadphase/settings.h"
 #include <string.h>
 
 /// This is a growable LIFO stack with an initial capacity of N.

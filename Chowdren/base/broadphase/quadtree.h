@@ -6,6 +6,8 @@
 #include "broadphase/growablestack.h"
 
 #define MAX_TREE_LEVEL 5
+// change this when MAX_TREE_LEVEL changes
+#define QUADTREE_SIZE (4 + 4*4 + 4*4*4 + 4*4*4*4 + 4*4*4*4*4)
 
 class QuadTreeItem
 {
@@ -16,6 +18,8 @@ public:
 
 typedef std::vector<QuadTreeItem> QuadTreeItems;
 typedef std::vector<unsigned int> ProxyItems;
+
+class QuadTree;
 
 class QuadTreeNode
 {
@@ -32,7 +36,7 @@ public:
 
     int children;
 
-    QuadTreeNode(int x1, int y1, int x2, int y2, int level);
+    QuadTreeNode();
     ~QuadTreeNode();
     void add(unsigned int item, int v[4]);
     void clear();
@@ -43,16 +47,20 @@ public:
 class QuadTree : public QuadTreeNode
 {
 public:
+    int current_node;
+    QuadTreeNode nodes[QUADTREE_SIZE];
     QuadTreeItems store;
     int query_id;
 
     QuadTree(int x1, int y1, int x2, int y2);
     QuadTree();
+    void init(int x1, int y1, int x2, int y2);
     unsigned int add(void * data, int v[4]);
     void move(unsigned int item, int v[4]);
     template <typename T>
     bool query(int v[4], T & callback);
     void remove(unsigned int item);
+    QuadTreeNode * create_node(int x1, int y1, int x2, int y2, int level);
 };
 
 inline bool collides_tree(int v[4],

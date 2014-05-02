@@ -5,7 +5,7 @@
 #include "broadphase/quadtree.h"
 // #include "broadphase/gridtree.h"
 
-typedef QuadTree BackTree;
+typedef AABBTree BackTree;
 typedef AABBTree DynamicTree;
 
 #endif // CHOWDREN_BROADPHASE_H

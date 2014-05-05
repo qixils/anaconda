@@ -4,6 +4,7 @@
 #include <boost/unordered_map.hpp>
 #include "chowconfig.h"
 #include "font.h"
+#include <iterator>
 
 std::string newline_character("\r\n");
 std::string empty_string("");
@@ -43,9 +44,7 @@ void Background::reset(bool clear_items)
     if (clear_items) {
         clear_back_vec(col_items);
         clear_back_vec(items);
-#ifdef CHOWDREN_USE_COLTREE
         tree.clear();
-#endif
     }
 }
 
@@ -58,7 +57,6 @@ void Background::destroy_at(int x, int y)
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
-            // tree.remove(item.tree_item);
             delete item;
             it = items.erase(it);
         } else {
@@ -72,9 +70,7 @@ void Background::destroy_at(int x, int y)
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
-#ifdef CHOWDREN_USE_COLTREE
             tree.remove(item->col);
-#endif
             delete item;
             it = col_items.erase(it);
         } else
@@ -98,12 +94,10 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                collision_type);
     if (collision_type == 1) {
         col_items.push_back(item);
-#ifdef CHOWDREN_USE_COLTREE
         int x2 = dest_x + src_width;
         int y2 = dest_y + src_height;
         int v[4] = {dest_x, dest_y, x2, y2};
         item->col = tree.add(&item, v);
-#endif
     } else {
         items.push_back(item);
     }
@@ -139,18 +133,9 @@ struct BackgroundItemCallback
 
 bool Background::collide(CollisionBase * a)
 {
-#ifdef CHOWDREN_USE_COLTREE
     BackgroundItemCallback callback(a);
     if (!tree.query(a->aabb, callback))
         return true;
-#else
-    BackgroundItems::iterator it;
-    for (it = col_items.begin(); it != col_items.end(); it++) {
-        BackgroundItem * item = *it;
-        if (::collide(a, item))
-            return true;
-    }
-#endif
     return false;
 }
 
@@ -158,7 +143,7 @@ bool Background::collide(CollisionBase * a)
 
 Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index), x1(0), y1(0), x2(0), y2(0), x(0), y(0), off_x(0), off_y(0)
+  index(index), x(0), y(0), off_x(0), off_y(0), order_changed(false)
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_TV_TARGET;
@@ -182,7 +167,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     this->off_x = off_x;
     this->off_y = off_y;
 
-    FlatObjectList::const_iterator it;
+    LayerInstances::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
         if (object->scroll)
@@ -197,85 +182,94 @@ void Layer::set_position(int x, int y)
     int dy = y - this->y;
     this->x = x;
     this->y = y;
-    FlatObjectList::const_iterator it;
+    LayerInstances::const_iterator it;
+
+    // should be faster than removing and inserting every AABB again
+    // (so only an overlap test is necessary)
+    tree.shift(-dx, -dy);
+
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
         if (!object->scroll)
             continue;
         object->set_position(object->x + dx, object->y + dy);
     }
-    // XXX should we change background instance positions (coltree)
-    for (it = background_instances.begin(); it != background_instances.end();
-         it++) {
-        FrameObject * item = *it;
+
+    FlatObjectList::const_iterator it2;
+    for (it2 = background_instances.begin(); it2 != background_instances.end();
+         it2++) {
+        FrameObject * item = *it2;
         item->set_position(item->x + dx, item->y + dy);
     }
 }
 
 void Layer::add_background_object(FrameObject * instance)
 {
-    CollisionBase * col = instance->collision;
-    int * b;
-    if (col != NULL) {
-        b = col->aabb;
-        if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
-            x1 = b[0];
-            y1 = b[1];
-            x2 = b[2];
-            y2 = b[3];
-        } else {
-            rect_union(x1, y1, x2, y2,
-                       b[0], b[1], b[2], b[3],
-                       x1, y1, x2, y2);
-        }
-#ifdef CHOWDREN_USE_COLTREE
-        tree.add(col, b);
-#endif
-    }
-
-#ifdef CHOWDREN_USE_COLTREE
-    if (col == NULL) {
-        int bb[4] = {instance->x,
-                     instance->y,
-                     instance->x + instance->width,
-                     instance->y + instance->height};
-        display_tree.add(instance, bb);
-    } else {
-        display_tree.add(instance, b);
-    }
-#endif
     instance->depth = background_instances.size();
     background_instances.push_back(instance);
 }
 
 void Layer::add_object(FrameObject * instance)
 {
+    instance->depth = instances.size();
     instances.push_back(instance);
 }
 
 void Layer::insert_object(FrameObject * instance, int index)
 {
-    instances.insert(instances.begin() + index, instance);
+    order_changed = true;
+    if (index == 0) {
+        instances.push_front(instance);
+        return;
+    }
+    LayerInstances::iterator it = instances.begin();
+    std::advance(it, index);
+    instances.insert(it, instance);
 }
 
 void Layer::remove_object(FrameObject * instance)
 {
-    remove_list(instances, instance);
+    order_changed = true;
+    LayerInstances::iterator it;
+    for (it = instances.begin(); it != instances.end(); it++) {
+        if (*it != instance)
+            continue;
+        instances.erase(it);
+        break;
+    }
 }
 
-void Layer::set_level(FrameObject * instance, int index)
+void Layer::set_level(int old_index, int new_index)
 {
-    remove_object(instance);
-    if (index == -1)
+    LayerInstances::iterator it = instances.begin();
+    std::advance(it, old_index);
+    FrameObject * instance = *it;
+    instances.erase(it);
+    if (new_index == -1 || new_index >= int(instances.size()))
         add_object(instance);
     else
-        insert_object(instance, index);
+        insert_object(instance, new_index);
+}
+
+void Layer::set_level(FrameObject * instance, int new_index)
+{
+    remove_object(instance);
+    if (new_index == -1 || new_index >= int(instances.size()))
+        add_object(instance);
+    else
+        insert_object(instance, new_index);
 }
 
 int Layer::get_level(FrameObject * instance)
 {
-    return std::find(instances.begin(), instances.end(),
-                     instance) - instances.begin();
+    LayerInstances::const_iterator it;
+    int i = 0;
+    for (it = instances.begin(); it != instances.end(); it++) {
+        if (*it == instance)
+            return i;
+        i++;
+    }
+    return -1;
 }
 
 void Layer::create_background()
@@ -310,35 +304,20 @@ struct BackgroundCallback
 
     bool on_callback(void * data)
     {
-        CollisionBase * item = (CollisionBase*)data;
-        return !collide(col, item);
+        FrameObject * obj = (FrameObject*)data;
+        if (obj->id != BACKGROUND_TYPE)
+            return true;
+        return !collide(col, obj->collision);
     }
 };
 
 bool Layer::test_background_collision(CollisionBase * a)
 {
-    if (a == NULL)
-        return false;
-    int * b = a->aabb;
-    if (!collides(b[0], b[1], b[2], b[3], x1, y1, x2, y2))
-        return false;
     if (back != NULL && back->collide(a))
         return true;
-#ifdef CHOWDREN_USE_COLTREE
     BackgroundCallback callback(a);
-    if (!tree.query(b, callback))
+    if (!tree.query(a->aabb, callback))
         return true;
-#else
-    FlatObjectList::const_iterator it;
-    for (it = background_instances.begin(); it != background_instances.end();
-         it++) {
-        CollisionBase * col = (*it)->collision;
-        if (col == NULL)
-            continue;
-        if (collide(a, col))
-            return true;
-    }
-#endif
     return false;
 }
 
@@ -353,29 +332,15 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
                   int collision_type)
 {
     create_background();
-    if (collision_type == 1) {
-        int xx = dest_x + src_width;
-        int yy = dest_x + src_height;
-        if (x1 == 0 && y1 == 0 && x2 == 0 && y2 == 0) {
-            x1 = dest_x;
-            y1 = dest_y;
-            x2 = xx;
-            y2 = yy;
-        } else {
-            rect_union(x1, y1, x2, y2,
-                       dest_x, dest_y, xx, yy,
-                       x1, y1, x2, y2);
-        }
-    }
     back->paste(img, dest_x, dest_y, src_x, src_y,
         src_width, src_height, collision_type);
 }
 
-struct BackgroundDrawCallback
+struct DrawCallback
 {
     FlatObjectList & list;
 
-    BackgroundDrawCallback(FlatObjectList & list)
+    DrawCallback(FlatObjectList & list)
     : list(list)
     {
     }
@@ -383,6 +348,8 @@ struct BackgroundDrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
+        if (!item->visible)
+            return true;
         list.push_back(item);
         return true;
     }
@@ -390,6 +357,10 @@ struct BackgroundDrawCallback
 
 inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 {
+    if (obj1->id == BACKGROUND_TYPE && obj2->id != BACKGROUND_TYPE)
+        return true;
+    if (obj2->id == BACKGROUND_TYPE && obj1->id != BACKGROUND_TYPE)
+        return false;
     return obj1->depth < obj2->depth;
 }
 
@@ -418,48 +389,35 @@ void Layer::draw()
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
-    PROFILE_BEGIN(Layer_draw_background_instances);
+    PROFILE_BEGIN(Layer_draw_instances);
 
-    FlatObjectList::const_iterator it;
+    if (order_changed) {
+        LayerInstances::iterator it;
+        int i = 0;
+        for (it = instances.begin(); it != instances.end(); it++) {
+            (*it)->depth = i;
+            i++;
+        }
+        order_changed = false;
+    }
 
-#ifdef CHOWDREN_USE_COLTREE
     static FlatObjectList draw_list;
     draw_list.clear();
-    BackgroundDrawCallback callback(draw_list);
-    int v[4] = {x1-x, y1-y, x2-x, y2-y};
-    display_tree.query(v, callback);
+    DrawCallback callback(draw_list);
+    int v[4] = {x1, y1, x2, y2};
+    tree.query(v, callback);
     draw_sorted_list(draw_list);
-#else
-    for (it = background_instances.begin(); it != background_instances.end();
-         it++) {
-        FrameObject * item = *it;
-        if (!collide_box(item, x1, y1, x2, y2))
-            continue;
-        item->draw();
-    }
-#endif
 
     PROFILE_END();
 
     PROFILE_BEGIN(Layer_draw_pasted);
 
-    // draw pasted items
+    // draw pasted items.
+    // this is bending the rules a bit -- we're supposed to draw this *after*
+    // background instances and *before* dynamic instances, but we'd have to
+    // insert the pasted items in the AABB tree as FrameObjects then
     if (back != NULL)
         back->draw();
-
-    PROFILE_END();
-
-    PROFILE_BEGIN(Layer_draw_instances);
-
-    // draw active instances
-    for (it = instances.begin(); it != instances.end(); it++) {
-        FrameObject * item = *it;
-        if (!item->visible)
-            continue;
-        if (!collide_box(item, x1, y1, x2, y2))
-            continue;
-        item->draw();
-    }
 
     PROFILE_END();
 }
@@ -663,6 +621,8 @@ FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
     instance->layer = layer;
     GameManager::instances.items[instance->id].add(instance);
     layer->add_object(instance);
+    if (instance->collision)
+        instance->collision->create_proxy();
     return instance;
 }
 
@@ -679,6 +639,15 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     Layer * layer = layers[layer_index];
     instance->layer = layer;
     layer->add_background_object(instance);
+    if (instance->collision)
+        instance->collision->create_proxy();
+    else {
+        int bb[4] = {instance->x,
+                     instance->y,
+                     instance->x + instance->width,
+                     instance->y + instance->height};
+        layer->tree.add(instance, bb);
+    }
 }
 
 void Frame::destroy_object(FrameObject * instance)
@@ -693,8 +662,12 @@ void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
     instance->layer->remove_object(instance);
     Layer * layer = layers[new_layer];
+    if (instance->collision)
+        instance->collision->remove_proxy();
     layer->add_object(instance);
     instance->layer = layer;
+    if (instance->collision)
+        instance->collision->create_proxy();
 }
 
 int Frame::get_loop_index(const std::string & name)
@@ -871,11 +844,9 @@ void FrameObject::set_position(int x, int y)
 {
     this->x = x;
     this->y = y;
-#ifdef CHOWDREN_USE_DYNTREE
     if (collision == NULL)
         return;
     collision->update_aabb();
-#endif
 }
 
 void FrameObject::set_global_position(int x, int y)
@@ -886,11 +857,9 @@ void FrameObject::set_global_position(int x, int y)
 void FrameObject::set_x(int x)
 {
     this->x = x - layer->off_x;
-#ifdef CHOWDREN_USE_DYNTREE
     if (collision == NULL)
         return;
     collision->update_aabb();
-#endif
 }
 
 int FrameObject::get_x()
@@ -901,11 +870,9 @@ int FrameObject::get_x()
 void FrameObject::set_y(int y)
 {
     this->y = y - layer->off_y;
-#ifdef CHOWDREN_USE_DYNTREE
     if (collision == NULL)
         return;
     collision->update_aabb();
-#endif
 }
 
 int FrameObject::get_y()
@@ -968,22 +935,22 @@ bool FrameObject::overlaps(FrameObject * other)
         return false;
     if (other->layer != layer)
         return false;
-    return collide(other->collision, collision);
+    return collision->overlaps(other);
 }
 
 bool FrameObject::overlaps_background()
 {
-    if (destroying)
+    if (destroying || collision == NULL)
         return false;
-    return layer->test_background_collision(collision);
+    if (layer->back != NULL && layer->back->collide(collision))
+        return true;
+    return collision->overlaps_type(BACKGROUND_TYPE);
 }
 
 bool FrameObject::overlaps_background_save()
 {
-    if (destroying)
-        return false;
-    bool ret = layer->test_background_collision(collision);
-    if (movement != NULL) {
+    bool ret = overlaps_background();
+    if (ret && movement != NULL) {
         movement->set_background_collision();
     }
     return ret;
@@ -1046,6 +1013,8 @@ void FrameObject::set_level(int index)
 
 int FrameObject::get_level()
 {
+    if (!layer->order_changed)
+        return depth;
     return layer->get_level(this);
 }
 
@@ -1057,7 +1026,7 @@ void FrameObject::move_back(FrameObject * other)
     int level2 = other->get_level();
     if (level < level2)
         return;
-    set_level(level2);
+    layer->set_level(level, level2);
 }
 
 void FrameObject::move_back()
@@ -1080,7 +1049,7 @@ void FrameObject::move_front(FrameObject * other)
     int level2 = other->get_level();
     if (level > level2)
         return;
-    set_level(level2);
+    layer->set_level(level, level2);
 }
 
 FixedValue FrameObject::get_fixed()
@@ -1140,12 +1109,12 @@ void FrameObject::shoot(FrameObject * other, int speed, int direction)
     other->movement->start();
 }
 
-double FrameObject::get_angle()
+float FrameObject::get_angle()
 {
-    return 0.0;
+    return 0.0f;
 }
 
-void FrameObject::set_angle(double angle, int quality)
+void FrameObject::set_angle(float angle, int quality)
 {
 }
 
@@ -1260,8 +1229,8 @@ inline Direction * find_nearest_direction(int dir, Direction ** dirs)
 
 Active::Active(int x, int y, int type_id)
 : FrameObject(x, y, type_id), forced_animation(-1),
-  animation_frame(0), counter(0), angle(0.0), forced_frame(-1),
-  forced_speed(-1), forced_direction(-1), x_scale(1.0), y_scale(1.0),
+  animation_frame(0), counter(0), angle(0.0f), forced_frame(-1),
+  forced_speed(-1), forced_direction(-1), x_scale(1.0f), y_scale(1.0f),
   animation_direction(0), stopped(false), flash_interval(0.0f),
   animation_finished(-1), transparent(false), flags(0), image(NULL)
 {
@@ -1505,7 +1474,7 @@ int Active::get_action_y()
     return y + action_y;
 }
 
-void Active::set_angle(double angle, int quality)
+void Active::set_angle(float angle, int quality)
 {
     angle = mod(angle, 360.0f);
     this->angle = angle;
@@ -1513,7 +1482,7 @@ void Active::set_angle(double angle, int quality)
     update_action_point();
 }
 
-double Active::get_angle()
+float Active::get_angle()
 {
     return angle;
 }
@@ -1567,7 +1536,7 @@ void Active::set_direction(int value, bool set_movement)
         return;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
-        set_angle(double(value) * 11.25);
+        set_angle(float(value) * 11.25f);
         value = 0;
     }
     Direction * old_dir = get_direction_data();
@@ -1584,24 +1553,24 @@ int & Active::get_animation_direction()
     return animation_direction;
 }
 
-void Active::set_scale(double value)
+void Active::set_scale(float value)
 {
-    value = std::max<double>(0.0f, value);
+    value = std::max(0.0f, value);
     x_scale = y_scale = value;
     active_col.set_scale(value);
     update_action_point();
 }
 
-void Active::set_x_scale(double value)
+void Active::set_x_scale(float value)
 {
-    x_scale = std::max<double>(0.0f, value);
+    x_scale = std::max(0.0f, value);
     active_col.set_x_scale(x_scale);
     update_action_point();
 }
 
-void Active::set_y_scale(double value)
+void Active::set_y_scale(float value)
 {
-    y_scale = std::max<double>(0.0f, value);
+    y_scale = std::max(0.0f, value);
     active_col.set_y_scale(y_scale);
     update_action_point();
 }
@@ -3086,8 +3055,14 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     sort_index = index;
     sort_reverse = true;
     this->def = def;
-    FlatObjectList & instances = frame->layers[current_layer]->instances;
+    Layer * layer = frame->layers[current_layer];
+    layer->order_changed = true;
+    LayerInstances & instances = layer->instances;
+#ifdef LAYER_USE_STD_SORT
     std::sort(instances.begin(), instances.end(), sort_func);
+#else
+    instances.sort(sort_func);
+#endif
 }
 
 // Viewport
@@ -3101,11 +3076,13 @@ Viewport::Viewport(int x, int y, int type_id)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    collision = new InstanceBox(this);
 }
 
 Viewport::~Viewport()
 {
     glDeleteTextures(1, &texture);
+    delete collision;
 }
 
 void Viewport::set_source(int center_x, int center_y, int width, int height)
@@ -3119,11 +3096,13 @@ void Viewport::set_source(int center_x, int center_y, int width, int height)
 void Viewport::set_width(int w)
 {
     width = w;
+    collision->update_aabb();
 }
 
 void Viewport::set_height(int h)
 {
     height = h;
+    collision->update_aabb();
 }
 
 void Viewport::draw()
@@ -3451,7 +3430,7 @@ void PlatformObject::jump()
 
 ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
-  scale_x(1.0), scale_y(1.0), angle(0.0), has_transparent_color(false)
+  scale_x(1.0f), scale_y(1.0f), angle(0.0f), has_transparent_color(false)
 {
     collision = new SpriteCollision(this);
 }
@@ -3538,26 +3517,26 @@ void ActivePicture::flip_horizontal()
     horizontal_flip = !horizontal_flip;
 }
 
-void ActivePicture::set_scale(double value)
+void ActivePicture::set_scale(float value)
 {
     ((SpriteCollision*)collision)->set_scale(value);
     scale_x = scale_y = value;
 }
 
-void ActivePicture::set_zoom(double value)
+void ActivePicture::set_zoom(float value)
 {
     set_scale(value / 100.0);
 }
 
-void ActivePicture::set_angle(double value, int quality)
+void ActivePicture::set_angle(float value, int quality)
 {
     ((SpriteCollision*)collision)->set_angle(value);
     angle = value;
 }
 
-double ActivePicture::get_zoom_x()
+float ActivePicture::get_zoom_x()
 {
-    return scale_x * 100.0;
+    return scale_x * 100.0f;
 }
 
 int ActivePicture::get_width()

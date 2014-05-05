@@ -97,6 +97,7 @@ void AABBTree::FreeNode(int32 nodeId)
     chowAssert(0 < m_nodeCount);
     m_nodes[nodeId].next = m_freeList;
     m_nodes[nodeId].height = -1;
+    m_nodes[nodeId].userData = NULL;
     m_freeList = nodeId;
     --m_nodeCount;
 }
@@ -201,7 +202,7 @@ bool AABBTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displa
     return true;
 }
 
-void AABBTree::move(int32 proxyId, int v[4])
+bool AABBTree::move(int32 proxyId, int v[4])
 {
     chowAssert(0 <= proxyId && proxyId < m_nodeCapacity);
     chowAssert(m_nodes[proxyId].IsLeaf());
@@ -209,7 +210,7 @@ void AABBTree::move(int32 proxyId, int v[4])
     AABB b = {chowVec2(v[0], v[1]), chowVec2(v[2], v[3])};
 
     if (m_nodes[proxyId].aabb.Contains(b)) {
-        return;
+        return false;
     }
 
     RemoveLeaf(proxyId);
@@ -220,6 +221,7 @@ void AABBTree::move(int32 proxyId, int v[4])
     b.upperBound = b.upperBound + r;
     m_nodes[proxyId].aabb = b;
     InsertLeaf(proxyId);
+    return true;
 }
 
 void AABBTree::InsertLeaf(int32 leaf)
@@ -816,7 +818,7 @@ void AABBTree::RebuildBottomUp()
     Validate();
 }
 
-void AABBTree::ShiftOrigin(const chowVec2& newOrigin)
+void AABBTree::shift(const chowVec2& newOrigin)
 {
     // Build array of leaves. Free the rest.
     for (int32 i = 0; i < m_nodeCapacity; ++i)
@@ -824,4 +826,9 @@ void AABBTree::ShiftOrigin(const chowVec2& newOrigin)
         m_nodes[i].aabb.lowerBound -= newOrigin;
         m_nodes[i].aabb.upperBound -= newOrigin;
     }
+}
+
+void AABBTree::shift(int x, int y)
+{
+    shift(chowVec2(x, y));
 }

@@ -129,160 +129,6 @@ public:
     Font(const char * face, int size, bool bold, bool italic, bool underline);
 };
 
-#define BACK_WIDTH WINDOW_WIDTH
-#define BACK_HEIGHT WINDOW_HEIGHT
-
-typedef std::vector<BackgroundItem*> BackgroundItems;
-
-class Background
-{
-public:
-    BackgroundItems items;
-    BackgroundItems col_items;
-#ifdef CHOWDREN_USE_COLTREE
-    DynamicTree tree;
-#endif
-
-    Background();
-    ~Background();
-    void reset(bool clear_items = true);
-    void destroy_at(int x, int y);
-    void paste(Image * img, int dest_x, int dest_y,
-               int src_x, int src_y, int src_width, int src_height,
-               int collision_type);
-    void draw();
-    bool collide(CollisionBase * a);
-};
-
-class Layer
-{
-public:
-    FlatObjectList instances;
-    FlatObjectList background_instances;
-    bool visible;
-    double scroll_x, scroll_y;
-    Background * back;
-    int index;
-    bool scroll_active;
-    int off_x, off_y;
-    int x, y;
-    int x1, y1, x2, y2;
-#ifdef CHOWDREN_USE_COLTREE
-    BackTree display_tree;
-    BackTree tree;
-#endif
-
-    Layer(double scroll_x, double scroll_y, bool visible, int index);
-    ~Layer();
-    void scroll(int off_x, int off_y, int dx, int dy);
-    void set_position(int x, int y);
-    void add_background_object(FrameObject * instance);
-    void add_object(FrameObject * instance);
-    void insert_object(FrameObject * instance, int index);
-    void remove_object(FrameObject * instance);
-    void set_level(FrameObject * instance, int index);
-    int get_level(FrameObject * instance);
-    void create_background();
-    void destroy_backgrounds();
-    void destroy_backgrounds(int x, int y, bool fine);
-    bool test_background_collision(CollisionBase * a);
-    bool test_background_collision(int x, int y);
-    void paste(Image * img, int dest_x, int dest_y,
-               int src_x, int src_y, int src_width, int src_height,
-               int collision_type);
-    void draw();
-
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
-    int remote;
-    void set_remote(int value);
-#endif
-};
-
-typedef bool (*LoopCallback)(void*);
-
-class DynamicLoop
-{
-public:
-    LoopCallback callback;
-    bool * running;
-    int * index;
-
-    DynamicLoop()
-    {
-    }
-
-    void set(LoopCallback callback, bool * running, int * index)
-    {
-        this->callback = callback;
-        this->running = running;
-        this->index = index;
-    }
-};
-
-typedef boost::unordered_map<std::string, DynamicLoop> DynamicLoops;
-
-class Media;
-
-class Frame
-{
-public:
-    std::string name;
-    int width, height;
-    int index;
-    GameManager * manager;
-    FlatObjectList destroyed_instances;
-    std::vector<Layer*> layers;
-    DynamicLoops loops;
-    Color background_color;
-    GlobalValues * global_values;
-    GlobalStrings * global_strings;
-    Media * media;
-    bool has_quit;
-    int off_x, off_y, new_off_x, new_off_y;
-    int last_key;
-    int next_frame;
-    unsigned int loop_count;
-    double frame_time;
-    unsigned int frame_iteration;
-    int timer_base;
-    float timer_mul;
-
-    Frame(const std::string & name, int width, int height,
-          Color background_color, int index, GameManager * manager);
-    virtual void event_callback(int id);
-    virtual void on_start();
-    virtual void on_end();
-    virtual void handle_events();
-    bool update(float dt);
-    void pause();
-    void restart();
-    void draw(int remote);
-    void add_layer(double scroll_x, double scroll_y, bool visible);
-    FrameObject * add_object(FrameObject * object, int layer_indcex);
-    FrameObject * add_object(FrameObject * object, Layer * layer);
-    void add_background_object(FrameObject * object, int layer_index);
-    void destroy_object(FrameObject * object);
-    void set_object_layer(FrameObject * object, int new_layer);
-    int get_loop_index(const std::string & name);
-    void set_timer(double value);
-    void set_lives(int lives);
-    void set_display_center(int x = -1, int y = -1);
-    void update_display_center();
-    int frame_left();
-    int frame_right();
-    int frame_top();
-    int frame_bottom();
-    void set_background_color(int color);
-    void get_mouse_pos(int * x, int * y);
-    int get_mouse_x();
-    int get_mouse_y();
-    bool test_background_collision(int x, int y);
-    bool compare_joystick_direction(int n, int test_dir);
-    bool is_joystick_direction_changed(int n);
-    void clean_instances();
-    void set_vsync(bool value);
-};
-
 // object types
 
 enum AnimationIndex {
@@ -379,8 +225,8 @@ public:
     Image * get_image();
     int get_action_x();
     int get_action_y();
-    void set_angle(double angle, int quality = 0);
-    double get_angle();
+    void set_angle(float angle, int quality = 0);
+    float get_angle();
     int & get_frame();
     int get_speed();
     Direction * get_direction_data(int & dir);
@@ -390,9 +236,9 @@ public:
     void set_animation(int value);
     void set_direction(int value, bool set_movement = true);
     int & get_animation_direction();
-    void set_scale(double scale);
-    void set_x_scale(double value);
-    void set_y_scale(double value);
+    void set_scale(float scale);
+    void set_x_scale(float value);
+    void set_y_scale(float value);
     void paste(int collision_type);
     bool test_direction(int value);
     bool test_directions(int value);
@@ -840,8 +686,8 @@ public:
     std::string filename;
     Color transparent_color;
     bool has_transparent_color;
-    double scale_x, scale_y;
-    double angle;
+    float scale_x, scale_y;
+    float angle;
     static ImageCache image_cache;
 
     ActivePicture(int x, int y, int type_id);
@@ -852,10 +698,10 @@ public:
     void set_hotspot(int x, int y);
     void set_hotspot_mul(float x, float y);
     void flip_horizontal();
-    void set_scale(double value);
-    void set_zoom(double value);
-    void set_angle(double value, int quality = 0);
-    double get_zoom_x();
+    void set_scale(float value);
+    void set_zoom(float value);
+    void set_angle(float value, int quality = 0);
+    float get_zoom_x();
     int get_width();
     int get_height();
     void draw();
@@ -1052,6 +898,7 @@ inline bool check_overlap(FrameObject * obj1, FrameObject * obj2)
         obj1->movement->add_collision(obj2);
     if (obj2->movement != NULL)
         obj2->movement->add_collision(obj1);
+    return true;
 }
 
 // ObjectList vs ObjectList
@@ -1062,31 +909,25 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
     int size = list2.size();
     if (size <= 0)
         return false;
-    int_temp.resize(size*2);
+    int_temp.resize(size);
     std::fill(int_temp.begin(), int_temp.end(), 0);
-
-    // all currently selected objects
-    int * temp1 = &int_temp[0];
-    // new objects selected due to overlap
-    int * temp2 = &int_temp[size];
-
-    for (ObjectIterator it(list2); !it.end(); it++) {
-        temp1[it.index-1] = 1;
-    }
 
     bool ret = false;
     for (ObjectIterator it1(list1); !it1.end(); it1++) {
         FrameObject * instance = *it1;
-        OverlapCallback<save> callback(instance, temp1, temp2);
-        CollisionBase * col = instance->collision;
+        InstanceCollision * col = instance->collision;
         if (col == NULL) {
             it1.deselect();
             continue;
         }
-        ((ManagerObjectList&)list2).tree.query(col->aabb, callback);
-        if (callback.added)
-            ret = true;
-        else
+        bool added = false;
+        for (ObjectIterator it2(list2); !it2.end(); it2++) {
+            if (!instance->overlaps(*it2))
+                continue;
+            int_temp[it2.index-1] = 1;
+            added = ret = true;
+        }
+        if (!added)
             it1.deselect();
     }
 
@@ -1094,7 +935,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
         return false;
 
     for (ObjectIterator it(list2); !it.end(); it++) {
-        if (!temp2[it.index-1])
+        if (!int_temp[it.index-1])
             it.deselect();
     }
 
@@ -1115,26 +956,14 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
         return false;
     }
 
-    int_temp.resize(size*2);
-    std::fill(int_temp.begin(), int_temp.end(), 0);
-
-    // all currently selected objects
-    int * temp1 = &int_temp[0];
-    // new objects selected due to overlap
-    int * temp2 = &int_temp[size];
-
+    bool ret = false;
     for (ObjectIterator it(list); !it.end(); it++) {
-        temp1[it.index-1] = 1;
-    }
-
-    OverlapCallback<save> callback(obj, temp1, temp2);
-    ((ManagerObjectList&)list).tree.query(col->aabb, callback);
-    if (!callback.added)
-        return false;
-
-    for (ObjectIterator it(list); !it.end(); it++) {
-        if (!temp2[it.index-1])
-            it.deselect();
+        FrameObject * other = *it;
+        if (!obj->overlaps(other)) {
+            it1.deselect();
+            continue;
+        }
+        ret = true;
     }
 
     return true;
@@ -1154,56 +983,41 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     int size = list1.size();
     if (size <= 0)
         return false;
-    int_temp.resize(size*2);
+    int_temp.resize(size);
     std::fill(int_temp.begin(), int_temp.end(), 0);
 
-    // all currently selected objects
-    int * temp1 = &int_temp[0];
-    // new objects selected due to overlap
-    int * temp2 = &int_temp[size];
-
-    int total_index = 0;
-    for (int i = 0; i < list1.count; i++) {
-        ObjectList & list = *list1.items[i];
-        for (ObjectIterator it(list); !it.end(); it++) {
-            temp1[total_index + it.index - 1] = 1;
-        }
-        total_index += list.size();
-    }
-
     bool ret = false;
-    for (ObjectIterator it2(list2); !it2.end(); it2++) {
-        FrameObject * instance = *it2;
-        CollisionBase * col = instance->collision;
-        if (col == NULL) {
-            it2.deselect();
+    for (ObjectIterator it1(list2); !it1.end(); it1++) {
+        FrameObject * instance = *it1;
+        if (instance->collision == NULL) {
+            it1.deselect();
             continue;
         }
         bool added = false;
         int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
-            int * temp_off_1 = temp1 + temp_offset;
-            int * temp_off_2 = temp2 + temp_offset;
-            OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
-            ((ManagerObjectList&)list).tree.query(col->aabb, callback);
-            if (callback.added) {
-                ret = added = true;
+            for (ObjectIterator it2(list); !it2.end(); it2++) {
+                FrameObject * other = *it2;
+                if (!instance->overlaps(other))
+                    continue;
+                added = ret = true;
+                int_temp[temp_offset + it2.index - 1] = 1;
             }
             temp_offset += list.size();
         }
         if (!added)
-            it2.deselect();
+            it1.deselect();
     }
 
     if (!ret)
         return false;
 
-    total_index = 0;
+    int total_index = 0;
     for (int i = 0; i < list1.count; i++) {
         ObjectList & list = *list1.items[i];
         for (ObjectIterator it(list); !it.end(); it++) {
-            if (!temp2[total_index + it.index - 1])
+            if (!int_temp[total_index + it.index - 1])
                 it.deselect();
         }
         total_index += list.size();
@@ -1227,56 +1041,29 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
     if (size <= 0)
         return false;
 
-    CollisionBase * col = obj->collision;
-    if (col == NULL)
+    if (obj->collision == NULL)
         return false;
 
-    int_temp.resize(size*2);
+    int_temp.resize(size);
     std::fill(int_temp.begin(), int_temp.end(), 0);
-
-    // all currently selected objects
-    int * temp1 = &int_temp[0];
-    // new objects selected due to overlap
-    int * temp2 = &int_temp[size];
-
-    int total_index = 0;
-    for (int i = 0; i < list.count; i++) {
-        ObjectList & list2 = *list.items[i];
-        for (ObjectIterator it(list2); !it.end(); it++) {
-            temp1[it.index - 1 + total_index] = 1;
-        }
-        total_index += list2.size();
-    }
 
     bool ret = false;
 
     int temp_offset = 0;
     for (int i = 0; i < list.count; i++) {
         ObjectList & list2 = *list.items[i];
-        int * temp_off_1 = temp1 + temp_offset;
-        int * temp_off_2 = temp2 + temp_offset;
-        OverlapCallback<save> callback(obj, temp_off_1, temp_off_2);
-        ((ManagerObjectList&)list2).tree.query(col->aabb, callback);
-        if (callback.added) {
-            ret = true;
-        }
-        temp_offset += list2.size();
-    }
-
-    if (!ret)
-        return false;
-
-    total_index = 0;
-    for (int i = 0; i < list.count; i++) {
-        ObjectList & list2 = *list.items[i];
         for (ObjectIterator it(list2); !it.end(); it++) {
-            if (!temp2[total_index + it.index - 1])
-                it.deselect();
+            FrameObject * other = *it;
+            if (instance->overlaps(other)) {
+                ret = true;
+                continue;
+            }
+            it.deselect();
+            continue;
         }
-        total_index += list2.size();
     }
 
-    return true;
+    return ret;
 }
 
 template <bool save>
@@ -1293,29 +1080,14 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     int size = list1.size();
     if (size <= 0)
         return false;
-    int_temp.resize(size*2);
+    int_temp.resize(size);
     std::fill(int_temp.begin(), int_temp.end(), 0);
 
-    // all currently selected objects
-    int * temp1 = &int_temp[0];
-    // new objects selected due to overlap
-    int * temp2 = &int_temp[size];
-
-    int total_index = 0;
-    for (int i = 0; i < list1.count; i++) {
-        ObjectList & list = *list1.items[i];
-        for (ObjectIterator it(list); !it.end(); it++) {
-            temp1[it.index - 1 + total_index] = 1;
-        }
-        total_index += list.size();
-    }
-
     bool ret = false;
-    for (QualifierIterator it2(list2); !it2.end(); it2++) {
-        FrameObject * instance = *it2;
-        CollisionBase * col = instance->collision;
-        if (col == NULL) {
-            it2.deselect();
+    for (QualifierIterator it1(list2); !it1.end(); it1++) {
+        FrameObject * instance = *it1;
+        if (instance->collision == NULL) {
+            it1.deselect();
             continue;
         }
         bool added = false;
@@ -1323,27 +1095,27 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
         int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
-            int * temp_off_1 = temp1 + temp_offset;
-            int * temp_off_2 = temp2 + temp_offset;
-            OverlapCallback<save> callback(instance, temp_off_1, temp_off_2);
-            ((ManagerObjectList&)list).tree.query(col->aabb, callback);
-            if (callback.added) {
-                ret = added = true;
+            for (ObjectIterator it2(list); !it2.end(); it2++) {
+                FrameObject * other = *it2;
+                if (!instance->overlaps(other))
+                    continue;
+                added = ret = true;
+                int_temp[temp_offset + it2.index - 1] = 1;
             }
             temp_offset += list.size();
         }
         if (!added)
-            it2.deselect();
+            it1.deselect();
     }
 
     if (!ret)
         return false;
 
-    total_index = 0;
+    int total_index = 0;
     for (int i = 0; i < list1.count; i++) {
         ObjectList & list = *list1.items[i];
         for (ObjectIterator it(list); !it.end(); it++) {
-            if (!temp2[total_index + it.index - 1])
+            if (!int_temp[total_index + it.index - 1])
                 it.deselect();
         }
         total_index += list.size();
@@ -1352,53 +1124,25 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     return true;
 }
 
-struct NotOverlapCallback
-{
-    FrameObject * instance;
-
-    NotOverlapCallback(FrameObject * instance)
-    : instance(instance)
-    {
-    }
-
-    bool on_callback(void * data)
-    {
-        FrameObject * other = (FrameObject*)data;
-        if (other == instance)
-            return true;
-        if (!int_temp[other->index-1])
-            return true;
-        if (!instance->overlaps(other))
-            return true;
-        return false;
-    }
-};
+// ObjectList vs ObjectList
 
 inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
 {
-    int size = list2.size();
-    if (size <= 0)
-        return true;
-    int_temp.resize(size);
-    std::fill(int_temp.begin(), int_temp.end(), 0);
-
-    for (ObjectIterator it(list2); !it.end(); it++) {
-        int_temp[it.index-1] = 1;
-    }
-
     for (ObjectIterator it1(list1); !it1.end(); it1++) {
         FrameObject * instance = *it1;
-        CollisionBase * col = instance->collision;
-        if (col == NULL) {
-            it1.deselect();
+        if (instance->collision == NULL)
             continue;
-        }
-        NotOverlapCallback callback(instance);
-        if (!((ManagerObjectList&)list2).tree.query(col->aabb, callback))
+        for (ObjectIterator it2(list2); !it2.end(); it2++) {
+            FrameObject * other = *it2;
+            if (!instance->overlaps(other))
+                continue;
             return false;
+        }
     }
     return true;
 }
+
+// QualifierList vs ObjectList
 
 inline bool check_not_overlap(QualifierList & list1, ObjectList & list2)
 {
@@ -1414,6 +1158,8 @@ inline bool check_not_overlap(ObjectList & list1, QualifierList & list2)
     return check_not_overlap(list2, list1);
 }
 
+// QualifierList vs QualifierList
+
 inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
 {
     for (int i = 0; i < list1.count; i++) {
@@ -1425,16 +1171,21 @@ inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
     return true;
 }
 
+// FrameObject vs QualifierList
+
 inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
 {
     CollisionBase * col = obj->collision;
     if (col == NULL)
         return true;
-    NotOverlapCallback callback(obj);
     for (int i = 0; i < list.count; i++) {
-        if (!((ManagerObjectList*)list.items[i])->tree.query(col->aabb,
-                                                             callback))
+        ObjectList & list2 = *list.items[i];
+        for (ObjectIterator it(list2); !it.end(); it++) {
+            FrameObject * other = *it;
+            if (!obj->overlaps(other))
+                continue;
             return false;
+        }
     }
     return true;
 }

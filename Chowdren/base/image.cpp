@@ -98,7 +98,7 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
 
     fp.close();
 
-    if(image == NULL) {
+    if (image == NULL) {
         printf("Could not load image \"%s\"\n", filename.c_str());
         return;
     }

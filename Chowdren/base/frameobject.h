@@ -34,6 +34,8 @@ public:
     operator FrameObject*() const;
 };
 
+#define BACKGROUND_TYPE 1
+
 class FrameObject
 {
 public:
@@ -41,7 +43,7 @@ public:
     std::string name;
 #endif
     int index;
-    int depth; // only for background instances
+    int depth;
     int x, y;
     int width, height;
     int direction;
@@ -74,8 +76,8 @@ public:
     void set_y(int y);
     virtual int get_action_x();
     virtual int get_action_y();
-    virtual double get_angle();
-    virtual void set_angle(double angle, int quality = 0);
+    virtual float get_angle();
+    virtual void set_angle(float angle, int quality = 0);
     void create_alterables();
     void set_visible(bool value);
     void set_blend_color(int color);
@@ -93,8 +95,8 @@ public:
     void set_shader_parameter(const std::string & name, double value);
     void set_shader_parameter(const std::string & name, const Color & color);
     double get_shader_parameter(const std::string & name);
-    void set_level(int index);
     int get_level();
+    void set_level(int index);
     void move_back();
     void move_back(FrameObject * other);
     void move_front();
@@ -248,6 +250,7 @@ public:
     void copy(ObjectList & other)
     {
         items = other.items;
+        assert(items.size() >= 1);
     }
 
     void remove(FrameObject * obj)
@@ -258,6 +261,7 @@ public:
         }
 
         items.resize(items.size()-1);
+        assert(items.size() >= 1);
     }
 
     void select_single(FrameObject * obj)

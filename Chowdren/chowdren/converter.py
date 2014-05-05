@@ -816,7 +816,7 @@ class Converter(object):
         extension_includes = set()
         self.event_callback_ids = itertools.count()
 
-        type_id = itertools.count(1)
+        type_id = itertools.count(2)
         qualifier_id = itertools.count(1)
 
         for frameitem in game.frameItems.items:
@@ -846,9 +846,15 @@ class Converter(object):
             self.object_names[handle] = class_name
             self.instance_names[handle] = get_method_name(class_name)
             object_writer.write_pre(objects_file)
-            object_type_id = '%s_type' % class_name
-            objects_header.putln('#define %s %s' %
-                (object_type_id, type_id.next()))
+            if object_writer.is_background():
+                object_type_id = 'BACKGROUND_TYPE'
+            else:
+                object_type_id = '%s_type' % class_name
+                objects_header.putln('#define %s %s' %
+                    (object_type_id, type_id.next()))
+                list_name = self.get_object_list(handle)
+                list_ref = 'GameManager::instances.items[%s]' % object_type_id
+                lists_header.putlnc('#define %s %s', list_name, list_ref)
             objects_file.putclass(class_name, subclass)
             objects_file.put_access('public')
             object_writer.write_constants(objects_file)
@@ -1006,10 +1012,6 @@ class Converter(object):
             object_writer.write_post(objects_file)
 
             objects_file.next()
-
-            name = self.get_object_list(handle)
-            lists_header.putlnc('#define %s GameManager::instances.items[%s]',
-                                name, object_type_id)
 
         self.max_type_id = type_id.next()
         self.max_qualifier_id = qualifier_id.next()

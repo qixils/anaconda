@@ -20,11 +20,11 @@
 This is a fork from Box2D, changed for use in Chowdren
 */
 
-#ifndef B2_DYNAMIC_TREE_H
-#define B2_DYNAMIC_TREE_H
+#ifndef CHOW_DYNAMIC_TREE_H
+#define CHOW_DYNAMIC_TREE_H
 
 #include "broadphase/growablestack.h"
-#include "broadphase/collision.h"
+#include "broadphase/common.h"
 
 #define chow_nullNode (-1)
 
@@ -67,13 +67,25 @@ public:
     const AABB& GetFatAABB(int32 proxyId) const;
 
     int32 add(void * data, int v[4]);
-    void move(int32 proxy, int v[4]);
+    bool move(int32 proxy, int v[4]);
 
     template <typename T>
     bool query(int v[4], T & callback) const;
 
     template <typename T>
+    bool query(int proxy, T & callback) const;
+
+    template <typename T>
     bool query(const AABB & aabb, T & callback) const;
+
+    template <typename T>
+    bool query_ids(int v[4], T & callback) const;
+
+    template <typename T>
+    bool query_ids(int proxy, T & callback) const;
+
+    template <typename T>
+    bool query_ids(const AABB & aabb, T & callback) const;
 
     /// Validate this tree. For testing.
     void Validate() const;
@@ -95,7 +107,8 @@ public:
     /// Shift the world origin. Useful for large worlds.
     /// The shift formula is: position -= newOrigin
     /// @param newOrigin the new origin with respect to the old origin
-    void ShiftOrigin(const chowVec2& newOrigin);
+    void shift(const chowVec2& newOrigin);
+    void shift(int x, int y);
 
 private:
     int32 AllocateNode();
@@ -168,6 +181,56 @@ inline bool AABBTree::query(int v[4], T & callback) const
 {
     AABB aabb = {chowVec2(v[0], v[1]), chowVec2(v[2], v[3])};
     return query(aabb, callback);
+}
+
+template <typename T>
+inline bool AABBTree::query(int proxy, T & callback) const
+{
+    const AABB & aabb = GetFatAABB(proxy);
+    return query(aabb, callback);
+}
+
+template <typename T>
+inline bool AABBTree::query_ids(const AABB& aabb, T & callback) const
+{
+    GrowableStack<int32, 256> stack;
+    stack.Push(m_root);
+
+    while (stack.GetCount() > 0) {
+        int32 nodeId = stack.Pop();
+        if (nodeId == chow_nullNode) {
+            continue;
+        }
+
+        const TreeNode* node = m_nodes + nodeId;
+
+        if (chowTestOverlap(node->aabb, aabb)) {
+            if (node->IsLeaf()) {
+                bool proceed = callback.on_callback(nodeId);
+                if (proceed == false) {
+                    return false;
+                }
+            } else {
+                stack.Push(node->child1);
+                stack.Push(node->child2);
+            }
+        }
+    }
+    return true;
+}
+
+template <typename T>
+inline bool AABBTree::query_ids(int v[4], T & callback) const
+{
+    AABB aabb = {chowVec2(v[0], v[1]), chowVec2(v[2], v[3])};
+    return query_ids(aabb, callback);
+}
+
+template <typename T>
+inline bool AABBTree::query_ids(int proxy, T & callback) const
+{
+    const AABB & aabb = GetFatAABB(proxy);
+    return query_ids(aabb, callback);
 }
 
 #endif

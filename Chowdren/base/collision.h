@@ -1,10 +1,12 @@
 #ifndef CHOWDREN_COLLISION_H
 #define CHOWDREN_COLLISION_H
 
-#include "frameobject.h"
+#include "frame.h"
 #include <algorithm>
 #include "mathcommon.h"
 #include "broadphase.h"
+
+bool collide(CollisionBase * a, CollisionBase * b);
 
 enum CollisionType
 {
@@ -73,39 +75,138 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
     }
 }
 
+struct Pair
+{
+    FrameObject * obj;
+    int proxy;
+};
+
+typedef std::vector<Pair> Pairs;
+
 class InstanceCollision : public CollisionBase
 {
 public:
     FrameObject * instance;
-
-#ifdef CHOWDREN_USE_DYNTREE
+    bool has_pairs;
+    Pairs pairs;
     int proxy;
-#endif
 
     InstanceCollision(FrameObject * instance, CollisionType type, bool is_box)
-    : instance(instance), CollisionBase(type, is_box), proxy(-1)
+    : instance(instance), CollisionBase(type, is_box), proxy(-1),
+      has_pairs(false)
     {
     }
 
-#ifdef CHOWDREN_USE_DYNTREE
     ~InstanceCollision()
+    {
+        remove_proxy();
+    }
+
+    void remove_proxy()
     {
         if (proxy == -1)
             return;
-        GameManager::instances.items[instance->id].tree.remove(proxy);
+        instance->layer->tree.remove(proxy);
+        proxy = -1;
+        clear_pairs();
     }
-#endif
+
+    void create_proxy()
+    {
+        if (proxy != -1)
+            return;
+        proxy = instance->layer->tree.add(instance, aabb);
+    }
+
+    void clear_pairs()
+    {
+        if (!has_pairs)
+            return;
+
+        Pairs::const_iterator it;
+        for (it = pairs.begin(); it != pairs.end(); it++) {
+            const Pair & p = *it;
+            void * data = instance->layer->tree.GetUserData(p.proxy);
+            FrameObject * obj = (FrameObject*)data;
+            if (obj != p.obj)
+                // object was destroyed, pair invalid now
+                continue;
+            InstanceCollision * col = obj->collision;
+            if (col == NULL)
+                continue;
+            col->has_pairs = false;
+        }
+
+        has_pairs = false;
+    }
+
+    void update_pairs()
+    {
+        if (has_pairs)
+            return;
+        pairs.clear();
+        instance->layer->tree.query_ids(proxy, *this);
+        has_pairs = true;
+    }
+
+    bool on_callback(int proxy)
+    {
+        void * data = instance->layer->tree.GetUserData(proxy);
+        FrameObject * obj = (FrameObject*)data;
+        if (obj == instance)
+            return true;
+        if (obj->collision == NULL)
+            return true;
+        int index = pairs.size();
+        pairs.resize(index + 1);
+        Pair & p = pairs[index];
+        p.obj = obj;
+        p.proxy = proxy;
+        return true;
+    }
 
     virtual void update_aabb()
     {
-#ifdef CHOWDREN_USE_DYNTREE
-        ManagerObjectList & list = GameManager::instances.items[instance->id];
-
         if (proxy == -1)
-            proxy = list.tree.add(instance, aabb);
-        else
-            list.tree.move(proxy, aabb);
-#endif
+            return;
+
+        if (!instance->layer->tree.move(proxy, aabb))
+            return;
+
+        clear_pairs();
+    }
+
+    bool overlaps(FrameObject * obj)
+    {
+        update_pairs();
+        Pairs::const_iterator it;
+        for (it = pairs.begin(); it != pairs.end(); it++) {
+            const Pair & p = *it;
+            if (obj != p.obj)
+                continue;
+            return collide(this, obj->collision);
+        }
+        return false;
+    }
+
+    bool overlaps_type(int type)
+    {
+        update_pairs();
+        Pairs::const_iterator it;
+        for (it = pairs.begin(); it != pairs.end(); it++) {
+            const Pair & p = *it;
+            void * data = instance->layer->tree.GetUserData(p.proxy);
+            FrameObject * obj = (FrameObject*)data;
+            if (obj != p.obj)
+                // object was destroyed, pair invalid now
+                continue;
+            if (obj->id != type)
+                continue;
+            if (!collide(this, obj->collision))
+                continue;
+            return true;
+        }
+        return false;
     }
 };
 
@@ -175,8 +276,8 @@ inline int int_max_4(int a, int b, int c, int d)
     );
 }
 
-inline void transform_rect(int width, int height, double co, double si,
-                           double x_scale, double y_scale,
+inline void transform_rect(int width, int height, float co, float si,
+                           float x_scale, float y_scale,
                            int & x1, int & y1, int & x2, int & y2)
 {
     int top_right_x = int(width * x_scale * co);
@@ -195,11 +296,11 @@ class SpriteCollision : public InstanceCollision
 {
 public:
     Image * image;
-    double angle;
-    double x_scale, y_scale;
+    float angle;
+    float x_scale, y_scale;
     // transformed variables
     bool transform;
-    double co, si; // optimization
+    float co, si;
     float co_divx, si_divx;
     float co_divy, si_divy;
     int x1, y1, x2, y2; // transformed bounding box
@@ -208,7 +309,8 @@ public:
 
     SpriteCollision(FrameObject * instance = NULL, Image * image = NULL)
     : InstanceCollision(instance, SPRITE_COLLISION, false), image(image),
-      transform(false), angle(0.0), x_scale(1.0), y_scale(1.0)
+      transform(false), angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
+      si(0.0f)
     {
         if (image == NULL)
             return;
@@ -225,25 +327,27 @@ public:
         update_transform();
     }
 
-    void set_angle(double value)
+    void set_angle(float value)
     {
         angle = value;
+        co = cos_deg(angle);
+        si = sin_deg(angle);
         update_transform();
     }
 
-    void set_scale(double value)
+    void set_scale(float value)
     {
         x_scale = y_scale = value;
         update_transform();
     }
 
-    void set_x_scale(double x)
+    void set_x_scale(float x)
     {
         x_scale = x;
         update_transform();
     }
 
-    void set_y_scale(double y)
+    void set_y_scale(float y)
     {
         y_scale = y;
         update_transform();
@@ -251,7 +355,7 @@ public:
 
     void update_transform()
     {
-        if (x_scale == 1.0 && y_scale == 1.0 && angle == 0.0) {
+        if (x_scale == 1.0f && y_scale == 1.0f && angle == 0.0f) {
             width = image->width;
             height = image->height;
             hotspot_x = image->hotspot_x;
@@ -260,15 +364,32 @@ public:
             update_aabb();
             return;
         }
+
         transform = true;
-        co = cos_deg(angle);
+
         float x_scale_inv = 1.0f / x_scale;
         float y_scale_inv = 1.0f / y_scale;
-        co_divx = float(co * x_scale_inv);
-        co_divy = float(co * y_scale_inv);
-        si = sin_deg(angle);
-        si_divx = float(si * x_scale_inv);
-        si_divy = float(si * y_scale_inv);
+
+        if (angle == 0.0f) {
+            co_divx = x_scale_inv;
+            co_divy = y_scale_inv;
+            si_divx = si_divy = 0.0f;
+            width = int(image->width * x_scale);
+            height = int(image->height * y_scale);
+            x1 = 0;
+            y1 = 0;
+            x2 = width;
+            y2 = height;
+            hotspot_x = int(image->hotspot_x * x_scale);
+            hotspot_y = int(image->hotspot_y * y_scale);
+            update_aabb();
+            return;
+        }
+
+        co_divx = co * x_scale_inv;
+        co_divy = co * y_scale_inv;
+        si_divx = si * x_scale_inv;
+        si_divy = si * y_scale_inv;
         transform_rect(image->width, image->height, co, si, x_scale, y_scale,
                        x1, y1, x2, y2);
         width = x2 - x1;
@@ -308,13 +429,6 @@ public:
 
     void update_aabb()
     {
-        if (image == NULL) {
-            aabb[0] = aabb[2] = instance->x;
-            aabb[1] = aabb[3] = instance->y;
-            InstanceCollision::update_aabb();
-            return;
-        }
-
         aabb[0] = instance->x - hotspot_x;
         aabb[1] = instance->y - hotspot_y;
         aabb[2] = aabb[0] + width;
@@ -338,20 +452,20 @@ public:
     }
 };
 
-class BoundingBox : public CollisionBase
-{
-public:
-    int x1, y1, x2, y2;
+// class BoundingBox : public CollisionBase
+// {
+// public:
+//     int x1, y1, x2, y2;
 
-    BoundingBox(int x1, int y1, int x2, int y2)
-    : CollisionBase(BOUNDING_BOX, true), x1(x1), y1(y1), x2(y2), y2(y2)
-    {
-        aabb[0] = x1;
-        aabb[1] = y1;
-        aabb[2] = x2;
-        aabb[3] = y2;
-    }
-};
+//     BoundingBox(int x1, int y1, int x2, int y2)
+//     : CollisionBase(BOUNDING_BOX, true), x1(x1), y1(y1), x2(y2), y2(y2)
+//     {
+//         aabb[0] = x1;
+//         aabb[1] = y1;
+//         aabb[2] = x2;
+//         aabb[3] = y2;
+//     }
+// };
 
 class BackgroundItem : public CollisionBase
 {
@@ -360,9 +474,7 @@ public:
     Image * image;
     int collision_type;
 
-#ifdef CHOWDREN_USE_COLTREE
     unsigned int col;
-#endif
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
                    int src_width, int src_height, int type)

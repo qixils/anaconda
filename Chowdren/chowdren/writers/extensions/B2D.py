@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (ConditionMethodWriter, 
+from chowdren.writers.events import (ConditionMethodWriter,
     ActionMethodWriter, ExpressionMethodWriter, make_table, EmptyAction)
 
 def read_vec2(reader):
@@ -13,6 +13,7 @@ class Box2D(ObjectWriter):
     class_name = 'Box2D'
     use_alterables = True
     includes = ['box2d/box2dext.h']
+    update = True
 
     def write_init(self, writer):
         data = self.get_data()
@@ -28,9 +29,9 @@ class Box2D(ObjectWriter):
         scale = data.readFloat()
 
         writer.putln('scale = %s;' % scale)
-        writer.putln('bounds.upperBound = (1.0f / scale) * b2Vec2%s;' % 
+        writer.putln('bounds.upperBound = (1.0f / scale) * b2Vec2%s;' %
             (upper_bound,))
-        writer.putln('bounds.lowerBound = (1.0f / scale) * b2Vec2%s;' % 
+        writer.putln('bounds.lowerBound = (1.0f / scale) * b2Vec2%s;' %
             (lower_bound,))
 
         writer.putln('allowSleep = %s;' % data.readInt())
@@ -48,23 +49,23 @@ class Box2D(ObjectWriter):
         writer.putln('settings.b2_linearSlop = %s;' % data.readFloat())
         writer.putln('settings.b2_angularSlop = %s;' % data.readFloat())
         writer.putln('settings.b2_toiSlop = %s;' % data.readFloat())
-        writer.putln('settings.b2_maxTOIContactsPerIsland = %s;' % 
+        writer.putln('settings.b2_maxTOIContactsPerIsland = %s;' %
                      data.readInt())
         writer.putln('settings.b2_maxTOIJointsPerIsland = %s;' % data.readInt())
         writer.putln('settings.b2_velocityThreshold = %s;' % data.readFloat())
         writer.putln('settings.b2_maxLinearCorrection = %s;' % data.readFloat())
         writer.putln('settings.b2_maxAngularCorrection = %s;' % data.readFloat())
         writer.putln('settings.b2_maxLinearVelocity = %s;' % data.readFloat())
-        writer.putln('settings.b2_maxLinearVelocitySquared = %s;' % 
+        writer.putln('settings.b2_maxLinearVelocitySquared = %s;' %
                      data.readFloat())
         writer.putln('settings.b2_maxAngularVelocity = %s;' % data.readFloat())
-        writer.putln('settings.b2_maxAngularVelocitySquared = %s;' % 
+        writer.putln('settings.b2_maxAngularVelocitySquared = %s;' %
                      data.readFloat())
         writer.putln('settings.b2_contactBaumgarte = %s;' % data.readFloat())
         writer.putln('settings.b2_timeToSleep = %s;' % data.readFloat())
-        writer.putln('settings.b2_linearSleepTolerance = %s;' % 
+        writer.putln('settings.b2_linearSleepTolerance = %s;' %
                      data.readFloat())
-        writer.putln('settings.b2_angularSleepTolerance = %s;' % 
+        writer.putln('settings.b2_angularSleepTolerance = %s;' %
                      data.readFloat())
         writer.putln('settings.b2_tableCapacity = %s;' % data.readInt())
         writer.putln('settings.b2_tableMask = %s;' % data.readInt())

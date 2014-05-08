@@ -41,7 +41,7 @@ bool any_joystick_pressed(int n);
 bool is_joystick_released(int n, int button);
 bool compare_joystick_direction(int n, int test_dir);
 bool is_joystick_direction_changed(int n);
-void joystick_vibrate(int n, float l, float r, float d);
+void joystick_vibrate(int n, int l, int r, int d);
 float get_joystick_axis(int n, int axis);
 int get_joystick_last_press(int n);
 

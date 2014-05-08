@@ -273,10 +273,13 @@ class CodeWriter(object):
 
 native_extension_cache = {}
 
-if platform.node() == 'matpow22':
-    MMF_BASE = 'D:\Multimedia Fusion Developer 2'
-else:
-    MMF_BASE = 'C:\Programs\Multimedia Fusion Developer 2'
+try:
+    import _winreg
+    reg_name = 'Software\\Clickteam\\Multimedia Fusion Developer 2\\Settings'
+    reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
+    MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0]
+except ImportError:
+    MMF_BASE = ''
 
 MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
 MMF_EXT = '.mfx'
@@ -614,6 +617,7 @@ class Converter(object):
         self.collision_objects = set()
         self.current_object = None
         self.iterated_index = self.iterated_object = None
+        self.in_actions = False
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
@@ -802,11 +806,13 @@ class Converter(object):
         lists_header = self.open_code('lists.h')
         lists_header.start_guard('CHOWDREN_LISTS_H')
         lists_header.putln('#include "objects.h"')
+        lists_header.putln('void global_object_update(float dt);')
 
         lists_file = self.open_code('lists.cpp')
         lists_file.putln('#include "lists.h"')
         lists_file.putln('#include "manager.h"')
         lists_file.putln('#include "frameobject.h"')
+        lists_file.putln('#include "common.h"')
 
         self.object_names = {}
         self.all_objects = {}
@@ -835,6 +841,8 @@ class Converter(object):
                 print 'not implemented:', repr(frameitem.name), object_type,
                 print handle
                 continue
+            for define in object_writer.defines:
+                extra.add_define(define)
             self.all_objects[handle] = object_writer
             self.object_types[handle] = object_type
             if (object_writer.static or extra.is_special_object(name)
@@ -967,7 +975,7 @@ class Converter(object):
 
             if hasattr(common, 'movements') and common.movements:
                 movements = common.movements.items
-                self.write_movements(objects_file, movements)
+                self.write_movements(objects_file, object_writer, movements)
             if common and not common.isBackground():
                 object_writer.load_alterables(objects_file)
             objects_file.end_brace()
@@ -1027,6 +1035,37 @@ class Converter(object):
         extensions_file.close_guard('CHOWDREN_EXTENSIONS_H')
         extensions_file.close()
 
+        # write object updates
+        lists_file.putmeth('void global_object_update', 'float dt')
+        lists_file.putln('ObjectList::iterator it;')
+        for handle in self.object_names.keys():
+            writer = self.all_objects[handle]
+            has_updates = writer.has_updates()
+            has_movements = writer.has_movements()
+            if not has_updates and not has_movements:
+                continue
+            lists_file.start_brace()
+            list_name = self.get_object_list(handle)
+            lists_file.putlnc('for (it = %s.begin(); it != %s.end(); it++) {',
+                              list_name, list_name)
+            lists_file.indent()
+            lists_file.putln('FrameObject * instance = it->obj;')
+            lists_file.putln('if (instance->destroying)')
+            lists_file.indent()
+            lists_file.putln('continue;')
+            lists_file.dedent()
+            if has_updates:
+                lists_file.putlnc('((%s*)instance)->update(dt);',
+                                  writer.class_name)
+            if has_movements:
+                lists_file.putln('if (instance->movement)')
+                lists_file.indent()
+                lists_file.putln('instance->movement->update(dt);')
+                lists_file.dedent()
+            lists_file.end_brace()
+            lists_file.end_brace()
+        lists_file.end_brace()
+
         processed_frames = []
 
         # frames
@@ -1052,6 +1091,8 @@ class Converter(object):
                     object_writer = self.all_objects[frameitem.handle]
                     object_writers.append(object_writer)
                 except KeyError:
+                    continue
+                if object_writer.static:
                     continue
                 if frameitem.handle not in self.object_names:
                     continue
@@ -1137,6 +1178,10 @@ class Converter(object):
                         if create_info == 0xFFFF:
                             # the case for DisplayText
                             create_info = action.objectInfo
+                        if is_qualifier(create_info):
+                            continue
+                        if self.all_objects[create_info].static:
+                            continue
                         self.multiple_instances.add(create_info)
                     elif action_name in ('DeactivateGroup',
                                          'ActivateGroup'):
@@ -1249,9 +1294,12 @@ class Converter(object):
                     not container.inactive))
 
             for layer in frame.layers.items:
-                frame_file.putln(to_c('add_layer(%s, %s, %s);',
-                    layer.xCoefficient, layer.yCoefficient,
-                    not layer.flags['ToHide']))
+                visible = not layer.flags['ToHide']
+                wrap_horizontal = layer.flags['WrapHorizontally']
+                wrap_vertical = layer.flags['WrapVertically']
+                frame_file.putlnc('add_layer(%s, %s, %s, %s, %s);',
+                                  layer.xCoefficient, layer.yCoefficient,
+                                  visible, wrap_horizontal, wrap_vertical)
 
             frame_file.putraw('#if defined(CHOWDREN_IS_WIIU) || '
                               'defined(CHOWDREN_EMULATE_WIIU)')
@@ -1308,6 +1356,11 @@ class Converter(object):
                     self.write_event(frame_file, group, True)
                 frame_file.putln('Frame::on_end();')
                 frame_file.end_brace()
+
+            # write object updates
+            frame_file.putmeth('void update_objects', 'float dt')
+            frame_file.putln('global_object_update(dt);')
+            frame_file.end_brace()
 
             # write event callbacks
             event_callbacks = {}
@@ -1526,7 +1579,7 @@ class Converter(object):
             self.iterated_index = '0'
         else:
             it = name.replace('*', '')
-            self.iterated_index = '%s.index' % it
+            self.iterated_index = '%s.current_index' % it
 
     def create_object(self, object_info, x, y, layer, object_name, writer):
         name = self.get_object_name(object_info)
@@ -1571,12 +1624,12 @@ class Converter(object):
             return 'true'
         return ' && '.join(groups)
 
-    def write_movements(self, writer, movements):
+    def write_movements(self, writer, obj, movements):
         count = len(movements)
         has_list = count > 1
         if has_list:
-            writer.putlnc('movement_count = %s;', len(movements))
-            writer.putlnc('movements = new Movement*[%s];', len(movements))
+            writer.putlnc('movement_count = %s;', count)
+            writer.putlnc('movements = new Movement*[%s];', count)
         has_init = False
         for movement_index, movement in enumerate(movements):
             def set_start_dir(direction):
@@ -1660,6 +1713,9 @@ class Converter(object):
                 writer.putlnc('set_movement(0);')
             else:
                 writer.putlnc('movement->start();')
+            obj.movement_count = count
+        else:
+            obj.movement_count = 0
 
     def write_event(self, outwriter, group, triggered = False):
         self.current_group = group
@@ -1786,6 +1842,8 @@ class Converter(object):
             writer.start_brace()
             self.has_selection = new_selection # group.or_selected
 
+        self.in_actions = True
+
         for action_writer in actions:
             if action_writer.custom:
                 action_writer.write(writer)
@@ -1840,6 +1898,8 @@ class Converter(object):
             action_writer.write_post(writer)
         # if group.or_exit:
         #     writer.putln(group.or_exit)
+
+        self.in_actions = False
 
         if group.or_save:
             writer.putlnc('%s = true;', group.or_result)
@@ -2052,7 +2112,8 @@ class Converter(object):
 
     def get_object(self, handle, as_list=False, use_default=False):
         object_type = self.get_object_class(object_info = handle)
-        use_index = hacks.use_iteration_index(self) and self.iterated_index
+        use_index = (hacks.use_iteration_index(self) and self.iterated_index
+                     and self.in_actions)
         if handle in self.has_single_selection:
             return self.has_single_selection[handle]
         if self.iterated_object == handle:

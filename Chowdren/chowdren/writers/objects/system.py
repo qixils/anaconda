@@ -12,9 +12,12 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
+from chowdren import hacks
+
 class Active(ObjectWriter):
     class_name = 'Active'
     use_alterables = True
+    update = True
 
     def write_init(self, writer):
         common = self.common
@@ -38,6 +41,22 @@ class Active(ObjectWriter):
         if APPEARING in animations:
             writer.putln('forced_animation = APPEARING;')
         writer.putln('initialize_active();')
+
+    def has_updates(self):
+        if not hacks.use_update_filtering(self.converter):
+            return True
+        animations = self.common.animations.loadedAnimations
+        if len(animations) > 1:
+            return True
+        animation = animations.values()[0]
+        if animation.getName() != 'Stopped':
+            return True
+        directions = animation.loadedDirections
+        if len(directions) > 1:
+            return True
+        if len(directions.values()[0].frames) > 1:
+            return True
+        return False
 
     def get_transparent(self):
         if self.data.transparent:
@@ -119,6 +138,7 @@ class Backdrop(ObjectWriter):
 
 class QuickBackdrop(ObjectWriter):
     class_name = 'QuickBackdrop'
+    border = 0
 
     def initialize(self):
         obstacle = self.common.getObstacleType()
@@ -140,10 +160,8 @@ class QuickBackdrop(ObjectWriter):
         border_size = shape.borderSize
         if border_size != 0 and (fill == 'None' or border != color1
                                  or (has_color2 and border != color2)):
-            print self.data.name
-            print fill, color1, color2, border
-            print 'border size', shape.borderSize, 'not supported'
-            raise NotImplementedError
+            self.border = border_size
+            self.border_color = border
 
     def write_init(self, writer):
         shape = self.common.shape
@@ -170,6 +188,11 @@ class QuickBackdrop(ObjectWriter):
             raise NotImplementedError
         else:
             writer.putln('gradient_type = NONE_GRADIENT;')
+
+        writer.putlnc('outline = %s;', self.border)
+        if self.border:
+            writer.putlnc('outline_color = %s;',
+                          make_color(self.border_color))
 
         if self.common.getObstacleType() == 'Solid':
             writer.putln('collision = new InstanceBox(this);')
@@ -251,6 +274,8 @@ class Counter(ObjectWriter):
         if counters:
             writer.putln('width = %s;' % counters.width)
             writer.putln('height = %s;' % counters.height)
+            if counters.integerDigits > 0:
+                writer.putlnc('zero_pad = %s;', counters.integerDigits)
             display_type = counters.displayType
             if display_type == NUMBERS:
                 writer.putln('type = IMAGE_COUNTER;')
@@ -312,6 +337,7 @@ class Counter(ObjectWriter):
 
 class Lives(ObjectWriter):
     class_name = 'Lives'
+    update = True
 
     def write_init(self, writer):
         common = self.common

@@ -7,9 +7,12 @@ class ObjectWriter(BaseWriter):
     class_name = 'Undefined'
     static = False
     includes = []
+    defines = []
     event_callbacks = None
     use_alterables = False
     has_color = False
+    update = False
+    movement_count = 0
 
     def __init__(self, *arg, **kw):
         self.event_callbacks = {}
@@ -55,6 +58,12 @@ class ObjectWriter(BaseWriter):
 
     def get_data(self):
         return ByteReader(self.common.extensionData)
+
+    def has_movements(self):
+        return self.movement_count > 0
+
+    def has_updates(self):
+        return self.update
 
     def get_conditions(self, *values):
         groups = []

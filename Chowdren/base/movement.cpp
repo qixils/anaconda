@@ -113,6 +113,8 @@ void Movement::set_direction(int value)
 
 void Movement::start()
 {
+    if (max_speed == 0)
+        return;
     set_speed(max_speed);
 }
 

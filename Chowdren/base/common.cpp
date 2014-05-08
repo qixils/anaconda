@@ -5,6 +5,7 @@
 #include "chowconfig.h"
 #include "font.h"
 #include <iterator>
+#include <iomanip>
 
 std::string newline_character("\r\n");
 std::string empty_string("");
@@ -44,7 +45,6 @@ void Background::reset(bool clear_items)
     if (clear_items) {
         clear_back_vec(col_items);
         clear_back_vec(items);
-        tree.clear();
     }
 }
 
@@ -70,7 +70,6 @@ void Background::destroy_at(int x, int y)
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x, y)) {
-            tree.remove(item->col);
             delete item;
             it = col_items.erase(it);
         } else
@@ -94,10 +93,6 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                collision_type);
     if (collision_type == 1) {
         col_items.push_back(item);
-        int x2 = dest_x + src_width;
-        int y2 = dest_y + src_height;
-        int v[4] = {dest_x, dest_y, x2, y2};
-        item->col = tree.add(&item, v);
     } else {
         items.push_back(item);
     }
@@ -113,41 +108,29 @@ void Background::draw()
     }
 }
 
-struct BackgroundItemCallback
-{
-    CollisionBase * col;
-
-    BackgroundItemCallback(CollisionBase * col)
-    : col(col)
-    {
-    }
-
-    bool on_callback(void * data)
-    {
-        BackgroundItem * item = (BackgroundItem*)data;
-        if (collide(col, item))
-            return false;
-        return true;
-    }
-};
-
 bool Background::collide(CollisionBase * a)
 {
-    BackgroundItemCallback callback(a);
-    if (!tree.query(a->aabb, callback))
-        return true;
+    BackgroundItems::iterator it;
+    for (it = col_items.begin(); it != col_items.end(); it++) {
+        BackgroundItem * item = *it;
+        if (::collide(a, item))
+            return true;
+    }
     return false;
 }
 
 // Layer
 
-Layer::Layer(double scroll_x, double scroll_y, bool visible, int index)
+Layer::Layer(int index, double scroll_x, double scroll_y, bool visible,
+             bool wrap_x, bool wrap_y)
 : visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index), x(0), y(0), off_x(0), off_y(0), order_changed(false)
+  index(index), x(0), y(0), off_x(0), off_y(0), order_changed(false),
+  wrap_x(wrap_x), wrap_y(wrap_y)
 {
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_TV_TARGET;
 #endif
+
     scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
 }
 
@@ -174,19 +157,28 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
             continue;
         object->set_position(object->x + dx, object->y + dy);
     }
+
+#ifdef CHOWDREN_LAYER_WRAP
+    if (!wrap_x)
+        return;
+    FlatObjectList::const_iterator it2;
+    for (it2 = background_instances.begin(); it2 != background_instances.end();
+         it2++) {
+        FrameObject * object = *it2;
+        object->set_position(object->x + dx, object->y);
+        object->set_offset(-dx, 0);
+    }
+#endif
 }
 
 void Layer::set_position(int x, int y)
 {
     int dx = x - this->x;
     int dy = y - this->y;
+
     this->x = x;
     this->y = y;
     LayerInstances::const_iterator it;
-
-    // should be faster than removing and inserting every AABB again
-    // (so only an overlap test is necessary)
-    tree.shift(-dx, -dy);
 
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
@@ -199,6 +191,15 @@ void Layer::set_position(int x, int y)
     for (it2 = background_instances.begin(); it2 != background_instances.end();
          it2++) {
         FrameObject * item = *it2;
+#ifdef CHOWDREN_LAYER_WRAP
+        if (wrap_x) {
+            item->set_offset(dx, 0);
+            continue;
+        } if (wrap_y) {
+            item->set_offset(0, dy);
+            continue;
+        }
+#endif
         item->set_position(item->x + dx, item->y + dy);
     }
 }
@@ -305,6 +306,8 @@ struct BackgroundCallback
     bool on_callback(void * data)
     {
         FrameObject * obj = (FrameObject*)data;
+        if (obj->collision == NULL)
+            return true;
         if (obj->id != BACKGROUND_TYPE)
             return true;
         return !collide(col, obj->collision);
@@ -316,7 +319,7 @@ bool Layer::test_background_collision(CollisionBase * a)
     if (back != NULL && back->collide(a))
         return true;
     BackgroundCallback callback(a);
-    if (!tree.query(a->aabb, callback))
+    if (!broadphase.query(a->aabb, callback))
         return true;
     return false;
 }
@@ -339,9 +342,10 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
 struct DrawCallback
 {
     FlatObjectList & list;
+    int * aabb;
 
-    DrawCallback(FlatObjectList & list)
-    : list(list)
+    DrawCallback(FlatObjectList & list, int v[4])
+    : list(list), aabb(v)
     {
     }
 
@@ -349,6 +353,8 @@ struct DrawCallback
     {
         FrameObject * item = (FrameObject*)data;
         if (!item->visible)
+            return true;
+        if (!collide_box(item, aabb))
             return true;
         list.push_back(item);
         return true;
@@ -403,9 +409,25 @@ void Layer::draw()
 
     static FlatObjectList draw_list;
     draw_list.clear();
-    DrawCallback callback(draw_list);
+#ifdef CHOWDREN_USE_VIEWPORT
+    int v[4];
+    Viewport * view = Viewport::instance;
+    if (view != NULL && index <= view->layer->index) {
+        v[0] = x1 + view->center_x - view->src_width / 2;
+        v[1] = y1 + view->center_y - view->src_height / 2;
+        v[2] = v[0] + view->src_width;
+        v[3] = v[1] + view->src_height;
+    } else {
+        v[0] = x1;
+        v[1] = y1;
+        v[2] = x2;
+        v[3] = y2;
+    }
+#else
     int v[4] = {x1, y1, x2, y2};
-    tree.query(v, callback);
+#endif
+    DrawCallback callback(draw_list, v);
+    broadphase.query(v, callback);
     draw_sorted_list(draw_list);
 
     PROFILE_END();
@@ -415,7 +437,7 @@ void Layer::draw()
     // draw pasted items.
     // this is bending the rules a bit -- we're supposed to draw this *after*
     // background instances and *before* dynamic instances, but we'd have to
-    // insert the pasted items in the AABB tree as FrameObjects then
+    // insert the pasted items in the broadphase as FrameObjects then
     if (back != NULL)
         back->draw();
 
@@ -467,8 +489,8 @@ void Frame::on_end()
     destroyed_instances.clear();
     next_frame = -1;
     loop_count = 0;
-    off_x = 0;
-    off_y = 0;
+    off_x = new_off_x = 0;
+    off_y = new_off_y = 0;
     frame_time = 0.0;
     frame_iteration++;
 }
@@ -499,20 +521,7 @@ bool Frame::update(float dt)
     }
 
     PROFILE_BEGIN(frame_update_objects);
-
-    ObjectList::iterator it;
-    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
-        ObjectList & list = GameManager::instances.items[i];
-        for (it = list.begin(); it != list.end(); it++) {
-            FrameObject * instance = it->obj;
-            if (instance->destroying)
-                continue;
-            instance->update(dt);
-            if (instance->movement)
-                instance->movement->update(dt);
-        }
-    }
-
+    update_objects(dt);
     PROFILE_END();
 
     PROFILE_BEGIN(clean_instances);
@@ -610,9 +619,12 @@ public:
 DefaultActive default_active;
 FrameObject * default_active_instance = &default_active;
 
-void Frame::add_layer(double scroll_x, double scroll_y, bool visible)
+void Frame::add_layer(double scroll_x, double scroll_y, bool visible,
+                      bool wrap_x, bool wrap_y)
 {
-    layers.push_back(new Layer(scroll_x, scroll_y, visible, layers.size()));
+    Layer * layer = new Layer(layers.size(), scroll_x, scroll_y, visible,
+                              wrap_x, wrap_y);
+    layers.push_back(layer);
 }
 
 FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
@@ -646,7 +658,7 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
                      instance->y,
                      instance->x + instance->width,
                      instance->y + instance->height};
-        layer->tree.add(instance, bb);
+        layer->broadphase.add(instance, bb);
     }
 }
 
@@ -826,7 +838,7 @@ FrameObject::~FrameObject()
     delete shader_parameters;
 }
 
-void FrameObject::draw_image(Image * img, double x, double y, double angle,
+void FrameObject::draw_image(Image * img, int x, int y, double angle,
                              double x_scale, double y_scale, bool flip_x,
                              bool flip_y)
 {
@@ -906,7 +918,6 @@ void FrameObject::set_layer(int index)
 
 void FrameObject::flash(float value) {}
 void FrameObject::draw() {}
-void FrameObject::update(float dt) {}
 void FrameObject::set_direction(int value, bool set_movement)
 {
     direction = value & 31;
@@ -931,11 +942,13 @@ bool FrameObject::mouse_over()
 
 bool FrameObject::overlaps(FrameObject * other)
 {
+    if (other == this)
+        return false;
     if (destroying || other->destroying)
         return false;
     if (other->layer != layer)
         return false;
-    return collision->overlaps(other);
+    return collide(collision, other->collision);
 }
 
 bool FrameObject::overlaps_background()
@@ -1020,6 +1033,8 @@ int FrameObject::get_level()
 
 void FrameObject::move_back(FrameObject * other)
 {
+    if (other == NULL)
+        return;
     if (other->layer != layer)
         return;
     int level = get_level();
@@ -1041,7 +1056,7 @@ void FrameObject::move_front()
 
 void FrameObject::move_front(FrameObject * other)
 {
-    if (!other)
+    if (other == NULL)
         return;
     if (other->layer != layer)
         return;
@@ -1145,6 +1160,10 @@ void FrameObject::update_flash(float dt, float interval, float & t)
 }
 
 void FrameObject::set_animation(int value)
+{
+}
+
+void FrameObject::set_offset(int dx, int dy)
 {
 }
 
@@ -1305,6 +1324,12 @@ void Active::force_speed(int value)
 {
     if (forced_animation == DISAPPEARING)
         return;
+    Direction * dir = get_direction_data();
+    int delta = dir->max_speed - dir->min_speed;
+    if (delta != 0) {
+        value = (value * delta) / 100 + dir->min_speed;
+        value = std::min(dir->max_speed, value);
+    }
     forced_speed = value;
 }
 
@@ -1388,10 +1413,6 @@ void Active::update_action_point()
 
 void Active::update(float dt)
 {
-    // XXX is this a good idea?
-    if (!visible)
-        return;
-
     if (animation_finished == DISAPPEARING) {
         FrameObject::destroy();
         return;
@@ -1425,7 +1446,7 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-        if (forced_animation == APPEARING)
+        if (forced_animation == APPEARING || forced_animation == BOUNCING)
             restore_animation();
     }
     if (animation_frame != old_frame)
@@ -1934,8 +1955,8 @@ void Backdrop::draw()
         current_remote != CHOWDREN_HYBRID_TARGET)
         return;
 #endif
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    image->draw(x, y);
+    blend_color.apply();
+    draw_image(image, x, y);
 }
 
 // QuickBackdrop
@@ -1943,7 +1964,18 @@ void Backdrop::draw()
 QuickBackdrop::QuickBackdrop(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL)
 {
+#ifdef CHOWDREN_LAYER_WRAP
+    x_offset = y_offset = 0;
+#endif
 }
+
+#ifdef CHOWDREN_LAYER_WRAP
+void QuickBackdrop::set_offset(int dx, int dy)
+{
+    x_offset = (x_offset + dx) % image->width;
+    y_offset = (y_offset + dy) % image->height;
+}
+#endif
 
 QuickBackdrop::~QuickBackdrop()
 {
@@ -1954,39 +1986,72 @@ QuickBackdrop::~QuickBackdrop()
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
+#ifdef CHOWDREN_LAYER_WRAP
+        int x = this->x;
+        int y = this->y;
+        int width = this->width;
+        int height = this->height;
+
+        // this is a cheap implementation of the wrap feature.
+        // we expect objects to extend on either the X or Y axis.
+        if (layer->wrap_x) {
+            x = frame->off_x * layer->scroll_x + x_offset - image->width;
+            width = WINDOW_WIDTH + image->width * 2;
+        } else if (layer->wrap_y) {
+            y = frame->off_y * layer->scroll_y + y_offset - image->height;
+            height = WINDOW_HEIGHT + image->height * 2;
+        }
+#endif
         glEnable(GL_SCISSOR_TEST);
         glc_scissor_world(x, y, width, height);
+        blend_color.apply();
         for (int xx = x; xx < x + width; xx += image->width)
         for (int yy = y; yy < y + height; yy += image->height) {
-            image->draw(xx, yy);
+            draw_image(image, xx, yy);
         }
         glDisable(GL_SCISSOR_TEST);
     } else {
         glDisable(GL_TEXTURE_2D);
         glBegin(GL_QUADS);
+        int x1 = x;
+        int y1 = y;
+        int x2 = x + width;
+        int y2 = y + height;
+        if (outline > 0) {
+            glColor4ub(outline_color.r, outline_color.g, outline_color.b,
+                       blend_color.a);
+            glVertex2f(x1, y1);
+            glVertex2f(x2, y1);
+            glVertex2f(x2, y2);
+            glVertex2f(x1, y2);
+            x1 += outline;
+            y1 += outline;
+            x2 -= outline;
+            y2 -= outline;
+        }
         switch (gradient_type) {
             case NONE_GRADIENT:
                 glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x, y);
-                glVertex2f(x + width, y);
-                glVertex2f(x + width, y + height);
-                glVertex2f(x, y + height);
+                glVertex2f(x1, y1);
+                glVertex2f(x2, y1);
+                glVertex2f(x2, y2);
+                glVertex2f(x1, y2);
                 break;
             case VERTICAL_GRADIENT:
                 glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x, y);
-                glVertex2f(x + width, y);
+                glVertex2f(x1, y1);
+                glVertex2f(x2, y1);
                 glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-                glVertex2f(x + width, y + height);
-                glVertex2f(x, y + height);
+                glVertex2f(x2, y2);
+                glVertex2f(x1, y2);
                 break;
             case HORIZONTAL_GRADIENT:
                 glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x, y + height);
-                glVertex2f(x, y);
+                glVertex2f(x1, y2);
+                glVertex2f(x1, y1);
                 glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-                glVertex2f(x + width, y);
-                glVertex2f(x + width, y + height);
+                glVertex2f(x2, y1);
+                glVertex2f(x2, y2);
                 break;
         }
         glEnd();
@@ -1996,7 +2061,7 @@ void QuickBackdrop::draw()
 // Counter
 
 Counter::Counter(int x, int y, int type_id)
-: FrameObject(x, y, type_id), flash_interval(0.0f)
+: FrameObject(x, y, type_id), flash_interval(0.0f), zero_pad(0)
 {
     for (int i = 0; i < 14; i++)
         images[i] = NULL;
@@ -2064,17 +2129,21 @@ void Counter::set(double value)
     value = std::max<double>(std::min<double>(value, maximum), minimum);
     this->value = value;
 
+    if (type == HIDDEN_COUNTER)
+        return;
+
+    if (collision == NULL)
+        collision = new OffsetInstanceBox(this);
+
     if (type != IMAGE_COUNTER)
         return;
 
     std::ostringstream str;
-    str << value;
+    if (zero_pad > 0)
+        str << std::setw(zero_pad) << std::setfill('0') << value;
+    else
+        str << value;
     cached_string = str.str();
-
-    if (collision == NULL) {
-        collision = new OffsetInstanceBox(this);
-    }
-
     calculate_box();
 }
 
@@ -2141,6 +2210,12 @@ void Counter::draw()
 Lives::Lives(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f)
 {
+    collision = new InstanceBox(this);
+}
+
+Lives::~Lives()
+{
+    delete collision;
 }
 
 void Lives::flash(float value)
@@ -3030,7 +3105,13 @@ void LayerObject::set_y(int index, int y)
 
 void LayerObject::set_alpha_coefficient(int index, int alpha)
 {
-    std::cout << "Alpha set for layer not supported: " << alpha << std::endl;
+    Layer * layer = frame->layers[index];
+    FlatObjectList::const_iterator it;
+    for (it = layer->background_instances.begin();
+         it != layer->background_instances.end(); it++) {
+        FrameObject * obj = *it;
+        obj->blend_color.set_alpha_coefficient(alpha);
+    }
 }
 
 double LayerObject::get_alterable(FrameObject * instance)
@@ -3067,6 +3148,8 @@ void LayerObject::sort_alt_decreasing(int index, double def)
 
 // Viewport
 
+Viewport * Viewport::instance = NULL;
+
 Viewport::Viewport(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
@@ -3077,12 +3160,14 @@ Viewport::Viewport(int x, int y, int type_id)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     collision = new InstanceBox(this);
+    instance = this;
 }
 
 Viewport::~Viewport()
 {
     glDeleteTextures(1, &texture);
     delete collision;
+    instance = NULL;
 }
 
 void Viewport::set_source(int center_x, int center_y, int width, int height)
@@ -3107,6 +3192,8 @@ void Viewport::set_height(int h)
 
 void Viewport::draw()
 {
+    if (src_width == width && src_height == height)
+        return;
     int src_x1 = center_x - src_width / 2;
     int src_y1 = center_y - src_height / 2;
     int src_x2 = src_x1 + src_width;
@@ -3182,6 +3269,12 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f)
 {
+    collision = new InstanceBox(this);
+}
+
+TextBlitter::~TextBlitter()
+{
+    delete collision;
 }
 
 void TextBlitter::initialize(const std::string & map_string)

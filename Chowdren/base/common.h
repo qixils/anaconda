@@ -330,11 +330,18 @@ public:
     Color color;
     int gradient_type;
     Color color2;
+    Color outline_color;
+    int outline;
     Image * image;
 
     QuickBackdrop(int x, int y, int type_id);
     ~QuickBackdrop();
     void draw();
+
+#ifdef CHOWDREN_LAYER_WRAP
+    int x_offset, y_offset;
+    void set_offset(int dx, int dy);
+#endif
 };
 
 #define HIDDEN_COUNTER 0
@@ -351,6 +358,7 @@ public:
     int type;
     float flash_time, flash_interval;
     Color color1;
+    int zero_pad;
 
     Counter(int x, int y, int type_id);
     ~Counter();
@@ -374,6 +382,7 @@ public:
     float flash_interval;
 
     Lives(int x, int y, int type_id);
+    ~Lives();
     void update(float dt);
     void flash(float value);
     void draw();
@@ -593,6 +602,7 @@ public:
     int center_x, center_y;
     int src_width, src_height;
     GLuint texture;
+    static Viewport * instance;
 
     Viewport(int x, int y, int type_id);
     ~Viewport();
@@ -625,6 +635,7 @@ public:
     int alignment;
 
     TextBlitter(int x, int y, int type_id);
+    ~TextBlitter();
     void initialize(const std::string & charmap);
     void set_text(const std::string & text);
     void draw();
@@ -849,6 +860,11 @@ inline FrameObject * get_single(ObjectList & list, int index)
     return list.get_wrapped_selection(index);
 }
 
+inline FrameObject * get_single(QualifierList & list, int index)
+{
+    return list.get_wrapped_selection(index);
+}
+
 extern std::vector<int> int_temp;
 
 template <bool save>
@@ -922,7 +938,12 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
         }
         bool added = false;
         for (ObjectIterator it2(list2); !it2.end(); it2++) {
-            if (!instance->overlaps(*it2))
+            FrameObject * other = *it2;
+            if (other->collision == NULL) {
+                it2.deselect();
+                continue;
+            }
+            if (!instance->overlaps(other))
                 continue;
             int_temp[it2.index-1] = 1;
             added = ret = true;
@@ -959,8 +980,12 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
     bool ret = false;
     for (ObjectIterator it(list); !it.end(); it++) {
         FrameObject * other = *it;
+        if (other->collision == NULL) {
+            it.deselect();
+            continue;
+        }
         if (!obj->overlaps(other)) {
-            it1.deselect();
+            it.deselect();
             continue;
         }
         ret = true;
@@ -999,6 +1024,10 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
             ObjectList & list = *list1.items[i];
             for (ObjectIterator it2(list); !it2.end(); it2++) {
                 FrameObject * other = *it2;
+                if (other->collision == NULL) {
+                    it2.deselect();
+                    continue;
+                }
                 if (!instance->overlaps(other))
                     continue;
                 added = ret = true;
@@ -1054,6 +1083,10 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
         ObjectList & list2 = *list.items[i];
         for (ObjectIterator it(list2); !it.end(); it++) {
             FrameObject * other = *it;
+            if (other->collision == NULL) {
+                it.deselect();
+                continue;
+            }
             if (instance->overlaps(other)) {
                 ret = true;
                 continue;
@@ -1097,6 +1130,10 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
             ObjectList & list = *list1.items[i];
             for (ObjectIterator it2(list); !it2.end(); it2++) {
                 FrameObject * other = *it2;
+                if (other->collision == NULL) {
+                    it2.deselect();
+                    continue;
+                }
                 if (!instance->overlaps(other))
                     continue;
                 added = ret = true;

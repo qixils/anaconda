@@ -72,7 +72,8 @@ inline FrameObject * get_instance(ObjectList & list, int index)
 {
     if (list.empty())
         return NULL;
-    return list[index % list.size()];
+    index = (list.size() - 1) - (index % list.size());
+    return list[index];
 }
 
 inline FrameObject * get_qualifier(QualifierList & list)
@@ -84,7 +85,8 @@ inline FrameObject * get_qualifier(QualifierList & list, int index)
 {
     if (list.empty())
         return NULL;
-    return list[index % list.size()];
+    index = (list.size() - 1) - (index % list.size());
+    return list[index];
 }
 
 inline FrameObject * get_active_instance(ObjectList & list)
@@ -98,7 +100,8 @@ inline FrameObject * get_active_instance(ObjectList & list, int index)
 {
     if (list.empty())
         return default_active_instance;
-    return list[index % list.size()];
+    index = (list.size() - 1) - (index % list.size());
+    return list[index];
 }
 
 extern GameManager * global_manager;

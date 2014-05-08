@@ -351,7 +351,14 @@ class TimerEvery(ConditionWriter):
     def write(self, writer):
         seconds = self.parameters[0].loader.delay / 1000.0
         name = 'every_%s' % get_id(self)
+        name2 = '%s_frame' % name
         writer.putln('static float %s = 0.0f;' % name)
+        writer.putlnc('static unsigned int %s = frame_iteration;', name2)
+        writer.putlnc('if (%s != frame_iteration) {', name2)
+        writer.indent()
+        writer.putlnc('%s = frame_iteration;', name2)
+        writer.putlnc('%s = 0.0f;', name)
+        writer.end_brace()
         event_break = self.converter.event_break
         writer.putln('%s += float(manager->fps_limit.dt);' % name)
         writer.putln('if (%s < %s) %s' % (name, seconds, event_break))
@@ -588,6 +595,8 @@ class SetPosition(ActionWriter):
     def write(self, writer):
         object_info, object_type = self.get_object()
 
+        end_name = 'pos_end_%s' % get_id(self)
+
         single = self.converter.get_single(object_info)
         if single:
             obj = single
@@ -603,6 +612,7 @@ class SetPosition(ActionWriter):
         if parent is not None:
             parent = self.converter.get_object(parent)
             writer.putln('FrameObject * parent = %s;' % parent)
+            writer.putlnc('if (parent == NULL) goto %s;', end_name)
             if details.get('use_action_point', False):
                 parent_x = 'get_action_x()'
                 parent_y = 'get_action_y()'
@@ -622,7 +632,7 @@ class SetPosition(ActionWriter):
         arguments = [x, y]
         writer.putlnc('%s->set_global_position(%s); // %s', obj,
                       ', '.join(arguments), details)
-
+        writer.put_label(end_name)
         if not single:
             self.converter.end_object_iteration(object_info, writer,
                                                 copy=False)
@@ -884,6 +894,10 @@ class SpreadValue(ActionWriter):
         object_list = self.converter.get_object(self.data.objectInfo, True)
         writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
 
+class Destroy(ActionMethodWriter):
+    method = 'destroy'
+    ignore_static = True
+
 # expressions
 
 class ValueExpression(ExpressionWriter):
@@ -1065,7 +1079,7 @@ actions = make_table(ActionMethodWriter, {
     'SetEffect' : SetEffect,
     'AddToDebugger' : EmptyAction,
     'SetFrameRate' : 'manager->set_framerate(%s)',
-    'Destroy' : 'destroy',
+    'Destroy' : Destroy,
     'BringToBack' : 'move_back',
     'BringToFront' : 'move_front',
     'DeleteAllCreatedBackdrops' : 'layers[%s-1]->destroy_backgrounds()',

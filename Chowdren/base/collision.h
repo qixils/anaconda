@@ -75,25 +75,38 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
     }
 }
 
-struct Pair
+struct TypeOverlapCallback
 {
-    FrameObject * obj;
-    int proxy;
-};
+public:
+    CollisionBase * collision;
+    int type;
 
-typedef std::vector<Pair> Pairs;
+    TypeOverlapCallback(CollisionBase * collision, int type)
+    : collision(collision), type(type)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * obj = (FrameObject*)data;
+        if (obj->id != type)
+            return true;
+        if (obj->collision == NULL)
+            return true;
+        if (!collide(collision, (CollisionBase*)obj->collision))
+            return true;
+        return false;
+    }
+};
 
 class InstanceCollision : public CollisionBase
 {
 public:
     FrameObject * instance;
-    bool has_pairs;
-    Pairs pairs;
     int proxy;
 
     InstanceCollision(FrameObject * instance, CollisionType type, bool is_box)
-    : instance(instance), CollisionBase(type, is_box), proxy(-1),
-      has_pairs(false)
+    : instance(instance), CollisionBase(type, is_box), proxy(-1)
     {
     }
 
@@ -106,106 +119,29 @@ public:
     {
         if (proxy == -1)
             return;
-        instance->layer->tree.remove(proxy);
+        instance->layer->broadphase.remove(proxy);
         proxy = -1;
-        clear_pairs();
     }
 
     void create_proxy()
     {
         if (proxy != -1)
             return;
-        proxy = instance->layer->tree.add(instance, aabb);
-    }
-
-    void clear_pairs()
-    {
-        if (!has_pairs)
-            return;
-
-        Pairs::const_iterator it;
-        for (it = pairs.begin(); it != pairs.end(); it++) {
-            const Pair & p = *it;
-            void * data = instance->layer->tree.GetUserData(p.proxy);
-            FrameObject * obj = (FrameObject*)data;
-            if (obj != p.obj)
-                // object was destroyed, pair invalid now
-                continue;
-            InstanceCollision * col = obj->collision;
-            if (col == NULL)
-                continue;
-            col->has_pairs = false;
-        }
-
-        has_pairs = false;
-    }
-
-    void update_pairs()
-    {
-        if (has_pairs)
-            return;
-        pairs.clear();
-        instance->layer->tree.query_ids(proxy, *this);
-        has_pairs = true;
-    }
-
-    bool on_callback(int proxy)
-    {
-        void * data = instance->layer->tree.GetUserData(proxy);
-        FrameObject * obj = (FrameObject*)data;
-        if (obj == instance)
-            return true;
-        if (obj->collision == NULL)
-            return true;
-        int index = pairs.size();
-        pairs.resize(index + 1);
-        Pair & p = pairs[index];
-        p.obj = obj;
-        p.proxy = proxy;
-        return true;
+        proxy = instance->layer->broadphase.add(instance, aabb);
     }
 
     virtual void update_aabb()
     {
         if (proxy == -1)
             return;
-
-        if (!instance->layer->tree.move(proxy, aabb))
-            return;
-
-        clear_pairs();
-    }
-
-    bool overlaps(FrameObject * obj)
-    {
-        update_pairs();
-        Pairs::const_iterator it;
-        for (it = pairs.begin(); it != pairs.end(); it++) {
-            const Pair & p = *it;
-            if (obj != p.obj)
-                continue;
-            return collide(this, obj->collision);
-        }
-        return false;
+        instance->layer->broadphase.move(proxy, aabb);
     }
 
     bool overlaps_type(int type)
     {
-        update_pairs();
-        Pairs::const_iterator it;
-        for (it = pairs.begin(); it != pairs.end(); it++) {
-            const Pair & p = *it;
-            void * data = instance->layer->tree.GetUserData(p.proxy);
-            FrameObject * obj = (FrameObject*)data;
-            if (obj != p.obj)
-                // object was destroyed, pair invalid now
-                continue;
-            if (obj->id != type)
-                continue;
-            if (!collide(this, obj->collision))
-                continue;
+        TypeOverlapCallback callback(this, type);
+        if (!instance->layer->broadphase.query(proxy, callback))
             return true;
-        }
         return false;
     }
 };
@@ -557,13 +493,7 @@ inline bool collide_sprite_sprite(CollisionBase * a, CollisionBase * b,
 
 inline bool collide(CollisionBase * a, CollisionBase * b)
 {
-    if (a == NULL || b == NULL)
-        return false;
-    int * v1 = a->aabb;
-    int * v2 = b->aabb;
-
-    if (!collides(v1[0], v1[1], v1[2], v1[3],
-                  v2[0], v2[1], v2[2], v2[3]))
+    if (!collides(a->aabb, b->aabb))
         return false;
 
     if (a->is_box && b->is_box)
@@ -571,15 +501,15 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 
     // calculate the overlapping area
     int x1, y1, x2, y2;
-    intersect(v1[0], v1[1], v1[2], v1[3],
-              v2[0], v2[1], v2[2], v2[3],
+    intersect(a->aabb[0], a->aabb[1], a->aabb[2], a->aabb[3],
+              b->aabb[0], b->aabb[1], b->aabb[2], b->aabb[3],
               x1, y1, x2, y2);
 
     // figure out the offsets of the overlapping area in each
-    int offx1 = x1 - v1[0];
-    int offy1 = y1 - v1[1];
-    int offx2 = x1 - v2[0];
-    int offy2 = y1 - v2[1];
+    int offx1 = x1 - a->aabb[0];
+    int offy1 = y1 - a->aabb[1];
+    int offx2 = x1 - b->aabb[0];
+    int offy2 = y1 - b->aabb[1];
 
     int w = x2 - x1;
     int h = y2 - y1;
@@ -617,20 +547,17 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     }
 }
 
-inline bool collide_box(FrameObject * a, int x1, int y1, int x2, int y2)
+inline bool collide_box(FrameObject * a, int v[4])
 {
     CollisionBase * col = a->collision;
     if (col == NULL) {
         int xx1 = a->x;
         int yy1 = a->y;
-        int xx2 = x1 + a->width;
-        int yy2 = y1 + a->height;
-        return collides(xx1, yy1, xx2, yy2,
-                        x1, y1, x2, y2);
+        int xx2 = xx1 + a->width;
+        int yy2 = yy1 + a->height;
+        return collides(xx1, yy1, xx2, yy2, v[0], v[1], v[2], v[3]);
     }
-    int * v1 = col->aabb;
-    return collides(v1[0], v1[1], v1[2], v1[3],
-                    x1, y1, x2, y2);
+    return collides(col->aabb, v);
 }
 
-#endif // #define CHOWDREN_COLLISION_H
+#endif // CHOWDREN_COLLISION_H

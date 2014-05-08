@@ -4,6 +4,7 @@ is_knytt = False
 is_avgn = False
 is_anne = False
 is_knytt_japan = False
+is_test = False
 
 def init(converter):
     name = converter.info_dict.get('name').lower()
@@ -11,10 +12,12 @@ def init(converter):
     global is_knytt_japan
     global is_avgn
     global is_anne
+    global is_test
     is_knytt = 'knytt' in name
     is_avgn = 'angry video game' in name
     is_anne = 'ane' in name
     is_knytt_japan = 'japan' in name
+    is_test = 'application' in name
 
     if is_avgn:
         # hack to set default keyboard keys
@@ -33,12 +36,13 @@ def use_simple_or(converter):
     return is_knytt
 
 def use_iteration_index(converter):
-    return is_avgn
+    return is_avgn or is_test
 
 alterable_int_objects = [
     'MenuMainMapObject_',
     'MiniMapObject_',
-    'MenuMainController'
+    'MenuMainController',
+    'FireShark'
 ]
 
 def use_global_int(expression):
@@ -48,7 +52,7 @@ def use_global_int(expression):
     return index in (0, 1)
 
 def use_alterable_int(expression):
-    if not is_anne:
+    if not is_anne and not is_avgn:
         return False
     object_info, object_type = expression.get_object()
     name = expression.converter.get_object_name(object_info)
@@ -59,6 +63,9 @@ def use_alterable_int(expression):
 
 def use_global_instances(converter):
     return True
+
+def use_update_filtering(converter):
+    return is_anne
 
 def write_defines(converter, writer):
     if is_anne:
@@ -74,4 +81,8 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_STARTUP_WINDOW')
+    if use_iteration_index(converter):
+        writer.putln('#define CHOWDREN_ITER_INDEX')
+    if is_avgn or is_test:
+        writer.putln('#define CHOWDREN_LAYER_WRAP')
     writer.putln('#define CHOWDREN_USE_DYNTREE')

@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (ConditionMethodWriter, 
+from chowdren.writers.events import (ConditionMethodWriter,
     ActionMethodWriter, ExpressionMethodWriter, make_table,
     TrueCondition, FalseCondition, EmptyAction)
 
@@ -11,6 +11,7 @@ class SteamObject(ObjectWriter):
     # class_name = 'SteamObject'
     # includes = ['steamext.h']
     static = True
+    update = True
 
     def write_init(self, writer):
         pass

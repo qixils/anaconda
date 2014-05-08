@@ -116,7 +116,7 @@ void Channel::resume()
 {
     if (is_invalid())
         return;
-    if (sound->get_status() == ChowdrenAudio::SoundBase::Stopped)
+    if (sound->get_status() != ChowdrenAudio::SoundBase::Paused)
         return;
     sound->play();
 }

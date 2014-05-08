@@ -281,9 +281,12 @@ void platform_create_display(bool fullscreen)
         return;
     }
 
-    SDL_GL_SetSwapInterval(0);
+#ifdef CHOWDREN_VSYNC
     // if (!SDL_GL_SetSwapInterval(-1)) // late swap tearing
-    //     SDL_GL_SetSwapInterval(1); // normal vsync
+    SDL_GL_SetSwapInterval(1); // normal vsync
+#else
+    SDL_GL_SetSwapInterval(0);
+#endif
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL extensions
@@ -648,9 +651,9 @@ bool is_joystick_released(int n, int button)
     return !get_joy(n).get_button(button);
 }
 
-void joystick_vibrate(int n, float l, float r, int ms)
+void joystick_vibrate(int n, int l, int r, int ms)
 {
-    get_joy(n).vibrate(l, r, ms);
+    get_joy(n).vibrate(l / 100.0f, r / 100.0f, ms);
 }
 
 float get_joystick_axis(int n, int axis)

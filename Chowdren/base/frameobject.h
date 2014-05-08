@@ -82,10 +82,9 @@ public:
     void set_visible(bool value);
     void set_blend_color(int color);
     virtual void draw();
-    void draw_image(Image * img, double x, double y, double angle = 0.0,
+    void draw_image(Image * img, int x, int y, double angle = 0.0,
         double scale_x = 1.0, double scale_y = 1.0,
         bool flip_x = false, bool flip_y = false);
-    virtual void update(float dt);
     virtual void set_direction(int value, bool set_movement = true);
     virtual int get_direction();
     bool mouse_over();
@@ -116,6 +115,7 @@ public:
     void update_flash(float dt, float interval, float & time);
     virtual void flash(float value);
     virtual void set_animation(int value);
+    virtual void set_offset(int dx, int dy);
 };
 
 typedef std::vector<FrameObject*> FlatObjectList;
@@ -279,9 +279,16 @@ public:
     int last;
     bool selected;
 
+#ifdef CHOWDREN_ITER_INDEX
+    int current_index;
+#endif
+
     ObjectIterator(ObjectList & list)
     : list(list), index(list.items[0].next), last(0), selected(true)
     {
+#ifdef CHOWDREN_ITER_INDEX
+        current_index = 0;
+#endif
     }
 
     FrameObject* operator*() const
@@ -291,6 +298,10 @@ public:
 
     void operator++()
     {
+#ifdef CHOWDREN_ITER_INDEX
+        current_index++;
+#endif
+
         last = selected ? index : last;
         index = list.items[index].next;
         selected = true;
@@ -484,6 +495,8 @@ public:
             items[i]->copy(*list.items[i]);
         }
     }
+
+    FrameObject * get_wrapped_selection(int index);
 };
 
 class QualifierIterator
@@ -496,9 +509,16 @@ public:
     int last;
     bool selected;
 
+#ifdef CHOWDREN_ITER_INDEX
+    int current_index;
+#endif
+
     QualifierIterator(QualifierList & in_list)
     : lists(in_list.items), last(0), selected(true), list_index(0)
     {
+#ifdef CHOWDREN_ITER_INDEX
+        current_index = 0;
+#endif
         next_list();
     }
 
@@ -522,6 +542,9 @@ public:
 
     void operator++()
     {
+#ifdef CHOWDREN_ITER_INDEX
+        current_index++;
+#endif
         last = selected ? index : last;
         index = list->items[index].next;
         selected = true;
@@ -563,6 +586,19 @@ public:
         list->items[index].next = LAST_SELECTED;
     }
 };
+
+inline FrameObject * QualifierList::get_wrapped_selection(int index)
+{
+    if (!has_selection())
+        return NULL;
+    while (true) {
+        for (QualifierIterator it(*this); !it.end(); it++) {
+            if (index == 0)
+                return *it;
+            index--;
+        }
+    }
+}
 
 class SavedSelection
 {

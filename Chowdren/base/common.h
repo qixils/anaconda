@@ -1087,7 +1087,7 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
                 it.deselect();
                 continue;
             }
-            if (instance->overlaps(other)) {
+            if (obj->overlaps(other)) {
                 ret = true;
                 continue;
             }

@@ -115,9 +115,8 @@ class Backdrop(ObjectWriter):
             raise NotImplementedError
 
     def write_init(self, writer):
-        image = get_image_name(self.common.image, False)
-        writer.putln('image = new Image(%s);' % image)
-        writer.putln('image->hotspot_x = image->hotspot_y = 0;')
+        image = get_image_name(self.common.image)
+        writer.putln('image = %s;' % image)
         if self.data.name.endswith('(DRC)'):
             writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
                           'defined(CHOWDREN_EMULATE_WIIU)')
@@ -129,7 +128,7 @@ class Backdrop(ObjectWriter):
         if obstacle_type in (NONE_OBSTACLE, LADDER_OBSTACLE):
             return
         if self.common.collisionMode == FINE_COLLISION:
-            writer.putln('collision = new SpriteCollision(this, image);')
+            writer.putln('collision = new BackdropCollision(this, image);')
         else:
             writer.putln('collision = new InstanceBox(this);')
 
@@ -181,9 +180,8 @@ class QuickBackdrop(ObjectWriter):
                 writer.putln('gradient_type = VERTICAL_GRADIENT;')
             writer.putln('color2 = %s;' % make_color(color2))
         elif fill == 'Motif':
-            writer.putlnc('image = new Image(%s);',
-                          get_image_name(shape.image, False))
-            writer.putln('image->hotspot_x = image->hotspot_y = 0;')
+            writer.putlnc('image = %s;',
+                          get_image_name(shape.image))
         elif color2 is not None:
             raise NotImplementedError
         else:

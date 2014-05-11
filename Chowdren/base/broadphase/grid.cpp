@@ -10,6 +10,9 @@ inline int div_ceil(int x, int y)
 UniformGrid::UniformGrid()
 : query_id(0)
 {
+    if (global_manager == NULL)
+        // in case of DefaultLayer
+        return;
     width = div_ceil(global_manager->frame->width, GRID_SIZE);
     height = div_ceil(global_manager->frame->height, GRID_SIZE);
     grid = new GridItemList[width*height];

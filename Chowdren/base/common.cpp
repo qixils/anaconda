@@ -159,14 +159,18 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     }
 
 #ifdef CHOWDREN_LAYER_WRAP
-    if (!wrap_x)
+    if (wrap_x) {
+        dy = 0;
+    } else if (wrap_y) {
+        dx = 0;
+    } else
         return;
     FlatObjectList::const_iterator it2;
     for (it2 = background_instances.begin(); it2 != background_instances.end();
          it2++) {
         FrameObject * object = *it2;
-        object->set_position(object->x + dx, object->y);
-        object->set_offset(-dx, 0);
+        object->set_position(object->x + dx, object->y + dy);
+        object->set_offset(-dx, -dy);
     }
 #endif
 }
@@ -326,6 +330,8 @@ bool Layer::test_background_collision(CollisionBase * a)
 
 bool Layer::test_background_collision(int x, int y)
 {
+    x -= off_x;
+    y -= off_y;
     PointCollision col(x, y);
     return test_background_collision(&col);
 }
@@ -454,8 +460,10 @@ void Layer::set_remote(int value)
 // Frame
 
 Frame::Frame(const std::string & name, int width, int height,
+             int virtual_width, int virtual_height,
              Color background_color, int index, GameManager * manager)
-: name(name), width(width), height(height), index(index),
+: name(name), width(width), height(height), virtual_width(virtual_width),
+  virtual_height(virtual_height), index(index),
   background_color(background_color), manager(manager),
   off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
@@ -580,6 +588,7 @@ void Frame::draw(int remote)
     std::vector<Layer*>::const_iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
         Layer * layer = *it;
+
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
         if (remote == CHOWDREN_HYBRID_TARGET) {
             if (layer->remote == CHOWDREN_REMOTE_TARGET)
@@ -595,6 +604,7 @@ void Frame::draw(int remote)
                 continue;
         }
 #endif
+
         glLoadIdentity();
         glTranslatef(-floor(off_x * layer->scroll_x),
                      -floor(off_y * layer->scroll_y), 0.0);
@@ -606,17 +616,22 @@ void Frame::draw(int remote)
 // #endif
 }
 
+static Layer default_layer(0, 1.0, 1.0, false, false, false);
+
 class DefaultActive : public Active
 {
 public:
     DefaultActive()
     : Active(0, 0, 0)
     {
+        layer = &default_layer;
+        width = height = 0;
+        collision = new InstanceBox(this);
         create_alterables();
     }
 };
 
-DefaultActive default_active;
+static DefaultActive default_active;
 FrameObject * default_active_instance = &default_active;
 
 void Frame::add_layer(double scroll_x, double scroll_y, bool visible,
@@ -662,14 +677,6 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     }
 }
 
-void Frame::destroy_object(FrameObject * instance)
-{
-    if (instance->destroying)
-        return;
-    instance->destroying = true;
-    destroyed_instances.push_back(instance);
-}
-
 void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
     instance->layer->remove_object(instance);
@@ -677,7 +684,10 @@ void Frame::set_object_layer(FrameObject * instance, int new_layer)
     if (instance->collision)
         instance->collision->remove_proxy();
     layer->add_object(instance);
+    int x = instance->get_x();
+    int y = instance->get_y();
     instance->layer = layer;
+    instance->set_global_position(x, y);
     if (instance->collision)
         instance->collision->create_proxy();
 }
@@ -701,11 +711,11 @@ void Frame::set_display_center(int x, int y)
 {
     if (x != -1) {
         new_off_x = int_max(0, x - WINDOW_WIDTH / 2);
-        new_off_x = int_min(new_off_x, width - WINDOW_WIDTH);
+        new_off_x = int_min(new_off_x, virtual_width - WINDOW_WIDTH);
     }
     if (y != -1) {
         new_off_y = int_max(0, y - WINDOW_HEIGHT / 2);
-        new_off_y = int_min(new_off_y, height - WINDOW_HEIGHT);
+        new_off_y = int_min(new_off_y, virtual_height - WINDOW_HEIGHT);
     }
 }
 
@@ -944,7 +954,9 @@ bool FrameObject::overlaps(FrameObject * other)
 {
     if (other == this)
         return false;
-    if (destroying || other->destroying)
+    if (collision->type == NONE_COLLISION)
+        return false;
+    if (other->collision->type == NONE_COLLISION)
         return false;
     if (other->layer != layer)
         return false;
@@ -1016,7 +1028,12 @@ double FrameObject::get_shader_parameter(const std::string & name)
 
 void FrameObject::destroy()
 {
-    frame->destroy_object(this);
+    if (destroying)
+        return;
+    destroying = true;
+    if (collision != NULL)
+        collision->type = NONE_COLLISION;
+    frame->destroyed_instances.push_back(this);
 }
 
 void FrameObject::set_level(int index)
@@ -1104,19 +1121,19 @@ Movement * FrameObject::get_movement()
 
 int FrameObject::get_action_x()
 {
-    return x;
+    return get_x();
 }
 
 int FrameObject::get_action_y()
 {
-    return y;
+    return get_y();
 }
 
 void FrameObject::shoot(FrameObject * other, int speed, int direction)
 {
     if (direction == -1)
         direction = this->direction;
-    other->set_position(get_action_x(), get_action_y());
+    other->set_global_position(get_action_x(), get_action_y());
     other->set_direction(direction);
     delete other->movement;
     other->movement = new ShootMovement(other);
@@ -1446,7 +1463,9 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-        if (forced_animation == APPEARING || forced_animation == BOUNCING)
+        if (forced_animation == APPEARING ||
+            forced_animation == BOUNCING ||
+            forced_animation == SHOOTING)
             restore_animation();
     }
     if (animation_frame != old_frame)
@@ -1487,12 +1506,12 @@ inline Image * Active::get_image()
 
 int Active::get_action_x()
 {
-    return x + action_x;
+    return get_x() + action_x;
 }
 
 int Active::get_action_y()
 {
-    return y + action_y;
+    return get_y() + action_y;
 }
 
 void Active::set_angle(float angle, int quality)
@@ -1667,17 +1686,19 @@ int Active::get_flag(int index)
 bool Active::is_near_border(int border)
 {
     int * box = active_col.aabb;
+    int off_x = layer->off_x;
+    int off_y = layer->off_y;
 
-    if (box[0] <= frame->frame_left() + border)
+    if (box[0] + off_x <= frame->frame_left() + border)
         return true;
 
-    if (box[2] >= frame->frame_right() - border)
+    if (box[2] + off_x >= frame->frame_right() - border)
         return true;
 
-    if (box[1] <= frame->frame_top() + border)
+    if (box[1] + off_y <= frame->frame_top() + border)
         return true;
 
-    if (box[3] >= frame->frame_bottom() - border)
+    if (box[3] + off_y >= frame->frame_bottom() - border)
         return true;
 
     return false;
@@ -1698,7 +1719,7 @@ void Active::destroy()
     }
     clear_movements();
     force_animation(DISAPPEARING);
-    collision = NULL;
+    collision->type = NONE_COLLISION;
 }
 
 bool Active::has_animation(int anim)
@@ -1943,7 +1964,6 @@ Backdrop::Backdrop(int x, int y, int type_id)
 
 Backdrop::~Backdrop()
 {
-    delete image;
     delete collision;
 }
 
@@ -1956,7 +1976,7 @@ void Backdrop::draw()
         return;
 #endif
     blend_color.apply();
-    draw_image(image, x, y);
+    draw_image(image, x + image->hotspot_x, y + image->hotspot_y);
 }
 
 // QuickBackdrop
@@ -1980,7 +2000,6 @@ void QuickBackdrop::set_offset(int dx, int dy)
 QuickBackdrop::~QuickBackdrop()
 {
     delete collision;
-    delete image;
 }
 
 void QuickBackdrop::draw()
@@ -2007,7 +2026,7 @@ void QuickBackdrop::draw()
         blend_color.apply();
         for (int xx = x; xx < x + width; xx += image->width)
         for (int yy = y; yy < y + height; yy += image->height) {
-            draw_image(image, xx, yy);
+            draw_image(image, xx + image->hotspot_x, yy + image->hotspot_y);
         }
         glDisable(GL_SCISSOR_TEST);
     } else {

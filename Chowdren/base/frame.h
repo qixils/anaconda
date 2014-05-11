@@ -105,6 +105,7 @@ class Frame
 public:
     std::string name;
     int width, height;
+    int virtual_width, virtual_height;
     int index;
     GameManager * manager;
     FlatObjectList destroyed_instances;
@@ -125,6 +126,7 @@ public:
     float timer_mul;
 
     Frame(const std::string & name, int width, int height,
+          int virtual_width, int virtual_height,
           Color background_color, int index, GameManager * manager);
     virtual void event_callback(int id);
     virtual void on_start();
@@ -140,7 +142,6 @@ public:
     FrameObject * add_object(FrameObject * object, int layer_indcex);
     FrameObject * add_object(FrameObject * object, Layer * layer);
     void add_background_object(FrameObject * object, int layer_index);
-    void destroy_object(FrameObject * object);
     void set_object_layer(FrameObject * object, int new_layer);
     int get_loop_index(const std::string & name);
     void set_timer(double value);

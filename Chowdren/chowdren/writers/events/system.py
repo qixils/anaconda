@@ -517,7 +517,7 @@ class CreateBase(ActionWriter):
         is_shoot = self.is_shoot
         x = str(details['x'])
         y = str(details['y'])
-        parent = details.get('parent', None)
+        parent_info = details.get('parent', None)
         direction = None
         use_direction = details.get('use_direction', False)
         use_action_point = details.get('use_action_point', False)
@@ -530,21 +530,27 @@ class CreateBase(ActionWriter):
                 direction = '-1'
         else:
             create_object = details['create_object']
-        if object_info != parent:
-            if object_info not in self.converter.has_selection:
+
+        if object_info != parent_info:
+            has_selection = object_info in self.converter.has_selection
+            was_last = object_info == self.converter.current_group.last_created
+            if not has_selection or was_last:
                 list_name = self.converter.get_object_list(object_info)
                 writer.putlnc('%s.empty_selection();', list_name)
                 self.converter.set_list(object_info, list_name)
-        single_parent = self.converter.get_single(parent)
+
+        self.converter.current_group.last_created = object_info
+
+        single_parent = self.converter.get_single(parent_info)
         if single_parent:
             parent = single_parent
-        elif parent is not None:
-            self.converter.start_object_iteration(parent, writer, 'p_it',
+        elif parent_info is not None:
+            self.converter.start_object_iteration(parent_info, writer, 'p_it',
                                                   copy=False)
             writer.putlnc('FrameObject * parent = *p_it;')
             parent = 'parent'
         writer.start_brace()
-        if parent is not None and not is_shoot:
+        if parent_info is not None and not is_shoot:
             if use_action_point:
                 parent_x = 'get_action_x()'
                 parent_y = 'get_action_y()'
@@ -572,11 +578,21 @@ class CreateBase(ActionWriter):
         if is_shoot:
             writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
                           details['shoot_speed'], direction)
+            # object_class = self.converter.get_object_class(
+            #     object_info=parent_info, star=False)
+            # print object_class
+            # if object_class == 'Active':
+            #     parent = '((Active*)%s)' % parent
+            #     writer.putlnc('if (%s->has_animation(SHOOTING))', parent)
+            #     writer.indent()
+            #     writer.putlnc('%s->force_animation(SHOOTING);', parent)
+            #     writer.dedent()
+
         elif direction:
             writer.putln('new_obj->set_direction(%s);' % direction)
         writer.end_brace()
-        if parent is not None and not single_parent:
-            self.converter.end_object_iteration(parent, writer, 'p_it',
+        if parent_info is not None and not single_parent:
+            self.converter.end_object_iteration(parent_info, writer, 'p_it',
                                                 copy=False)
         if False: # action_name == 'DisplayText':
             paragraph = parameters[1].loader.value
@@ -1105,12 +1121,12 @@ actions = make_table(ActionMethodWriter, {
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
-    'SetTimer' : 'set_timer',
+    'SetTimer' : 'set_timer((%s) / 1000.0)',
     'SetLoopIndex' : SetLoopIndex,
     'IgnoreControls' : EmptyAction, # XXX fix
     'RestoreControls' : EmptyAction, # XXX fix,
     'ChangeControlType' : EmptyAction, # XXX fix,
-    'FlashDuring' : 'flash',
+    'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
     'SetSpeed' : 'get_movement()->set_speed',
     'Bounce' : BounceAction,
@@ -1138,8 +1154,8 @@ conditions = make_table(ConditionMethodWriter, {
     'CompareGlobalValue' : make_comparison('global_values->get(%s)'),
     'CompareGlobalString' : make_comparison('global_strings->get(%s)'),
     'CompareCounter' : make_comparison('value'),
-    'CompareX' : make_comparison('x'),
-    'CompareY' : make_comparison('y'),
+    'CompareX' : make_comparison('get_x()'),
+    'CompareY' : make_comparison('get_y()'),
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
     'OnCollision' : OnCollision,

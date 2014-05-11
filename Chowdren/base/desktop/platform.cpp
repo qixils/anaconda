@@ -653,6 +653,8 @@ bool is_joystick_released(int n, int button)
 
 void joystick_vibrate(int n, int l, int r, int ms)
 {
+    if (!is_joystick_attached(n))
+        return;
     get_joy(n).vibrate(l / 100.0f, r / 100.0f, ms);
 }
 

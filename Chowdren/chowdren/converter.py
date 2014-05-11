@@ -415,6 +415,7 @@ class EventGroup(object):
     or_save = False
     or_final = False
     or_type = None
+    last_created = None
 
     def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -1111,6 +1112,24 @@ class Converter(object):
 
             events = frame.events
 
+            self.qualifier_names = {}
+            self.qualifiers = {}
+            self.qualifier_types = {}
+            for qualifier in events.qualifiers.values():
+                object_infos = qualifier.resolve_objects(self.game.frameItems)
+                self.qualifiers[qualifier.qualifier] = object_infos
+                self.qualifier_types[qualifier.qualifier] = qualifier.type
+                name = 'frame_%s_qualifier_%s' % (frame_index,
+                                                  qualifier.qualifier)
+                self.qualifier_names[qualifier.qualifier] = name
+                lists_header.putlnc('extern QualifierList %s;', name)
+                instances = []
+                for obj in object_infos:
+                    instances.append('&' + self.get_object_list(obj))
+                instances = ', '.join(instances)
+                lists_file.putlnc('QualifierList %s(%s, %s);', name,
+                                  len(object_infos), instances)
+
             generated_groups = self.generated_groups = defaultdict(list)
             always_groups = []
             always_groups_dict = self.always_groups_dict = defaultdict(list)
@@ -1145,21 +1164,29 @@ class Converter(object):
                 # or groups
                 condition_groups = []
                 conditions = []
-                not_always = False
+                not_always = None
                 or_type = None
-                for condition in group.conditions:
-                    name = condition.getName()
-                    if name in ('OrFiltered', 'OrLogical'):
-                        or_type = name
+                for condition in (group.conditions + [None]):
+                    if condition is None:
+                        name = 'End'
+                    else:
+                        name = condition.getName()
+                    if name in ('OrFiltered', 'OrLogical', 'End'):
+                        if name != 'End':
+                            or_type = name
+                        if not_always:
+                            conditions.append(not_always)
+                            not_always = None
                         condition_groups.append(conditions)
                         conditions = []
                     else:
-                        if name == 'NotAlways':
-                            not_always = True
                         condition_writer = self.get_condition_writer(condition)
                         condition_writer.container = current_container
-                        conditions.append(condition_writer)
-                condition_groups.append(conditions)
+                        if name == 'NotAlways':
+                            # move NotAlways to end of condition list
+                            not_always = condition_writer
+                        else:
+                            conditions.append(condition_writer)
 
                 actions = []
                 for action in group.actions:
@@ -1178,11 +1205,11 @@ class Converter(object):
                         if create_info == 0xFFFF:
                             # the case for DisplayText
                             create_info = action.objectInfo
-                        if is_qualifier(create_info):
-                            continue
-                        if self.all_objects[create_info].static:
-                            continue
-                        self.multiple_instances.add(create_info)
+                        create_infos = self.resolve_qualifier(create_info)
+                        for create_info in create_infos:
+                            if self.all_objects[create_info].static:
+                                continue
+                            self.multiple_instances.add(create_info)
                     elif action_name in ('DeactivateGroup',
                                          'ActivateGroup'):
                         pointer = action.items[0].loader.pointer
@@ -1229,34 +1256,33 @@ class Converter(object):
                         continue
                     v.is_static = True
 
-            self.qualifier_names = {}
-            self.qualifiers = {}
-            self.qualifier_types = {}
-            for qualifier in events.qualifiers.values():
-                object_infos = qualifier.resolve_objects(self.game.frameItems)
-                self.qualifiers[qualifier.qualifier] = object_infos
-                self.qualifier_types[qualifier.qualifier] = qualifier.type
-                name = 'frame_%s_qualifier_%s' % (frame_index,
-                                                  qualifier.qualifier)
-                self.qualifier_names[qualifier.qualifier] = name
-                lists_header.putlnc('extern QualifierList %s;', name)
-                instances = []
-                for obj in object_infos:
-                    instances.append('&' + self.get_object_list(obj))
-                instances = ', '.join(instances)
-                lists_file.putlnc('QualifierList %s(%s, %s);', name,
-                                  len(object_infos), instances)
-
-
             for container in containers.values():
                 frame_file.add_member('bool %s' % container.code_name)
 
             prototype = '%s(GameManager * manager)' % frame_class_name
             frame_file.add_member(prototype)
-            frame_file.putlnc('%s::%s : Frame(%r, %s, %s, %s, %s, manager)',
-                              frame_class_name, prototype, frame.name,
-                              frame.width, frame.height,
-                              make_color(frame.background), frame_index)
+
+            frame_width = frame.width
+            frame_height = frame.height
+            virtual_right = frame.right
+            if virtual_right == -1:
+                virtual_right = 0x7FFFF000
+            virtual_bottom = frame.bottom
+            if virtual_bottom == -1:
+                virtual_bottom = 0x7FFFF000
+            virtual_width = virtual_right - frame.left
+            virtual_height = virtual_bottom - frame.top
+            if virtual_width not in (0x7FFFF000, frame_width):
+                raise NotImplementedError()
+            if virtual_height not in (0x7FFFF000, frame_height):
+                raise NotImplementedError()
+
+            frame_file.putlnc(
+                '%s::%s : Frame(%r, %s, %s, %s, %s, %s, %s, manager)',
+                frame_class_name, prototype, frame.name,
+                frame_width, frame_height, virtual_width, virtual_height,
+                make_color(frame.background), frame_index
+            )
             frame_file.start_brace()
             if frame.flags['TimedMovements']:
                 timer_base = frame.movementTimer
@@ -2041,9 +2067,9 @@ class Converter(object):
             elif parameter_name == 'Zone':
                 return repr((loader.x1, loader.y1, loader.x2, loader.y2))
             elif parameter_name == 'Time':
-                return repr(loader.timer / 1000.0)
+                return repr(loader.timer)
             elif parameter_name == 'Every':
-                return repr(loader.delay / 1000.0)
+                return repr(loader.delay)
             elif parameter_name == 'Click':
                 button = loader.getButton()
                 if button == 'Left':

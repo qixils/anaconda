@@ -2,9 +2,14 @@
 #define CHOWDREN_KEYDEF_H
 
 #ifdef CHOWDREN_IS_DESKTOP
+
 #include "SDL_keycode.h"
 #include "SDL_mouse.h"
+
 #else
+
+// SDL emulation for platforms without SDL
+
 #define SDL_BUTTON_LEFT     1
 #define SDL_BUTTON_MIDDLE   2
 #define SDL_BUTTON_RIGHT    3

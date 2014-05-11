@@ -24,12 +24,10 @@ public:
     bool * alpha;
 #endif
     int width, height;
-    Image * ref;
 
     Image(int handle);
-    Image(const std::string & filename, int hot_x, int hot_y, 
+    Image(const std::string & filename, int hot_x, int hot_y,
           int act_x, int act_y, Color * color = NULL);
-    Image(Image & image);
     ~Image();
     void load(bool upload = false);
     void upload_texture();

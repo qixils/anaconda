@@ -168,6 +168,11 @@ int GameManager::update_frame()
         return 1;
     }
 
+    // XXX REMOVE THIS
+    if (is_key_pressed(SDLK_KP_1)) {
+        frame->next_frame = 7;
+    }
+
     if (frame->next_frame != -1 && fade_dir == 0.0f) {
         set_frame(frame->next_frame);
     }
@@ -387,7 +392,7 @@ void GameManager::set_frame(int index)
         reset_globals();
     }
     std::cout << "Setting frame: " << index << std::endl;
-    frame = get_frames(this)[index];
+    frame = get_frames	(this)[index];
     // set some necessary pointers
     frame->global_values = values;
     frame->global_strings = strings;

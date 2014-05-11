@@ -10,10 +10,10 @@ bool collide(CollisionBase * a, CollisionBase * b);
 
 enum CollisionType
 {
+    NONE_COLLISION,
     INSTANCE_BOX,
-    OFFSET_INSTANCE_BOX,
+    BACKDROP_COLLISION,
     SPRITE_COLLISION,
-    POINT_COLLISION,
     BOUNDING_BOX,
     BACKGROUND_ITEM
 };
@@ -171,7 +171,7 @@ public:
     int off_x, off_y;
 
     OffsetInstanceBox(FrameObject * instance)
-    : InstanceCollision(instance, OFFSET_INSTANCE_BOX, true),
+    : InstanceCollision(instance, INSTANCE_BOX, true),
       off_x(0), off_y(0)
     {
         update_aabb();
@@ -373,13 +373,40 @@ public:
     }
 };
 
+class BackdropCollision : public InstanceCollision
+{
+public:
+    Image * image;
+
+    BackdropCollision(FrameObject * instance, Image * image)
+    : InstanceCollision(instance, BACKDROP_COLLISION, false), image(image)
+    {
+        this->image = image;
+        update_aabb();
+    }
+
+    void update_aabb()
+    {
+        aabb[0] = instance->x;
+        aabb[1] = instance->y;
+        aabb[2] = aabb[0] + image->width;
+        aabb[3] = aabb[1] + image->height;
+        InstanceCollision::update_aabb();
+    }
+
+    inline bool get_bit(int x, int y)
+    {
+        return image->get_alpha(x, y);
+    }
+};
+
 class PointCollision : public CollisionBase
 {
 public:
     int x, y;
 
     PointCollision(int x, int y)
-    : CollisionBase(POINT_COLLISION, true), x(x), y(y)
+    : CollisionBase(BOUNDING_BOX, true), x(x), y(y)
     {
         aabb[0] = x;
         aabb[1] = y;
@@ -387,21 +414,6 @@ public:
         aabb[3] = y + 1;
     }
 };
-
-// class BoundingBox : public CollisionBase
-// {
-// public:
-//     int x1, y1, x2, y2;
-
-//     BoundingBox(int x1, int y1, int x2, int y2)
-//     : CollisionBase(BOUNDING_BOX, true), x1(x1), y1(y1), x2(y2), y2(y2)
-//     {
-//         aabb[0] = x1;
-//         aabb[1] = y1;
-//         aabb[2] = x2;
-//         aabb[3] = y2;
-//     }
-// };
 
 class BackgroundItem : public CollisionBase
 {
@@ -464,6 +476,18 @@ inline bool collide_background_box(CollisionBase * a, int w, int h,
     return false;
 }
 
+inline bool collide_backdrop_box(CollisionBase * a, int w, int h,
+                                 int offx, int offy)
+{
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if (((BackdropCollision*)a)->get_bit(offx + x, offy + y))
+                return true;
+        }
+    }
+    return false;
+}
+
 inline bool collide_sprite_box(CollisionBase * a, int w, int h,
                                int offx, int offy)
 {
@@ -484,6 +508,21 @@ inline bool collide_sprite_sprite(CollisionBase * a, CollisionBase * b,
         for (int y = 0; y < h; y++) {
             bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
             bool c2 = ((SpriteCollision*)b)->get_bit(offx2 + x, offy2 + y);
+            if (c1 && c2)
+                return true;
+        }
+    }
+    return false;
+}
+
+inline bool collide_sprite_backdrop(CollisionBase * a, CollisionBase * b,
+                                    int w, int h, int offx1, int offy1,
+                                    int offx2, int offy2)
+{
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
+            bool c2 = ((BackdropCollision*)b)->get_bit(offx2 + x, offy2 + y);
             if (c1 && c2)
                 return true;
         }
@@ -515,11 +554,22 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     int h = y2 - y1;
 
     switch (a->type) {
+        case BACKDROP_COLLISION:
+            switch (b->type) {
+                case SPRITE_COLLISION:
+                    return collide_sprite_backdrop(b, a, w, h, offx2, offy2,
+                                                   offx1, offy1);
+                default:
+                    return collide_backdrop_box(a, w, h, offx1, offy1);
+            }
         case SPRITE_COLLISION:
             switch (b->type) {
                 case SPRITE_COLLISION:
                     return collide_sprite_sprite(a, b, w, h, offx1, offy1,
                                                  offx2, offy2);
+                case BACKDROP_COLLISION:
+                    return collide_sprite_backdrop(a, b, w, h, offx1, offy1,
+                                                   offx2, offy2);
                 case BACKGROUND_ITEM:
                     return collide_sprite_background(a, b, w, h, offx1, offy1,
                                                      offx2, offy2);
@@ -541,6 +591,8 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
                     return collide_sprite_box(b, w, h, offx2, offy2);
                 case BACKGROUND_ITEM:
                     return collide_background_box(b, w, h, offx2, offy2);
+                case BACKDROP_COLLISION:
+                    return collide_backdrop_box(b, w, h, offx2, offy2);
                 default:
                     return true;
             }

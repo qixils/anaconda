@@ -55,15 +55,13 @@ Image::Image(int handle)
 #ifndef CHOWDREN_IS_WIIU
   alpha(NULL),
 #endif
-  handle(handle), tex(0), image(NULL), ref(NULL)
+  handle(handle), tex(0), image(NULL)
 {
     load();
 }
 
 Image::~Image()
 {
-    if (ref)
-        return;
     if (image != NULL)
         stbi_image_free(image);
 #ifndef CHOWDREN_IS_WIIU
@@ -83,7 +81,7 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
   alpha(NULL),
 #endif
   hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
-  tex(0), image(NULL), ref(NULL), handle(-1)
+  tex(0), image(NULL), handle(-1)
 {
     int channels;
     FSFile fp(filename.c_str(), "r");
@@ -110,18 +108,6 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
                 c[3] = 0;
         }
     }
-}
-
-Image::Image(Image & img)
-:
-#ifndef CHOWDREN_IS_WIIU
-  alpha(img.alpha),
-#endif
-  hotspot_x(img.hotspot_x), hotspot_y(img.hotspot_y),
-  action_x(img.action_x), action_y(img.action_y),
-  tex(img.tex), image(img.image), ref(&img), width(img.width),
-  height(img.height), handle(img.handle)
-{
 }
 
 void Image::load(bool upload)
@@ -154,15 +140,6 @@ void Image::upload_texture()
 {
     if (tex != 0 || image == NULL)
         return;
-    if (ref != NULL) {
-        ref->upload_texture();
-        tex = ref->tex;
-        image = ref->image;
-#ifndef CHOWDREN_IS_WIIU
-        alpha = ref->alpha;
-#endif
-        return;
-    }
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -254,8 +231,6 @@ void Image::draw(double x, double y, double angle,
     glTranslated(x, y, 0.0);
     glRotated(-angle, 0.0, 0.0, 1.0);
     glScaled(scale_x, scale_y, 1.0);
-    x -= (double)hotspot_x;
-    y -= (double)hotspot_y;
     if (background != 0)
         glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);

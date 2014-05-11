@@ -42,7 +42,8 @@ alterable_int_objects = [
     'MenuMainMapObject_',
     'MiniMapObject_',
     'MenuMainController',
-    'FireShark'
+    'FireShark',
+    'Cog'
 ]
 
 def use_global_int(expression):
@@ -77,8 +78,6 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_TEXT_USE_UTF8')
         writer.putln('#define CHOWDREN_TEXT_JAPANESE')
         writer.putln('#define CHOWDREN_BIG_FONT_OFFY 1')
-    if is_anne or is_avgn:
-        writer.putln('#define CHOWDREN_USE_COLTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_STARTUP_WINDOW')
     if use_iteration_index(converter):

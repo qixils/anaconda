@@ -168,11 +168,6 @@ int GameManager::update_frame()
         return 1;
     }
 
-    // XXX REMOVE THIS
-    if (is_key_pressed(SDLK_KP_1)) {
-        frame->next_frame = 7;
-    }
-
     if (frame->next_frame != -1 && fade_dir == 0.0f) {
         set_frame(frame->next_frame);
     }

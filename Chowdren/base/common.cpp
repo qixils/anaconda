@@ -358,7 +358,7 @@ struct DrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
-        if (!item->visible)
+        if (!item->visible || item->destroying)
             return true;
         if (!collide_box(item, aabb))
             return true;
@@ -1463,9 +1463,7 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-        if (forced_animation == APPEARING ||
-            forced_animation == BOUNCING ||
-            forced_animation == SHOOTING)
+        if (forced_animation != -1)
             restore_animation();
     }
     if (animation_frame != old_frame)
@@ -1735,6 +1733,7 @@ bool Active::has_animation(int anim)
 
 FTTextureFont * small_font = NULL;
 FTTextureFont * big_font = NULL;
+static bool has_fonts = false;
 std::string font_path;
 
 void set_font_path(const std::string & value)
@@ -1750,7 +1749,7 @@ void init_font()
     if (initialized)
         return;
     set_font_path(std::string("Font.dat")); // default font, could be set already
-    load_fonts(font_path, &small_font, &big_font);
+    has_fonts = load_fonts(font_path, &small_font, &big_font);
     initialized = true;
 }
 
@@ -1787,6 +1786,10 @@ void Text::add_line(std::string text)
 
 void Text::draw()
 {
+    if (!has_fonts) {
+        visible = false;
+        return;
+    }
     update_draw_text();
     blend_color.apply();
     glPushMatrix();

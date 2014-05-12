@@ -874,12 +874,15 @@ class SetFrameAction(ActionWriter):
 
 class JumpToFrame(SetFrameAction):
     def write(self, writer):
-        frame = self.parameters[0].loader
-        if frame.isExpression:
-            value = '%s-1' % self.convert_index(0)
-        else:
-            value = str(self.converter.game.frameHandles[frame.value])
-        self.set_frame(writer, value)
+        try:
+            frame = self.parameters[0].loader
+            if frame.isExpression:
+                value = '%s-1' % self.convert_index(0)
+            else:
+                value = str(self.converter.game.frameHandles[frame.value])
+            self.set_frame(writer, value)
+        except IndexError:
+            pass
 
 class RestartFrame(SetFrameAction):
     def write(self, writer):

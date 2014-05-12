@@ -281,12 +281,12 @@ void platform_create_display(bool fullscreen)
         return;
     }
 
-#ifdef CHOWDREN_VSYNC
+// #ifdef CHOWDREN_VSYNC
     // if (!SDL_GL_SetSwapInterval(-1)) // late swap tearing
     SDL_GL_SetSwapInterval(1); // normal vsync
-#else
-    SDL_GL_SetSwapInterval(0);
-#endif
+// #else
+//     SDL_GL_SetSwapInterval(0);
+// #endif
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL extensions
@@ -571,6 +571,12 @@ void add_joystick(int device)
 {
     if (!SDL_IsGameController(device))
         return;
+    std::vector<JoystickData*>::iterator it;
+    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+        JoystickData * j = *it;
+        if (j->device == device)
+            return;
+    }
     SDL_GameController * c = SDL_GameControllerOpen(device);
     if (c == NULL)
         return;
@@ -591,7 +597,7 @@ void init_joystick()
 {
     rumble_effect.type = SDL_HAPTIC_LEFTRIGHT;
     rumble_effect.leftright.length = 0;
-    return;
+
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         add_joystick(i);
     }

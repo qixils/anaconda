@@ -8,15 +8,21 @@
 
 // front-end font loader
 
-void load_fonts(const std::string & filename,
+bool load_fonts(const std::string & filename,
                 FTTextureFont ** small, FTTextureFont ** big)
 {
     FSFile fp(filename.c_str(), "r");
+    if (!fp.is_open()) {
+        *small = NULL;
+        *big = NULL;
+        return false;
+    }
     FileStream stream(fp);
     unsigned int count;
     stream >> count;
     *small = new FTTextureFont(stream);
     *big = new FTTextureFont(stream);
+    return true;
 }
 
 // unicode support

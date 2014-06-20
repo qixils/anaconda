@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (StaticConditionWriter, 
+from chowdren.writers.events import (StaticConditionWriter,
     StaticActionWriter, StaticExpressionWriter, make_table,
     ConditionMethodWriter, ExpressionMethodWriter, EmptyAction,
     StaticConditionWriter, ActionMethodWriter)
@@ -23,6 +23,7 @@ conditions = make_table(ConditionMethodWriter, {
     9 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_RIGHTSHOULDER)',
     3 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_X)',
     4 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_Y)',
+    5 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_BACK)',
     7 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_LEFTSHOULDER)',
     14 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_LEFT)',
     15 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_RIGHT)',

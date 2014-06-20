@@ -71,6 +71,7 @@ def use_update_filtering(converter):
 def write_defines(converter, writer):
     if is_anne:
         writer.putln('#define CHOWDREN_SNES_CONTROLLER')
+    if is_avgn or is_anne:
         writer.putln('#define CHOWDREN_FORCE_REMOTE')
     if is_anne or is_avgn:
         writer.putln('#define CHOWDREN_QUICK_SCALE')
@@ -80,8 +81,12 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_BIG_FONT_OFFY 1')
     if is_avgn:
         writer.putln('#define CHOWDREN_STARTUP_WINDOW')
+        writer.putln('#define CHOWDREN_POINT_FILTER')
+        writer.putln('#define CHOWDREN_PERSISTENT_FIXED_STRING')
     if use_iteration_index(converter):
         writer.putln('#define CHOWDREN_ITER_INDEX')
     if is_avgn or is_test:
         writer.putln('#define CHOWDREN_LAYER_WRAP')
+    if is_avgn:
+        writer.putln('#define CHOWDREN_RESTORE_ANIMATIONS')
     writer.putln('#define CHOWDREN_USE_DYNTREE')

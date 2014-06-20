@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color, get_method_name)
 
-from chowdren.writers.events import (ConditionMethodWriter, 
+from chowdren.writers.events import (ConditionMethodWriter,
     ExpressionMethodWriter, ActionMethodWriter, make_table, ExpressionWriter)
 
 class Layer(ObjectWriter):
@@ -38,6 +38,10 @@ class SetAlphaByName(SetByName):
     def write_layer(self, layer, writer):
         writer.put('set_alpha_coefficient(%s, %s);' % (layer,
                                                        self.convert_index(1)))
+
+class HideByName(SetByName):
+    def write_layer(self, layer, writer):
+        writer.put('hide_layer(%s);' % layer)
 
 class GetLayerCount(ExpressionWriter):
     has_object = False
@@ -90,6 +94,7 @@ actions = make_table(ActionMethodWriter, {
     30 : 'set_position(%s-1, %s, %s)',
     33 : SetXByName,
     34 : SetYByName,
+    37 : HideByName,
     38 : 'set_layer(%s-1)',
     27 : 'sort_alt_decreasing',
     31 : 'show_layer(%s-1)',

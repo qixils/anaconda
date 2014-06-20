@@ -17,7 +17,7 @@
 */
 
 #include "b2Settings.h"
-#include <cstdlib>
+#include <stdlib.h>
 
 b2Version b2_version = {2, 0, 2};
 

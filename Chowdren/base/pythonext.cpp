@@ -5,6 +5,7 @@
 #endif
 
 #define Py_PYMATH_H
+#define FORCE_PYTHON_RELEASE
 
 #if defined(_DEBUG) && defined(FORCE_PYTHON_RELEASE)
 #undef _DEBUG
@@ -46,7 +47,7 @@ void PythonInterpreter::add_function(const char * name, void * fp)
     print_errors();
 }
 
-PythonInterpreter::PythonInterpreter(int x, int y, int type_id) 
+PythonInterpreter::PythonInterpreter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), parameters(NULL), returns(NULL)
 {
     initialize();
@@ -64,7 +65,7 @@ void PythonInterpreter::run_string(std::string str)
 {
     str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
     PyObject * globals = PyModule_GetDict(main_module);
-    PyObject * result = PyRun_String(str.c_str(), Py_file_input, 
+    PyObject * result = PyRun_String(str.c_str(), Py_file_input,
         globals, globals);
     print_errors();
 }
@@ -110,7 +111,7 @@ PyObject * PythonInterpreter::eval(std::string str)
 {
     str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
     PyObject * globals = PyModule_GetDict(main_module);
-    PyObject * result = PyRun_String(str.c_str(), Py_eval_input, 
+    PyObject * result = PyRun_String(str.c_str(), Py_eval_input,
         globals, globals);
     print_errors();
     return result;
@@ -134,7 +135,7 @@ void PythonInterpreter::call_global(const std::string & name)
     print_errors();
     PyObject * globals = PyModule_GetDict(main_module);
     const char * function_name = name.c_str();
-    PyObject * function = PyRun_String(function_name, Py_eval_input, 
+    PyObject * function = PyRun_String(function_name, Py_eval_input,
         globals, globals);
     if (function == NULL) {
         PyErr_Format(PyExc_AttributeError,

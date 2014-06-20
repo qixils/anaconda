@@ -122,6 +122,12 @@ void GameManager::set_window(bool fullscreen)
         GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
+
+#ifdef CHOWDREN_VSYNC
+    platform_set_vsync(true);
+#else
+    platform_set_vsync(false);
+#endif
 }
 
 bool GameManager::is_fullscreen()
@@ -375,6 +381,7 @@ void GameManager::set_frame(int index)
         frame->on_end();
     }
     if (index == -2) {
+        platform_begin_draw();
         media->stop_samples();
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -387,12 +394,13 @@ void GameManager::set_frame(int index)
         reset_globals();
     }
     std::cout << "Setting frame: " << index << std::endl;
-    frame = get_frames	(this)[index];
+    frame = get_frames(this)[index];
     // set some necessary pointers
     frame->global_values = values;
     frame->global_strings = strings;
     frame->media = media;
     frame->on_start();
+    std::cout << "Frame set" << std::endl;
 }
 
 void GameManager::set_fade(const Color & color, float fade_dir)

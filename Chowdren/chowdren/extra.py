@@ -6,6 +6,9 @@ from chowdren.common import to_c
 
 SPRITES_STRING = 'Chowdren: Sprites'
 PLATFORM_STRING = 'Chowdren: Platform'
+# XXX small hack while Sam fixes the MFA
+PLATFORM_STRING_TEMP = 'Cowdren: Platform'
+PLATFORM_STRINGS = (PLATFORM_STRING, PLATFORM_STRING_TEMP)
 FONT_STRING = 'Chowdren: Font'
 RESIZE_STRING = 'Chowdren: Window Resize'
 SHADERS_STRING = 'Chowdren: Shaders'
@@ -16,8 +19,8 @@ REMOTE_STRING = 'Chowdren: Remote'
 BORDER_STRING = 'Chowdren: Border'
 UTF8_STRING = 'Chowdren: UTF8'
 
-SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, FONT_STRING,
-    RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING,
+SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, PLATFORM_STRING_TEMP,
+    FONT_STRING, RESIZE_STRING, SHADERS_STRING, SOUNDS_STRING, STEAM_STRING,
     LANGUAGE_STRING, REMOTE_STRING, BORDER_STRING, UTF8_STRING])
 
 def is_special_object(name):
@@ -36,7 +39,7 @@ class GetString(ExpressionWriter):
     has_object = False
     def get_string(self):
         name = self.converter.all_objects[self.data.objectInfo].data.name
-        if name == PLATFORM_STRING:
+        if name in PLATFORM_STRINGS:
             return 'get_platform()'
         elif name == LANGUAGE_STRING:
             return 'platform_get_language()'

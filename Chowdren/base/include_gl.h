@@ -4,18 +4,16 @@
 #ifdef CHOWDREN_USE_GL
 #include <GL/glew.h>
 #include <SDL_opengl.h>
-#endif
 
-#ifdef CHOWDREN_USE_GLES1
+#elif CHOWDREN_USE_GLES1
 #include <SDL_opengles.h>
-#endif
 
-#ifdef CHOWDREN_USE_GLES2
+#elif CHOWDREN_USE_GLES2
 #include <SDL_opengles2.h>
-#endif
 
-#ifdef CHOWDREN_IS_WIIU
-#include "wiiu_glc.h"
+#else
+#define USE_GENERIC_GLC
+#include "generic_glc.h"
 #endif
 
 void glc_enable(GLenum cap);
@@ -39,7 +37,7 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 
 #ifndef CHOWDREN_BUILD_GLC
 
-#if defined(CHOWDREN_USE_GL) || defined(CHOWDREN_IS_WIIU)
+#if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
 #undef glGenFramebuffers
 #define glGenFramebuffers glGenFramebuffersEXT
 #undef glBindFramebuffer

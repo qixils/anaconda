@@ -24,7 +24,7 @@ namespace ChowdrenAudio {
 
 #ifndef CHOWDREN_IS_EMSCRIPTEN
 // extension function pointers
-typedef ALvoid (AL_APIENTRY*PFNALBUFFERSUBDATASOFTPROC)(ALuint, ALenum, 
+typedef ALvoid (AL_APIENTRY*PFNALBUFFERSUBDATASOFTPROC)(ALuint, ALenum,
     const ALvoid*, ALsizei, ALsizei);
 PFNALBUFFERSUBDATASOFTPROC alBufferSubDataSOFT;
 #endif
@@ -192,7 +192,7 @@ public:
             ) * sizeof(signed short);
         signed short * buffer_data = samples;
         bool del = false;
-        if (format == AL_FORMAT_STEREO16 && 
+        if (format == AL_FORMAT_STEREO16 &&
                 (left_gain != 1.0 || right_gain != 1.0)) {
             del = true;
             buffer_data = new signed short[sample_count];
@@ -217,10 +217,12 @@ public:
 
     void set_pan(double left, double right)
     {
-        if (format != AL_FORMAT_STEREO16 || samples == NULL)
+        if (format != AL_FORMAT_STEREO16)
             return;
         left_gain = left;
         right_gain = right;
+        if (samples == NULL)
+            return;
         if (!global_device->sub_buffer_data_ext)
             // this is bad
             return;
@@ -334,7 +336,7 @@ public:
             right_gain = get_pan_factor(clamp(1.0 + pan));
             update_stereo_pan();
         } else
-            al_check(alSource3f(source, AL_POSITION, pan, 
+            al_check(alSource3f(source, AL_POSITION, pan,
                                 -sqrt(1.0 - pan * pan), 0));
     }
 
@@ -353,7 +355,7 @@ public:
 
         switch (status) {
             case AL_INITIAL:
-            case AL_STOPPED: 
+            case AL_STOPPED:
                 return Stopped;
             case AL_PAUSED:
                 return Paused;
@@ -404,6 +406,7 @@ public:
     {
         al_check(alSourcei(source, AL_BUFFER, sample.buffer->buffer));
         sample.add_sound(this);
+        format = sample.buffer->format;
     }
 
     ~Sound()
@@ -458,6 +461,9 @@ public:
 
     void update_stereo_pan()
     {
+        // XXX okay, so we can't actually do this since the sample buffer
+        // is shared. need to implement buffer copying for panning.
+        return;
         sample.buffer->set_pan(left_gain, right_gain);
     }
 
@@ -508,6 +514,9 @@ public:
         stop();
 
         LOCK_STREAM();
+        for (int i = 0; i < BUFFER_COUNT; i++)
+            delete buffers[i];
+
         global_device->remove_stream(this);
         UNLOCK_STREAM();
 
@@ -544,17 +553,14 @@ public:
 
     void stop()
     {
-        if (!playing) {
+        if (!playing)
             return;
-        }
         LOCK_STREAM();
         playing = false;
         UNLOCK_STREAM();
         al_check(alSourceStop(source));
         clear_queue();
         al_check(alSourcei(source, AL_BUFFER, 0));
-        for (int i = 0; i < BUFFER_COUNT; i++)
-            delete buffers[i];
     }
 
     Status get_status()
@@ -579,7 +585,7 @@ public:
             time * file->sample_rate * file->channels);
         for (int i = 0; i < BUFFER_COUNT; ++i)
             end_buffers[i] = false;
-        stopping = fill_queue();    
+        stopping = fill_queue();
         al_check(alSourcePlay(source));
         UNLOCK_STREAM();
     }
@@ -615,6 +621,9 @@ public:
         ALint status;
         al_check(alGetSourcei(source, AL_SOURCE_STATE, &status));
 
+        if (status == AL_PAUSED)
+            return;
+
         // The stream has been interrupted!
         if (status == AL_STOPPED) {
             if (stopping) {
@@ -624,7 +633,7 @@ public:
                 al_check(alSourcePlay(source));
         }
 
-        // Get the number of buffers that have been processed (ie. ready for 
+        // Get the number of buffers that have been processed (ie. ready for
         // reuse)
         ALint processed = 0;
         al_check(alGetSourcei(source, AL_BUFFERS_PROCESSED, &processed));
@@ -676,7 +685,7 @@ public:
         SoundBuffer & buffer = *buffers[buffer_num];
 
         if (!buffer.read(*file)) {
-            // Mark the buffer as the last one (so that we know when to reset 
+            // Mark the buffer as the last one (so that we know when to reset
             // the playing position)
             end_buffers[buffer_num] = true;
 
@@ -685,7 +694,7 @@ public:
                 // Return to the beginning of the stream source
                 on_seek(0);
 
-                // If we previously had no data, try to fill the buffer once 
+                // If we previously had no data, try to fill the buffer once
                 // again
                 if (buffer.sample_count == 0) {
                     return fill_buffer(buffer_num);
@@ -772,6 +781,11 @@ AudioDevice::AudioDevice()
     }
 #endif
 
+    if (!sub_buffer_data_ext) {
+        std::cout << "OpenAL implementation does not support "
+            << "AL_SOFT_buffer_sub_data" << std::endl;
+    }
+
 #ifdef CHOWDREN_IS_EMSCRIPTEN
     stream_update();
 #else
@@ -826,7 +840,7 @@ void AudioDevice::add_stream(SoundStream * stream)
 
 void AudioDevice::remove_stream(SoundStream * stream)
 {
-    streams.erase(std::remove(streams.begin(), streams.end(), stream), 
+    streams.erase(std::remove(streams.begin(), streams.end(), stream),
                   streams.end());
 }
 

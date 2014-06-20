@@ -6,18 +6,19 @@
 #include "color.h"
 #include <string>
 #include <vector>
-#include <boost/unordered_map.hpp>
+#include "types.h"
 #include <algorithm>
 #include <stdarg.h>
 #undef max
 #include "broadphase.h"
+#include <assert.h>
 
 class InstanceCollision;
 class Frame;
 class Shader;
 class Image;
 
-typedef boost::unordered_map<std::string, double> ShaderParameters;
+typedef hash_map<std::string, double> ShaderParameters;
 
 class FrameObject;
 class Movement;
@@ -36,6 +37,14 @@ public:
 
 #define BACKGROUND_TYPE 1
 
+enum ObjectFlags
+{
+    VISIBLE = (1 << 0),
+    DESTROYING = (1 << 1),
+    SCROLL = (1 << 2),
+    FADEOUT = (1 << 3)
+};
+
 class FrameObject
 {
 public:
@@ -48,16 +57,14 @@ public:
     int width, height;
     int direction;
     int id;
+    int flags;
     AlterableValues * values;
     AlterableStrings * strings;
     Color blend_color;
-    bool visible;
     Frame * frame;
     Layer * layer;
     Shader * shader;
     ShaderParameters * shader_parameters;
-    bool destroying;
-    bool scroll;
     int movement_count;
     Movement ** movements;
     Movement * movement;

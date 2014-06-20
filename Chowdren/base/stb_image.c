@@ -2448,7 +2448,7 @@ static int create_png_image_raw(png *a, uint8 *raw, uint32 raw_len, int out_n, u
    int img_n = s->img_n; // copy it into a local for later
    assert(out_n == s->img_n || out_n == s->img_n+1);
    if (stbi_png_partial) y = 1;
-   a->out = (uint8 *) malloc(x * y * out_n);
+		   a->out = (uint8 *) malloc(x * y * out_n);
    if (!a->out) return e("outofmem", "Out of memory");
    if (!stbi_png_partial) {
       if (s->img_x == x && s->img_y == y) {

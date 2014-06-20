@@ -16,15 +16,15 @@ void main()
     }
     else if(fHue >= 1.0 && fHue < 2.0)
     {
-        gl_FragColor.r = col.g+(col.b-col.g)*(fHue-1.0f);
-        gl_FragColor.g = col.b+(col.r-col.b)*(fHue-1.0f);
-        gl_FragColor.b = col.r+(col.g-col.r)*(fHue-1.0f);
+        gl_FragColor.r = col.g+(col.b-col.g)*(fHue-1.0);
+        gl_FragColor.g = col.b+(col.r-col.b)*(fHue-1.0);
+        gl_FragColor.b = col.r+(col.g-col.r)*(fHue-1.0);
     }
     else if(fHue >= 2.0)
     {
-        gl_FragColor.r = col.b+(col.r-col.b)*(fHue-2.0f);
-        gl_FragColor.g = col.r+(col.g-col.r)*(fHue-2.0f);
-        gl_FragColor.b = col.g+(col.b-col.g)*(fHue-2.0f);
+        gl_FragColor.r = col.b+(col.r-col.b)*(fHue-2.0);
+        gl_FragColor.g = col.r+(col.g-col.r)*(fHue-2.0);
+        gl_FragColor.b = col.g+(col.b-col.g)*(fHue-2.0);
     }
     gl_FragColor *= gl_Color;
 }

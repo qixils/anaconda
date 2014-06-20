@@ -306,7 +306,7 @@ void glc_color_4f(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha)
 
 void glc_color_4ub(GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha)
 {
-    Vec4 current_color = {red / 255.0f, green / 255.0f, blue / 255.0f, 
+    Vec4 current_color = {red / 255.0f, green / 255.0f, blue / 255.0f,
                           alpha / 255.0f};
     gl_state.current_color = current_color;
 }

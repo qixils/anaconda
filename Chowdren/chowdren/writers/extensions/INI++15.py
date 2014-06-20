@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter, 
+from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
 
 class INI(ObjectWriter):
@@ -25,7 +25,7 @@ class INI(ObjectWriter):
         if is_global:
             writer.putln(to_c('set_global_data(%r);', global_key))
         elif filename:
-            writer.putln(to_c('load_file(%r);', filename))
+            writer.putlnc('load_file(%r);', filename)
 
 class PerformSearch(ActionMethodWriter):
     def write(self, writer):

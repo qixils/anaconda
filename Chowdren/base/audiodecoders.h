@@ -6,7 +6,7 @@
 #include "path.h"
 #include <string.h>
 
-#ifndef CHOWDREN_IS_DESKTOP
+#ifdef CHOWDREN_IS_WIIU
 #define IS_BIG_ENDIAN
 #endif
 
@@ -60,7 +60,7 @@ ov_callbacks callbacks = {
     tell_func
 };
 
-class OggDecoder : public SoundDecoder 
+class OggDecoder : public SoundDecoder
 {
 private:
     OggVorbis_File ogg_file;
@@ -102,7 +102,7 @@ public:
     {
         return ogg_info != NULL;
     }
-    
+
     std::size_t read(signed short * sdata, std::size_t samples)
     {
         if (!(sdata && samples))
@@ -115,8 +115,8 @@ public:
             int big_endian = 1;
 #else
             int big_endian = 0;
-#endif 
-            int res = ov_read(&ogg_file, &data[got], bytes, 
+#endif
+            int res = ov_read(&ogg_file, &data[got], bytes,
                               big_endian, 2, 1, &ogg_bitstream);
             if(res <= 0)
                 break;
@@ -129,10 +129,12 @@ public:
 
     void seek(double value)
     {
+        value = std::max(0.0, value);
         int ret = ov_time_seek(&ogg_file, value);
-        if(ret == 0)
+        if (ret == 0)
             return;
-        std::cout << "Seek failed: " << ret << std::endl;
+        std::cout << "Seek failed: " << ret << " with time " << value
+            << std::endl;
     }
 };
 
@@ -150,7 +152,7 @@ inline unsigned short read_le16(FSFile & file)
     return buffer[0] | (buffer[1]<<8);
 }
 
-class WavDecoder : public SoundDecoder 
+class WavDecoder : public SoundDecoder
 {
 private:
     FSFile file;
@@ -198,13 +200,13 @@ public:
                 file.seek(4, SEEK_CUR);
                 block_align = read_le16(file);
                 if(block_align == 0) {
-                    std::cerr << "Invalid blockalign: " << filename 
+                    std::cerr << "Invalid blockalign: " << filename
                         << std::endl;
                     break;
                 }
                 sample_size = read_le16(file);
                 if (sample_size != 16) {
-                    std::cerr << "Invalid sample size: " << filename 
+                    std::cerr << "Invalid sample size: " << filename
                         << " " << sample_size << std::endl;
                     break;
                 }

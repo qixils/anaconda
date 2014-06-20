@@ -9,16 +9,23 @@ endif()
 
 set(CMAKE_MODULE_PATH "${CHOWDREN_BASE_DIR}/cmake")
 
-if (NOT EMSCRIPTEN)
+if (NOT CMAKE_CROSSCOMPILING)
     include_directories("${CHOWDREN_BASE_DIR}/include/desktop")
+    set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/desktop"
+        ${CMAKE_INCLUDE_PATH})
+    include_directories("${CHOWDREN_BASE_DIR}/desktop")
+
+    if (EMSCRIPTEN)
+        set(PLATFORM_CPP "${CHOWDREN_BASE_DIR}/desktop/emscriptenplatform.cpp")
+    else()
+        set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/platform.cpp)
+    endif()
 endif()
+
 include_directories("${CHOWDREN_BASE_DIR}/include")
-include_directories("${CHOWDREN_BASE_DIR}/include/desktop")
-include_directories("${CHOWDREN_BASE_DIR}/desktop")
 include_directories("${CHOWDREN_BASE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
-set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include"
-    "${CHOWDREN_BASE_DIR}/include/desktop" ${CMAKE_INCLUDE_PATH})
+set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 option(USE_BOX2D OFF)
 option(USE_PYTHON ON)
@@ -26,7 +33,11 @@ option(USE_STEAM OFF)
 option(ENABLE_STEAM ON)
 option(EMULATE_WIIU OFF)
 
-if (EMSCRIPTEN)
+if (CMAKE_CROSSCOMPILING)
+    set(USE_GL OFF)
+    set(USE_GLES2 OFF)
+    set(USE_GLES1 OFF)
+elseif (EMSCRIPTEN)
     set(USE_GLES2 ON)
 else()
     option(USE_GL ON)
@@ -38,25 +49,31 @@ if(EMSCRIPTEN)
     add_definitions(-DCHOWDREN_IS_EMSCRIPTEN)
 endif()
 
-add_definitions(-DCHOWDREN_IS_DESKTOP)
+if (NOT CMAKE_CROSSCOMPILING)
+    add_definitions(-DCHOWDREN_IS_DESKTOP)
+endif()
 
 if (USE_GL)
     add_definitions(-DCHOWDREN_USE_GL)
 elseif (USE_GLES1)
     add_definitions(-DCHOWDREN_USE_GLES1)
-else()
+elseif (USE_GLES2)
     add_definitions(-DCHOWDREN_USE_GLES2)
 endif()
 
 FILE(GLOB FRAMESRCS "frame*.cpp")
 FILE(GLOB OBJECTSRCS "objects*.cpp")
 
-if (EMSCRIPTEN)
-    set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/emscriptenplatform.cpp)
-else()
-    set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/platform.cpp)
+if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
+    set(PLATFORM_SRCS
+        ${CHOWDREN_BASE_DIR}/desktop/glc.cpp
+        ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
+        ${CHOWDREN_BASE_DIR}/include/tinythread/tinythread.cpp
+        ${PLATFORM_SRCS}
+    )
+
     if (USE_GL)
-        set(GLEW_C ${CHOWDREN_BASE_DIR}/glew.c)
+        set(PLATFORM_SRCS ${CHOWDREN_BASE_DIR}/glew.c ${PLATFORM_SRCS})
     endif()
 endif()
 
@@ -66,20 +83,19 @@ set(SRCS
     lists.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
-    ${CHOWDREN_BASE_DIR}/desktop/glc.cpp
     ${GLEW_C}
     ${PLATFORM_CPP}
     ${CHOWDREN_BASE_DIR}/shader.cpp
     ${CHOWDREN_BASE_DIR}/font.cpp
-    ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
     ${FRAMESRCS}
     ${CHOWDREN_BASE_DIR}/movement.cpp
     ${CHOWDREN_BASE_DIR}/common.cpp
     ${CHOWDREN_BASE_DIR}/media.cpp
     ${CHOWDREN_BASE_DIR}/fpslimit.cpp
-    ${CHOWDREN_BASE_DIR}/include/tinythread/tinythread.cpp
     ${CHOWDREN_BASE_DIR}/broadphase.cpp
-    ${CHOWDREN_BASE_DIR}/profiler.cpp)
+    ${CHOWDREN_BASE_DIR}/profiler.cpp
+    ${PLATFORM_SRCS}
+)
 
 if (USE_STEAM)
     add_definitions(-DCHOWDREN_USE_STEAM)
@@ -125,7 +141,6 @@ if (USE_BOX2D)
         ${BOX2D_DIR}/Common/b2Settings.cpp
         ${BOX2D_DIR}/Common/b2StackAllocator.cpp
         ${BOX2D_DIR}/Dynamics/b2Body.cpp
-        # ${BOX2D_DIR}/Dynamics/b2Body2.cpp
         ${BOX2D_DIR}/Dynamics/b2ContactManager.cpp
         ${BOX2D_DIR}/Dynamics/b2Island.cpp
         ${BOX2D_DIR}/Dynamics/b2World.cpp
@@ -226,12 +241,13 @@ if(APPLE)
     set(SRCS ${SRCS} ${DATA_SRCS})
 endif()
 
-if(EMSCRIPTEN)
+if (CMAKE_CROSSCOMPILING)
     # libogg
     file(GLOB LIBOGG_C "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
     file(GLOB LIBVORBIS_C "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
     set(VORBIS_INCLUDE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
     include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
+    set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
 else()
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)

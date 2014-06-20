@@ -32,7 +32,6 @@
 #include "types.h"
 #include "crossrand.h"
 #include "utility.h"
-#include <boost/unordered_map.hpp>
 #include "broadphase.h"
 #include "input.h"
 #include "movement.h"
@@ -194,7 +193,7 @@ public:
     bool collision_box;
     bool stopped;
     float flash_time, flash_interval;
-    unsigned int flags;
+    unsigned int alterable_flags;
     int animation_finished;
     bool auto_rotate;
     bool transparent;
@@ -258,6 +257,8 @@ public:
     bool has_animation(int anim);
 };
 
+class FTTextureFont;
+FTTextureFont * get_font(int size);
 void set_font_path(const char * path);
 void set_font_path(const std::string & path);
 void init_font();
@@ -273,7 +274,7 @@ public:
     bool initialized;
     int alignment;
     bool bold, italic;
-    int size;
+    FTTextureFont * font;
     std::string draw_text;
     bool draw_text_set;
     FTSimpleLayout * layout;
@@ -388,13 +389,13 @@ public:
     void draw();
 };
 
-typedef boost::unordered_map<std::string, std::string> OptionMap;
-typedef boost::unordered_map<std::string, OptionMap> SectionMap;
+typedef hash_map<std::string, std::string> OptionMap;
+typedef hash_map<std::string, OptionMap> SectionMap;
 
 class INI : public FrameObject
 {
 public:
-    static boost::unordered_map<std::string, SectionMap> global_data;
+    static hash_map<std::string, SectionMap> global_data;
     std::string current_group;
     SectionMap data;
     std::vector<std::pair<std::string, std::string> > search_results;
@@ -520,7 +521,7 @@ public:
     Workspace(const std::string & name);
 };
 
-typedef boost::unordered_map<std::string, Workspace*> WorkspaceMap;
+typedef hash_map<std::string, Workspace*> WorkspaceMap;
 
 class BinaryArray : public FrameObject
 {
@@ -686,13 +687,12 @@ public:
     void update(float dt);
 };
 
-typedef boost::unordered_map<std::string, Image*> ImageCache;
+typedef hash_map<std::string, Image*> ImageCache;
 
 class ActivePicture : public FrameObject
 {
 public:
     Image * image;
-    Image * cached_image;
     bool horizontal_flip;
     std::string filename;
     Color transparent_color;
@@ -703,7 +703,6 @@ public:
 
     ActivePicture(int x, int y, int type_id);
     ~ActivePicture();
-    void remove_image();
     void load(const std::string & fn);
     void set_transparent_color(const Color & color);
     void set_hotspot(int x, int y);
@@ -821,6 +820,9 @@ extern MathHelper math_helper;
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
+    // -1 as a double is
+    // 00 00 00 00 00 00 F0 BF
+    // which is quite unlikely to be a memory address
     if (fixed == 0.0 || fixed == -1.0)
         return NULL;
     int64_t v;
@@ -973,9 +975,8 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
         return false;
 
     CollisionBase * col = obj->collision;
-    if (col == NULL) {
+    if (col == NULL)
         return false;
-    }
 
     bool ret = false;
     for (ObjectIterator it(list); !it.end(); it++) {
@@ -991,7 +992,7 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
         ret = true;
     }
 
-    return true;
+    return ret;
 }
 
 template <bool save>
@@ -1227,11 +1228,19 @@ inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
     return true;
 }
 
-inline void pick_random(ObjectList & instances)
+inline bool pick_random(ObjectList & instances)
 {
-    if (!instances.has_selection())
-        return;
-    int index = randrange(instances.get_selection_size());
+    int size = 0;
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        if ((*it)->flags & (FADEOUT | DESTROYING)) {
+            it.deselect();
+            continue;
+        }
+        size++;
+    }
+    if (size == 0)
+        return false;
+    int index = randrange(size);
     for (ObjectIterator it(instances); !it.end(); it++) {
         if (index == 0) {
             it.select_single();
@@ -1239,13 +1248,22 @@ inline void pick_random(ObjectList & instances)
         }
         index--;
     }
+    return true;
 }
 
-inline void pick_random(QualifierList & instances)
+inline bool pick_random(QualifierList & instances)
 {
-    if (!instances.has_selection())
-        return;
-    int index = randrange(instances.get_selection_size());
+    int size = 0;
+    for (QualifierIterator it(instances); !it.end(); it++) {
+        if ((*it)->flags & (FADEOUT | DESTROYING)) {
+            it.deselect();
+            continue;
+        }
+        size++;
+    }
+    if (size == 0)
+        return false;
+    int index = randrange(size);
     for (QualifierIterator it(instances); !it.end(); it++) {
         if (index == 0) {
             it.select_single();
@@ -1253,6 +1271,7 @@ inline void pick_random(QualifierList & instances)
         }
         index--;
     }
+    return true;
 }
 
 inline void spread_value(ObjectList & instances, int alt, int start)

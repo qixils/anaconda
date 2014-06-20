@@ -1,6 +1,8 @@
 #ifndef CHOWDREN_INPUT_H
 #define CHOWDREN_INPUT_H
 
+#include <vector>
+
 class InputState
 {
 public:

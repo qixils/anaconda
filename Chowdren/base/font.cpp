@@ -8,20 +8,20 @@
 
 // front-end font loader
 
-bool load_fonts(const std::string & filename,
-                FTTextureFont ** small, FTTextureFont ** big)
+bool load_fonts(const std::string & filename, FontList & fonts)
 {
     FSFile fp(filename.c_str(), "r");
     if (!fp.is_open()) {
-        *small = NULL;
-        *big = NULL;
+        std::cout << "Could not open font" << std::endl;
         return false;
     }
     FileStream stream(fp);
     unsigned int count;
     stream >> count;
-    *small = new FTTextureFont(stream);
-    *big = new FTTextureFont(stream);
+    for (unsigned int i = 0; i < count; i++) {
+        FTTextureFont * font = new FTTextureFont(stream);
+        fonts.push_back(font);
+    }
     return true;
 }
 

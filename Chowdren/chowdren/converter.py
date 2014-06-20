@@ -415,7 +415,7 @@ class EventGroup(object):
     or_save = False
     or_final = False
     or_type = None
-    last_created = None
+    last_created = (None, None)
 
     def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -899,7 +899,7 @@ class Converter(object):
                 objects_file.putln('set_visible(false);')
 
             if not object_writer.is_scrolling():
-                objects_file.putln('scroll = false;')
+                objects_file.putln('flags &= ~SCROLL;')
 
             object_writer.write_init(objects_file)
 
@@ -1051,7 +1051,7 @@ class Converter(object):
                               list_name, list_name)
             lists_file.indent()
             lists_file.putln('FrameObject * instance = it->obj;')
-            lists_file.putln('if (instance->destroying)')
+            lists_file.putln('if (instance->flags & DESTROYING)')
             lists_file.indent()
             lists_file.putln('continue;')
             lists_file.dedent()
@@ -1541,9 +1541,10 @@ class Converter(object):
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
         config_file.putdefine('FRAMERATE', header.frameRate)
         config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
-        config_file.putdefine('MAX_QUALIFIER_ID', self.max_qualifier_id)
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
+        if header.newFlags['VSync']:
+            config_file.putln('#define CHOWDREN_VSYNC')
         if PROFILE:
             config_file.putdefine('CHOWDREN_USE_PROFILER', '')
         hacks.write_defines(self, config_file)

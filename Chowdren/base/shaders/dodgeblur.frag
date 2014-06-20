@@ -22,11 +22,11 @@ void main()
         coeff = vec2(texture_size.x*radius, 0);
     vec4 temp;
     for (int i = 0; i < iterations; i++) {
-        vec2 val = texture_coordinate1+coeff*2*(i/float(iterations-1.0) - 0.5);
-        temp = texture2D(background_texture, clamp(val, 0, 0.9999));
+        vec2 val = texture_coordinate1+coeff*2.0*(float(i)/(float(iterations)-1.0) - 0.5);
+        temp = texture2D(background_texture, clamp(val, 0.0, 0.9999));
         b += max(temp, b2);
     }
-    b /= iterations;
+    b /= float(iterations);
     if (o != vec4(1.0))
         o = clamp(b/(1.0-o), 0.0, 1.0);
     o.a = 1.0;

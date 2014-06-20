@@ -59,10 +59,10 @@ class Glyph(object):
         # if (stroke) {
         #     FT_Stroker stroker;
         #     FT_Stroker_New(*FTLibrary::Instance().GetLibrary(), &stroker);
-        #     FT_Stroker_Set(stroker, 
+        #     FT_Stroker_Set(stroker,
         #         180,
-        #         FT_STROKER_LINECAP_ROUND, 
-        #         FT_STROKER_LINEJOIN_ROUND, 
+        #         FT_STROKER_LINECAP_ROUND,
+        #         FT_STROKER_LINEJOIN_ROUND,
         #         0
         #     );
         #     FT_Glyph_StrokeBorder(&actual_glyph, stroker, 0, 1);
@@ -92,12 +92,17 @@ class Glyph(object):
             buf += chr(c)
         writer.write(buf)
 
+
+RESOLUTION = 96
+
+
 class Font(object):
     def __init__(self, name, size, charset):
         self.size = size
-        size *= 64
+        size = int(size * 64)
         font = self.font = freetype.Face(name)
-        font.set_char_size(size, size, 96, 96)
+
+        font.set_char_size(size, size, RESOLUTION, RESOLUTION)
         self.width = self.get_width()
         self.height = self.get_height()
         metrics = self.font.size
@@ -111,6 +116,7 @@ class Font(object):
             charcode, agindex = font.get_next_char(charcode, agindex)
         for c in charset:
             self.load_char(c)
+
         # FT_HAS_KERNING((*ftFace)) != 0
 
     def get_width(self):
@@ -149,11 +155,27 @@ class Font(object):
         for glyph in self.glyphs:
             glyph.write(writer)
 
-def generate_font(filename, charset, out, *sizes):
+    def convert_monospace(self):
+        # create a monospace-like version of the font.
+        # this is useful for japanese fonts where you don't want variations
+        # on font widths
+        max_width = 0
+        for glyph in self.glyphs:
+            max_width = max(glyph.advance[0], max_width)
+        print 'Max width used for advance:', max_width
+        for glyph in self.glyphs:
+            glyph.advance = (max_width, glyph.advance[1])
+
+def generate_font(filename, charset, out, sizes):
+    fonts = []
+    for size in sizes:
+        fonts.append(Font(filename, size, charset))
+    write_fonts(out, fonts)
+
+def write_fonts(out, fonts):
     fp = open(out, 'wb')
     writer = ByteReader(fp)
-    writer.writeInt(len(sizes))
-    for size in sizes:
-        font = Font(filename, size, charset)
+    writer.writeInt(len(fonts))
+    for font in fonts:
         font.write(writer)
     fp.close()

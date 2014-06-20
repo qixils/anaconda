@@ -6,6 +6,7 @@
 #include "include_gl.h"
 #include "color.h"
 #include <vector>
+#include "platform.h"
 
 const std::string & get_image_path();
 void set_image_path(const std::string & path);
@@ -35,8 +36,26 @@ public:
               double scale_x = 1.0, double scale_y = 1.0,
               bool flip_x = false, bool flip_y = false, GLuint back = 0);
     void draw(double x, double y, int src_x, int src_y, int w, int h);
-    bool get_alpha(int x, int y);
     bool is_valid();
+
+    // inline methods
+
+    bool get_alpha(int x, int y)
+    {
+    #ifdef CHOWDREN_IS_WIIU
+        if (tex != 0) {
+            unsigned int & v = platform_get_texture_pixel(tex, x, y);
+            unsigned char c = ((unsigned char*)&v)[3];
+            return c != 0;
+        }
+    #else
+        if (alpha != NULL)
+            return alpha[y * width + x];
+    #endif
+        unsigned int * v = (unsigned int*)image + y * width + x;
+        unsigned char c = ((unsigned char*)v)[3];
+        return c != 0;
+    }
 };
 
 Image * get_internal_image(unsigned int i);

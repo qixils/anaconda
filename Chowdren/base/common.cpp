@@ -1,7 +1,6 @@
 #include "common.h"
 #include "filecommon.h"
 #include <string>
-#include <boost/unordered_map.hpp>
 #include "chowconfig.h"
 #include "font.h"
 #include <iterator>
@@ -153,7 +152,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     LayerInstances::const_iterator it;
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
-        if (object->scroll)
+        if (object->flags & SCROLL)
             continue;
         object->set_position(object->x + dx, object->y + dy);
     }
@@ -186,7 +185,7 @@ void Layer::set_position(int x, int y)
 
     for (it = instances.begin(); it != instances.end(); it++) {
         FrameObject * object = *it;
-        if (!object->scroll)
+        if (object->flags & SCROLL)
             continue;
         object->set_position(object->x + dx, object->y + dy);
     }
@@ -358,7 +357,7 @@ struct DrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
-        if (!item->visible || item->destroying)
+        if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
             return true;
         if (!collide_box(item, aabb))
             return true;
@@ -648,8 +647,10 @@ FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
     instance->layer = layer;
     GameManager::instances.items[instance->id].add(instance);
     layer->add_object(instance);
-    if (instance->collision)
+    if (instance->collision) {
+        instance->collision->update_aabb();
         instance->collision->create_proxy();
+    }
     return instance;
 }
 
@@ -666,9 +667,10 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     Layer * layer = layers[layer_index];
     instance->layer = layer;
     layer->add_background_object(instance);
-    if (instance->collision)
+    if (instance->collision) {
+        instance->collision->update_aabb();
         instance->collision->create_proxy();
-    else {
+    } else {
         int bb[4] = {instance->x,
                      instance->y,
                      instance->x + instance->width,
@@ -818,16 +820,15 @@ bool Frame::is_joystick_direction_changed(int n)
 
 void Frame::set_vsync(bool value)
 {
-    std::cout << "Set vsync: " << value << std::endl;
+    platform_set_vsync(value);
 }
 
 // FrameObject
 
 FrameObject::FrameObject(int x, int y, int type_id)
-: x(x), y(y), id(type_id), visible(true), shader(NULL),
+: x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), shader(NULL),
   values(NULL), strings(NULL), shader_parameters(NULL), direction(0),
-  destroying(false), scroll(true), movement(NULL), movements(NULL),
-  movement_count(0), collision(NULL)
+  movement(NULL), movements(NULL), movement_count(0), collision(NULL)
 {
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
@@ -911,7 +912,11 @@ void FrameObject::create_alterables()
 void FrameObject::set_visible(bool value)
 {
     flash(0);
-    visible = value;
+
+    if (value)
+        flags |= VISIBLE;
+    else
+        flags &= ~VISIBLE;
 }
 
 void FrameObject::set_blend_color(int color)
@@ -942,7 +947,7 @@ int FrameObject::get_direction()
 
 bool FrameObject::mouse_over()
 {
-    if (destroying)
+    if (flags & DESTROYING)
         return false;
     int x, y;
     frame->get_mouse_pos(&x, &y);
@@ -965,7 +970,7 @@ bool FrameObject::overlaps(FrameObject * other)
 
 bool FrameObject::overlaps_background()
 {
-    if (destroying || collision == NULL)
+    if (flags & DESTROYING || collision == NULL)
         return false;
     if (layer->back != NULL && layer->back->collide(collision))
         return true;
@@ -984,7 +989,8 @@ bool FrameObject::overlaps_background_save()
 bool FrameObject::outside_playfield()
 {
     int * box = collision->aabb;
-    return !collides(box[0], box[1], box[2], box[3],
+    return !collides(box[0] + layer->off_x, box[1] + layer->off_y,
+                     box[2] + layer->off_x, box[3] + layer->off_y,
                      frame->off_x, frame->off_y,
                      frame->width+frame->off_x, frame->height+frame->off_y);
 }
@@ -1028,9 +1034,9 @@ double FrameObject::get_shader_parameter(const std::string & name)
 
 void FrameObject::destroy()
 {
-    if (destroying)
+    if (flags & DESTROYING)
         return;
-    destroying = true;
+    flags |= DESTROYING;
     if (collision != NULL)
         collision->type = NONE_COLLISION;
     frame->destroyed_instances.push_back(this);
@@ -1167,13 +1173,13 @@ void FrameObject::look_at(int x, int y)
 
 void FrameObject::update_flash(float dt, float interval, float & t)
 {
-    if (interval != 0.0f) {
-        t += dt;
-        if (t >= interval) {
-            t = 0.0f;
-            visible = !visible;
-        }
-    }
+    if (interval == 0.0f)
+        return;
+    t += dt;
+    if (t < interval)
+        return;
+    t = 0.0f;
+    flags ^= VISIBLE;
 }
 
 void FrameObject::set_animation(int value)
@@ -1202,8 +1208,12 @@ FixedValue::operator double() const
 
 FixedValue::operator std::string() const
 {
+#ifdef CHOWDREN_PERSISTENT_FIXED_STRING
+    return number_to_string(object->x) + "&" + number_to_string(object->y);
+#else
     intptr_t val = intptr_t(object);
     return number_to_string(val);
+#endif
 }
 
 FixedValue::operator FrameObject*() const
@@ -1268,7 +1278,7 @@ Active::Active(int x, int y, int type_id)
   animation_frame(0), counter(0), angle(0.0f), forced_frame(-1),
   forced_speed(-1), forced_direction(-1), x_scale(1.0f), y_scale(1.0f),
   animation_direction(0), stopped(false), flash_interval(0.0f),
-  animation_finished(-1), transparent(false), flags(0), image(NULL)
+  animation_finished(-1), transparent(false), alterable_flags(0), image(NULL)
 {
     active_col.instance = this;
     collision = &active_col;
@@ -1410,7 +1420,7 @@ void Active::update_frame()
     if (image == NULL)
         return;
 
-    active_col.set_image(image);
+    active_col.set_image(image, image->hotspot_x, image->hotspot_y);
     update_action_point();
 }
 
@@ -1424,8 +1434,8 @@ void Active::update_action_point()
 {
     active_col.get_transform(image->action_x, image->action_y,
                              action_x, action_y);
-    action_x -= active_col.hotspot_x;
-    action_y -= active_col.hotspot_y;
+    action_x -= active_col.new_hotspot_x;
+    action_y -= active_col.new_hotspot_y;
 }
 
 void Active::update(float dt)
@@ -1435,12 +1445,12 @@ void Active::update(float dt)
         return;
     }
 
+    update_flash(dt, flash_interval, flash_time);
+
     animation_finished = -1;
 
     if (forced_frame != -1 || stopped)
         return;
-
-    update_flash(dt, flash_interval, flash_time);
 
     if (loop_count == 0)
         return;
@@ -1463,8 +1473,13 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-        if (forced_animation != -1)
+#ifdef CHOWDREN_RESTORE_ANIMATIONS
+        if (forced_animation != -1 && forced_animation != DISAPPEARING)
             restore_animation();
+#else
+        if (forced_animation == APPEARING)
+            restore_animation();
+#endif
     }
     if (animation_frame != old_frame)
         update_frame();
@@ -1653,27 +1668,27 @@ void Active::flash(float value)
 
 void Active::enable_flag(int index)
 {
-    flags |= 1 << index;
+    alterable_flags |= 1 << index;
 }
 
 void Active::disable_flag(int index)
 {
-    flags &= ~(1 << index);
+    alterable_flags &= ~(1 << index);
 }
 
 void Active::toggle_flag(int index)
 {
-    flags ^= 1 << index;
+    alterable_flags ^= 1 << index;
 }
 
 bool Active::is_flag_on(int index)
 {
-    return (flags & (1 << index)) != 0;
+    return (alterable_flags & (1 << index)) != 0;
 }
 
 bool Active::is_flag_off(int index)
 {
-    return (flags & (1 << index)) == 0;
+    return (alterable_flags & (1 << index)) == 0;
 }
 
 int Active::get_flag(int index)
@@ -1715,6 +1730,7 @@ void Active::destroy()
         FrameObject::destroy();
         return;
     }
+    flags |= FADEOUT;
     clear_movements();
     force_animation(DISAPPEARING);
     collision->type = NONE_COLLISION;
@@ -1731,9 +1747,9 @@ bool Active::has_animation(int anim)
 
 // Text
 
-FTTextureFont * small_font = NULL;
-FTTextureFont * big_font = NULL;
+FontList fonts;
 static bool has_fonts = false;
+static FTTextureFont * big_font = NULL;
 std::string font_path;
 
 void set_font_path(const std::string & value)
@@ -1749,17 +1765,38 @@ void init_font()
     if (initialized)
         return;
     set_font_path(std::string("Font.dat")); // default font, could be set already
-    has_fonts = load_fonts(font_path, &small_font, &big_font);
+    has_fonts = load_fonts(font_path, fonts);
+
+    FontList::const_iterator it;
+    for (it = fonts.begin(); it != fonts.end(); it++) {
+        FTTextureFont * font = *it;
+        if (big_font != NULL && big_font->size > font->size)
+            continue;
+        big_font = font;
+    }
+
     initialized = true;
 }
 
 FTTextureFont * get_font(int size)
 {
     init_font();
-    if (size >= 24)
-        return big_font;
-    else
-        return small_font;
+
+    FTTextureFont * picked = NULL;
+    int diff = 0;
+    FontList::const_iterator it;
+
+    for (it = fonts.begin(); it != fonts.end(); it++) {
+        FTTextureFont * font = *it;
+        int new_diff = get_abs(font->size - size);
+
+        if (picked == NULL || new_diff < diff) {
+            picked = font;
+            diff = new_diff;
+        }
+    }
+
+    return picked;
 }
 
 Text::Text(int x, int y, int type_id)
@@ -1786,8 +1823,9 @@ void Text::add_line(std::string text)
 
 void Text::draw()
 {
+    init_font();
     if (!has_fonts) {
-        visible = false;
+        set_visible(false);
         return;
     }
     update_draw_text();
@@ -1802,7 +1840,6 @@ void Text::draw()
         layout->Render(draw_text.c_str(), -1, FTPoint());
         glPopMatrix();
     } else {
-        FTTextureFont * font = get_font(size);
         FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
         double box_w = box.Upper().X() - box.Lower().X();
         double box_h = box.Upper().Y() - box.Lower().Y();
@@ -1913,7 +1950,7 @@ void Text::set_width(int w)
     width = w;
     if (layout == NULL) {
         layout = new FTSimpleLayout;
-        layout->SetFont(get_font(size));
+        layout->SetFont(font);
     }
     layout->SetLineLength(w);
 }
@@ -2034,23 +2071,25 @@ void QuickBackdrop::draw()
         glDisable(GL_SCISSOR_TEST);
     } else {
         glDisable(GL_TEXTURE_2D);
-        glBegin(GL_QUADS);
         int x1 = x;
         int y1 = y;
         int x2 = x + width;
         int y2 = y + height;
         if (outline > 0) {
+            glBegin(GL_QUADS);
             glColor4ub(outline_color.r, outline_color.g, outline_color.b,
                        blend_color.a);
             glVertex2f(x1, y1);
             glVertex2f(x2, y1);
             glVertex2f(x2, y2);
             glVertex2f(x1, y2);
+            glEnd();
             x1 += outline;
             y1 += outline;
             x2 -= outline;
             y2 -= outline;
         }
+        glBegin(GL_QUADS);
         switch (gradient_type) {
             case NONE_GRADIENT:
                 glColor4ub(color.r, color.g, color.b, blend_color.a);
@@ -2747,7 +2786,7 @@ INI::~INI()
     global_data[global_key] = data;
 }
 
-boost::unordered_map<std::string, SectionMap> INI::global_data;
+hash_map<std::string, SectionMap> INI::global_data;
 
 // StringTokenizer
 
@@ -3291,7 +3330,7 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f)
 {
-    collision = new InstanceBox(this);
+    // collision = new InstanceBox(this);
 }
 
 TextBlitter::~TextBlitter()
@@ -3399,7 +3438,7 @@ void PlatformObject::update(float dt)
     bool r = right;
     left = right = false;
 
-    if (instance == NULL || paused || instance->destroying)
+    if (instance == NULL || paused || instance->flags & DESTROYING)
         return;
 
     // XXX hack
@@ -3552,16 +3591,8 @@ ActivePicture::ActivePicture(int x, int y, int type_id)
 
 ActivePicture::~ActivePicture()
 {
-    remove_image();
-    delete collision;
-}
-
-void ActivePicture::remove_image()
-{
-    if (image == NULL)
-        return;
-    delete image;
     image = NULL;
+    delete collision;
 }
 
 void ActivePicture::load(const std::string & fn)
@@ -3581,27 +3612,28 @@ void ActivePicture::load(const std::string & fn)
 #else
     filename = convert_path(fn);
 #endif
-    remove_image();
+    image = NULL;
     ImageCache::const_iterator it = image_cache.find(filename);
+
     if (it == image_cache.end()) {
         Color * transparent = NULL;
         if (has_transparent_color)
             transparent = &transparent_color;
-        cached_image = new Image(filename, 0, 0, 0, 0, transparent);
-        if (!cached_image->is_valid()) {
-            delete cached_image;
-            cached_image = NULL;
+        image = new Image(filename, 0, 0, 0, 0, transparent);
+        if (!image->is_valid()) {
+            delete image;
+            image = NULL;
         }
-        image_cache[filename] = cached_image;
+        image_cache[filename] = image;
     } else {
-        cached_image = it->second;
+        image = it->second;
     }
 
-    if (cached_image != NULL) {
-        image = new Image(*cached_image);
-        ((SpriteCollision*)collision)->set_image(image);
-        image->hotspot_x = image->hotspot_y = 0;
-    }
+    if (image == NULL)
+        return;
+
+    SpriteCollision * col = (SpriteCollision*)collision;
+    col->set_image(image, 0, 0);
 }
 
 void ActivePicture::set_transparent_color(const Color & color)
@@ -3614,10 +3646,10 @@ void ActivePicture::set_hotspot(int x, int y)
 {
     if (image == NULL)
         return;
-    this->x += x - image->hotspot_x;
-    this->y += y - image->hotspot_y;
-    image->hotspot_x = x;
-    image->hotspot_y = y;
+    SpriteCollision * col = (SpriteCollision*)collision;
+    this->x += x - col->hotspot_x;
+    this->y += y - col->hotspot_y;
+    ((SpriteCollision*)collision)->set_hotspot(x, y);
 }
 
 void ActivePicture::set_hotspot_mul(float x, float y)
@@ -3673,6 +3705,9 @@ void ActivePicture::draw()
     if (image == NULL)
         return;
     blend_color.apply();
+    SpriteCollision * col = (SpriteCollision*)collision;
+    image->hotspot_x = col->hotspot_x;
+    image->hotspot_y = col->hotspot_y;
     draw_image(image, x, y, angle, scale_x, scale_y, horizontal_flip);
 }
 
@@ -3683,7 +3718,9 @@ void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,
         std::cout << "Invalid image paste: " << filename << std::endl;
         return;
     }
-    layer->paste(cached_image, dest_x, dest_y, src_x, src_y,
+    image->hotspot_x = 0;
+    image->hotspot_y = 0;
+    layer->paste(image, dest_x, dest_y, src_x, src_y,
                  src_width, src_height, collision_type);
 }
 

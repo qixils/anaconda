@@ -49,10 +49,10 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
             if (x2 < line_x2 || x1 >= line_x1)
                 return false;
         }
-        int y = delta * (x1 - line_x1) + line_y1;
+        int y = int(delta * (x1 - line_x1) + line_y1);
         if (y >= y1 && y < y2)
             return true;
-        y = delta * (x2 - line_x1) + line_y1;
+        y = int(delta * (x2 - line_x1) + line_y1);
         if (y >= y1 && y < y2)
             return true;
         return false;
@@ -65,10 +65,10 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
             if (y2 < line_y2 || y1 >= line_y1)
                 return false;
         }
-        int x = delta * (y1 - line_y1) + x1;
+        int x = int(delta * (y1 - line_y1) + x1);
         if (x >= x1 && x < x2)
             return true;
-        x = delta * (y2 - line_y1) + x1;
+        x = int(delta * (y2 - line_y1) + x1);
         if (x >= x1 && x < x2)
             return true;
         return false;
@@ -152,7 +152,6 @@ public:
     InstanceBox(FrameObject * instance)
     : InstanceCollision(instance, INSTANCE_BOX, true)
     {
-        update_aabb();
     }
 
     void update_aabb()
@@ -174,7 +173,6 @@ public:
     : InstanceCollision(instance, INSTANCE_BOX, true),
       off_x(0), off_y(0)
     {
-        update_aabb();
     }
 
     void update_aabb()
@@ -234,14 +232,15 @@ public:
     Image * image;
     float angle;
     float x_scale, y_scale;
+    int hotspot_x, hotspot_y;
     // transformed variables
     bool transform;
     float co, si;
     float co_divx, si_divx;
     float co_divy, si_divy;
-    int x1, y1, x2, y2; // transformed bounding box
+    int x_t, y_t; // transformed offset
     int width, height;
-    int hotspot_x, hotspot_y;
+    int new_hotspot_x, new_hotspot_y;
 
     SpriteCollision(FrameObject * instance = NULL, Image * image = NULL)
     : InstanceCollision(instance, SPRITE_COLLISION, false), image(image),
@@ -252,14 +251,20 @@ public:
             return;
         width = image->width;
         height = image->height;
-        hotspot_x = image->hotspot_x;
-        hotspot_y = image->hotspot_y;
-        update_aabb();
     }
 
-    void set_image(Image * image)
+    void set_hotspot(int x, int y)
+    {
+        hotspot_x = x;
+        hotspot_y = y;
+        update_transform();
+    }
+
+    void set_image(Image * image, int hotspot_x, int hotspot_y)
     {
         this->image = image;
+        this->hotspot_x = hotspot_x;
+        this->hotspot_y = hotspot_y;
         update_transform();
     }
 
@@ -294,8 +299,8 @@ public:
         if (x_scale == 1.0f && y_scale == 1.0f && angle == 0.0f) {
             width = image->width;
             height = image->height;
-            hotspot_x = image->hotspot_x;
-            hotspot_y = image->hotspot_y;
+            new_hotspot_x = hotspot_x;
+            new_hotspot_y = hotspot_y;
             transform = false;
             update_aabb();
             return;
@@ -312,12 +317,10 @@ public:
             si_divx = si_divy = 0.0f;
             width = int(image->width * x_scale);
             height = int(image->height * y_scale);
-            x1 = 0;
-            y1 = 0;
-            x2 = width;
-            y2 = height;
-            hotspot_x = int(image->hotspot_x * x_scale);
-            hotspot_y = int(image->hotspot_y * y_scale);
+            x_t = 0;
+            y_t = 0;
+            new_hotspot_x = int(hotspot_x * x_scale);
+            new_hotspot_y = int(hotspot_y * y_scale);
             update_aabb();
             return;
         }
@@ -326,12 +329,14 @@ public:
         co_divy = co * y_scale_inv;
         si_divx = si * x_scale_inv;
         si_divy = si * y_scale_inv;
+
+        int x2, y2;
         transform_rect(image->width, image->height, co, si, x_scale, y_scale,
-                       x1, y1, x2, y2);
-        width = x2 - x1;
-        height = y2 - y1;
-        get_transform(image->hotspot_x, image->hotspot_y,
-                      hotspot_x, hotspot_y);
+                       x_t, y_t, x2, y2);
+        width = x2 - x_t;
+        height = y2 - y_t;
+        get_transform(hotspot_x, hotspot_y,
+                      new_hotspot_x, new_hotspot_y);
         update_aabb();
     }
 
@@ -344,17 +349,17 @@ public:
         }
         int new_x = int(x * x_scale * co + y * y_scale * si);
         int new_y = int(y * y_scale * co - x * x_scale * si);
-        r_x = new_x - x1;
-        r_y = new_y - y1;
+        r_x = new_x - x_t;
+        r_y = new_y - y_t;
     }
 
     inline bool get_bit(int x, int y)
     {
         if (transform) {
-            int x2 = x + x1;
-            int y2 = y + y1;
-            x = int(x2 * co_divx - y2 * si_divx);
-            y = int(y2 * co_divy + x2 * si_divy);
+            int xx = x + x_t;
+            int yy = y + y_t;
+            x = int(xx * co_divx - yy * si_divx);
+            y = int(yy * co_divy + xx * si_divy);
             if (x < 0 || x >= image->width || y < 0 || y >= image->height)
                 return false;
         }
@@ -365,8 +370,8 @@ public:
 
     void update_aabb()
     {
-        aabb[0] = instance->x - hotspot_x;
-        aabb[1] = instance->y - hotspot_y;
+        aabb[0] = instance->x - new_hotspot_x;
+        aabb[1] = instance->y - new_hotspot_y;
         aabb[2] = aabb[0] + width;
         aabb[3] = aabb[1] + height;
         InstanceCollision::update_aabb();
@@ -382,7 +387,6 @@ public:
     : InstanceCollision(instance, BACKDROP_COLLISION, false), image(image)
     {
         this->image = image;
-        update_aabb();
     }
 
     void update_aabb()

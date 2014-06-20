@@ -6,7 +6,6 @@
 #include <iostream>
 #include <stdio.h>
 #include <vector>
-#include "platform.h"
 #include "datastream.h"
 #include "chowconfig.h"
 
@@ -46,8 +45,11 @@ static FSFile image_file;
 
 void open_image_file()
 {
+    if (image_file.is_open())
+        return;
+    image_file.open(image_path.c_str(), "r");
     if (!image_file.is_open())
-        image_file.open(image_path.c_str(), "r");
+        std::cout << "Could not open image file " << image_path << std::endl;
 }
 
 Image::Image(int handle)
@@ -132,6 +134,11 @@ void Image::load(bool upload)
     int channels;
     image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file,
         &width, &height, &channels, 4);
+    if (image == NULL) {
+        std::cout << "Could not load image " << handle << std::endl;
+        std::cout << stbi_failure_reason() << std::endl;
+        return;
+    }
     if (upload)
         upload_texture();
 }
@@ -169,23 +176,6 @@ void Image::upload_texture()
     image = NULL;
 }
 
-bool Image::get_alpha(int x, int y)
-{
-#ifdef CHOWDREN_IS_WIIU
-    if (tex != 0) {
-        unsigned int & v = platform_get_texture_pixel(tex, x, y);
-        unsigned char c = ((unsigned char*)&v)[3];
-        return c != 0;
-    }
-#else
-    if (alpha != NULL)
-        return alpha[y * width + x];
-#endif
-    unsigned int * v = (unsigned int*)image + y * width + x;
-    unsigned char c = ((unsigned char*)v)[3];
-    return c != 0;
-}
-
 const float flipped_texcoords[8] = {
     1.0f, 0.0f,
     0.0f, 0.0f,
@@ -200,7 +190,9 @@ const float normal_texcoords[8] = {
     0.0f, 1.0f
 };
 
-#ifdef CHOWDREN_IS_DESKTOP
+#ifndef CHOWDREN_IS_WIIU
+// XXX change glc_copy_color_buffer_rect so this isn't necessary
+
 const float back_texcoords[8] = {
     0.0f, 1.0f,
     1.0f, 1.0f,
@@ -223,8 +215,9 @@ void Image::draw(double x, double y, double angle,
     if (tex == 0) {
         upload_texture();
 
-        if (tex == 0)
+        if (tex == 0) {
             return;
+        }
     }
 
     glPushMatrix();

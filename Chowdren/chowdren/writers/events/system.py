@@ -240,7 +240,7 @@ class OnBackgroundCollision(CollisionCondition):
 
 class ObjectInvisible(ConditionWriter):
     def write(self, writer):
-        writer.put('visible')
+        writer.put('flags & VISIBLE')
 
     def is_negated(self):
         return True
@@ -429,7 +429,8 @@ class PickRandom(ConditionWriter):
         object_info, object_type = self.get_object()
         converter = self.converter
         selected_name = converter.create_list(object_info, writer)
-        writer.putln('pick_random(%s);' % selected_name)
+        writer.putlnc('if (!pick_random(%s)) %s', selected_name,
+                      self.converter.event_break)
 
 class NumberOfObjects(ComparisonWriter):
     has_object = False
@@ -531,15 +532,19 @@ class CreateBase(ActionWriter):
         else:
             create_object = details['create_object']
 
+        action_index = self.converter.current_group.actions.index(self)
+
         if object_info != parent_info:
             has_selection = object_info in self.converter.has_selection
-            was_last = object_info == self.converter.current_group.last_created
+            last_info, last_index = self.converter.current_group.last_created
+            was_last = (object_info == last_info and
+                        action_index - last_index > 1)
             if not has_selection or was_last:
                 list_name = self.converter.get_object_list(object_info)
                 writer.putlnc('%s.empty_selection();', list_name)
                 self.converter.set_list(object_info, list_name)
 
-        self.converter.current_group.last_created = object_info
+        self.converter.current_group.last_created = (object_info, action_index)
 
         single_parent = self.converter.get_single(parent_info)
         if single_parent:
@@ -552,14 +557,14 @@ class CreateBase(ActionWriter):
         writer.start_brace()
         if parent_info is not None and not is_shoot:
             if use_action_point:
-                parent_x = 'get_action_x()'
-                parent_y = 'get_action_y()'
+                parent_x = 'get_action_x() - %s->layer->off_x' % parent
+                parent_y = 'get_action_y() - %s->layer->off_y' % parent
             else:
                 parent_x = 'x'
                 parent_y = 'y'
             if details.get('transform_position_direction', False):
-                writer.putln('int x_off = %s;' % x)
-                writer.putln('int y_off = %s;' % y)
+                writer.putln('int x_off; x_off = %s;' % x)
+                writer.putln('int y_off; y_off = %s;' % y)
                 writer.putlnc('transform_pos(x_off, y_off, %s);', parent)
                 x = 'x_off'
                 y = 'y_off'
@@ -636,8 +641,8 @@ class SetPosition(ActionWriter):
                 parent_x = 'get_x()'
                 parent_y = 'get_y()'
             if details.get('transform_position_direction', False):
-                writer.putln('int x_off = %s;' % x)
-                writer.putln('int y_off = %s;' % y)
+                writer.putln('int x_off; x_off = %s;' % x)
+                writer.putln('int y_off; y_off = %s;' % y)
                 writer.putln('transform_pos(x_off, y_off, parent);')
                 x = 'x_off'
                 y = 'y_off'
@@ -1061,7 +1066,7 @@ actions = make_table(ActionMethodWriter, {
     'PlayChannelFileSample' : 'media->play(%s, %s-1)',
     'PlayChannelSample' : 'media->play_name("%s", %s-1)',
     'PlayLoopingChannelSample' : 'media->play_name("%s", %s-1, %s)',
-    'PlayLoopingSample' : 'media->play_name("%s", -1, %s-1)',
+    'PlayLoopingSample' : 'media->play_name("%s", -1, %s)',
     'PlaySample' : 'media->play_name("%s", -1, 1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
@@ -1162,7 +1167,7 @@ conditions = make_table(ConditionMethodWriter, {
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
     'OnCollision' : OnCollision,
-    'ObjectVisible' : '.visible',
+    'ObjectVisible' : '.flags & VISIBLE',
     'ObjectInvisible' : ObjectInvisible,
     'WhileMousePressed' : 'is_mouse_pressed',
     'MouseOnObject' : MouseOnObject,

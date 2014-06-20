@@ -96,7 +96,7 @@ public:
     }
 };
 
-typedef boost::unordered_map<std::string, DynamicLoop> DynamicLoops;
+typedef hash_map<std::string, DynamicLoop> DynamicLoops;
 
 class Media;
 

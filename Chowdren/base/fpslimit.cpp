@@ -3,7 +3,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
-#define NOMINMAX                /* Don't defined min() and max() */
+#define NOMINMAX
 #endif
 #include <windows.h>
 #include <mmsystem.h>
@@ -41,6 +41,8 @@ void FPSLimiter::start()
     old_time = current_time;
     if (dt < 0.0)
         dt = 0.001;
+    if (dt > 1.0)
+        dt = 1.0 / framerate;
     current_framerate = 1.0 / dt;
 }
 

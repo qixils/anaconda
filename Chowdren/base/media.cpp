@@ -95,8 +95,8 @@ Channel::Channel()
 
 void Channel::play(SoundData * data, int loop)
 {
-    name = data->name;
     stop();
+    name = data->name;
     data->load(&sound, &is_music);
     if (sound == NULL) {
         std::cout << "Ignored play" << std::endl;
@@ -124,6 +124,8 @@ void Channel::resume()
 void Channel::pause()
 {
     if (is_invalid())
+        return;
+    if (sound->get_status() != ChowdrenAudio::SoundBase::Playing)
         return;
     sound->pause();
 }

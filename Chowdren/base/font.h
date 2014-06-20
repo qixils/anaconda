@@ -500,8 +500,9 @@ class FTSimpleLayout
 
 };
 
-bool load_fonts(const std::string & filename,
-                FTTextureFont ** small, FTTextureFont ** big);
+typedef std::vector<FTTextureFont*> FontList;
+
+bool load_fonts(const std::string & filename, FontList & fonts);
 
 #endif // CHOWDREN_USE_FT2
 

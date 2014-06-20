@@ -708,7 +708,7 @@ void Box2D::update_world(float dt)
         bodyUserData* bud = b->GetUserData();
         Attachment* a = bud->attachment;
         while (a) {
-            if (a->obj->destroying) {
+            if (a->obj->flags & DESTROYING) {
                 if (a = bud->attachment) {
                     bud->attachment = a->Next;
                 }

@@ -221,7 +221,7 @@ class Text(ObjectWriter):
         font = text.items[0].font
         writer.putln('bold = font%s.bold;' % font)
         writer.putln('italic = font%s.italic;' % font)
-        writer.putln('size = font%s.size;' % font)
+        writer.putln('font = get_font(font%s.size);' % font)
 
         paragraph = text.items[0]
         if paragraph.flags['HorizontalCenter']:

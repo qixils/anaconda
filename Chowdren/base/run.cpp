@@ -130,6 +130,11 @@ void GameManager::set_window(bool fullscreen)
 #endif
 }
 
+void GameManager::set_window_scale(int scale)
+{
+    std::cout << "Set window scale: " << scale << std::endl;
+}
+
 bool GameManager::is_fullscreen()
 {
     return fullscreen;

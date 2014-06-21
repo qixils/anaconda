@@ -16,11 +16,13 @@ class SetFullscreenType(ActionMethodWriter):
     def write(self, writer):
         parameter = self.convert_index(0)
         if parameter != '0':
-            raise NotImplementedError()
+            print('Fullscreen type not supported:', parameter)
+            # raise NotImplementedError()
 
 actions = make_table(ActionMethodWriter, {
     1 : 'manager->set_window(false)',
     0 : 'manager->set_window(true)',
+    5 : 'manager->set_window_scale',
     4 : SetFullscreenType
 })
 

@@ -8,7 +8,7 @@ from mmfparser.bytereader import ByteReader
 from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
     TIMER, GAME, SPEAKER, SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT,
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, EXTENSION_BASE,
-    INK_EFFECTS, NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT,
+    NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT,
     XOR_EFFECT, AND_EFFECT, OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT,
     SUBTRACT_EFFECT, HWA_EFFECT, SHADER_EFFECT)
 from mmfparser.data.chunkloaders.shaders import INT, FLOAT, INT_FLOAT4, IMAGE
@@ -33,6 +33,7 @@ from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
 from chowdren import shader
+from chowdren.shader import INK_EFFECTS
 from chowdren import hacks
 from chowdren.idpool import get_id
 import platform
@@ -289,7 +290,7 @@ EXTENSION_ALIAS = {
 }
 
 IGNORE_EXTENSIONS = set([
-    'kcwctrl', 'SteamChowdren', 'ChowdrenFont', 'INI++'
+    'kcwctrl', 'SteamChowdren', 'ChowdrenFont'
 ])
 
 def load_native_extension(name):
@@ -855,7 +856,7 @@ class Converter(object):
             self.object_names[handle] = class_name
             self.instance_names[handle] = get_method_name(class_name)
             object_writer.write_pre(objects_file)
-            if object_writer.is_background():
+            if object_writer.is_static_background():
                 object_type_id = 'BACKGROUND_TYPE'
             else:
                 object_type_id = '%s_type' % class_name
@@ -881,6 +882,9 @@ class Converter(object):
             objects_file.putraw('#ifndef NDEBUG')
             objects_file.putln(to_c('name = %r;', name))
             objects_file.putraw('#endif')
+
+            if object_writer.is_background():
+                objects_file.putln('flags |= BACKGROUND;')
 
             # qualifiers = object_writer.get_qualifiers()
             # if qualifiers:
@@ -925,14 +929,6 @@ class Converter(object):
                 elif ink_effect == SHADER_EFFECT:
                     shader_data = game.shaders.items[frameitem.shaderId]
                     shader_name = shader_data.name
-                elif ink_effect == ADD_EFFECT:
-                    shader_name = 'Add'
-                elif ink_effect == SUBTRACT_EFFECT:
-                    shader_name = 'Subtract'
-                elif ink_effect == MONOCHROME_EFFECT:
-                    shader_name = 'Monochrome'
-                elif ink_effect == INVERTED_EFFECT:
-                    shader_name = 'Invert'
                 elif ink_effect == SEMITRANSPARENT_EFFECT:
                     a = 255 - frameitem.inkEffectValue
                     if object_writer.has_color:
@@ -940,6 +936,8 @@ class Converter(object):
                     else:
                         objects_file.putlnc('blend_color = %s;', make_color(
                             (255, 255, 255, a)))
+                elif ink_effect in INK_EFFECTS:
+                    shader_name = INK_EFFECTS[ink_effect]
                 elif shader_name is None:
                     print 'unknown inkeffect: %s' % ink_effect
                     # raise NotImplementedError(
@@ -1070,7 +1068,7 @@ class Converter(object):
         processed_frames = []
 
         # frames
-        for frame_index, frame in enumerate(game.frames):
+        for frame_index, frame in enumerate(game.frames[:1]):
             frame_file = FrameFileWriter(frame_index+1, self)
             frame_class_name = self.frame_class = frame_file.class_name
             frame.load()
@@ -2091,6 +2089,8 @@ class Converter(object):
                 self.start_clauses -= loader.value.count('(')
                 self.end_clauses -= loader.value.count(')')
                 return to_c('%r', loader.value)
+            elif parameter_name in ('TwoShorts'):
+                return to_c('%r, %r', loader.value1, loader.value2)
             else:
                 raise NotImplementedError('parameter: %s' % parameter_name)
         self.start_clauses += out.count('(')
@@ -2192,8 +2192,17 @@ class Converter(object):
     def get_object_handle(self, handle):
         if is_qualifier(handle):
             return (self.qualifier_names[get_qualifier(handle)], True)
-        else:
+        try:
             return ('%s_type' % self.object_names[handle], False)
+        except Exception, e:
+            data = self.all_objects[handle].data
+            name = data.getTypeName()
+            if name == 'Extension':
+                ext_index = data.objectType - EXTENSION_BASE
+                ext = self.game.extensions.fromHandle(ext_index)
+                name = ext.name
+            print 'Could not get object type %r' % name
+            raise e
 
     def get_object_class(self, object_type = None, object_info = None,
                          star = True):

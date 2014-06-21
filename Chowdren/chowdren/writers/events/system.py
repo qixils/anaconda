@@ -1,3 +1,4 @@
+from mmfparser.data.chunkloaders.objectinfo import SEMITRANSPARENT_EFFECT
 from chowdren.writers.events import (ActionWriter, ConditionWriter,
     ExpressionWriter, ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table,
@@ -12,6 +13,7 @@ from chowdren import hacks
 from chowdren.key import convert_key
 from mmfparser.bitdict import BitDict
 from chowdren.idpool import get_id
+from chowdren.shader import INK_EFFECTS
 
 def get_loop_running_name(name):
     return 'loop_%s_running' % get_method_name(name)
@@ -901,6 +903,21 @@ class PreviousFrame(SetFrameAction):
     def write(self, writer):
         self.set_frame(writer, 'index - 1')
 
+class SetInkEffect(ActionWriter):
+    def write(self, writer):
+        ink_effect = self.parameters[0].loader.value1
+        ink_value = self.parameters[0].loader.value2
+
+        if ink_effect in INK_EFFECTS:
+            name = INK_EFFECTS[ink_effect]
+            if name is not None:
+                writer.put('set_shader(%s);' % name)
+        elif ink_effect == SEMITRANSPARENT_EFFECT:
+            # XXX maybe also set shader
+            writer.put('blend_color.set_semi_transparency(%s);' % ink_value)
+        else:
+            print 'unknown set ink effect:', ink_effect
+
 class SetEffect(ActionWriter):
     def write(self, writer):
         name = self.parameters[0].loader.value
@@ -1100,6 +1117,7 @@ actions = make_table(ActionMethodWriter, {
     'ForceFrame' : 'force_frame',
     'ForceSpeed' : 'force_speed',
     'RestoreFrame' : 'restore_frame',
+    'SetInkEffect' : SetInkEffect,
     'SetEffect' : SetEffect,
     'AddToDebugger' : EmptyAction,
     'SetFrameRate' : 'manager->set_framerate(%s)',
@@ -1259,6 +1277,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Max' : 'std::max<double>',
     'Sin' : 'sin_deg',
     'Cos' : 'cos_deg',
+    'Exp' : 'get_exp',
     'GetAngle' : 'get_angle()',
     'FrameHeight' : '.height',
     'FrameWidth' : '.width',
@@ -1283,6 +1302,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'SquareRoot' : 'sqrt',
     'Atan2' : 'atan2d',
     'AlphaCoefficient' : 'blend_color.get_alpha_coefficient()',
+    'SemiTransparency' : 'blend_color.get_semi_transparency()',
     'EffectParameter' : 'get_shader_parameter',
     'Floor' : 'get_floor',
     'Round' : 'int_round',

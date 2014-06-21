@@ -404,6 +404,7 @@ public:
     bool auto_save;
     std::string filename;
     std::string global_key;
+    std::string encrypt_key;
 
     INI(int x, int y, int type_id);
     static void reset_global_data();
@@ -440,9 +441,11 @@ public:
     void merge_file(const std::string & fn, bool overwrite);
     void get_data(std::stringstream & out);
     void save_file(const std::string & fn, bool force = true);
+    void set_encryption_key(const std::string & key);
     std::string as_string();
     void save_file(bool force = true);
     void save_auto();
+    void close();
     int get_item_count(const std::string & section);
     int get_item_count();
     int get_group_count();
@@ -491,6 +494,7 @@ public:
     static bool file_exists(const std::string & path);
     static bool name_exists(const std::string & path);
     static void delete_file(const std::string & path);
+    static bool file_readable(const std::string & path);
 };
 
 class WindowControl
@@ -634,14 +638,19 @@ public:
     int * charmap;
     float flash_time, flash_interval;
     int alignment;
+    int x_spacing;
 
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
     void initialize(const std::string & charmap);
     void set_text(const std::string & text);
+    void set_x_spacing(int spacing);
+    void set_x_align(int value);
+    void set_width(int width);
     void draw();
     void update(float dt);
     void flash(float value);
+    const std::string & get_text();
 };
 
 typedef void (*ObstacleOverlapCallback)();

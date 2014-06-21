@@ -42,7 +42,8 @@ enum ObjectFlags
     VISIBLE = (1 << 0),
     DESTROYING = (1 << 1),
     SCROLL = (1 << 2),
-    FADEOUT = (1 << 3)
+    FADEOUT = (1 << 3),
+    BACKGROUND = (1 << 4)
 };
 
 class FrameObject

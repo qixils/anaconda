@@ -6,10 +6,6 @@
 #include "path.h"
 #include <string.h>
 
-#ifdef CHOWDREN_IS_WIIU
-#define IS_BIG_ENDIAN
-#endif
-
 namespace ChowdrenAudio {
 
 template <typename T>

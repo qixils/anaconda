@@ -311,7 +311,7 @@ struct BackgroundCallback
         FrameObject * obj = (FrameObject*)data;
         if (obj->collision == NULL)
             return true;
-        if (obj->id != BACKGROUND_TYPE)
+        if (!(obj->flags & BACKGROUND))
             return true;
         return !collide(col, obj->collision);
     }
@@ -368,9 +368,9 @@ struct DrawCallback
 
 inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 {
-    if (obj1->id == BACKGROUND_TYPE && obj2->id != BACKGROUND_TYPE)
+    if (obj1->flags & BACKGROUND && !(obj2->flags & BACKGROUND))
         return true;
-    if (obj2->id == BACKGROUND_TYPE && obj1->id != BACKGROUND_TYPE)
+    if (obj2->flags & BACKGROUND && !(obj1->flags & BACKGROUND))
         return false;
     return obj1->depth < obj2->depth;
 }
@@ -1220,6 +1220,12 @@ FixedValue::operator FrameObject*() const
 {
     return object;
 }
+
+// new-style object includes
+// XXX move everything to 'objects' directory
+#include "objects/alphaimage.cpp"
+#include "objects/systembox.cpp"
+#include "objects/assarray.cpp"
 
 // Direction
 
@@ -2558,6 +2564,51 @@ void INI::get_data(std::stringstream & out)
     }
 }
 
+void INI::set_encryption_key(const std::string & key)
+{
+    encrypt_key = key;
+}
+
+inline void encrypt_ini_data(std::string & data, const std::string & key)
+{
+    char v11[256];
+    for (int i = 0; i < 256; i++) {
+        v11[i] = i;
+    }
+
+    char v6[256];
+    for (int i = 0; i < 256; i++) {
+        v6[i] = 0;
+    }
+
+    if (!key.empty()) {
+        for (int i = 0; i < 256; i++) {
+            v6[i] = key[i % key.size()];
+        }
+    }
+
+    int v7 = 0;
+    for (int i = 0; i < 256; i++) {
+        v7 = (v6[i] + v11[i] + v7) % 256;
+        char v10 = v11[i];
+        v11[i] = v11[v7];
+        v11[v7] = v10;
+    }
+
+    v7 = 0;
+    int i = 0;
+    for (unsigned int j = 0; j < data.size(); j++) {
+        i = (i + 1) % 256;
+        v7 = (v7 + v11[i]) % 256;
+        char v10 = v11[i];
+        v11[i] = v11[v7];
+        v11[v7] = v10;
+        int v12 = (v11[v7] + v11[i]) % 256;
+        char v5 = v11[v12];
+        data[j] ^= v5;
+    }
+}
+
 void INI::save_file(const std::string & fn, bool force)
 {
     if (fn.empty() || (read_only && !force))
@@ -2568,6 +2619,8 @@ void INI::save_file(const std::string & fn, bool force)
     get_data(out);
     FSFile fp(filename.c_str(), "w");
     std::string outs = out.str();
+    if (!encrypt_key.empty())
+        encrypt_ini_data(outs, encrypt_key);
     fp.write(&outs[0], outs.size());
     fp.close();
 }
@@ -2679,6 +2732,12 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
 void INI::sort_group_by_name(const std::string & group)
 {
 
+}
+
+void INI::close()
+{
+    data.clear();
+    filename.clear();
 }
 
 void INI::reset(bool save)
@@ -2815,6 +2874,12 @@ const std::string & File::get_appdata_directory()
 }
 
 bool File::file_exists(const std::string & path)
+{
+    FSFile fp(convert_path(path).c_str(), "r");
+    return fp.is_open();
+}
+
+bool File::file_readable(const std::string & path)
 {
     FSFile fp(convert_path(path).c_str(), "r");
     return fp.is_open();
@@ -3328,9 +3393,9 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 // TextBlitter
 
 TextBlitter::TextBlitter(int x, int y, int type_id)
-: FrameObject(x, y, type_id), flash_interval(0.0f)
+: FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0)
 {
-    // collision = new InstanceBox(this);
+    collision = new InstanceBox(this);
 }
 
 TextBlitter::~TextBlitter()
@@ -3352,9 +3417,41 @@ void TextBlitter::initialize(const std::string & map_string)
     image->upload_texture();
 }
 
+void TextBlitter::set_x_align(int value)
+{
+    alignment &= ~(ALIGN_LEFT | ALIGN_HCENTER | ALIGN_RIGHT);
+    switch (value) {
+        case 0:
+            alignment |= ALIGN_LEFT;
+            break;
+        case 1:
+            alignment |= ALIGN_HCENTER;
+            break;
+        case 2:
+            alignment |= ALIGN_RIGHT;
+            break;
+    }
+}
+
+void TextBlitter::set_x_spacing(int value)
+{
+    x_spacing = value;
+}
+
+void TextBlitter::set_width(int width)
+{
+    this->width = width;
+    collision->update_aabb();
+}
+
 void TextBlitter::set_text(const std::string & value)
 {
     text = value;
+}
+
+const std::string & TextBlitter::get_text()
+{
+    return text;
 }
 
 void TextBlitter::update(float dt)
@@ -3378,6 +3475,7 @@ void TextBlitter::draw()
     int xx = x;
     int yy = y;
 
+    // XXX support horizontal spacing for center alignment
     if (alignment & ALIGN_HCENTER)
         xx += width / 2 - (text.size() * char_width) / 2;
     if (alignment & ALIGN_VCENTER)
@@ -3409,7 +3507,7 @@ void TextBlitter::draw()
             xx = x;
             yy += char_height;
         } else
-            xx += char_width;
+            xx += char_width + x_spacing;
     }
 
     glDisable(GL_TEXTURE_2D);

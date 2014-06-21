@@ -1,5 +1,16 @@
+from mmfparser.data.chunkloaders.objectinfo import (NONE_EFFECT,
+    INVERTED_EFFECT, XOR_EFFECT, AND_EFFECT,
+    OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT, SUBTRACT_EFFECT)
 from chowdren.common import get_base_path, makedirs
 import os
+
+INK_EFFECTS = {
+    NONE_EFFECT : None,
+    ADD_EFFECT : 'Add',
+    SUBTRACT_EFFECT : 'Subtract',
+    MONOCHROME_EFFECT : 'Monochrome',
+    INVERTED_EFFECT : 'Invert'
+}
 
 NATIVE_SHADERS = {
     'Sub' : 'subtract_shader',

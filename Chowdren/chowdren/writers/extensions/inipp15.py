@@ -136,6 +136,8 @@ actions = make_table(ActionMethodWriter, {
     33 : PerformSearch,
     40 : MergeObject,
     41 : MergeGroupObject,
+    47 : 'close',
+    51 : 'set_encryption_key',
     71 : SortGroup,
     78 : FileOperation
 })

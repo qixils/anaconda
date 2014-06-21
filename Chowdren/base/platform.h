@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include "fileio.h"
 
+#ifdef CHOWDREN_IS_WIIU
+#define IS_BIG_ENDIAN
+#endif
+
 void open_url(const std::string & name);
 void platform_init();
 void platform_exit();

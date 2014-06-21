@@ -86,13 +86,18 @@ class TextBlitter(ObjectWriter):
 
 
 actions = make_table(ActionMethodWriter, {
-    0 : 'set_text'
+    0 : 'set_text',
+    36 : 'set_x_align',
+    44 : 'set_x_spacing',
+    58 : 'set_width'
 })
 
 conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : 'get_string',
+    21 : '.width'
 })
 
 def get_object():

@@ -5,10 +5,19 @@
 #include <sstream>
 #include <ctype.h>
 
-inline double string_to_double(std::string in, double def = 0.0)
+inline double string_to_double(const std::string & in, double def = 0.0)
 {
     std::istringstream input(in);
     double value;
+    if (!(input >> value))
+        return def;
+    return value;
+}
+
+inline int string_to_int(const std::string & in, int def = 0.0)
+{
+    std::istringstream input(in);
+    int value;
     if (!(input >> value))
         return def;
     return value;

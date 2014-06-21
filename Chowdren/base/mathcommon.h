@@ -120,6 +120,21 @@ inline double get_abs(double v)
     return fabs(v);
 }
 
+inline double get_exp(int v)
+{
+    return exp(double(v));
+}
+
+inline double get_exp(float v)
+{
+    return exp(double(v));
+}
+
+inline double get_exp(double v)
+{
+    return exp(double(v));
+}
+
 inline int get_floor(int v)
 {
     return v;

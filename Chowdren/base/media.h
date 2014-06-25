@@ -30,6 +30,7 @@ public:
     void set_frequency(double value);
     void set_position(double value);
     double get_position();
+    double get_duration();
     void set_pan(double value);
     bool is_invalid();
     bool is_stopped();
@@ -60,6 +61,7 @@ public:
     void set_sample_pan(const std::string & name, double pan);
     void set_sample_position(const std::string & name, double pos);
     double get_sample_position(const std::string & name);
+    double get_sample_duration(const std::string & name);
     void stop_sample(const std::string & name);
     void stop_samples();
     void pause_samples();

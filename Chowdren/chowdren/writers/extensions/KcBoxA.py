@@ -59,6 +59,7 @@ NONE, HYPERLINK, BUTTON, CHECKBOX = xrange(4)
 class SystemBox(ObjectWriter):
     class_name = 'SystemBox'
     includes = ['objects/systembox.h']
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()
@@ -139,6 +140,9 @@ class SystemBox(ObjectWriter):
 
         version = data.readInt()
         hyperlink_color = read_system_color(data)
+
+    def get_images(self):
+        return [self.image]
 
 actions = make_table(ActionMethodWriter, {
     1 : 'set_position'

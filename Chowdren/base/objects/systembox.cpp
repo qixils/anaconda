@@ -1,9 +1,16 @@
 #include "objects/systembox.h"
 #include "include_gl.h"
+#include "collision.h"
 
 SystemBox::SystemBox(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
+    collision = new InstanceBox(this);
+}
+
+SystemBox::~SystemBox()
+{
+    delete collision;
 }
 
 void SystemBox::draw()

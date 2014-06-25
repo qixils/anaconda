@@ -19,7 +19,7 @@ inline std::string get_app_drive()
 
 inline std::string get_app_dir()
 {
-    return get_app_path();
+    return "./";
 }
 
 inline std::string get_path_filename(const std::string & path)

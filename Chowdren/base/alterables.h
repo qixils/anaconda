@@ -90,4 +90,53 @@ public:
     }
 };
 
+class AlterableFlags
+{
+public:
+    unsigned int flags;
+
+    AlterableFlags()
+    : flags(0)
+    {
+    }
+
+    void enable(int index)
+    {
+        flags |= 1 << index;
+    }
+
+    void disable(int index)
+    {
+        flags &= ~(1 << index);
+    }
+
+    void toggle(int index)
+    {
+        flags ^= 1 << index;
+    }
+
+    bool is_on(int index)
+    {
+        return (flags & (1 << index)) != 0;
+    }
+
+    bool is_off(int index)
+    {
+        return (flags & (1 << index)) == 0;
+    }
+
+    int get(int index)
+    {
+        return int(is_on(index));
+    }
+};
+
+class Alterables
+{
+public:
+    AlterableStrings strings;
+    AlterableValues values;
+    AlterableFlags flags;
+};
+
 #endif // ALTERABLES_H

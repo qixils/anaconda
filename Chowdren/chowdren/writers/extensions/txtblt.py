@@ -84,6 +84,9 @@ class TextBlitter(ObjectWriter):
         # other data
         # data.openEditor()
 
+    def is_static_background(self):
+        return False
+
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_text',
@@ -96,8 +99,9 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    0 : 'get_string',
-    21 : '.width'
+    0 : 'get_text()',
+    21 : '.width',
+    9 : 'get_x_align()'
 })
 
 def get_object():

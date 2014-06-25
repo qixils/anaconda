@@ -14,6 +14,7 @@ public:
     int type;
 
     SystemBox(int x, int y, int type_id);
+    ~SystemBox();
     void draw();
 };
 

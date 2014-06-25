@@ -145,8 +145,7 @@ class ObjectWriter(BaseWriter):
             writer.putln('has_saved_alterables = true;')
             writer.putln('saved_values.set(*values);')
             writer.putln('saved_strings.set(*strings);')
-        writer.putln('delete values;')
-        writer.putln('delete strings;')
+        writer.putln('delete alterables;')
 
     def load_alterables(self, writer):
         if not self.use_alterables:
@@ -169,12 +168,12 @@ class ObjectWriter(BaseWriter):
             for index, value in enumerate(common.values.items):
                 if value == 0:
                     continue
-                writer.putlnc('values->set(%s, %s);', index, value)
+                writer.putlnc('alterables->values.set(%s, %s);', index, value)
         if common.strings:
             for index, value in enumerate(common.strings.items):
                 if value == '':
                     continue
-                writer.putlnc('strings->set(%s, %r);', index, value)
+                writer.putlnc('alterables->strings.set(%s, %r);', index, value)
 
         if is_global:
             writer.end_brace()

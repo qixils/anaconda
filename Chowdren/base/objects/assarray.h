@@ -5,10 +5,16 @@
 #include "objects/blowfish.h"
 #include "types.h"
 
-struct AssociateArrayItem
+class AssociateArrayItem
 {
+public:
     int value;
     std::string string;
+
+    AssociateArrayItem()
+    : value(0)
+    {
+    }
 };
 
 typedef hash_map<std::string, AssociateArrayItem> ArrayMap;

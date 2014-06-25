@@ -13,7 +13,7 @@ from chowdren import hacks
 from chowdren.key import convert_key
 from mmfparser.bitdict import BitDict
 from chowdren.idpool import get_id
-from chowdren.shader import INK_EFFECTS
+from chowdren.shader import INK_EFFECTS, NATIVE_SHADERS
 
 def get_loop_running_name(name):
     return 'loop_%s_running' % get_method_name(name)
@@ -73,8 +73,9 @@ class SystemObject(ObjectWriter):
         for group in self.get_conditions('OnCollision'):
             cond = group.conditions[0]
             data = cond.data
-            object_info = data.objectInfo
-            other_info = data.items[0].loader.objectInfo
+            object_info = (data.objectInfo, data.objectType)
+            other_info = (data.items[0].loader.objectInfo,
+                          data.items[0].loader.objectType)
             key = (object_info, other_info)
             key = tuple(sorted(key))
             key = key + (cond.has_collisions(group),)
@@ -201,8 +202,9 @@ class IsOverlapping(CollisionCondition):
     def write(self, writer):
         data = self.data
         negated = data.otherFlags['Not']
-        object_info = data.objectInfo
-        other_info = data.items[0].loader.objectInfo
+        object_info = (data.objectInfo, data.objectType)
+        other_info = (data.items[0].loader.objectInfo,
+                      data.items[0].loader.objectType)
         converter = self.converter
         if negated:
             condition = to_c('check_not_overlap(%s, %s)',
@@ -232,10 +234,10 @@ class OnBackgroundCollision(CollisionCondition):
     save_collision = True
 
     def write(self, writer):
-        object_info, object_type = self.get_object()
+        obj = self.get_object()
         if self.has_collisions():
             func_name = 'overlaps_background_save'
-            self.add_collision_objects(object_info)
+            self.add_collision_objects(obj)
         else:
             func_name = 'overlaps_background'
         writer.put('%s()' % func_name)
@@ -296,7 +298,9 @@ JOYSTICK_CONDITIONS = {
     'Button4' : 'CHOWDREN_BUTTON_Y'
 }
 
-class PlayerKeyDown(ConditionWriter):
+class PlayerKeyCondition(ConditionWriter):
+    method = None
+
     def write(self, writer):
         player = self.data.objectInfo + 1
         controls = self.converter.game.header.controls.items[player-1]
@@ -318,12 +322,21 @@ class PlayerKeyDown(ConditionWriter):
             if is_keyboard:
                 key = getattr(controls.keys, k.lower())
                 key = convert_key(key.getValue())
-                key = 'is_key_pressed(%s)' % key
+                key = '%s(%s)' % (self.key_method, key)
             else:
                 key = JOYSTICK_BUTTONS[k]
-                key = 'is_joystick_pressed(%s, %s)' % (player, key)
+                key = '%s(%s, %s)' % (self.joystick_method, player, key)
             keys.append(key)
         writer.put(' && '.join(keys))
+
+class PlayerKeyDown(PlayerKeyCondition):
+    key_method = 'is_key_pressed'
+    joystick_method = 'is_joystick_pressed'
+
+class PlayerKeyPressed(PlayerKeyCondition):
+    is_always = True
+    key_method = 'is_key_pressed_once'
+    joystick_method = 'is_joystick_pressed_once'
 
 class TimerEquals(ConditionWriter):
     is_always = True
@@ -428,9 +441,9 @@ class GroupActivated(ConditionWriter):
 class PickRandom(ConditionWriter):
     custom = True
     def write(self, writer):
-        object_info, object_type = self.get_object()
+        obj = self.get_object()
         converter = self.converter
-        selected_name = converter.create_list(object_info, writer)
+        selected_name = converter.create_list(obj, writer)
         writer.putlnc('if (!pick_random(%s)) %s', selected_name,
                       self.converter.event_break)
 
@@ -439,20 +452,20 @@ class NumberOfObjects(ComparisonWriter):
     iterate_objects = False
 
     def get_comparison_value(self):
-        object_info = self.data.objectInfo
-        return '%s.size()' % self.converter.get_object_list(object_info)
+        obj = (self.data.objectInfo, self.data.objectType)
+        return '%s.size()' % self.converter.get_object_list(obj)
 
 class CompareFixedValue(ConditionWriter):
     custom = True
     def write(self, writer):
-        object_info, object_type = self.get_object()
+        obj = self.get_object()
         converter = self.converter
 
         end_label = 'fixed_%s_end' % get_id(self)
         value = self.convert_index(0)
         comparison = self.get_comparison()
         is_equal = comparison == '=='
-        has_selection = object_info in converter.has_selection
+        has_selection = obj in converter.has_selection
         is_instance = value.endswith('get_fixed()')
         test_all = has_selection or not is_equal or not is_instance
         if is_instance:
@@ -470,8 +483,8 @@ class CompareFixedValue(ConditionWriter):
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
         if test_all:
-            list_name = converter.create_list(object_info, writer)
-            with converter.iterate_object(object_info, writer, copy=False):
+            list_name = converter.create_list(obj, writer)
+            with converter.iterate_object(obj, writer, copy=False):
                 writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
                               fixed_name)
             if not is_equal:
@@ -479,7 +492,7 @@ class CompareFixedValue(ConditionWriter):
             writer.putlnc('if (!%s.has_selection()) %s', list_name,
                           converter.event_break)
         else:
-            converter.set_object(object_info, fixed_name)
+            converter.set_object(obj, fixed_name)
 
 class AnyKeyPressed(ConditionMethodWriter):
     is_always = True
@@ -500,8 +513,8 @@ class FacingInDirection(ConditionWriter):
 
 class CollisionAction(ActionWriter):
     def write(self, writer):
-        object_info, object_type = self.get_object()
-        is_col = object_info in self.converter.collision_objects
+        obj = self.get_object()
+        is_col = obj in self.converter.collision_objects
         writer.put(to_c(self.method + ';', is_col))
 
 class StopAction(CollisionAction):
@@ -524,7 +537,9 @@ class CreateBase(ActionWriter):
         direction = None
         use_direction = details.get('use_direction', False)
         use_action_point = details.get('use_action_point', False)
+
         object_info = self.parameters[0].loader.objectInfo
+        object_info = (object_info, self.converter.object_types[object_info])
         if is_shoot:
             create_object = details['shoot_object']
             if use_action_point and not use_direction:
@@ -616,7 +631,7 @@ class SetPosition(ActionWriter):
     custom = True
 
     def write(self, writer):
-        object_info, object_type = self.get_object()
+        object_info = self.get_object()
 
         end_name = 'pos_end_%s' % get_id(self)
 
@@ -662,7 +677,7 @@ class SetPosition(ActionWriter):
 
 class LookAt(ActionWriter):
     def write(self, writer):
-        object_info, object_type = self.get_object()
+        object_info = self.get_object()
         instance = self.converter.get_object(object_info)
         details = self.convert_index(0)
         x = str(details['x'])
@@ -678,12 +693,14 @@ class LookAt(ActionWriter):
 
 class MoveInFront(ActionWriter):
     def write(self, writer):
-        object_info = self.parameters[0].loader.objectInfo
+        object_info = (self.parameters[0].loader.objectInfo,
+                       self.parameters[0].loader.objectType)
         writer.put('move_front(%s);' % (self.converter.get_object(object_info)))
 
 class MoveBehind(ActionWriter):
     def write(self, writer):
-        object_info = self.parameters[0].loader.objectInfo
+        object_info = (self.parameters[0].loader.objectInfo,
+                       self.parameters[0].loader.objectType)
         # if object_info in self.converter.multiple_instances:
         #     raise NotImplementedError
         writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
@@ -814,10 +831,14 @@ class SetLoopIndex(ActionWriter):
         writer.putln('%s = %s;' % (index_name, value))
 
 class ActivateGroup(ActionWriter):
+    custom = True
+
     def write(self, writer):
         container = self.converter.containers[
             self.parameters[0].loader.pointer]
-        writer.put('%s = true;' % container.code_name)
+        writer.putlnc('if (%s) %s', container.code_name,
+                      self.converter.event_break)
+        writer.putlnc('%s = true;', container.code_name)
         check_names = set()
         group_activations = self.converter.system_object.group_activations
         for child in ([container] + container.get_all_children()):
@@ -838,7 +859,6 @@ class CenterDisplay(ActionWriter):
 
     def write(self, writer):
         writer.start_brace()
-        object_info, object_type = self.get_object()
 
         details = self.convert_index(0)
         x = str(details['x'])
@@ -909,7 +929,7 @@ class SetInkEffect(ActionWriter):
         ink_value = self.parameters[0].loader.value2
 
         if ink_effect in INK_EFFECTS:
-            name = INK_EFFECTS[ink_effect]
+            name = NATIVE_SHADERS[INK_EFFECTS[ink_effect]]
             if name is not None:
                 writer.put('set_shader(%s);' % name)
         elif ink_effect == SEMITRANSPARENT_EFFECT:
@@ -932,7 +952,8 @@ class SpreadValue(ActionWriter):
     def write(self, writer):
         alt = self.convert_index(0)
         start = self.convert_index(1)
-        object_list = self.converter.get_object(self.data.objectInfo, True)
+        obj = self.get_object()
+        object_list = self.converter.get_object(obj, True)
         writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
 
 class Destroy(ActionMethodWriter):
@@ -970,6 +991,11 @@ class MultiplyExpression(ConstantExpression):
 class DivideExpression(ConstantExpression):
     value = '/'
 
+    def get_string(self):
+        if hacks.use_safe_division(self.converter):
+            return '/math_helper/'
+        return self.value
+
 class ModulusExpression(ConstantExpression):
     value = '%'
 
@@ -987,18 +1013,18 @@ class VirguleExpression(ExpressionWriter):
 class AlterableValueExpression(ExpressionWriter):
     def get_string(self):
         if hacks.use_alterable_int(self):
-            func = 'values->get_int'
+            func = 'alterables->values.get_int'
         else:
-            func = 'values->get'
+            func = 'alterables->values.get'
         return '%s(%s)' % (func, self.data.loader.value)
 
 class AlterableValueIndexExpression(ExpressionWriter):
     def get_string(self):
-        return 'values->get('
+        return 'alterables->values.get('
 
 class AlterableStringExpression(ExpressionWriter):
     def get_string(self):
-        return 'strings->get(%s)' % self.data.loader.value
+        return 'alterables->strings.get(%s)' % self.data.loader.value
 
 class GlobalValueExpression(ExpressionWriter):
     def get_string(self):
@@ -1016,7 +1042,8 @@ class ObjectCount(ExpressionWriter):
     has_object = False
 
     def get_string(self):
-        instances = self.converter.get_object_list(self.data.objectInfo)
+        obj = (self.data.objectInfo, self.data.objectType)
+        instances = self.converter.get_object_list(obj)
         return '%s.size()' % instances
 
 class ToString(ExpressionWriter):
@@ -1053,11 +1080,11 @@ actions = make_table(ActionMethodWriter, {
     'StopLoop' : StopLoop,
     'SetX' : 'set_x',
     'SetY' : 'set_y',
-    'SetAlterableValue' : 'values->set',
-    'AddToAlterable' : 'values->add',
+    'SetAlterableValue' : 'alterables->values.set',
+    'AddToAlterable' : 'alterables->values.add',
     'SpreadValue' : SpreadValue,
-    'SubtractFromAlterable' : 'values->sub',
-    'SetAlterableString' : 'strings->set',
+    'SubtractFromAlterable' : 'alterables->values.sub',
+    'SetAlterableString' : 'alterables->strings.set',
     'AddCounterValue' : 'add',
     'SubtractCounterValue' : 'subtract',
     'SetCounterValue' : 'set',
@@ -1161,9 +1188,9 @@ actions = make_table(ActionMethodWriter, {
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
     'SelectMovement' : 'set_movement(%s)',
-    'EnableFlag' : 'enable_flag',
-    'DisableFlag' : 'disable_flag',
-    'ToggleFlag' : 'toggle_flag',
+    'EnableFlag' : 'alterables->flags.enable',
+    'DisableFlag' : 'alterables->flags.disable',
+    'ToggleFlag' : 'alterables->flags.toggle',
     'Reverse' : 'get_movement()->reverse()',
     'ReplaceColor' : EmptyAction, # XXX fix,
     'SetLives' : 'set_lives',
@@ -1172,11 +1199,13 @@ actions = make_table(ActionMethodWriter, {
     'EnableVsync' : 'set_vsync(true)',
     'DisableVsync' : 'set_vsync(false)',
     'SetGravity' : 'get_movement()->set_gravity',
+    'SetFrameEffect' : EmptyAction, # XXX fix
+    'SetFrameEffectParameter' : EmptyAction # XXX fix
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    'CompareAlterableValue' : make_comparison('values->get(%s)'),
-    'CompareAlterableString' : make_comparison('strings->get(%s)'),
+    'CompareAlterableValue' : make_comparison('alterables->values.get(%s)'),
+    'CompareAlterableString' : make_comparison('alterables->strings.get(%s)'),
     'CompareGlobalValue' : make_comparison('global_values->get(%s)'),
     'CompareGlobalString' : make_comparison('global_strings->get(%s)'),
     'CompareCounter' : make_comparison('value'),
@@ -1193,6 +1222,7 @@ conditions = make_table(ConditionMethodWriter, {
     'MouseClicked' : MouseClicked,
     'ObjectClicked' : ObjectClicked,
     'PlayerKeyDown' : PlayerKeyDown,
+    'PlayerKeyPressed' : PlayerKeyPressed,
     'KeyDown' : 'is_key_pressed',
     'KeyPressed' : 'is_key_pressed_once(%s)',
     'OnGroupActivation' : OnGroupActivation,
@@ -1222,8 +1252,8 @@ conditions = make_table(ConditionMethodWriter, {
     'PathFinished' : PathFinished,
     'NodeReached' : NodeReached,
     'CompareSpeed' : make_comparison('get_movement()->get_speed()'),
-    'FlagOn' : 'is_flag_on',
-    'FlagOff' : 'is_flag_off',
+    'FlagOn' : 'alterables->flags.is_on',
+    'FlagOff' : 'alterables->flags.is_off',
     'NearWindowBorder' : 'is_near_border',
     'AnimationFinished' : AnimationFinished,
     'StartOfFrame' : '.loop_count <= 1',
@@ -1258,7 +1288,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ApplicationPath' : 'get_app_path()',
     'AlterableValue' : AlterableValueExpression,
     'AlterableValueIndex' : AlterableValueIndexExpression,
-    'AlterableStringIndex' : 'strings->get',
+    'AlterableStringIndex' : 'alterables->strings.get',
     'AlterableString' : AlterableStringExpression,
     'GlobalString' : GlobalStringExpression,
     'GlobalValue' : GlobalValueExpression,
@@ -1311,6 +1341,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetSamplePosition' : 'media->get_sample_position',
+    'GetSampleDuration' : 'media->get_sample_duration',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
     'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
@@ -1325,6 +1356,8 @@ expressions = make_table(ExpressionMethodWriter, {
     'TimerValue' : '.(frame_time * 1000.0)',
     'CounterValue': '.value',
     'CurrentFrame' : '.(index+1)',
-    'GetFlag' : 'get_flag',
-    'GetCommandItem' : 'get_command_arg'
+    'GetFlag' : 'alterables->flags.get',
+    'GetCommandItem' : 'get_command_arg',
+    # 1 (standard), 2 (DirectDraw), 4 (Direct3D8) 8 (Direct3D9)
+    'DisplayMode' : '.8'
 })

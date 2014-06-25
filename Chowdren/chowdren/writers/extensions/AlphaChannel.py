@@ -9,6 +9,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 class AlphaImageObject(ObjectWriter):
     class_name = 'AlphaImageObject'
     includes = ['objects/alphaimage.h']
+    use_alterables = True
 
     def write_init(self, writer):
         pass

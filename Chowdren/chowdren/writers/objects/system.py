@@ -1,17 +1,13 @@
 from chowdren.writers.objects import ObjectWriter
-
 from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP,
     ACTIVE, TEXT, QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION)
-
 from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING)
-
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
-
 from chowdren import hacks
 
 class Active(ObjectWriter):
@@ -22,9 +18,11 @@ class Active(ObjectWriter):
     def write_init(self, writer):
         common = self.common
         animations = common.animations.loadedAnimations
-        writer.putln('static Animations * saved_animations = '
-                     'new Animations(%s);' % (max(animations)+1))
-        writer.putln('this->animations = saved_animations;')
+        max_anim = max(animations)+1
+        writer.putlnc('static Animation * anims[%s];', max_anim)
+        writer.putlnc('static Animations saved_animations(%s,'
+                      '(Animation**)&anims);', max_anim)
+        writer.putln('this->animations = &saved_animations;')
         writer.putln('static bool initialized = false;')
         writer.putln('if (!initialized) {')
         writer.indent()
@@ -277,45 +275,75 @@ class Counter(ObjectWriter):
             display_type = counters.displayType
             if display_type == NUMBERS:
                 writer.putln('type = IMAGE_COUNTER;')
+                writer.putln('static Image * counter_images[14];')
+                writer.putln('static bool initialized = false;')
+                writer.putln('if (!initialized) {')
+                writer.indent()
+                writer.putln('initialized = true;')
                 for char_index, char in enumerate(COUNTER_FRAMES):
-                    writer.putln("images[%s] = %s;" % (char_index,
-                        get_image_name(counters.frames[char_index])))
+                    writer.putlnc('counter_images[%s] = %s;', char_index,
+                        get_image_name(counters.frames[char_index]))
+                writer.end_brace()
+                writer.putln('images = (Image**)&counter_images;')
+                writer.putln('image_count = 14;')
             elif display_type == HORIZONTAL_BAR:
-                print 'horizontal bar not implemented'
-                return
-                raise NotImplementedError
                 shape_object = counters.shape
                 shape = shape_object.shape
-                fill_type = shape_object.fillType
                 if shape != RECTANGLE_SHAPE:
-                    raise NotImplementedError
-                if fill_type == GRADIENT_FILL:
-                    writer.putdef('color1', shape_object.color1)
-                    writer.putdef('color2', shape_object.color2)
-                elif fill_type == SOLID_FILL:
-                    writer.putdef('color1', shape_object.color1)
-                else:
-                    raise NotImplementedError
+                    print 'horizontal rectangle shape not implemented'
+                    return
+                count_right = counters.inverse
+                if count_right:
+                    print 'horizontal count direction not implemented'
+                    return
+                writer.putln('type = HORIZONTAL_LEFT_COUNTER;')
             elif display_type == VERTICAL_BAR:
                 shape_object = counters.shape
                 shape = shape_object.shape
                 if shape != RECTANGLE_SHAPE:
                     print 'vertical rectangle shape not implemented'
                     return
-                fill_type = shape_object.fillType
-                if fill_type != SOLID_FILL:
-                    print 'vertical fill type not implemented'
-                    return
                 count_up = counters.inverse
                 if not count_up:
                     print 'vertical count direction not implemented'
                     return
                 writer.putln('type = VERTICAL_UP_COUNTER;')
-                writer.putln('color1 = %s;' % make_color(shape_object.color1))
+            elif display_type == ANIMATION:
+                writer.putln('type = ANIMATION_COUNTER;')
+                size = len(counters.frames)
+                writer.putlnc('static Image * counter_images[%s];', size)
+                writer.putlnc('static bool initialized = false;')
+                writer.putln('if (!initialized) {')
+                writer.indent()
+                writer.putln('initialized = true;')
+                for index, image in enumerate(counters.frames):
+                    writer.putlnc('counter_images[%s] = %s;',
+                        index, get_image_name(counters.frames[index]))
+                writer.end_brace()
+                writer.putln('images = (Image**)&counter_images;')
+                writer.putlnc('image_count = %s;', size)
             else:
                 print 'type', counters.getDisplayType(), 'not implemented'
                 return
                 raise NotImplementedError
+
+            if display_type in (VERTICAL_BAR, HORIZONTAL_BAR):
+                fill_type = shape_object.fillType
+                if fill_type == GRADIENT_FILL:
+                    if shape_object.getGradientType() == 'Horizontal':
+                        writer.putlnc('gradient_type = HORIZONTAL_GRADIENT;')
+                    else:
+                        writer.putlnc('gradient_type = VERTICAL_GRADIENT;')
+                    writer.putlnc('color1 = %s;',
+                                  make_color(shape_object.color1))
+                    writer.putlnc('color2 = %s;',
+                                  make_color(shape_object.color2))
+                elif fill_type == SOLID_FILL:
+                    writer.putlnc('gradient_type = NONE_GRADIENT;')
+                    writer.putlnc('color1 = %s;',
+                                  make_color(shape_object.color1))
+                else:
+                    raise NotImplementedError
         else:
             writer.putln('type = HIDDEN_COUNTER;')
             writer.putln('width = height = 0;')
@@ -323,13 +351,16 @@ class Counter(ObjectWriter):
         writer.putlnc('maximum = %s;', counter.maximum)
         writer.putlnc('set(%s);', counter.initial)
 
+    def is_static_background(self):
+        return False
+
     def get_images(self):
         common = self.common
         counters = common.counters
         counter = common.counter
         if counters:
             display_type = counters.displayType
-            if display_type == NUMBERS:
+            if display_type in (NUMBERS, ANIMATION):
                 return counters.frames
         return []
 
@@ -354,6 +385,13 @@ class Lives(ObjectWriter):
     def get_images(self):
         return [self.common.counters.frames[0]]
 
+class SubApplication(ObjectWriter):
+    class_name = 'SubApplication'
+    includes = ['objects/subapp.h']
+
+    def write_init(self, writer):
+        pass
+
 system_objects = {
     TEXT : Text,
     ACTIVE : Active,
@@ -361,6 +399,6 @@ system_objects = {
     QUICKBACKDROP : QuickBackdrop,
     COUNTER : Counter,
     RTF : RTFText,
-    LIVES : Lives
-    # SUBAPPLICATION : 'SubApplication',
+    LIVES : Lives,
+    SUBAPPLICATION : SubApplication,
 }

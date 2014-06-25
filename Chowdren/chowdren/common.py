@@ -81,7 +81,7 @@ class StringWrapper(object):
                 new += '\\n'
             elif c == '?':
                 new += '\\?'
-            elif ord(c) > 128:
+            elif ord(c) > 126 or ord(c) < 32:
                 new += '\\' + oct(ord(c))[1:]
             else:
                 new += c
@@ -116,13 +116,13 @@ def is_qualifier(handle):
 def get_qualifier(handle):
     return handle & 2047
 
-def get_iter_type(object_info):
-    if is_qualifier(object_info):
+def get_iter_type(obj):
+    if is_qualifier(obj[0]):
         return 'QualifierIterator'
     return 'ObjectIterator'
 
-def get_list_type(object_info):
-    if is_qualifier(object_info):
+def get_list_type(obj):
+    if is_qualifier(obj[0]):
         return 'QualifierList'
     return 'ObjectList'
 

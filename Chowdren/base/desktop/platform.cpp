@@ -754,7 +754,9 @@ std::string convert_path(const std::string & v)
     std::replace(value.begin(), value.end(), '\\', '/');
     return value;
 #else
-    return v;
+    std::string value = v;
+    std::replace(value.begin(), value.end(), '/', '\\');
+    return value;
 #endif
 }
 

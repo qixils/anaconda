@@ -24,18 +24,20 @@ void AssociateArray::set_key(const std::string & key)
 void AssociateArray::load_encrypted(const std::string & filename,
                                     int method)
 {
+    clear();
+
     std::string dst;
     std::string src;
 
     read_file(filename.c_str(), src);
     cipher.decrypt(&dst, src);
 
-    if (dst.compare(0, sizeof(ARRAY_MAGIC), ARRAY_MAGIC) != 0) {
+    if (dst.compare(0, sizeof(ARRAY_MAGIC)-1, ARRAY_MAGIC) != 0) {
         std::cout << "Invalid magic for " << filename << std::endl;
         return;
     }
 
-    load_data(dst.substr(sizeof(ARRAY_MAGIC)), method);
+    load_data(dst.substr(sizeof(ARRAY_MAGIC)-1), method);
 }
 
 inline void decode_method(std::string & str, int method)
@@ -57,6 +59,7 @@ void AssociateArray::load_data(const std::string & data, int method)
         while (data[pos] != ' ')
             pos++;
         int len = string_to_int(data.substr(start, pos-start));
+        pos++;
 
         // read key
         start = pos;
@@ -78,6 +81,7 @@ void AssociateArray::load_data(const std::string & data, int method)
 
         // read value
         std::string value = data.substr(pos, len);
+        decode_method(value, method);
         pos += len;
 
         AssociateArrayItem & item = (*map)[key];

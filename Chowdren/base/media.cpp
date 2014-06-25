@@ -168,6 +168,13 @@ double Channel::get_position()
     return sound->get_playing_offset() * 1000.0;
 }
 
+double Channel::get_duration()
+{
+    if (is_invalid())
+        return 0.0;
+    return sound->get_duration() * 1000.0;
+}
+
 void Channel::set_pan(double value)
 {
     pan = value;
@@ -329,6 +336,14 @@ double Media::get_sample_position(const std::string & name)
     if (channel == NULL)
         return 0.0;
     return channel->get_position();
+}
+
+double Media::get_sample_duration(const std::string & name)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return 0.0;
+    return channel->get_duration();
 }
 
 void Media::stop_sample(const std::string & name)

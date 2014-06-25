@@ -76,8 +76,9 @@ class ObjectAction(ActionMethodWriter):
     custom = True
 
     def write(self, writer):
-        box2d = self.converter.get_object(self.get_object()[0])
-        object_info = self.parameters[0].loader.objectInfo
+        box2d = self.converter.get_object(self.get_object())
+        object_info = (self.parameters[0].loader.objectInfo,
+                       self.parameters[0].loader.objectType)
 
         with self.converter.iterate_object(object_info, writer, 'selected',
                                            False):

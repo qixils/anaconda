@@ -178,6 +178,15 @@ void GLSLShader::set_vec4(FrameObject * instance, const std::string & name,
     glUniform4f((GLint)uniform, a, b, c, d);
 }
 
+void GLSLShader::set_image(FrameObject * instance, const std::string & name,
+                          int uniform)
+{
+    int val = (int)(*instance->shader_parameters)[name];
+    float a, b, c, d;
+    convert_vec4(val, a, b, c, d);
+    glUniform4f((GLint)uniform, a, b, c, d);
+}
+
 int GLSLShader::get_uniform(const char * value)
 {
     return glGetUniformLocation(program, value);

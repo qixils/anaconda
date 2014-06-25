@@ -26,4 +26,6 @@ public:
                    int uniform);
     void set_vec4(FrameObject * instance, const std::string & name,
                   int uniform);
+    void set_image(FrameObject * instance, const std::string & name,
+                   int uniform);
 };

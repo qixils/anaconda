@@ -8,7 +8,8 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class SetObject(ActionMethodWriter):
     def write(self, writer):
-        object_info = self.parameters[0].loader.objectInfo
+        object_info = (self.parameters[0].loader.objectInfo,
+                       self.parameters[0].loader.objectType)
         writer.put('set_object(%s);' % self.converter.get_object(object_info))
 
 def read_value(reader):

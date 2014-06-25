@@ -184,10 +184,15 @@ systemDict = {
         25 : 'DeleteAllCreatedBackdrops',
         26 : 'SetFrameWidth',
         27 : 'SetFrameHeight',
-        28 : 'SAVEFRAME',
-        29 : 'LOADFRAME',
-        30 : 'LOADAPPLICATION',
-        31 : 'PLAYDEMO'
+        28 : 'SaveFrame',
+        29 : 'LoadFrame',
+        30 : 'LoadApplication',
+        31 : 'PlayDemo',
+        32 : 'SetFrameEffect',
+        33 : 'SetFrameEffectParameter',
+        34 : 'SetFrameEffectImage',
+        35 : 'SetFrameAlphaCoefficient',
+        36 : 'SetFrameRGBCoefficient'
     },
     -2 : { # Sound and Music
         0 : 'PlaySample',

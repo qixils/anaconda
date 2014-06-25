@@ -244,7 +244,6 @@ class Sample
 {
 public:
     SoundBuffer * buffer;
-    double duration; // duration in seconds
     unsigned int sample_rate;
     unsigned int channels;
     SoundList sounds;
@@ -383,6 +382,7 @@ public:
     virtual void set_loop(bool) = 0;
     virtual void set_playing_offset(double) = 0;
     virtual double get_playing_offset() = 0;
+    virtual double get_duration() = 0;
 
     virtual ~SoundBase()
     {
@@ -452,6 +452,13 @@ public:
     void set_playing_offset(double offset)
     {
         al_check(alSourcef(source, AL_SEC_OFFSET, offset));
+    }
+
+    double get_duration()
+    {
+        return double(sample.buffer->sample_count)
+               / sample.sample_rate
+               / sample.channels;
     }
 
     int get_sample_rate()
@@ -596,6 +603,11 @@ public:
         al_check(alGetSourcef(source, AL_SEC_OFFSET, &secs));
         return secs + static_cast<float>(samples_processed
             ) / file->sample_rate / file->channels;
+    }
+
+    double get_duration()
+    {
+        return double(file->samples) / file->sample_rate / channels;
     }
 
     void set_loop(bool loop)
@@ -865,11 +877,9 @@ public:
 Sample::Sample(const std::string & filename)
 {
     SoundDecoder * file = create_decoder(filename);
-    std::size_t sample_count = file->samples;
     channels = file->channels;
     sample_rate = file->sample_rate;
     buffer = new SoundBuffer(*file, file->samples);
-    duration = double(sample_count) / sample_rate / channels;
     delete file;
 }
 

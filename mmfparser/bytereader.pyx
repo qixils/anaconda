@@ -108,13 +108,13 @@ cdef class ByteReader:
             self.data_size = len(data)
 
         self.buffer = c_data
-    
+
     cpdef int tell(self):
         if self.fp != NULL:
             return ftell(self.fp)
         else:
             return self.pos
-    
+
     cpdef data(self):
         cdef int pos
         if self.fp != NULL:
@@ -125,7 +125,7 @@ cdef class ByteReader:
             return data
         else:
             return self.buffer[0:self.data_size]
-    
+
     cpdef bint seek(self, int pos, int mode = 0):
         if self.fp != NULL:
             fseek(self.fp, pos, mode)
@@ -143,14 +143,14 @@ cdef class ByteReader:
             self.pos = pos
             IF LOG_POSITION:
                 self.lastPosition = pos
-    
+
     cpdef adjust(self, int to):
         cdef int value = to - (self.tell() % to)
         if self.fp != NULL:
             self.seek(self.tell() + value)
         else:
             self.pos += value
-    
+
     cdef void _read(self, void * value, int size):
         cdef size_t read_bytes
         if self.fp != NULL:
@@ -161,7 +161,7 @@ cdef class ByteReader:
             check_available(self, size)
             memcpy(value, (self.buffer + self.pos), size)
             self.pos += size
-    
+
     cpdef read(self, int size = -1):
         cdef char * buf
         cdef size_t read_bytes
@@ -183,7 +183,7 @@ cdef class ByteReader:
             if self.pos > self.data_size:
                 self.pos = self.data_size
             return data
-    
+
     cpdef size_t size(self):
         cdef int pos
         cdef int size
@@ -195,13 +195,13 @@ cdef class ByteReader:
             return size
         else:
             return self.data_size
-    
+
     def __len__(self):
         return self.size()
-    
+
     def __str__(self):
         return self.data()
-    
+
     def __repr__(self):
         return repr(str(self))
 
@@ -211,7 +211,7 @@ cdef class ByteReader:
         if asUnsigned:
             return <unsigned char>value
         return value
-        
+
     cpdef int readShort(self, bint asUnsigned = False):
         cdef short value
         cdef unsigned char byte1, byte2
@@ -243,26 +243,20 @@ cdef class ByteReader:
         if asUnsigned:
             return <unsigned int>value
         return value
-        
+
     cpdef bytes readString(self, size = None):
         IF LOG_POSITION:
             self.lastPosition = self.tell()
         if size is not None:
             return self.readReader(size).readString()
-        cdef char * value
-        if self.fp != NULL:
-            data = ''
-            while 1:
-                c = self.read(1)
-                if c == '\x00':
-                    break
-                data += c
-            return data
-        else:
-            value = <char *>(self.buffer + self.pos)
-            self.pos += len(value) + 1
-        return value
-        
+        data = ''
+        while 1:
+            c = self.read(1)
+            if c in ('\x00', ''):
+                break
+            data += c
+        return data
+
     cpdef unicode readUnicodeString(self):
         cdef int currentPosition = self.tell()
         cdef short newShort
@@ -277,7 +271,7 @@ cdef class ByteReader:
         IF LOG_POSITION:
             self.lastPosition = currentPosition
         return data.decode('utf-16-le')
-        
+
     cpdef tuple readColor(self):
         cdef int currentPosition = self.tell()
         cdef short r = self.readByte(True)
@@ -287,7 +281,7 @@ cdef class ByteReader:
         IF LOG_POSITION:
             self.lastPosition = currentPosition
         return (r, g, b)
-    
+
     cpdef ByteReader readReader(self, size_t size):
         cdef ByteReader reader
         if self.fp != NULL:
@@ -299,11 +293,11 @@ cdef class ByteReader:
             reader = ByteReader(self.original, self.pos + self.start, size)
             self.pos += size
         return reader
-    
+
     def readIntString(self):
         cdef size_t length = self.readInt(True)
         return self.read(length)
-    
+
     cpdef bint write(self, bytes data):
         cdef size_t size = len(data)
         if size == 0:
@@ -316,7 +310,7 @@ cdef class ByteReader:
             c_data = data
             memcpy((self.buffer + self.pos), c_data, size)
             self.pos += size
-        
+
     cpdef bint write_size(self, char * data, size_t size):
         if size == 0:
             return False
@@ -326,11 +320,11 @@ cdef class ByteReader:
             ensure_write_size(self, size)
             memcpy((self.buffer + self.pos), data, size)
             self.pos += size
-        
+
     def writeByte(self, value, asUnsigned = False):
         format = UBYTE if asUnsigned else BYTE
         self.writeStruct(format, value)
-        
+
     def writeShort(self, value, asUnsigned = False):
         format = USHORT if asUnsigned else SHORT
         self.writeStruct(format, value)
@@ -340,11 +334,11 @@ cdef class ByteReader:
 
     def writeDouble(self, value):
         self.writeStruct(DOUBLE, value)
-        
+
     def writeInt(self, value, asUnsigned = False):
         format = UINT if asUnsigned else INT
         self.writeStruct(format, value)
-        
+
     def writeString(self, value, size_t size = -1):
         cdef unsigned int currentPosition
         if size == -1:
@@ -356,42 +350,42 @@ cdef class ByteReader:
             self.rewind(size)
             self.write(value[:size-1])
             self.seek(currentPosition)
-        
+
     def writeUnicodeString(self, value):
         self.write(value.encode('utf-16-le') + "\x00\x00")
-        
+
     def writeColor(self, colorTuple):
         r, g, b = colorTuple
         self.writeByte(r, True)
         self.writeByte(g, True)
         self.writeByte(b, True)
         self.writeByte(0)
-        
+
     def writeFormat(self, format, *values):
         self.write(struct.pack(format, *values))
-    
+
     def writeStruct(self, structType, *values):
         self.write(structType.pack(*values))
-        
+
     def writeReader(self, reader):
         self.write(reader.data())
-    
+
     def writeIntString(self, value):
         self.writeInt(len(value), True)
         self.write(value)
-        
+
     cpdef bint skipBytes(self, size_t n):
         self.seek(n, 1)
-        
+
     cpdef bint rewind(self, size_t n):
         self.seek(-n, 1)
-    
+
     def truncate(self, value):
         self.buffer.truncate(value)
-    
+
     def checkDefault(self, value, *defaults):
         return checkDefault(self, value, *defaults)
-    
+
     def openEditor(self):
         if self.fp == NULL:
             fp = tempfile.NamedTemporaryFile('wb', delete = False)
@@ -409,7 +403,7 @@ cdef class ByteReader:
 
 def openEditor(filename, position):
     return subprocess.Popen(['010editor', '%s@%s' % (filename, position)])
-        
+
 def checkDefault(ByteReader reader, value, *defaults):
     if value in defaults:
         return False

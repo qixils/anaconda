@@ -43,4 +43,20 @@ inline std::string to_lower(std::string str)
     return str;
 }
 
+inline void replace_substring(std::string & str,
+                              const std::string & from,
+                              const std::string & to)
+{
+    if (from.empty())
+        return;
+    size_t start_pos = 0;
+    while (true) {
+        start_pos = str.find(from, start_pos);
+        if (start_pos == std::string::npos)
+            break;
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
+
 #endif // STRING_H

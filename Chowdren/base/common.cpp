@@ -5,9 +5,17 @@
 #include "font.h"
 #include <iterator>
 #include <iomanip>
+#include "md5.h"
+#include "huffman.h"
 
 std::string newline_character("\r\n");
 std::string empty_string("");
+
+std::string get_md5(const std::string & value)
+{
+    MD5 md5;
+    return md5.get_hex_digest(value);
+}
 
 // Font
 
@@ -138,9 +146,11 @@ Layer::~Layer()
     delete back;
 
     // layers are in charge of deleting background instances
-    for (FlatObjectList::const_iterator it = background_instances.begin();
-         it != background_instances.end(); it++) {
-        delete (*it);
+    FlatObjectList::const_iterator it;
+    for (it = background_instances.begin(); it != background_instances.end();
+         it++) {
+        FrameObject * obj = *it;
+        delete obj;
     }
 }
 
@@ -484,13 +494,17 @@ void Frame::on_end()
     for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
         ObjectList & list = GameManager::instances.items[i];
         for (it = list.begin(); it != list.end(); it++) {
+            if (it->obj->flags & BACKGROUND)
+                continue;
             delete it->obj;
         }
     }
+
     std::vector<Layer*>::const_iterator layer_it;
     for (layer_it = layers.begin(); layer_it != layers.end(); layer_it++) {
         delete *layer_it;
     }
+
     layers.clear();
     GameManager::instances.clear();
     destroyed_instances.clear();
@@ -666,6 +680,9 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     instance->frame = this;
     Layer * layer = layers[layer_index];
     instance->layer = layer;
+    if (instance->id != BACKGROUND_TYPE) {
+        GameManager::instances.items[instance->id].add(instance);
+    }
     layer->add_background_object(instance);
     if (instance->collision) {
         instance->collision->update_aabb();
@@ -827,11 +844,15 @@ void Frame::set_vsync(bool value)
 
 FrameObject::FrameObject(int x, int y, int type_id)
 : x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), shader(NULL),
-  values(NULL), strings(NULL), shader_parameters(NULL), direction(0),
+  alterables(NULL), shader_parameters(NULL), direction(0),
   movement(NULL), movements(NULL), movement_count(0), collision(NULL)
 {
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
+#endif
+
+#ifdef CHOWDREN_USE_VALUEADD
+    extra_alterables = NULL;
 #endif
 }
 
@@ -905,8 +926,7 @@ int FrameObject::get_y()
 
 void FrameObject::create_alterables()
 {
-    values = new AlterableValues;
-    strings = new AlterableStrings;
+    alterables = new Alterables;
 }
 
 void FrameObject::set_visible(bool value)
@@ -1017,6 +1037,11 @@ void FrameObject::set_shader_parameter(const std::string & name, double value)
     if (shader_parameters == NULL)
         shader_parameters = new ShaderParameters;
     (*shader_parameters)[name] = value;
+}
+
+void FrameObject::set_shader_parameter(const std::string & name, Image & img)
+{
+    set_shader_parameter(name, (double)img.tex);
 }
 
 void FrameObject::set_shader_parameter(const std::string & name,
@@ -1222,10 +1247,15 @@ FixedValue::operator FrameObject*() const
 }
 
 // new-style object includes
-// XXX move everything to 'objects' directory
+// XXX move everything to 'objects' directory, and only include implementations
+// of objects actually used
 #include "objects/alphaimage.cpp"
 #include "objects/systembox.cpp"
 #include "objects/assarray.cpp"
+#include "objects/surface.cpp"
+#include "objects/stringreplace.cpp"
+#include "objects/subapp.cpp"
+#include "objects/colorizer.cpp"
 
 // Direction
 
@@ -1251,10 +1281,9 @@ Animation::Animation()
 
 // Animations
 
-Animations::Animations(int count)
-: count(count)
+Animations::Animations(int count, Animation ** items)
+: count(count), items(items)
 {
-    items = new Animation*[count]();
 }
 
 // Active
@@ -1284,7 +1313,7 @@ Active::Active(int x, int y, int type_id)
   animation_frame(0), counter(0), angle(0.0f), forced_frame(-1),
   forced_speed(-1), forced_direction(-1), x_scale(1.0f), y_scale(1.0f),
   animation_direction(0), stopped(false), flash_interval(0.0f),
-  animation_finished(-1), transparent(false), alterable_flags(0), image(NULL)
+  animation_finished(-1), transparent(false), image(NULL)
 {
     active_col.instance = this;
     collision = &active_col;
@@ -1672,36 +1701,6 @@ void Active::flash(float value)
     flash_time = 0.0f;
 }
 
-void Active::enable_flag(int index)
-{
-    alterable_flags |= 1 << index;
-}
-
-void Active::disable_flag(int index)
-{
-    alterable_flags &= ~(1 << index);
-}
-
-void Active::toggle_flag(int index)
-{
-    alterable_flags ^= 1 << index;
-}
-
-bool Active::is_flag_on(int index)
-{
-    return (alterable_flags & (1 << index)) != 0;
-}
-
-bool Active::is_flag_off(int index)
-{
-    return (alterable_flags & (1 << index)) == 0;
-}
-
-int Active::get_flag(int index)
-{
-    return int(is_flag_on(index));
-}
-
 bool Active::is_near_border(int border)
 {
     int * box = active_col.aabb;
@@ -2048,6 +2047,39 @@ QuickBackdrop::~QuickBackdrop()
     delete collision;
 }
 
+static void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
+                          Color & color, Color & color2, float alpha)
+{
+    glDisable(GL_TEXTURE_2D);
+    glBegin(GL_QUADS);
+    switch (gradient_type) {
+        case NONE_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y1);
+            glVertex2f(x2, y1);
+            glVertex2f(x2, y2);
+            glVertex2f(x1, y2);
+            break;
+        case VERTICAL_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y1);
+            glVertex2f(x2, y1);
+            glColor4ub(color2.r, color2.g, color2.b, alpha);
+            glVertex2f(x2, y2);
+            glVertex2f(x1, y2);
+            break;
+        case HORIZONTAL_GRADIENT:
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y2);
+            glVertex2f(x1, y1);
+            glColor4ub(color2.r, color2.g, color2.b, alpha);
+            glVertex2f(x2, y1);
+            glVertex2f(x2, y2);
+            break;
+    }
+    glEnd();
+}
+
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
@@ -2095,33 +2127,9 @@ void QuickBackdrop::draw()
             x2 -= outline;
             y2 -= outline;
         }
-        glBegin(GL_QUADS);
-        switch (gradient_type) {
-            case NONE_GRADIENT:
-                glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x1, y1);
-                glVertex2f(x2, y1);
-                glVertex2f(x2, y2);
-                glVertex2f(x1, y2);
-                break;
-            case VERTICAL_GRADIENT:
-                glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x1, y1);
-                glVertex2f(x2, y1);
-                glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-                glVertex2f(x2, y2);
-                glVertex2f(x1, y2);
-                break;
-            case HORIZONTAL_GRADIENT:
-                glColor4ub(color.r, color.g, color.b, blend_color.a);
-                glVertex2f(x1, y2);
-                glVertex2f(x1, y1);
-                glColor4ub(color2.r, color2.g, color2.b, blend_color.a);
-                glVertex2f(x2, y1);
-                glVertex2f(x2, y2);
-                break;
-        }
-        glEnd();
+
+        draw_gradient(x1, y1, x2, y2, gradient_type, color, color2,
+                      blend_color.a);
     }
 }
 
@@ -2130,8 +2138,6 @@ void QuickBackdrop::draw()
 Counter::Counter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f), zero_pad(0)
 {
-    for (int i = 0; i < 14; i++)
-        images[i] = NULL;
 }
 
 Counter::~Counter()
@@ -2141,17 +2147,29 @@ Counter::~Counter()
 
 void Counter::calculate_box()
 {
-    if (type != IMAGE_COUNTER)
-        return;
-    width = 0;
-    height = 0;
-    for (std::string::const_iterator it = cached_string.begin();
-         it != cached_string.end(); it++) {
-        Image * image = get_image(it[0]);
-        width += image->width;
-        height = std::max(image->height, height);
+    if (type == IMAGE_COUNTER) {
+        width = 0;
+        height = 0;
+        for (std::string::const_iterator it = cached_string.begin();
+             it != cached_string.end(); it++) {
+            Image * image = get_image(it[0]);
+            width += image->width;
+            height = std::max(image->height, height);
+        }
+        ((OffsetInstanceBox*)collision)->set_offset(-width, -height);
+    } else if (type == ANIMATION_COUNTER) {
+        Image * image = get_image();
+        width = image->width;
+        height = image->height;
+        ((OffsetInstanceBox*)collision)->update_aabb();
     }
-    ((OffsetInstanceBox*)collision)->set_offset(-width, -height);
+}
+
+Image * Counter::get_image()
+{
+    int max_index = image_count - 1;
+    int i = (((value - minimum) * max_index) / (maximum - minimum));
+    return images[i];
 }
 
 Image * Counter::get_image(char c)
@@ -2202,25 +2220,26 @@ void Counter::set(double value)
     if (collision == NULL)
         collision = new OffsetInstanceBox(this);
 
-    if (type != IMAGE_COUNTER)
-        return;
-
-    std::ostringstream str;
-    if (zero_pad > 0)
-        str << std::setw(zero_pad) << std::setfill('0') << value;
-    else
-        str << value;
-    cached_string = str.str();
-    calculate_box();
+    if (type == IMAGE_COUNTER) {
+        std::ostringstream str;
+        if (zero_pad > 0)
+            str << std::setw(zero_pad) << std::setfill('0') << value;
+        else
+            str << value;
+        cached_string = str.str();
+        calculate_box();
+    } else if (type == ANIMATION_COUNTER) {
+        calculate_box();
+    }
 }
 
-void Counter::set_max(double value)
+void Counter::set_max(int value)
 {
     maximum = value;
     set(this->value);
 }
 
-void Counter::set_min(double value)
+void Counter::set_min(int value)
 {
     minimum = value;
     set(this->value);
@@ -2242,9 +2261,8 @@ void Counter::draw()
     if (type == HIDDEN_COUNTER)
         return;
 
-    blend_color.apply();
-
     if (type == IMAGE_COUNTER) {
+        blend_color.apply();
         double current_x = x;
         for (std::string::reverse_iterator it = cached_string.rbegin();
              it != cached_string.rend(); it++) {
@@ -2256,19 +2274,31 @@ void Counter::draw()
             current_x -= image->width;
         }
     } else if (type == VERTICAL_UP_COUNTER) {
-        float p = (value - minimum) /
-                  (maximum - minimum);
-        int draw_height = p * height;
-        int x2 = x + width;
+        int draw_height = ((value - minimum) * height) /
+                          (maximum - minimum);
+
+        int x1 = x;
         int y2 = y + height;
         int y1 = y2 - draw_height;
-        color1.apply();
-        glBegin(GL_QUADS);
-        glVertex2f(x, y1);
-        glVertex2f(x2, y1);
-        glVertex2f(x2, y2);
-        glVertex2f(x, y2);
-        glEnd();
+        int x2 = x + width;
+
+        draw_gradient(x1, y1, x2, y2, gradient_type, color1, color2,
+                      blend_color.a);
+    } else if (type == HORIZONTAL_LEFT_COUNTER) {
+        int draw_width = ((value - minimum) * width) /
+                          (maximum - minimum);
+
+        int x1 = x;
+        int y1 = y;
+        int x2 = x + draw_width;
+        int y2 = y + height;
+
+        draw_gradient(x1, y1, x2, y2, gradient_type, color1, color2,
+                      blend_color.a);
+    } else if (type == ANIMATION_COUNTER) {
+        blend_color.apply();
+        Image * image = get_image();
+        image->draw(x + image->hotspot_x, y + image->hotspot_y);
     }
 }
 
@@ -2338,8 +2368,52 @@ inline bool match_wildcard(const std::string & pattern,
     return value == pattern;
 }
 
+static void encrypt_ini_data(std::string & data, const std::string & key)
+{
+    char v5[256];
+    char v10[256];
+    unsigned int v6 = 0;
+    char v9 = 0;
+
+    for (int i = 0; i < 256; i++) {
+        v10[i] = i;
+        v5[i] = 0;
+    }
+
+    v6 = 0;
+    if (!key.empty()) {
+        for (int i = 0; i < 256; i++) {
+            if (v6 == key.size())
+                v6 = 0;
+            v5[i] = key[v6++];
+        }
+    }
+
+    v6 = 0;
+    for (int i = 0; i < 256; i++) {
+        v6 = (v10[i] + v6 + v5[i]) % 256;
+        v9 = v10[i];
+        v10[i] = v10[v6];
+        v10[v6] = v9;
+    }
+
+    v6 = 0;
+    int i = 0;
+
+    for (unsigned int j = 0; j < data.size(); j++) {
+        i = (i + 1) % 256;
+        v6 = (v6 + v10[i]) % 256;
+        v9 = v10[i];
+        v10[i] = v10[v6];
+        v10[v6] = v9;
+        unsigned int v11 = (v10[v6] + v10[i]) % 256u;
+        data[j] ^= v10[v11];
+    }
+}
+
 INI::INI(int x, int y, int type_id)
-: FrameObject(x, y, type_id), overwrite(false), auto_save(false)
+: FrameObject(x, y, type_id), overwrite(false), auto_save(false),
+  use_compression(false)
 {
 }
 
@@ -2362,6 +2436,11 @@ void INI::parse_handler(const std::string & section, const std::string & name,
     if (!overwrite && has_item(section, name))
         return;
     data[section][name] = value;
+}
+
+void INI::set_group(const std::string & name)
+{
+    set_group(name, true);
 }
 
 void INI::set_group(const std::string & name, bool new_group)
@@ -2463,11 +2542,6 @@ double INI::get_value(const std::string & item, double def)
     return get_value(current_group, item, def);
 }
 
-double INI::get_value(const std::string & item)
-{
-    return get_value(item, 0.0);
-}
-
 double INI::get_value_index(const std::string & group, unsigned int index)
 {
     SectionMap::const_iterator it = data.find(group);
@@ -2527,8 +2601,31 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
     create_directories(filename);
+
+    if (!encrypt_key.empty() || use_compression) {
+        std::string new_data;
+
+        bool decompressed = false;
+
+        if (use_compression) {
+            if (decompress_huffman(filename.c_str(), new_data))
+                decompressed = true;
+        }
+
+        if (!use_compression || !decompressed) {
+            if (!read_file(filename.c_str(), new_data))
+                return;
+        }
+
+        if (!encrypt_key.empty()) {
+            encrypt_ini_data(new_data, encrypt_key);
+        }
+
+        load_string(new_data, true);
+        return;
+    }
+
     int e = ini_parse_file(filename.c_str(), _parse_handler, this);
-    std::cout << "Done loading" << std::endl;
     if (e != 0) {
         std::cout << "INI load failed (" << filename << ") with code " << e
         << std::endl;
@@ -2569,44 +2666,9 @@ void INI::set_encryption_key(const std::string & key)
     encrypt_key = key;
 }
 
-inline void encrypt_ini_data(std::string & data, const std::string & key)
+void INI::set_compression(bool value)
 {
-    char v11[256];
-    for (int i = 0; i < 256; i++) {
-        v11[i] = i;
-    }
-
-    char v6[256];
-    for (int i = 0; i < 256; i++) {
-        v6[i] = 0;
-    }
-
-    if (!key.empty()) {
-        for (int i = 0; i < 256; i++) {
-            v6[i] = key[i % key.size()];
-        }
-    }
-
-    int v7 = 0;
-    for (int i = 0; i < 256; i++) {
-        v7 = (v6[i] + v11[i] + v7) % 256;
-        char v10 = v11[i];
-        v11[i] = v11[v7];
-        v11[v7] = v10;
-    }
-
-    v7 = 0;
-    int i = 0;
-    for (unsigned int j = 0; j < data.size(); j++) {
-        i = (i + 1) % 256;
-        v7 = (v7 + v11[i]) % 256;
-        char v10 = v11[i];
-        v11[i] = v11[v7];
-        v11[v7] = v10;
-        int v12 = (v11[v7] + v11[i]) % 256;
-        char v5 = v11[v12];
-        data[j] ^= v5;
-    }
+    use_compression = value;
 }
 
 void INI::save_file(const std::string & fn, bool force)
@@ -2617,10 +2679,17 @@ void INI::save_file(const std::string & fn, bool force)
     create_directories(filename);
     std::stringstream out;
     get_data(out);
-    FSFile fp(filename.c_str(), "w");
     std::string outs = out.str();
+
     if (!encrypt_key.empty())
         encrypt_ini_data(outs, encrypt_key);
+
+    if (use_compression) {
+        compress_huffman(outs, filename.c_str());
+        return;
+    }
+
+    FSFile fp(filename.c_str(), "w");
     fp.write(&outs[0], outs.size());
     fp.close();
 }
@@ -2894,11 +2963,17 @@ bool File::name_exists(const std::string & path)
 
 void File::delete_file(const std::string & path)
 {
-    if (!platform_remove_file(path))
-        std::cout << "Could not remove " << path << std::endl;
+    if (platform_remove_file(path))
+        return;
+    // std::cout << "Could not remove " << path << std::endl;
 }
 
 // WindowControl
+
+WindowControl::WindowControl(int x, int y, int type_id)
+: FrameObject(x, y, type_id)
+{
+}
 
 bool WindowControl::has_focus()
 {
@@ -2915,6 +2990,18 @@ void WindowControl::set_focus(bool value)
     platform_set_focus(value);
 }
 
+int WindowControl::get_x()
+{
+    std::cout << "Get window x" << std::endl;
+    return 0;
+}
+
+int WindowControl::get_y()
+{
+    std::cout << "Get window y" << std::endl;
+    return 0;
+}
+
 void WindowControl::set_x(int x)
 {
     std::cout << "Set window x: " << x << std::endl;
@@ -2923,6 +3010,12 @@ void WindowControl::set_x(int x)
 void WindowControl::set_y(int y)
 {
     std::cout << "Set window y: " << y << std::endl;
+}
+
+void WindowControl::set_position(int x, int y)
+{
+    set_x(x);
+    set_y(y);
 }
 
 void WindowControl::set_width(int w)
@@ -3143,6 +3236,77 @@ void ArrayObject::initialize(bool numeric, int offset, int x, int y, int z)
     clear();
 }
 
+#define CT_ARRAY_MAGIC "CNC ARRAY"
+#define ARRAY_MAJOR_VERSION 2
+#define ARRAY_MINOR_VERSION 0
+
+#define NUMERIC_FLAG 1
+#define TEXT_FLAG 2
+#define BASE1_FLAG 4
+
+void ArrayObject::load(const std::string & filename)
+{
+    FSFile fp(convert_path(filename).c_str(), "r");
+    if (!fp.is_open()) {
+        std::cout << "Could not load array " << filename << std::endl;
+        return;
+    }
+
+    FileStream stream(fp);
+
+    std::string magic;
+    stream.read_string(magic, sizeof(CT_ARRAY_MAGIC));
+
+    if (magic != CT_ARRAY_MAGIC) {
+        std::cout << "Invalid CT_ARRAY_MAGIC" << std::endl;
+        return;
+    }
+
+    short major, minor;
+
+    stream >> major;
+    if (major != ARRAY_MAJOR_VERSION) {
+        std::cout << "Invalid ARRAY_MAJOR_VERSION" << std::endl;
+        return;
+    }
+
+    stream >> minor;
+    if (minor != ARRAY_MINOR_VERSION) {
+        std::cout << "Invalid ARRAY_MINOR_VERSION" << std::endl;
+        return;
+    }
+
+    stream >> x_size;
+    stream >> y_size;
+    stream >> z_size;
+
+    int flags;
+    stream >> flags;
+
+    is_numeric = (flags & NUMERIC_FLAG) != 0;
+    offset = int((flags & BASE1_FLAG) != 0);
+
+    delete[] array;
+    delete[] strings;
+    array = NULL;
+    strings = NULL;
+    clear();
+
+    for (int i = 0; i < x_size * y_size * z_size; i++) {
+        if (is_numeric) {
+            int value;
+            stream >> value;
+            array[i] = double(value);
+        } else {
+            int len;
+            stream >> len;
+            stream.read_string(strings[i], len);
+        }
+    }
+
+    fp.close();
+}
+
 double & ArrayObject::get_value(int x, int y)
 {
     x -= offset;
@@ -3242,9 +3406,9 @@ void LayerObject::set_alpha_coefficient(int index, int alpha)
 
 double LayerObject::get_alterable(FrameObject * instance)
 {
-    if (instance->values == NULL)
+    if (instance->alterables == NULL)
         return def;
-    return instance->values->get(sort_index);
+    return instance->alterables->values.get(sort_index);
 }
 
 bool LayerObject::sort_func(FrameObject * a, FrameObject * b)
@@ -3433,6 +3597,17 @@ void TextBlitter::set_x_align(int value)
     }
 }
 
+int TextBlitter::get_x_align()
+{
+    if (alignment & ALIGN_LEFT)
+        return 0;
+    if (alignment & ALIGN_HCENTER)
+        return 1;
+    if (alignment & ALIGN_RIGHT)
+        return 2;
+    return 0;
+}
+
 void TextBlitter::set_x_spacing(int value)
 {
     x_spacing = value;
@@ -3467,47 +3642,78 @@ void TextBlitter::flash(float value)
 
 void TextBlitter::draw()
 {
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    blend_color.apply();
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, image->tex);
 
-    std::string::const_iterator it;
-    int xx = x;
-    int yy = y;
+    int x_add = char_width + x_spacing;
 
-    // XXX support horizontal spacing for center alignment
-    if (alignment & ALIGN_HCENTER)
-        xx += width / 2 - (text.size() * char_width) / 2;
+    int yy = y;
     if (alignment & ALIGN_VCENTER)
         yy += height / 2 - char_height / 2;
 
-    for (it = text.begin(); it != text.end(); it++) {
-        unsigned char c = (unsigned char)(*it);
-        int i = charmap[c];
-        int img_x = (i * char_width) % image->width;
-        int img_y = ((i * char_width) / image->width) * char_height;
+    for (unsigned int i = 0; i < text.size(); i++) {
+        int start = i;
+        int size = 0;
 
-        float t_x1 = float(img_x) / float(image->width);
-        float t_x2 = float(img_x+char_width) / float(image->width);
-        float t_y1 = float(img_y) / float(image->height);
-        float t_y2 = float(img_y+char_height) / float(image->height);
+        // find start + end of line
+        while (true) {
+            if (i >= text.size())
+                break;
+            if (text[i] == '\n')
+                break;
+            if (size * x_add > width) {
+                i--;
+                break;
+            }
+            unsigned char c = (unsigned char)text[i];
+            i++;
+            if (c == '\r')
+                continue;
+            // remove leading spaces
+            if (i-1 == start && c == ' ') {
+                start++;
+                continue;
+            }
+            size++;
+        }
 
-        glBegin(GL_QUADS);
-        glTexCoord2f(t_x1, t_y1);
-        glVertex2i(xx, yy);
-        glTexCoord2f(t_x2, t_y1);
-        glVertex2i(xx + char_width, yy);
-        glTexCoord2f(t_x2, t_y2);
-        glVertex2i(xx + char_width, yy + char_height);
-        glTexCoord2f(t_x1, t_y2);
-        glVertex2i(xx, yy + char_height);
-        glEnd();
+        int xx = x;
 
-        if (c == '\n') {
-            xx = x;
-            yy += char_height;
-        } else
-            xx += char_width + x_spacing;
+        if (alignment & ALIGN_HCENTER)
+            xx += width / 2 - (size * char_width) / 2
+                  - ((size - 1) * x_spacing) / 2;
+        else if (alignment & ALIGN_RIGHT)
+            xx += width - size * char_width - (size - 1) * x_spacing;
+
+        // draw line
+        for (int ii = start; ii < start+size; ii++) {
+            unsigned char c = (unsigned char)text[ii];
+
+            int i = charmap[c];
+            int img_x = (i * char_width) % image->width;
+            int img_y = ((i * char_width) / image->width) * char_height;
+
+            float t_x1 = float(img_x) / float(image->width);
+            float t_x2 = float(img_x+char_width) / float(image->width);
+            float t_y1 = float(img_y) / float(image->height);
+            float t_y2 = float(img_y+char_height) / float(image->height);
+
+            glBegin(GL_QUADS);
+            glTexCoord2f(t_x1, t_y1);
+            glVertex2i(xx, yy);
+            glTexCoord2f(t_x2, t_y1);
+            glVertex2i(xx + char_width, yy);
+            glTexCoord2f(t_x2, t_y2);
+            glVertex2i(xx + char_width, yy + char_height);
+            glTexCoord2f(t_x1, t_y2);
+            glVertex2i(xx, yy + char_height);
+            glEnd();
+
+            xx += x_add;
+        }
+
+        yy += char_height;
     }
 
     glDisable(GL_TEXTURE_2D);
@@ -3525,9 +3731,6 @@ PlatformObject::PlatformObject(int x, int y, int type_id)
   platform_collision(false), on_ground(false), through_collision_top(false),
   jump_through(false)
 {
-    // XXX hack
-    // if (x == -424 && y == -352)
-    //     last_instance = this;
 }
 
 void PlatformObject::update(float dt)
@@ -3538,10 +3741,6 @@ void PlatformObject::update(float dt)
 
     if (instance == NULL || paused || instance->flags & DESTROYING)
         return;
-
-    // XXX hack
-    // if (this != last_instance && !last_instance->paused)
-    //     return;
 
     if (r && !l)
         x_vel += x_accel;

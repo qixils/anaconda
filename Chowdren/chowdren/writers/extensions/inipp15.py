@@ -20,12 +20,20 @@ class INI(ObjectWriter):
         is_global = data.readInt() == 1
         data.skipBytes(1)
         global_key = data.readString()
+        data.seek(3271)
+        use_compression = data.readByte() == 1
+        use_encryption = data.readByte() == 1
+        key = data.readString()
         if auto_save:
             writer.putln('auto_save = true;')
         if is_global:
             writer.putln(to_c('set_global_data(%r);', global_key))
         elif filename:
             writer.putlnc('load_file(%r);', filename)
+        if use_compression:
+            writer.putlnc('use_compression = true;')
+        if use_encryption:
+            writer.putlnc('encrypt_key = %r;', key)
 
 class PerformSearch(ActionMethodWriter):
     def write(self, writer):
@@ -44,15 +52,17 @@ class DeletePattern(ActionMethodWriter):
 class MergeObject(ActionMethodWriter):
     def write(self, writer):
         name = self.parameters[0].loader.data.readString()
-        handle = self.converter.name_to_item[name].handle
+        item = self.converter.name_to_item[name]
+        handle = (item.handle, item.objectType)
         overwrite = self.convert_index(1)
         writer.put('merge_object(%s, %s);' % (self.converter.get_object(handle),
-            overwrite))
+                   overwrite))
 
 class MergeGroupObject(ActionMethodWriter):
     def write(self, writer):
         name = self.parameters[0].loader.data.readString()
-        handle = self.converter.name_to_item[name].handle
+        item = self.converter.name_to_item[name]
+        handle = (item.handle, item.objectType)
         src_group = self.convert_index(1)
         dst_group = self.convert_index(2)
         overwrite = self.convert_index(3)
@@ -117,6 +127,10 @@ class SortGroup(ActionMethodWriter):
             raise NotImplementedError
         writer.put('sort_group_by_name(%s);' % group)
 
+class GetMD5(ExpressionMethodWriter):
+    has_object = False
+    method = 'get_md5'
+
 actions = make_table(ActionMethodWriter, {
     0 : 'set_group',
     14 : 'set_value', # specified group
@@ -137,6 +151,7 @@ actions = make_table(ActionMethodWriter, {
     40 : MergeObject,
     41 : MergeGroupObject,
     47 : 'close',
+    50 : 'set_compression',
     51 : 'set_encryption_key',
     71 : SortGroup,
     78 : FileOperation
@@ -165,7 +180,8 @@ expressions = make_table(ExpressionMethodWriter, {
     20 : 'get_search_result_group',
     19 : 'get_search_count',
     37 : 'get_item_part',
-    25 : 'as_string()'
+    25 : 'as_string()',
+    26 : GetMD5
 })
 
 def get_object():

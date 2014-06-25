@@ -148,7 +148,7 @@ class CodeWriter(object):
             self.putlnc('#define %s', name)
             return
         if isinstance(value, str):
-            value = '"%s"' % value
+            value = to_c('%r', value)
         self.putln('#define %s %s' % (name, value))
 
     def putindent(self, extra = 0):
@@ -381,6 +381,7 @@ class EventContainer(object):
         self.parent = parent
         self.children = []
         self.end_label = '%s_end' % self.code_name
+        hacks.init_container(parent, self)
 
     def add_child(self, child):
         self.children.append(child)
@@ -830,11 +831,11 @@ class Converter(object):
         for frameitem in game.frameItems.items:
             name = frameitem.name
             self.name_to_item[name] = frameitem
-            handle = frameitem.handle
+            handle = (frameitem.handle, frameitem.objectType)
             if name is None:
-                class_name = 'Object%s' % handle
+                class_name = 'Object%s' % handle[0]
             else:
-                class_name = get_class_name(name) + '_' + str(handle)
+                class_name = get_class_name(name) + '_' + str(handle[0])
             object_type = frameitem.properties.objectType
             try:
                 object_writer = self.get_object_writer(object_type)(
@@ -846,11 +847,11 @@ class Converter(object):
             for define in object_writer.defines:
                 extra.add_define(define)
             self.all_objects[handle] = object_writer
-            self.object_types[handle] = object_type
+            self.object_types[handle[0]] = object_type
+            extension_includes.update(object_writer.includes)
             if (object_writer.static or extra.is_special_object(name)
                 or object_writer.class_name == 'Undefined'):
                 continue
-            extension_includes.update(object_writer.includes)
             common = object_writer.common
             subclass = object_writer.class_name
             self.object_names[handle] = class_name
@@ -886,19 +887,6 @@ class Converter(object):
             if object_writer.is_background():
                 objects_file.putln('flags |= BACKGROUND;')
 
-            # qualifiers = object_writer.get_qualifiers()
-            # if qualifiers:
-            #     qualifier_names = []
-            #     for qualifier in qualifiers:
-            #         if qualifier in self.qualifier_names:
-            #             qualifier_name = self.qualifier_names[qualifier]
-            #             qualifier_mask_name = '%s_mask' % qualifier_name
-            #         else:
-            #             qualifier_name = 'Qualifier_%s' % qualifier
-            #             shift = qualifier_id.next()
-            #             qualifiers_header.putdefine(qualifier_name, shift)
-            #             self.qualifier_names[qualifier] = qualifier_name
-
             if not object_writer.is_visible():
                 objects_file.putln('set_visible(false);')
 
@@ -930,7 +918,7 @@ class Converter(object):
                     shader_data = game.shaders.items[frameitem.shaderId]
                     shader_name = shader_data.name
                 elif ink_effect == SEMITRANSPARENT_EFFECT:
-                    a = 255 - frameitem.inkEffectValue
+                    a = min(255, (128 - frameitem.inkEffectValue) * 2)
                     if object_writer.has_color:
                         objects_file.putlnc('blend_color.a = %s;', a)
                     else:
@@ -962,6 +950,8 @@ class Converter(object):
                                 reader.readByte(True),
                                 reader.readByte(True),
                                 reader.readByte(True)))
+                        elif parameter.type == IMAGE:
+                            value = get_image_name(reader.readShort(), False)
                         else:
                             print 'shader parameter type not supported:',
                             print parameter.type
@@ -1035,15 +1025,18 @@ class Converter(object):
         extensions_file.close()
 
         # write object updates
-        lists_file.putmeth('void global_object_update', 'float dt')
-        lists_file.putln('ObjectList::iterator it;')
+        update_calls = []
         for handle in self.object_names.keys():
             writer = self.all_objects[handle]
             has_updates = writer.has_updates()
             has_movements = writer.has_movements()
             if not has_updates and not has_movements:
                 continue
+            func_name = 'update_%s' % handle[0]
+            update_calls.append(func_name)
+            lists_file.putmeth('inline void %s' % func_name, 'float dt')
             lists_file.start_brace()
+            lists_file.putln('ObjectList::iterator it;')
             list_name = self.get_object_list(handle)
             lists_file.putlnc('for (it = %s.begin(); it != %s.end(); it++) {',
                               list_name, list_name)
@@ -1063,12 +1056,20 @@ class Converter(object):
                 lists_file.dedent()
             lists_file.end_brace()
             lists_file.end_brace()
+            lists_file.end_brace()
+
+        lists_file.putmeth('void global_object_update', 'float dt')
+        for call in update_calls:
+            lists_file.putlnc('%s(dt);', call)
         lists_file.end_brace()
 
         processed_frames = []
 
+        frame_dict = dict(enumerate(game.frames))
+        frame_dict = hacks.get_frames(self, frame_dict)
+
         # frames
-        for frame_index, frame in enumerate(game.frames[:1]):
+        for frame_index, frame in frame_dict.iteritems():
             frame_file = FrameFileWriter(frame_index+1, self)
             frame_class_name = self.frame_class = frame_file.class_name
             frame.load()
@@ -1086,14 +1087,15 @@ class Converter(object):
 
             for instance in getattr(frame.instances, 'items', ()):
                 frameitem = instance.getObjectInfo(game.frameItems)
+                obj = (frameitem.handle, frameitem.objectType)
                 try:
-                    object_writer = self.all_objects[frameitem.handle]
+                    object_writer = self.all_objects[obj]
                     object_writers.append(object_writer)
                 except KeyError:
                     continue
                 if object_writer.static:
                     continue
-                if frameitem.handle not in self.object_names:
+                if obj not in self.object_names:
                     continue
                 common = frameitem.properties.loader
                 try:
@@ -1102,24 +1104,28 @@ class Converter(object):
                     create_startup = True
                 if create_startup and instance.parentType == NONE_PARENT:
                     if frameitem in startup_set:
-                        self.multiple_instances.add(frameitem.handle)
+                        self.multiple_instances.add(obj)
                     startup_set.add(frameitem)
                     startup_instances.append((instance, frameitem))
                 if not create_startup:
-                    self.multiple_instances.add(frameitem.handle)
+                    self.multiple_instances.add(obj)
 
             events = frame.events
 
             self.qualifier_names = {}
             self.qualifiers = {}
             self.qualifier_types = {}
-            for qualifier in events.qualifiers.values():
+            for qualifier in events.qualifier_list:
+                qual_obj = (qualifier.objectInfo, qualifier.type)
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
-                self.qualifiers[qualifier.qualifier] = object_infos
-                self.qualifier_types[qualifier.qualifier] = qualifier.type
-                name = 'frame_%s_qualifier_%s' % (frame_index,
-                                                  qualifier.qualifier)
-                self.qualifier_names[qualifier.qualifier] = name
+                object_infos = [(info, qualifier.type)
+                                for info in object_infos]
+                self.qualifiers[qual_obj] = object_infos
+                self.qualifier_types[qual_obj] = qualifier.type
+                name = 'frame_%s_qualifier_%s_%s' % (frame_index,
+                                                     qualifier.qualifier,
+                                                     qualifier.type)
+                self.qualifier_names[qual_obj] = name
                 lists_header.putlnc('extern QualifierList %s;', name)
                 instances = []
                 for obj in object_infos:
@@ -1197,12 +1203,16 @@ class Converter(object):
                     if action_name in ('CreateObject', 'Shoot',
                                        'DisplayText', 'Destroy'):
                         if action_name == 'Destroy':
-                            create_info = action.objectInfo
+                            create_info = (action.objectInfo,
+                                           action.objectType)
                         else:
-                            create_info = action.items[0].loader.objectInfo
-                        if create_info == 0xFFFF:
+                            info = action.items[0].loader.objectInfo
+
+                            create_info = (info, self.object_types[info])
+                        if create_info[0] == 0xFFFF:
                             # the case for DisplayText
-                            create_info = action.objectInfo
+                            create_info = (action.objectInfo,
+                                           action.objectType)
                         create_infos = self.resolve_qualifier(create_info)
                         for create_info in create_infos:
                             if self.all_objects[create_info].static:
@@ -1340,17 +1350,21 @@ class Converter(object):
 
             # frame_file.putln('FrameObject * obj_create;')
 
+            startup_instances = hacks.get_startup_instances(self,
+                                                            startup_instances)
+
             for instance, frameitem in startup_instances:
-                object_writer = self.all_objects[frameitem.handle]
+                obj = (frameitem.handle, frameitem.objectType)
+                object_writer = self.all_objects[obj]
                 if object_writer.is_background():
                     method = 'add_background_object'
                     object_func = 'create_%s' % get_method_name(
-                        self.object_names[frameitem.handle])
+                        self.object_names[obj])
                     frame_file.putlnc('%s(%s(%s, %s), %s);',
                                       method, object_func, instance.x,
                                       instance.y, instance.layer)
                     continue
-                self.create_object(frameitem.handle, instance.x, instance.y,
+                self.create_object(obj, instance.x, instance.y,
                                    instance.layer, None, frame_file)
 
             for object_writer in object_writers:
@@ -1483,11 +1497,12 @@ class Converter(object):
         frames_file = self.open_code('frames.h')
         frames_file.putln('')
         frames_file.putln('#include "common.h"')
-        frame_funcs = []
+        frame_funcs = {}
         for frame_index in processed_frames:
             frame_func = 'create_frame_%s' % frame_index
-            frame_funcs.append(frame_func)
-            frames_file.putln('Frame * %s(GameManager * manager);' % frame_func)
+            frame_funcs[frame_index-1] = frame_func
+            frames_file.putlnc('Frame * %s(GameManager * manager);',
+                               frame_func)
         frames_file.putln('')
         # config_file.putdef('BORDER_COLOR', header.borderColor)
         # config_file.putdefine('START_LIVES', header.initialLives)
@@ -1496,10 +1511,11 @@ class Converter(object):
         frames_file.putmeth('Frame ** get_frames', 'GameManager * manager')
         frames_file.putln('if (frames) return frames;')
 
-        frames_file.putln('frames = new Frame*[%s];' % len(frame_funcs))
+        frames_file.putln('frames = new Frame*[%s]();' % len(frame_funcs))
 
-        for i, frame in enumerate(frame_funcs):
-            frames_file.putln('frames[%s] = %s(manager);' % (i, frame))
+        for index in sorted(frame_funcs):
+            frame = frame_funcs[index]
+            frames_file.putlnc('frames[%s] = %s(manager);', index, frame)
 
         frames_file.putln('return frames;')
 
@@ -1606,8 +1622,8 @@ class Converter(object):
             it = name.replace('*', '')
             self.iterated_index = '%s.current_index' % it
 
-    def create_object(self, object_info, x, y, layer, object_name, writer):
-        name = self.get_object_name(object_info)
+    def create_object(self, obj, x, y, layer, object_name, writer):
+        name = self.get_object_name(obj)
         obj_create_func = 'create_%s' % get_method_name(name)
         arguments = [str(x), str(y)]
         if object_name:
@@ -1620,11 +1636,11 @@ class Converter(object):
     def begin_events(self):
         pass
 
-    def set_object(self, object_info, name):
-        self.has_single_selection[object_info] = name
+    def set_object(self, obj, name):
+        self.has_single_selection[obj] = name
 
-    def set_list(self, object_info, name):
-        self.has_selection[object_info] = name
+    def set_list(self, obj, name):
+        self.has_selection[obj] = name
 
     def clear_selection(self):
         self.has_selection = {}
@@ -1783,23 +1799,24 @@ class Converter(object):
                 negated = not condition_writer.is_negated()
                 object_name = None
                 has_multiple = False
-                object_info, object_type = condition_writer.get_object()
-                self.current_object = (object_info, object_type)
+                obj = condition_writer.get_object()
+                object_info, object_type = obj
+                self.current_object = obj
                 if object_info is not None:
                     try:
-                        object_name = self.get_object(object_info)
+                        object_name = self.get_object(obj)
                     except KeyError:
                         pass
-                if object_info in self.has_single_selection:
-                    object_name = self.has_single_selection[object_info]
-                    self.set_iterator(object_info, None, object_name)
+                if obj in self.has_single_selection:
+                    object_name = self.has_single_selection[obj]
+                    self.set_iterator(obj, None, object_name)
                 elif object_name is not None and self.has_multiple_instances(
-                        object_info):
-                    selected_name = self.create_list(object_info, writer)
+                        obj):
+                    selected_name = self.create_list(obj, writer)
                     if condition_writer.iterate_objects is not False:
                         has_multiple = True
-                        self.set_iterator(object_info, selected_name)
-                        iter_type = get_iter_type(object_info)
+                        self.set_iterator(obj, selected_name)
+                        iter_type = get_iter_type(obj)
                         writer.putlnc('for (%s it(%s); !it.end(); '
                                       'it++) {', iter_type, selected_name)
                         writer.indent()
@@ -1875,36 +1892,37 @@ class Converter(object):
                 continue
             has_multiple = False
             has_single = False
-            object_info, object_type = action_writer.get_object()
+            obj = action_writer.get_object()
+            object_info, object_type = obj
             if object_info is not None and not is_qualifier(object_info):
-                is_static = self.all_objects[object_info].static
+                is_static = self.all_objects[obj].static
                 if is_static and action_writer.ignore_static:
                     continue
-            self.current_object = (object_info, object_type)
+            self.current_object = obj
             if object_info is not None:
-                if object_info in self.has_single_selection:
+                if obj in self.has_single_selection:
                     has_single = True
-                elif self.has_multiple_instances(object_info):
+                elif self.has_multiple_instances(obj):
                     has_multiple = True
-                elif object_info not in self.object_names:
+                elif obj not in self.object_names:
                     object_info = None
             if action_writer.iterate_objects is False:
                 has_multiple = False
                 object_info = None
             object_name = None
             if has_single:
-                object_name = self.has_single_selection[object_info]
+                object_name = self.has_single_selection[obj]
             elif has_multiple:
-                list_name = self.create_list(object_info, writer)
-                iter_type = get_iter_type(object_info)
+                list_name = self.create_list(obj, writer)
+                iter_type = get_iter_type(obj)
                 writer.putlnc('for (%s it(%s); !it.end(); '
                               'it++) {', iter_type, list_name)
                 writer.indent()
-                self.set_iterator(object_info, list_name)
+                self.set_iterator(obj, list_name)
                 object_name = '*it'
             elif object_info is not None:
                 writer.putindent()
-                writer.put('%s->' % self.get_object(object_info))
+                writer.put('%s->' % self.get_object(obj))
             elif action_writer.static:
                 writer.put('%s::' % self.get_object_class(object_type,
                     star = False))
@@ -1956,7 +1974,7 @@ class Converter(object):
                 continue
             new_list = 'or_%s_%s' % (list_name, group.global_id)
             group.or_selected[obj] = new_list
-            if is_qualifier(obj):
+            if is_qualifier(obj[0]):
                 class_name = 'SavedQualifierSelection'
             else:
                 class_name = 'SavedSelection'
@@ -2009,15 +2027,15 @@ class Converter(object):
             while self.item_index < len(self.expression_items):
                 item = self.expression_items[self.item_index]
                 expression_writer = self.get_expression_writer(item)
-                object_info, object_type = expression_writer.get_object()
-                self.current_object = (object_info, object_type)
+                obj = expression_writer.get_object()
+                object_info, object_type = obj
+                self.current_object = obj
                 if expression_writer.static:
                     out += '%s::' % self.get_object_class(object_type,
                         star = False)
                 elif object_info is not None:
                     try:
-                        out += '%s->' % self.get_object(item.objectInfo,
-                                                        use_default=True)
+                        out += '%s->' % self.get_object(obj, use_default=True)
                     except KeyError:
                         pass
                 self.last_out = out
@@ -2027,21 +2045,25 @@ class Converter(object):
             parameter_name = type(container.loader).__name__
             parameter_type = container.getName()
             if parameter_name == 'Object':
-                return self.get_object(loader.objectInfo)
+                return self.get_object((loader.objectInfo, loader.objectType))
             elif parameter_name == 'Sample':
                 return loader.name
             elif parameter_name in ('Position', 'Shoot', 'Create'):
                 if parameter_name != 'Position':
-                    if self.all_objects[loader.objectInfo].static:
+                    obj = (loader.objectInfo,
+                           self.object_types[loader.objectInfo])
+                    if self.all_objects[obj].static:
                         return None
                 details = {}
                 if parameter_name == 'Position':
                     position = loader
                 elif parameter_name == 'Shoot':
                     details['shoot_speed'] = loader.shootSpeed
-                    details['shoot_object'] = loader.objectInfo
+                    details['shoot_object'] = (loader.objectInfo,
+                                               loader.objectType)
                 elif parameter_name == 'Create':
-                    create_info = loader.objectInfo
+                    create_info = (loader.objectInfo,
+                                   self.object_types[loader.objectInfo])
                     details['create_object'] = create_info
                 if parameter_name in ('Shoot', 'Create'):
                     position = loader.position
@@ -2056,7 +2078,8 @@ class Converter(object):
                 if flags['DefaultDirection']:
                     details['use_default_direction'] = True
                 if position.objectInfoParent != 0xFFFF:
-                    details['parent'] = position.objectInfoParent
+                    details['parent'] = (position.objectInfoParent,
+                                         position.typeParent)
                 details['layer'] = position.layer
                 details['x'] = position.x
                 details['y'] = position.y
@@ -2115,7 +2138,7 @@ class Converter(object):
                 return repr(directions[0])
 
     def has_multiple_instances(self, handle):
-        if is_qualifier(handle):
+        if is_qualifier(handle[0]):
             return True
         return handle in self.multiple_instances
 
@@ -2130,23 +2153,24 @@ class Converter(object):
         self.set_list(object_info, list_name)
         return list_name
 
-    def get_single(self, handle):
-        if handle in self.has_single_selection:
-            return self.has_single_selection[handle]
-        elif handle == self.iterate_object:
+    def get_single(self, obj):
+        if obj in self.has_single_selection:
+            return self.has_single_selection[obj]
+        elif obj == self.iterate_object:
             return self.iterated_name
         return None
 
-    def get_object(self, handle, as_list=False, use_default=False):
-        object_type = self.get_object_class(object_info = handle)
+    def get_object(self, obj, as_list=False, use_default=False):
+        handle, object_type = obj
+        object_type = self.get_object_class(object_type)
         use_index = (hacks.use_iteration_index(self) and self.iterated_index
                      and self.in_actions)
-        if handle in self.has_single_selection:
-            return self.has_single_selection[handle]
-        if self.iterated_object == handle:
+        if obj in self.has_single_selection:
+            return self.has_single_selection[obj]
+        if self.iterated_object == obj:
             return '((%s)%s)' % (object_type, self.iterated_name)
-        elif handle in self.has_selection:
-            ret = self.has_selection[handle]
+        elif obj in self.has_selection:
+            ret = self.has_selection[obj]
             if not as_list:
                 args = [ret]
                 if use_index:
@@ -2155,11 +2179,11 @@ class Converter(object):
                 ret = '((%s)get_single(%s))' % (object_type, args)
             return ret
         else:
-            name = self.get_object_list(handle)
+            name = self.get_object_list(obj)
             if as_list:
-                self.set_list(handle, name)
+                self.set_list(obj, name)
                 return '%s.clear_selection()' % name
-            type_id, is_qual = self.get_object_handle(handle)
+            type_id, is_qual = self.get_object_handle(obj)
             args = [name]
             if use_index:
                 args.append(self.iterated_index)
@@ -2172,30 +2196,30 @@ class Converter(object):
             args = ', '.join(args)
             return '((%s)%s(%s))' % (object_type, getter_name, args)
 
-    def get_object_list(self, handle):
-        if self.get_single(handle) is not None:
+    def get_object_list(self, obj):
+        if self.get_single(obj) is not None:
             raise NotImplementedError()
-        type_id, is_qual = self.get_object_handle(handle)
+        type_id, is_qual = self.get_object_handle(obj)
         if is_qual:
             return type_id
-        return self.get_list_name(self.get_object_name(handle))
+        return self.get_list_name(self.get_object_name(obj))
 
-    def get_object_name(self, handle):
-        if is_qualifier(handle):
-            return self.qualifier_names[get_qualifier(handle)]
+    def get_object_name(self, obj):
+        if is_qualifier(obj[0]):
+            return self.qualifier_names[obj]
         else:
-            return self.object_names[handle]
+            return self.object_names[obj]
 
     def get_list_name(self, object_name):
         return '%s_instances' % get_method_name(object_name, True)
 
-    def get_object_handle(self, handle):
-        if is_qualifier(handle):
-            return (self.qualifier_names[get_qualifier(handle)], True)
+    def get_object_handle(self, obj):
+        if is_qualifier(obj[0]):
+            return (self.qualifier_names[obj], True)
         try:
-            return ('%s_type' % self.object_names[handle], False)
+            return ('%s_type' % self.object_names[obj], False)
         except Exception, e:
-            data = self.all_objects[handle].data
+            data = self.all_objects[obj].data
             name = data.getTypeName()
             if name == 'Extension':
                 ext_index = data.objectType - EXTENSION_BASE
@@ -2204,17 +2228,16 @@ class Converter(object):
             print 'Could not get object type %r' % name
             raise e
 
-    def get_object_class(self, object_type = None, object_info = None,
-                         star = True):
-        if object_info is not None:
-            if self.current_object and object_info == self.current_object[0]:
-                object_type = self.current_object[1]
-            else:
-                if is_qualifier(object_info):
-                    object_type = self.qualifier_types[
-                        get_qualifier(object_info)]
-                else:
-                    object_type = self.object_types[object_info]
+    def get_object_class(self, object_type, star=True):
+        # if object_info is not None:
+        #     if self.current_object and object_info == self.current_object[0]:
+        #         object_type = self.current_object[1]
+        #     else:
+        #         if is_qualifier(object_info):
+        #             object_type = self.qualifier_types[
+        #                 get_qualifier(object_info)]
+        #         else:
+        #             object_type = self.object_types[object_info]
         try:
             ret = self.get_object_writer(object_type).class_name
             if star:
@@ -2231,10 +2254,10 @@ class Converter(object):
         else:
             return system_objects[object_type]
 
-    def resolve_qualifier(self, handle):
-        if not is_qualifier(handle):
-            return [handle]
-        return self.qualifiers[get_qualifier(handle)]
+    def resolve_qualifier(self, obj):
+        if not is_qualifier(obj[0]):
+            return [obj]
+        return self.qualifiers[obj]
 
     def get_condition_name(self, item):
         return self.get_ace_name(item, 'conditions')

@@ -13,6 +13,8 @@ public:
 
     }
 
+    // read
+
     void read_string(std::string & str, size_t len)
     {
         str.resize(len, 0);
@@ -93,8 +95,38 @@ public:
         return *this >> reinterpret_cast<short&>(v);
     }
 
+    // write
+
+    BaseStream & operator<<(char v)
+    {
+        write(&v, 1);
+        return *this;
+    }
+
+    BaseStream & operator<<(int v)
+    {
+        unsigned char data[4];
+        data[0] = v & 0xFF;
+        data[1] = (v >> 8) & 0xFF;
+        data[2] = (v >> 16) & 0xFF;
+        data[3] = (v >> 24) & 0xFF;
+        write((char*)data, 4);
+        return *this;
+    }
+
+    inline BaseStream & operator<<(unsigned int v)
+    {
+        return *this << (int)(v);
+    }
+
+    inline BaseStream & operator<<(unsigned char v)
+    {
+        return *this << (char)(v);
+    }
+
     // subclasses implements this
 
+    virtual void write(char * data, size_t len) = 0;
     virtual void read(char * data, size_t len) = 0;
     virtual void read_delim(std::string & str, char delim) = 0;
     virtual void seek(size_t pos) = 0;
@@ -130,6 +162,11 @@ public:
     {
         return fp.at_end();
     }
+
+    void write(char * data, size_t len)
+    {
+        fp.write(data, len);
+    }
 };
 
 class DataStream : public BaseStream
@@ -160,6 +197,11 @@ public:
     bool at_end()
     {
         return stream.peek() == EOF;
+    }
+
+    void write(char * data, size_t len)
+    {
+        stream.write(data, len);
     }
 };
 

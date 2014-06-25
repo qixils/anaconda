@@ -73,7 +73,7 @@ public:
 
     void set_semi_transparency(int a)
     {
-        set_alpha(((128 - a) * 255) / 128);
+        set_alpha((128 - a) * 2);
     }
 
     int get_alpha_coefficient()
@@ -83,7 +83,9 @@ public:
 
     int get_semi_transparency()
     {
-        return 128 - (a * 128) / 255;
+        if (a >= 255)
+            return 0;
+        return 128 - a / 2;
     }
 
     int get_int() const

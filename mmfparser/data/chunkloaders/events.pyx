@@ -22,7 +22,7 @@ from mmfparser.bytereader import checkDefault
 
 from mmfparser.bitdict import BitDict
 
-from mmfparser.data.chunkloaders import (actions, expressions, 
+from mmfparser.data.chunkloaders import (actions, expressions,
     conditions)
 from mmfparser.data.chunkloaders.parameters.loaders import (parameterLoaders,
     getName)
@@ -85,19 +85,22 @@ class Qualifier(DataLoader, _ObjectInfoMixin):
         self.objectInfo = reader.readShort(True)
         self.type = reader.readShort()
         self.qualifier = self.getQualifier()
-    
+
     def resolve_objects(self, frameItems):
         if self.objects:
             return self.objects
         objects = self.objects = []
         for item in frameItems.items:
             try:
-                if self.qualifier in item.properties.loader.qualifiers:
-                    objects.append(item.handle)
+                if not self.qualifier in item.properties.loader.qualifiers:
+                    continue
+                if item.objectType != self.type:
+                    continue
+                objects.append(item.handle)
             except AttributeError:
                 pass
         return objects
-    
+
     def write(self, ByteReader reader):
         reader.writeShort(self.objectInfo, True)
         reader.writeShort(self.type)
@@ -113,10 +116,10 @@ cdef class Parameter(DataLoader):
         self.code = reader.readShort()
         self.loader = self.new((<list>parameterLoaders)[self.code], reader)
         reader.seek(currentPosition+size)
-    
+
     def getName(self):
         return getName(self.code)
-    
+
     def write(self, ByteReader reader):
         newReader = ByteReader()
         newReader.writeShort(self.code)
@@ -129,7 +132,7 @@ cdef class Action(_AceCommon):
         object flags, otherFlags
         int defType
         list items
-    
+
     cpdef initialize(self):
         self.systemDict = actions.systemDict
         self.extensionDict = actions.extensionDict
@@ -148,10 +151,10 @@ cdef class Action(_AceCommon):
         cdef int numberOfParameters = reader.readByte()
         self.defType = reader.readByte()
         cdef int i
-        self.items = [self.new(Parameter, reader) 
+        self.items = [self.new(Parameter, reader)
             for i in range(numberOfParameters)]
         reader.seek(currentPosition+size)
-    
+
     def write(self, ByteReader reader):
         newReader = ByteReader()
         newReader.writeShort(self.objectType)
@@ -162,13 +165,13 @@ cdef class Action(_AceCommon):
         newReader.writeByte(self.otherFlags.getFlags(), True)
         newReader.writeByte(len(self.items))
         newReader.writeByte(self.defType)
-        
+
         for item in self.items:
             item.write(newReader)
-        
+
         reader.writeShort(len(newReader) + 2, True)
         reader.writeReader(newReader)
-    
+
     def getExtensionNum(self):
         return self.num - 80
 
@@ -177,13 +180,13 @@ cdef class Condition(_AceCommon):
         object flags, otherFlags
         int defType, identifier
         list items
-    
+
     cpdef initialize(self):
         self.systemDict = conditions.systemDict
         self.extensionDict = conditions.extensionDict
         self.flags = ACE_FLAGS.copy()
         self.otherFlags = ACE_OTHERFLAGS.copy()
-    
+
     cpdef read(self, ByteReader reader):
         cdef int currentPosition = reader.tell()
         cdef int size = reader.readShort(True)
@@ -196,14 +199,14 @@ cdef class Condition(_AceCommon):
         cdef int numberOfParameters = reader.readByte()
         self.defType = reader.readByte()
         self.identifier = reader.readShort() # Event identifier
-        
+
         cdef int i
-        
-        self.items = [self.new(Parameter, reader) 
+
+        self.items = [self.new(Parameter, reader)
             for i in range(numberOfParameters)]
-        
+
         reader.seek(currentPosition + size)
-    
+
     def write(self, ByteReader reader):
         newReader = ByteReader()
         newReader.writeShort(self.objectType)
@@ -215,13 +218,13 @@ cdef class Condition(_AceCommon):
         newReader.writeByte(len(self.items), True)
         newReader.writeByte(self.defType)
         newReader.writeShort(self.identifier)
-        
+
         for item in self.items:
             item.write(newReader)
-        
+
         reader.writeShort(len(newReader) + 2, True)
         reader.writeReader(newReader)
-    
+
     def getExtensionNum(self):
         return - self.num - 80 - 1
 
@@ -237,7 +240,7 @@ cdef class EventGroup(DataLoader):
 
     cpdef initialize(self):
         self.flags = GROUP_FLAGS.copy()
-    
+
     cpdef read(self, ByteReader reader):
         currentPosition = reader.tell()
         cdef int size = reader.readShort()*-1
@@ -249,20 +252,20 @@ cdef class EventGroup(DataLoader):
         self.restrictCpt = reader.readShort() # Counter
         self.identifier = reader.readShort() # Unique identifier
         self.undo = reader.readShort() # Identifier for UNDO
-        
+
         cdef int i
-        
-        self.conditions = [self.new(Condition, reader) 
+
+        self.conditions = [self.new(Condition, reader)
             for i in range(numberOfConditions)]
-            
-        self.actions = [self.new(Action, reader) 
+
+        self.actions = [self.new(Action, reader)
             for i in range(numberOfActions)]
 
         reader.seek(currentPosition + size)
-    
+
     def write(self, ByteReader reader):
         newReader = ByteReader()
-        
+
         newReader.writeByte(len(self.conditions), True)
         newReader.writeByte(len(self.actions), True)
         newReader.writeShort(self.flags.getFlags(), True)
@@ -270,13 +273,13 @@ cdef class EventGroup(DataLoader):
         newReader.writeShort(self.restrictCpt)
         newReader.writeShort(self.identifier)
         newReader.writeShort(self.undo)
-        
+
         for condition in self.conditions:
             condition.write(newReader)
 
         for action in self.actions:
             action.write(newReader)
-        
+
         reader.writeShort((len(newReader) + 2)*-1)
         reader.writeReader(newReader)
 
@@ -285,17 +288,18 @@ cdef class Events(DataLoader):
         int maxObjects
         int maxObjectInfo
         int numberOfPlayers
+        list qualifier_list
         dict qualifiers
         list numberOfConditions
         list items
         list groups
-    
+
     cpdef initialize(self):
         self.qualifiers = {}
         self.numberOfConditions = []
         self.items = []
         self.groups = []
-    
+
     cpdef read(self, ByteReader reader):
         java = self.settings.get('java', False)
         while 1:
@@ -306,11 +310,13 @@ cdef class Events(DataLoader):
                 self.numberOfPlayers = reader.readShort()
                 self.numberOfConditions = [reader.readShort()
                     for _ in xrange(17)]
+                self.qualifier_list = []
                 self.qualifiers = qualifiers = {}
                 for _ in xrange(reader.readShort()):
                     newQualifier = self.new(Qualifier, reader)
+                    self.qualifier_list.append(newQualifier)
                     qualifiers[newQualifier.qualifier] = newQualifier
-                    
+
             elif identifier == EVENT_COUNT:
                 # just ignoring here, we'll be getting
                 # number of events in EVENTGROUP_DATA
@@ -333,7 +339,7 @@ cdef class Events(DataLoader):
                         self.items.append(self.new(EventGroup, reader))
                         if reader.tell() >= endPosition:
                             break
-                
+
             elif identifier == END:
                 break
             else:
@@ -341,16 +347,16 @@ cdef class Events(DataLoader):
                 code.interact(local = locals())
                 raise NotImplementedError(
                     'identifier %r not implemented (%s)' % (identifier, reader.tell()))
-    
+
     def write(self, ByteReader reader):
         java = self.settings.get('java', False)
-        
+
         eventReader = ByteReader()
         if java:
             eventReader.writeInt(len(self.items))
         for eventGroup in self.items:
             eventGroup.write(eventReader)
-        
+
         reader.write(HEADER)
         reader.writeShort(self.maxObjects)
         reader.writeShort(self.maxObjectInfos)
@@ -360,16 +366,15 @@ cdef class Events(DataLoader):
         reader.writeShort(len(self.qualifiers))
         for item in self.qualifiers:
             item.write(reader)
-        
+
         reader.write(EVENT_COUNT)
         reader.writeInt(len(eventReader))
         if java:
             reader.writeInt(len(self.items))
-        
+
         if self.items:
             reader.write(EVENTGROUP_DATA)
             reader.writeInt(len(eventReader))
             reader.writeReader(eventReader)
-        
+
         reader.write(END)
-        

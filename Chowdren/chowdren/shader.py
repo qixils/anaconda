@@ -13,6 +13,7 @@ INK_EFFECTS = {
 }
 
 NATIVE_SHADERS = {
+    None : 'NULL',
     'Sub' : 'subtract_shader',
     'Add' : 'additive_shader',
     'ColorMixer.fx' : 'mixer_shader',
@@ -30,7 +31,20 @@ NATIVE_SHADERS = {
     'LinearDodge.fx' : 'dummy_shader',
     'SoftLight.fx' : 'dummy_shader',
     'PinLight.fx' : 'dummy_shader',
-    'Invert' : 'invert_shader'
+    'Invert' : 'invert_shader',
+
+    # HFA shaders, implement these eventually
+    'SimpleMask.fx' : 'dummy_shader',
+    'RotateSub.fx' : 'dummy_shader',
+    'Offsetstationary.fx' : 'dummy_shader',
+    'ChannelBlur.fx' : 'dummy_shader',
+    'BgBloom.fx' : 'dummy_shader',
+    'Pattern Overlay alonso.fx' : 'dummy_shader',
+    'CS_UnderWater.fx' : 'dummy_shader',
+    'CS_Tint.fx' : 'dummy_shader',
+    'HardLight.fx' : 'dummy_shader',
+    'Multiply.fx' : 'dummy_shader',
+    'GrainPS2.fx' : 'dummy_shader'
 }
 
 def get_name(name):

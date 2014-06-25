@@ -46,6 +46,41 @@ enum ObjectFlags
     BACKGROUND = (1 << 4)
 };
 
+#ifdef CHOWDREN_USE_VALUEADD
+
+class ExtraAlterables
+{
+public:
+    hash_map<int, double> values;
+    hash_map<int, std::string> strings;
+
+    ExtraAlterables()
+    {
+    }
+
+    double get_value(int key)
+    {
+        return values[key];
+    }
+
+    const std::string & get_string(int key)
+    {
+        return strings[key];
+    }
+
+    void set_value(int key, double value)
+    {
+        values[key] = value;
+    }
+
+    void set_string(int key, const std::string & value)
+    {
+        strings[key] = value;
+    }
+};
+
+#endif
+
 class FrameObject
 {
 public:
@@ -59,8 +94,7 @@ public:
     int direction;
     int id;
     int flags;
-    AlterableValues * values;
-    AlterableStrings * strings;
+    Alterables * alterables;
     Color blend_color;
     Frame * frame;
     Layer * layer;
@@ -72,6 +106,10 @@ public:
     InstanceCollision * collision;
 #ifdef CHOWDREN_USE_BOX2D
     int body;
+#endif
+
+#ifdef CHOWDREN_USE_VALUEADD
+    ExtraAlterables * extra_alterables;
 #endif
 
     FrameObject(int x, int y, int type_id);
@@ -100,6 +138,7 @@ public:
     void set_layer(int layer);
     void set_shader(Shader * shader);
     void set_shader_parameter(const std::string & name, double value);
+    void set_shader_parameter(const std::string & name, Image & image);
     void set_shader_parameter(const std::string & name, const Color & color);
     double get_shader_parameter(const std::string & name);
     int get_level();
@@ -124,6 +163,15 @@ public:
     virtual void flash(float value);
     virtual void set_animation(int value);
     virtual void set_offset(int dx, int dy);
+
+#ifdef CHOWDREN_USE_VALUEADD
+    ExtraAlterables & get_extra_alterables()
+    {
+        if (extra_alterables == NULL)
+            extra_alterables = new ExtraAlterables;
+        return *extra_alterables;
+    }
+#endif
 };
 
 typedef std::vector<FrameObject*> FlatObjectList;

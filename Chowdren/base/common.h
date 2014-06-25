@@ -64,7 +64,7 @@ inline void split_string(const std::string & str, const std::string & delims,
 // string helpers
 
 inline int string_find(const std::string & a, const std::string & b,
-                          size_t pos)
+                       size_t pos)
 {
     size_t ret = a.find(b, pos);
     if (ret == std::string::npos)
@@ -73,7 +73,7 @@ inline int string_find(const std::string & a, const std::string & b,
 }
 
 inline int string_rfind(const std::string & a, const std::string & b,
-                           size_t pos)
+                        size_t pos)
 {
     size_t ret = a.rfind(b, pos);
     if (ret == std::string::npos)
@@ -98,20 +98,21 @@ inline std::string uppercase_string(std::string v)
     return v;
 }
 
-inline std::string right_string(const std::string & v, size_t count)
+inline std::string right_string(const std::string & v, int count)
 {
-    size_t index = v.size() - count;
+    count = int_min(int(v.size()), count);
+    int index = int(v.size()) - count;
     return v.substr(index, count);
 }
 
-inline std::string mid_string(const std::string & v, size_t index, size_t count)
+inline std::string mid_string(const std::string & v, int index, int count)
 {
-    if (index > v.size())
+    if (index > int(v.size()))
         return "";
     return v.substr(index, count);
 }
 
-inline std::string left_string(const std::string & v, size_t count)
+inline std::string left_string(const std::string & v, int count)
 {
     return v.substr(0, count);
 }
@@ -175,7 +176,7 @@ public:
     int count;
     Animation ** items;
 
-    Animations(int count);
+    Animations(int count, Animation ** items);
 };
 
 class Active : public FrameObject
@@ -193,7 +194,6 @@ public:
     bool collision_box;
     bool stopped;
     float flash_time, flash_interval;
-    unsigned int alterable_flags;
     int animation_finished;
     bool auto_rotate;
     bool transparent;
@@ -348,26 +348,32 @@ public:
 #define HIDDEN_COUNTER 0
 #define IMAGE_COUNTER 1
 #define VERTICAL_UP_COUNTER 2
+#define ANIMATION_COUNTER 3
+#define HORIZONTAL_LEFT_COUNTER 4
 
 class Counter : public FrameObject
 {
 public:
-    Image * images[14];
+    int image_count;
+    Image ** images;
     double value;
-    double minimum, maximum;
+    int minimum, maximum;
     std::string cached_string;
     int type;
     float flash_time, flash_interval;
+    int gradient_type;
     Color color1;
+    Color color2;
     int zero_pad;
 
     Counter(int x, int y, int type_id);
     ~Counter();
     Image * get_image(char c);
+    Image * get_image();
     void add(double value);
     void subtract(double value);
-    void set_max(double value);
-    void set_min(double value);
+    void set_max(int value);
+    void set_min(int value);
     void set(double value);
     void draw();
     void calculate_box();
@@ -402,6 +408,7 @@ public:
     bool overwrite;
     bool read_only;
     bool auto_save;
+    bool use_compression;
     std::string filename;
     std::string global_key;
     std::string encrypt_key;
@@ -412,6 +419,7 @@ public:
                              const char* value);
     void parse_handler(const std::string & section, const std::string & name,
                        const std::string & value);
+    void set_group(const std::string & name);
     void set_group(const std::string & name, bool new_group);
     std::string get_string(const std::string & item);
     std::string get_string(const std::string & group, const std::string & item,
@@ -422,10 +430,9 @@ public:
     std::string get_item_name(const std::string & group, unsigned int index);
     std::string get_item_name(unsigned int index);
     std::string get_group_name(unsigned int index);
-    double get_value(const std::string & item);
     double get_value(const std::string & group, const std::string & item,
-                     double def);
-    double get_value(const std::string & item, double def);
+                     double def=0.0);
+    double get_value(const std::string & item, double def=0.0);
     double get_value_index(const std::string & group, unsigned int index);
     double get_value_index(unsigned int index);
     void set_value(const std::string & group, const std::string & item,
@@ -442,6 +449,7 @@ public:
     void get_data(std::stringstream & out);
     void save_file(const std::string & fn, bool force = true);
     void set_encryption_key(const std::string & key);
+    void set_compression(bool value);
     std::string as_string();
     void save_file(bool force = true);
     void save_auto();
@@ -497,11 +505,16 @@ public:
     static bool file_readable(const std::string & path);
 };
 
-class WindowControl
+class WindowControl : public FrameObject
 {
 public:
+    WindowControl(int x, int y, int type_id);
+
+    static int get_x();
+    static int get_y();
     static void set_x(int x);
     static void set_y(int y);
+    static void set_position(int x, int y);
     static bool has_focus();
     static bool is_maximized();
     static void set_focus(bool value);
@@ -578,6 +591,7 @@ public:
     std::string & get_string(int x);
     void set_value(double value, int x, int y);
     void set_string(const std::string & value, int x);
+    void load(const std::string & filename);
 };
 
 class LayerObject : public FrameObject
@@ -647,6 +661,7 @@ public:
     void set_x_spacing(int spacing);
     void set_x_align(int value);
     void set_width(int width);
+    int get_x_align();
     void draw();
     void update(float dt);
     void flash(float value);
@@ -751,79 +766,7 @@ inline void reset_global_data()
 
 // event helpers
 
-struct MathHelper
-{
-    double lhs;
-    int lhs_int;
-};
-
-inline MathHelper & operator/(double lhs, MathHelper& rhs)
-{
-    rhs.lhs = lhs;
-    return rhs;
-}
-
-inline int operator/(const MathHelper& lhs, double rhs)
-{
-    return int(lhs.lhs / rhs);
-}
-
-inline MathHelper & operator*(double lhs, MathHelper& rhs)
-{
-    rhs.lhs = lhs;
-    return rhs;
-}
-
-inline double operator*(const MathHelper& lhs, double rhs)
-{
-    return pow(lhs.lhs, rhs);
-}
-
-inline MathHelper & operator%(double lhs, MathHelper& rhs)
-{
-    rhs.lhs = lhs;
-    return rhs;
-}
-
-inline double operator%(const MathHelper& lhs, double rhs)
-{
-    if (rhs == 0.0)
-        return 0.0;
-    return fmod(lhs.lhs, rhs);
-}
-
-inline MathHelper & operator&(int lhs, MathHelper& rhs)
-{
-    rhs.lhs_int = lhs;
-    return rhs;
-}
-
-inline int operator&(const MathHelper& lhs, int rhs)
-{
-    return lhs.lhs_int & rhs;
-}
-
-inline MathHelper & operator|(int lhs, MathHelper& rhs)
-{
-    rhs.lhs_int = lhs;
-    return rhs;
-}
-
-inline int operator|(const MathHelper& lhs, int rhs)
-{
-    return lhs.lhs_int | rhs;
-}
-
-inline MathHelper & operator^(int lhs, MathHelper& rhs)
-{
-    rhs.lhs_int = lhs;
-    return rhs;
-}
-
-inline int operator^(const MathHelper& lhs, int rhs)
-{
-    return lhs.lhs_int ^ rhs;
-}
+#include "mathhelper.h"
 
 extern MathHelper math_helper;
 
@@ -1286,7 +1229,7 @@ inline bool pick_random(QualifierList & instances)
 inline void spread_value(ObjectList & instances, int alt, int start)
 {
     for (ObjectIterator it(instances); !it.end(); it++) {
-        (*it)->values->set(alt, start);
+        (*it)->alterables->values.set(alt, start);
         start++;
     }
 }
@@ -1294,7 +1237,7 @@ inline void spread_value(ObjectList & instances, int alt, int start)
 inline void spread_value(QualifierList & instances, int alt, int start)
 {
     for (QualifierIterator it(instances); !it.end(); it++) {
-        (*it)->values->set(alt, start);
+        (*it)->alterables->values.set(alt, start);
         start++;
     }
 }
@@ -1333,6 +1276,8 @@ inline std::string get_command_arg(const std::string & arg)
     // XXX implement, maybe
     return "";
 }
+
+std::string get_md5(const std::string & value);
 
 inline std::string get_platform()
 {

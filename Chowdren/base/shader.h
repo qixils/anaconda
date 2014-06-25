@@ -47,6 +47,9 @@ extern Shader * offset_shader;
 extern Shader * dodgeblur_shader;
 extern Shader * invert_shader;
 extern Shader * grain_shader;
+extern Shader * multiply_shader;
+extern Shader * hardlight_shader;
+extern Shader * tint_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

@@ -205,6 +205,53 @@ public:
     }
 };
 
+class MultiplyShader : public GLSLShader
+{
+public:
+    MultiplyShader()
+    : GLSLShader("multiply", true)
+    {
+    }
+};
+
+class HardLightShader : public GLSLShader
+{
+public:
+    HardLightShader()
+    : GLSLShader("hardlight", true)
+    {
+    }
+};
+
+class TintShader : public GLSLShader
+{
+public:
+    int tint_color;
+    int tint_power;
+    int original_power;
+
+    TintShader()
+    : GLSLShader("tint", false)
+    {
+
+    }
+
+    void initialize_parameters()
+    {
+        tint_color = get_uniform("fTintColor");
+        tint_power = get_uniform("fTintPower");
+        original_power = get_uniform("fOriginalPower");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_vec4(instance, "fTintColor", tint_color);
+        set_float(instance, "fTintPower", tint_power);
+        set_float(instance, "fOriginalPower", original_power);
+    }
+};
+
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -236,6 +283,9 @@ Shader * offset_shader;
 Shader * dodgeblur_shader;
 Shader * invert_shader;
 Shader * grain_shader;
+Shader * multiply_shader;
+Shader * hardlight_shader;
+Shader * tint_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -254,6 +304,9 @@ void init_shaders()
     dodgeblur_shader = new DodgeBlurShader;
     invert_shader = new InvertShader;
     grain_shader = new GrainShader;
+    multiply_shader = new MultiplyShader;
+    hardlight_shader = new HardLightShader;
+    tint_shader = new TintShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

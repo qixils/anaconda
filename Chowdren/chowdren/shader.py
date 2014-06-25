@@ -39,12 +39,10 @@ NATIVE_SHADERS = {
     'ChannelBlur.fx' : 'channelblur_shader',
     'BgBloom.fx' : 'bgbloom_shader',
     'CS_UnderWater.fx' : 'underwater_shader',
-
-    # HFA shaders, implement these eventually
-    'SimpleMask.fx' : 'simple_mask_shader',
-    'RotateSub.fx' : 'rotate_sub_shader',
-    'Offsetstationary.fx' : 'offset_stationary_shader',
-    'Pattern Overlay alonso.fx' : 'pattern_overlay_shader'
+    'RotateSub.fx' : 'rotatesub_shader',
+    'SimpleMask.fx' : 'simplemask_shader',
+    'Offsetstationary.fx' : 'offsetstationary_shader',
+    'Pattern Overlay alonso.fx' : 'patternoverlay_shader'
 }
 
 def get_name(name):

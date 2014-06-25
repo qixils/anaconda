@@ -347,6 +347,96 @@ public:
     }
 };
 
+class RotateSubShader : public GLSLShader
+{
+public:
+    int angle, x, y, shift_x, shift_y;
+
+    RotateSubShader()
+    : GLSLShader("rotatesub", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        angle = get_uniform("fA");
+        x = get_uniform("fX");
+        y = get_uniform("fY");
+        shift_x = get_uniform("fSx");
+        shift_y = get_uniform("fSy");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fA", angle);
+        set_float(instance, "fX", x);
+        set_float(instance, "fY", y);
+        set_float(instance, "fSx", shift_x);
+        set_float(instance, "fSy", shift_y);
+    }
+};
+
+class SimpleMaskShader : public GLSLShader
+{
+public:
+    int fade, color;
+
+    SimpleMaskShader()
+    : GLSLShader("simplemask", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        color = get_uniform("fC");
+        fade = get_uniform("fFade");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fFade", fade);
+        set_vec4(instance, "fC", color);
+    }
+};
+
+class OffsetStationaryShader : public GLSLShader
+{
+public:
+
+    OffsetStationaryShader()
+    : GLSLShader("offsetstationary", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        //TODO
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+    }
+};
+
+class PatternOverlayShader : public GLSLShader
+{
+public:
+
+    PatternOverlayShader()
+    : GLSLShader("patternoverlay", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        //TODO
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -384,6 +474,10 @@ Shader * tint_shader;
 Shader * channelblur_shader;
 Shader * bgbloom_shader;
 Shader * underwater_shader;
+Shader * rotatesub_shader;
+Shader * simplemask_shader;
+Shader * offsetstationary_shader;
+Shader * patternoverlay_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -408,6 +502,10 @@ void init_shaders()
     channelblur_shader = new ChannelBlurShader;
     bgbloom_shader = new BgBloomShader;
     underwater_shader = new UnderwaterShader;
+    rotatesub_shader = new RotateSubShader;
+    simplemask_shader = new SimpleMaskShader;
+    offsetstationary_shader = new OffsetStationaryShader;
+    patternoverlay_shader = new PatternOverlayShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

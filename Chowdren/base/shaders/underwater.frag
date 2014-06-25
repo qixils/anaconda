@@ -1,7 +1,6 @@
 #version 120
 
 varying vec2 texture_coordinate;
-uniform sampler2D texture;
 uniform float fBlur;
 uniform float fAmplitudeX;
 uniform float fPeriodsX;

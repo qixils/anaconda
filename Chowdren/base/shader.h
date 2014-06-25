@@ -53,6 +53,10 @@ extern Shader * tint_shader;
 extern Shader * channelblur_shader;
 extern Shader * bgbloom_shader;
 extern Shader * underwater_shader;
+extern Shader * rotatesub_shader;
+extern Shader * simplemask_shader;
+extern Shader * offsetstationary_shader;
+extern Shader * patternoverlay_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

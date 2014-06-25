@@ -50,6 +50,7 @@ extern Shader * grain_shader;
 extern Shader * multiply_shader;
 extern Shader * hardlight_shader;
 extern Shader * tint_shader;
+extern Shader * channelblur_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

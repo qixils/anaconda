@@ -251,6 +251,35 @@ public:
     }
 };
 
+class ChannelBlurShader : public GLSLShader
+{
+public:
+    int coeff;
+    int r, g, b, a;
+
+    ChannelBlurShader()
+    : GLSLShader("channelblur", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        coeff = get_uniform("fCoeff");
+        r = get_uniform("iR");
+        g = get_uniform("iG");
+        b = get_uniform("iB");
+        a = get_uniform("iA");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fCoeff", coeff);
+        set_int(instance, "iR", r);
+        set_int(instance, "iG", g);
+        set_int(instance, "iB", b);
+        set_int(instance, "iA", a);
+    }
+};
 
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
@@ -286,6 +315,7 @@ Shader * grain_shader;
 Shader * multiply_shader;
 Shader * hardlight_shader;
 Shader * tint_shader;
+Shader * channelblur_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -307,6 +337,7 @@ void init_shaders()
     multiply_shader = new MultiplyShader;
     hardlight_shader = new HardLightShader;
     tint_shader = new TintShader;
+    channelblur_shader = new ChannelBlurShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

@@ -1,9 +1,9 @@
 #version 120
 
-varying vec2 texCoord;
-uniform sampler2D Texture0;
-uniform bool red, green, blue, alpha, invert;
-uniform float seed, strength;
+varying vec2 texture_coordinate;
+uniform sampler2D texture;
+uniform bool iR, iG, iB, iA, iInvert;
+uniform float fSeed, fStrength;
 #define M_PI 3.1415926535897932384626433832795
 
 float mccool_rand(vec2 ij)
@@ -22,12 +22,12 @@ float mccool_rand(vec2 ij)
 
 void main()
 {
-    vec4 col = texture2D(Texture0, texCoord);
-    float rand = mccool_rand(texCoord+seed)*strength;
-    rand = invert ? 1-rand : rand;
-    if (red) col.r *= rand;
-    if (green) col.g *= rand;
-    if (blue) col.b *= rand;
-    if (alpha) col.a *= rand;
+    vec4 col = texture2D(texture, texture_coordinate);
+    float rand = mccool_rand(texture_coordinate+fSeed)*fStrength;
+    rand = iInvert ? 1-rand : rand;
+    if (iR) col.r *= rand;
+    if (iG) col.g *= rand;
+    if (iB) col.b *= rand;
+    if (iA) col.a *= rand;
     gl_FragColor = col * gl_Color;
 }

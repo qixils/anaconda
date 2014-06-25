@@ -281,6 +281,72 @@ public:
     }
 };
 
+class BgBloomShader : public GLSLShader
+{
+public:
+    int radius;
+    int exponent;
+    int coeff;
+
+    BgBloomShader()
+    : GLSLShader("bgbloom", true)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        coeff = get_uniform("coeff");
+        radius = get_uniform("radius");
+        exponent = get_uniform("exponent");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "coeff", coeff);
+        set_float(instance, "exponent", exponent);
+        set_float(instance, "radius", radius);
+    }
+};
+
+class UnderwaterShader : public GLSLShader
+{
+public:
+    int blur;
+    int amplitudeX;
+    int periodsX;
+    int freqX;
+    int amplitudeY;
+    int periodsY;
+    int freqY;
+
+    UnderwaterShader()
+    : GLSLShader("underwater", false)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        blur = get_uniform("fBlur");
+        amplitudeX = get_uniform("fAmplitudeX");
+        periodsX = get_uniform("fPeriodsX");
+        freqX = get_uniform("fFreqX");
+        amplitudeY = get_uniform("fAmplitudeY");
+        periodsY = get_uniform("fPeriodsY");
+        freqY = get_uniform("fFreqY");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fBlur", blur);
+        set_float(instance, "fAmplitudeX", amplitudeX);
+        set_float(instance, "fPeriodsX", periodsX);
+        set_float(instance, "fFreqX", freqX);
+        set_float(instance, "fAmplitudeY", amplitudeY);
+        set_float(instance, "fPeriodsY", periodsY);
+        set_float(instance, "fFreqY", freqY);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -316,6 +382,8 @@ Shader * multiply_shader;
 Shader * hardlight_shader;
 Shader * tint_shader;
 Shader * channelblur_shader;
+Shader * bgbloom_shader;
+Shader * underwater_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -338,6 +406,8 @@ void init_shaders()
     hardlight_shader = new HardLightShader;
     tint_shader = new TintShader;
     channelblur_shader = new ChannelBlurShader;
+    bgbloom_shader = new BgBloomShader;
+    underwater_shader = new UnderwaterShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

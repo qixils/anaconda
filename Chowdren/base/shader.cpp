@@ -403,18 +403,27 @@ class OffsetStationaryShader : public GLSLShader
 {
 public:
 
+    int width, height, x_offset, y_offset;
+
     OffsetStationaryShader()
-    : GLSLShader("offsetstationary", false)
+    : GLSLShader("offsetstationary", true)
     {
     }
 
     void initialize_parameters()
     {
-        //TODO
+        width = get_uniform("width");
+        height = get_uniform("height");
+        x_offset = get_uniform("xoff");
+        y_offset = get_uniform("yoff");
     }
 
     void set_parameters(FrameObject * instance)
     {
+        set_float(instance, "width", width);
+        set_float(instance, "height", height);
+        set_float(instance, "xoff", x_offset);
+        set_float(instance, "yoff", y_offset);
     }
 };
 
@@ -422,18 +431,34 @@ class PatternOverlayShader : public GLSLShader
 {
 public:
 
+    int pattern;
+    int x, y, width, height;
+    int alpha;
+
+
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", false)
+    : GLSLShader("patternoverlay", true)
     {
     }
 
     void initialize_parameters()
     {
-        //TODO
+        pattern = get_uniform("pattern");
+        x = get_uniform("x");
+        y = get_uniform("y");
+        width = get_uniform("width");
+        height = get_uniform("height");
+        alpha = get_uniform("alpha");
     }
 
     void set_parameters(FrameObject * instance)
     {
+        set_image(instance, "pattern", pattern);
+        set_float(instance, "width", width);
+        set_float(instance, "height", height);
+        set_float(instance, "x", x);
+        set_float(instance, "y", y);
+        set_float(instance, "alpha", alpha);
     }
 };
 

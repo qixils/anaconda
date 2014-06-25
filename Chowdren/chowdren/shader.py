@@ -33,18 +33,18 @@ NATIVE_SHADERS = {
     'PinLight.fx' : 'dummy_shader',
     'Invert' : 'invert_shader',
     'GrainPS2.fx' : 'grain_shader',
+    'Multiply.fx' : 'multiply_shader',
+    'HardLight.fx' : 'hardlight_shader',
+    'CS_Tint.fx' : 'tint_shader',
 
     # HFA shaders, implement these eventually
-    'SimpleMask.fx' : 'dummy_shader',
-    'RotateSub.fx' : 'dummy_shader',
-    'Offsetstationary.fx' : 'dummy_shader',
-    'ChannelBlur.fx' : 'dummy_shader',
-    'BgBloom.fx' : 'dummy_shader',
-    'Pattern Overlay alonso.fx' : 'dummy_shader',
-    'CS_UnderWater.fx' : 'dummy_shader',
-    'CS_Tint.fx' : 'dummy_shader',
-    'HardLight.fx' : 'dummy_shader',
-    'Multiply.fx' : 'dummy_shader'
+    'SimpleMask.fx' : 'simple_mask_shader',
+    'RotateSub.fx' : 'rotate_sub_shader',
+    'Offsetstationary.fx' : 'offset_stationary_shader',
+    'ChannelBlur.fx' : 'channel_blur_shader',
+    'BgBloom.fx' : 'bg_bloom_shader',
+    'Pattern Overlay alonso.fx' : 'pattern_overlay_shader',
+    'CS_UnderWater.fx' : 'underwater_shader'
 }
 
 def get_name(name):

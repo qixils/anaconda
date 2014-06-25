@@ -31,7 +31,8 @@ actions = make_table(ActionMethodWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    0 : 'has_key'
+    0 : 'has_key',
+    4 : 'count_prefix'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

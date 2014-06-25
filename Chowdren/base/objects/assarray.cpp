@@ -2,6 +2,7 @@
 #include "objects/blowfish.cpp"
 #include "filecommon.h"
 #include <iostream>
+#include "stringcommon.h"
 
 #define ARRAY_MAGIC "ASSBF1.0"
 
@@ -121,7 +122,19 @@ bool AssociateArray::has_key(const std::string & key)
     return map->find(key) != map->end();
 }
 
-void AssociateArray::remove_key(const std::string key)
+bool AssociateArray::count_prefix(const std::string & key, int count)
+{
+    int n = 0;
+    ArrayMap::const_iterator it;
+    for (it = map->begin(); it != map->end(); it++) {
+        const std::string & other = it->first;
+        if (other.compare(0, key.size(), key) == 0)
+            n++;
+    }
+    return n >= count;
+}
+
+void AssociateArray::remove_key(const std::string & key)
 {
     map->erase(key);
 }

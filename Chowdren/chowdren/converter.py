@@ -453,7 +453,7 @@ class Converter(object):
         self.container_tree = []
         self.collision_objects = set()
         self.current_object = None
-        self.iterated_index = self.iterated_object = None
+        self.iterated_index = self.iterated_object = self.iterated_name = None
         self.in_actions = False
 
         fp = open(filename, 'rb')
@@ -511,10 +511,11 @@ class Converter(object):
                     logfont = font.value
                     font_name = 'font%s' % font.handle
                     all_fonts.append(font_name)
-                    fonts_file.putln(to_c('Font %s = Font(%r, %s, %s, %s, %s);',
-                        font_name, logfont.faceName, logfont.getSize(),
-                        logfont.isBold(), bool(logfont.italic),
-                        bool(logfont.underline)))
+                    fonts_file.putlnc('Font %s = Font(%r, %s, %s, %s, %s);',
+                                      font_name, logfont.faceName,
+                                      logfont.getSize(),
+                                      logfont.isBold(), bool(logfont.italic),
+                                      bool(logfont.underline), cpp=False)
                     fonts_header.putln('extern Font %s;' % font_name)
             fonts_header.close_guard('FONTS_H')
             fonts_file.close()
@@ -1031,7 +1032,10 @@ class Converter(object):
                             current_container.always_groups.append(new_group)
                         always_groups.append(new_group)
                         new_group.local_id = len(always_groups_dict[name])+1
-                        always_groups_dict[name].append(new_group)
+
+                        for cond in new_group.conditions:
+                            name = self.get_condition_name(cond.data)
+                            always_groups_dict[name].append(new_group)
                     else:
                         new_group.set_generated(True)
                         key = None
@@ -1946,7 +1950,7 @@ class Converter(object):
     def get_single(self, obj):
         if obj in self.has_single_selection:
             return self.has_single_selection[obj]
-        elif obj == self.iterate_object:
+        elif obj == self.iterated_object:
             return self.iterated_name
         return None
 

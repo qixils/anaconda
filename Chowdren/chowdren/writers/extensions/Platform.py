@@ -89,6 +89,7 @@ conditions = make_table(ConditionMethodWriter, {
     2 : '.on_ground',
     3 : 'is_jumping',
     4 : 'is_falling',
+    5 : '.paused',
     6 : 'is_moving'
 })
 

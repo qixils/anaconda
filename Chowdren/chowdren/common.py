@@ -62,13 +62,16 @@ def check_digits(value, prefix):
     return value
 
 class StringWrapper(object):
-    def __init__(self, value):
+    def __init__(self, value, cpp):
         self.value = value
+        self.cpp = cpp
 
     def __str__(self):
         return self.value
 
     def __repr__(self):
+        if self.cpp and self.value == '':
+            return 'std::string()'
         new = ''
         for c in self.value:
             if c == '\\':
@@ -85,14 +88,16 @@ class StringWrapper(object):
                 new += '\\' + oct(ord(c))[1:]
             else:
                 new += c
-        return '"%s"' % new
+        ret = '"%s"' % new
+        if self.cpp:
+            ret = 'std::string(%s, %s)' % (ret, len(self.value))
+        return ret
 
-
-def to_c(format_spec, *args):
+def to_c(format_spec, *args, **kw):
     new_args = []
     for arg in args:
         if isinstance(arg, str):
-            arg = StringWrapper(arg)
+            arg = StringWrapper(arg, kw.get('cpp', True))
         elif isinstance(arg, bool):
             if arg:
                 arg = 'true'

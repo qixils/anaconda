@@ -29,6 +29,9 @@ actions = make_table(StaticActionWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    0 : 'is_key_pressed(translate_string_to_key(%s))',
+    1 : 'is_key_pressed_once(translate_string_to_key(%s))',
+    4 : 'is_any_key_pressed'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

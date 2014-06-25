@@ -109,6 +109,7 @@ conditions = make_table(ConditionMethodWriter, {
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_text()',
     9 : 'get_x_align()',
+    16 : '.y_scroll',
     21 : '.width',
     32 : 'get_line_count',
     33 : 'get_line',

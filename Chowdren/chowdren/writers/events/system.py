@@ -21,6 +21,12 @@ def get_loop_running_name(name):
 def get_loop_index_name(name):
     return 'loop_%s_index' % get_method_name(name)
 
+def get_repeat_name(group):
+    return 'repeat_%s' % group.global_id
+
+def get_restrict_name(group):
+    return 'restrict_%s' % group.global_id
+
 PROFILE_LOOPS = set([])
 
 class SystemObject(ObjectWriter):
@@ -31,6 +37,8 @@ class SystemObject(ObjectWriter):
     def write_frame(self, writer):
         self.write_group_activated(writer)
         self.write_loops(writer)
+        self.write_repeats(writer)
+        self.write_restrict_for(writer)
         # self.write_collisions(writer)
 
     def write_start(self, writer):
@@ -54,7 +62,25 @@ class SystemObject(ObjectWriter):
             writer.putlnc('loops[%r].set(&%s, &%s, &%s);',
                           loop, loop_method, running_name, index_name)
         writer.putln('loops_initialized = true;')
+        for name in self.repeats:
+            writer.putlnc('%s = 0;', name)
+        for name in self.restrict:
+            writer.putlnc('%s = frame_time;', name)
         writer.end_brace()
+
+    def write_restrict_for(self, writer):
+        self.restrict = []
+        for group in self.converter.always_groups_dict['RestrictFor']:
+            name = get_restrict_name(group)
+            writer.add_member('float ' + name)
+            self.restrict.append(name)
+
+    def write_repeats(self, writer):
+        self.repeats = []
+        for group in self.converter.always_groups_dict['Repeat']:
+            name = get_repeat_name(group)
+            writer.add_member('int ' + name)
+            self.repeats.append(name)
 
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
@@ -395,6 +421,7 @@ class NodeReached(ConditionMethodWriter):
 
 class OnGroupActivation(ConditionWriter):
     custom = True
+
     def write(self, writer):
         group_check = self.get_group_check()
         writer.putln('if (!%s) %s' % (group_check, self.converter.event_break))
@@ -403,8 +430,30 @@ class OnGroupActivation(ConditionWriter):
     def get_group_check(self):
         return 'group_check_%s' % get_id(self)
 
+class RepeatCondition(ConditionWriter):
+    custom = True
+
+    def write(self, writer):
+        count = self.convert_index(0)
+        name = get_repeat_name(self.converter.current_group)
+        writer.putlnc('if (%s >= %s) %s', name, count,
+                      self.converter.event_break)
+        writer.putlnc('%s++;', name)
+
+class RestrictFor(ConditionWriter):
+    custom = True
+
+    def write(self, writer):
+        # XXX reset on frame start
+        seconds = self.parameters[0].loader.timer / 1000.0
+        name = get_restrict_name(self.converter.current_group)
+        writer.putlnc('if (frame_time - %s < %s) %s', name, seconds,
+                      self.converter.event_break)
+        writer.putlnc('%s = frame_time;', name)
+
 class NotAlways(ConditionWriter):
     custom = True
+
     def write(self, writer):
         event_break = self.converter.event_break
         name = 'not_always_%s' % get_id(self)
@@ -468,6 +517,18 @@ class CompareObjectsInZone(ComparisonWriter):
         obj_list = self.converter.get_object_list(obj)
         return 'objects_in_zone(%s, %s, %s, %s, %s)' % (obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
+
+class PickObjectsInZone(ConditionWriter):
+    custom = True
+    def write(self, writer):
+        objs = set()
+        zone = self.parameters[0].loader
+        for action in self.converter.current_group.actions:
+            objs.add(action.get_object())
+        for obj in objs:
+            obj_list = self.converter.create_list(obj, writer)
+            writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',
+                          obj_list, zone.x1, zone.y1, zone.x2, zone.y2)
 
 class CompareFixedValue(ConditionWriter):
     custom = True
@@ -994,8 +1055,7 @@ class StringExpression(ExpressionWriter):
     def get_string(self):
         self.converter.start_clauses -= self.data.loader.value.count('(')
         self.converter.end_clauses -= self.data.loader.value.count(')')
-        return to_c('std::string(%r, %s)', self.data.loader.value,
-                    len(self.data.loader.value))
+        return to_c('%r', self.data.loader.value)
 
 class EndParenthesis(ConstantExpression):
     value = ')'
@@ -1259,6 +1319,7 @@ conditions = make_table(ConditionMethodWriter, {
     'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
     'ObjectsInZone' : CompareObjectsInZone,
+    'PickObjectsInZone' : PickObjectsInZone,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
     'NotAlways' : NotAlways,
@@ -1284,6 +1345,10 @@ conditions = make_table(ConditionMethodWriter, {
     'Never' : '.false',
     'NumberOfLives' :  make_comparison('manager->lives'),
     'AnyKeyPressed' : AnyKeyPressed,
+    'Repeat' : RepeatCondition,
+    'RestrictFor' : RestrictFor,
+    # XXX implement this
+    'SubApplicationFinished' : FalseCondition,
     'OnLoop' : FalseCondition # if not a generated group, this is always false
 })
 

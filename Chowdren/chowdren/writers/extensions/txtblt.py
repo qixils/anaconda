@@ -93,6 +93,7 @@ class TextBlitter(ObjectWriter):
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_text',
+    13 : 'load',
     36 : 'set_x_align',
     37 : 'set_y_align',
     43 : 'set_y_scroll',

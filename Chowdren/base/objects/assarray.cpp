@@ -96,6 +96,16 @@ void AssociateArray::set_value(const std::string & key, int value)
     (*map)[key].value = value;
 }
 
+void AssociateArray::add_value(const std::string & key, int value)
+{
+    (*map)[key].value += value;
+}
+
+void AssociateArray::sub_value(const std::string & key, int value)
+{
+    (*map)[key].value -= value;
+}
+
 void AssociateArray::set_string(const std::string & key,
                                 const std::string & value)
 {

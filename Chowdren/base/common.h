@@ -636,6 +636,7 @@ public:
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
     void initialize(const std::string & charmap);
+    void load(const std::string & filename);
     void set_text(const std::string & text);
     void set_x_spacing(int spacing);
     void set_y_spacing(int spacing);

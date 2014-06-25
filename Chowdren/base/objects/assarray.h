@@ -38,6 +38,7 @@ public:
     void set_key(const std::string & key);
     void remove_key(const std::string & key);
     bool has_key(const std::string & key);
+    bool count_prefix(const std::string & key, int count);
     void clear();
 };
 

@@ -1244,6 +1244,19 @@ inline int objects_in_zone(ObjectList & instances,
     return count;
 }
 
+inline void pick_objects_in_zone(ObjectList & instances,
+                                 int x1, int y1, int x2, int y2)
+{
+    int v[4] = {x1, y1, x2, y2};
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        // XXX objects need to be fully contained in zone,
+        // but here we only check for collision
+        if (collide_box(*it, v))
+            continue;
+        it.deselect();
+    }
+}
+
 inline void set_random_seed(int seed)
 {
     cross_srand(seed);

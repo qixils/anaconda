@@ -28,7 +28,7 @@ class CodeWriter(object):
             self.fp.write(line + '\n')
 
     def putlnc(self, line, *arg, **kw):
-        line = to_c(line, *arg)
+        line = to_c(line, *arg, **kw)
         self.putln(line, **kw)
 
     def putraw(self, *arg, **kw):
@@ -44,7 +44,7 @@ class CodeWriter(object):
             self.putlnc('#define %s', name)
             return
         if isinstance(value, str):
-            value = to_c('%r', value)
+            value = to_c('%r', value, cpp=False)
         self.putln('#define %s %s' % (name, value))
 
     def putindent(self, extra = 0):
@@ -56,7 +56,7 @@ class CodeWriter(object):
         self.fp.write(value)
 
     def putc(self, value, *arg, **kw):
-        value = to_c(value, *arg)
+        value = to_c(value, *arg, **kw)
         self.put(value, **kw)
 
     def get_data(self):

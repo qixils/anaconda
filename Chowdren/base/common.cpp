@@ -875,11 +875,14 @@ void FrameObject::draw_image(Image * img, int x, int y, double angle,
                              bool flip_y)
 {
     GLuint back_tex = 0;
+    bool has_tex_param = false;
     if (shader != NULL) {
         shader->begin(this, img);
         back_tex = shader->get_background_texture();
+        has_tex_param = shader->has_texture_param();
     }
-    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex);
+
+    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex, has_tex_param);
     if (shader != NULL)
         shader->end(this);
 }
@@ -1041,6 +1044,7 @@ void FrameObject::set_shader_parameter(const std::string & name, double value)
 
 void FrameObject::set_shader_parameter(const std::string & name, Image & img)
 {
+    img.upload_texture();
     set_shader_parameter(name, (double)img.tex);
 }
 

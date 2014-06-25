@@ -437,7 +437,7 @@ public:
 
 
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", true)
+    : GLSLShader("patternoverlay", true, true)
     {
     }
 

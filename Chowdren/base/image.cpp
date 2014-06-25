@@ -210,7 +210,7 @@ const float back_texcoords[8] = {
 
 void Image::draw(double x, double y, double angle,
                  double scale_x, double scale_y,
-                 bool flip_x, bool flip_y, GLuint background)
+                 bool flip_x, bool flip_y, GLuint background, bool has_tex_param)
 {
     if (tex == 0) {
         upload_texture();
@@ -233,6 +233,10 @@ void Image::draw(double x, double y, double angle,
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, background);
     }
+    if (has_tex_param) {
+        glActiveTexture(GL_TEXTURE2);
+        glEnable(GL_TEXTURE_2D);
+    }
     glBegin(GL_QUADS);
     const float * tex_coords;
     if (flip_x) {
@@ -243,20 +247,38 @@ void Image::draw(double x, double y, double angle,
     glTexCoord2f(tex_coords[0], tex_coords[1]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[0], back_texcoords[1]);
+    //if (has_tex_param)
+    //    glMultiTexCoord2f(GL_TEXTURE2, tex_coords[0], tex_coords[1]);
     glVertex2d(-hotspot_x, -hotspot_y);
+
     glTexCoord2f(tex_coords[2], tex_coords[3]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[2], back_texcoords[3]);
+    //if (has_tex_param)
+    //    glMultiTexCoord2f(GL_TEXTURE2, tex_coords[2], tex_coords[3]);
     glVertex2d(-hotspot_x + width, -hotspot_y);
+
     glTexCoord2f(tex_coords[4], tex_coords[5]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[4], back_texcoords[5]);
+    //if (has_tex_param)
+    //    glMultiTexCoord2f(GL_TEXTURE2, tex_coords[4], tex_coords[6]);
     glVertex2d(-hotspot_x + width, -hotspot_y + height);
+
     glTexCoord2f(tex_coords[6], tex_coords[7]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[6], back_texcoords[7]);
+    //if (has_tex_param)
+    //    glMultiTexCoord2f(GL_TEXTURE2, tex_coords[6], tex_coords[7]);
     glVertex2d(-hotspot_x, -hotspot_y + height);
     glEnd();
+    if (has_tex_param) {
+        glDisable(GL_TEXTURE_2D);
+        if (background != 0)
+            glActiveTexture(GL_TEXTURE1);
+        else
+            glActiveTexture(GL_TEXTURE0);
+    }
     if (background != 0) {
         glDisable(GL_TEXTURE_2D);
         glActiveTexture(GL_TEXTURE0);

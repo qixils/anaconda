@@ -34,6 +34,10 @@ public:
     {
         return 0;
     }
+    virtual bool has_texture_param()
+    {
+        return false;
+    }
 };
 
 extern Shader * subtract_shader;

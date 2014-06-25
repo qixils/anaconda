@@ -12,11 +12,14 @@ public:
     bool initialized;
     std::string name;
     bool has_background;
+    bool has_tex_param;
+    bool param_tex_set; // whether the uniform storing the texture slot index was set yet
 
-    GLSLShader(const std::string & name, bool has_back = false);
+    GLSLShader(const std::string & name, bool has_back = false, bool has_tex_param = false);
     void initialize();
     GLuint attach_source(const std::string & ext, GLenum type);
     GLuint get_background_texture();
+    bool has_texture_param();
     int get_uniform(const char * value);
     virtual void initialize_parameters();
     void begin(FrameObject * instance, Image * image);

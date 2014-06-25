@@ -28,8 +28,9 @@ static void initialize_background()
 
 GLSLShader * GLSLShader::current = NULL;
 
-GLSLShader::GLSLShader(const std::string & name, bool has_back)
-: initialized(false), name(name), has_background(has_back)
+GLSLShader::GLSLShader(const std::string & name, bool has_back, bool has_tex_param)
+: initialized(false), name(name), has_background(has_back), 
+  has_tex_param(has_tex_param), param_tex_set(false)
 {
 }
 
@@ -94,6 +95,11 @@ GLuint GLSLShader::get_background_texture()
     if (!has_background)
         return 0;
     return background_texture;
+}
+
+bool GLSLShader::has_texture_param()
+{
+    return has_tex_param;
 }
 
 GLuint GLSLShader::attach_source(const std::string & ext, GLenum type)
@@ -188,10 +194,14 @@ void GLSLShader::set_vec4(FrameObject * instance, const std::string & name,
 void GLSLShader::set_image(FrameObject * instance, const std::string & name,
                           int uniform)
 {
-    int val = (int)(*instance->shader_parameters)[name];
-    float a, b, c, d;
-    convert_vec4(val, a, b, c, d);
-    glUniform4f((GLint)uniform, a, b, c, d);
+    if (!param_tex_set)
+    {
+        glUniform1i((GLint)get_uniform(name.c_str()), 2);
+        param_tex_set = true;
+    }
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)(*instance->shader_parameters)[name]);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 int GLSLShader::get_uniform(const char * value)

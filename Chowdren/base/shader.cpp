@@ -172,9 +172,9 @@ public:
 class GrainShader : public GLSLShader
 {
 public:
-    int fStrength, fSeed;
-    int iInvert;
-    int iR, iG, iB, iA;
+    int strength, seed;
+    int invert;
+    int r, g, b, a;
 
     GrainShader()
     : GLSLShader("grain", false)
@@ -184,24 +184,24 @@ public:
 
     void initialize_parameters()
     {
-        fStrength = get_uniform("fStrength");
-        fSeed = get_uniform("fSeed");
-        iInvert = get_uniform("iInvert");
-        iR = get_uniform("iR");
-        iG = get_uniform("iG");
-        iB = get_uniform("iB");
-        iA = get_uniform("iA");
+        strength = get_uniform("fStrength");
+        seed = get_uniform("fSeed");
+        invert = get_uniform("iInvert");
+        r = get_uniform("iR");
+        g = get_uniform("iG");
+        b = get_uniform("iB");
+        a = get_uniform("iA");
     }
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fStrength", fStrength);
-        set_float(instance, "fSeed", fSeed);
-        set_int(instance, "iInvert", iInvert);
-        set_int(instance, "iR", iR);
-        set_int(instance, "iG", iG);
-        set_int(instance, "iB", iB);
-        set_int(instance, "iA", iA);
+        set_float(instance, "fStrength", strength);
+        set_float(instance, "fSeed", seed);
+        set_int(instance, "iInvert", invert);
+        set_int(instance, "iR", r);
+        set_int(instance, "iG", g);
+        set_int(instance, "iB", b);
+        set_int(instance, "iA", a);
     }
 };
 

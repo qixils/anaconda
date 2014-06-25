@@ -32,6 +32,7 @@ NATIVE_SHADERS = {
     'SoftLight.fx' : 'dummy_shader',
     'PinLight.fx' : 'dummy_shader',
     'Invert' : 'invert_shader',
+    'GrainPS2.fx' : 'grain_shader',
 
     # HFA shaders, implement these eventually
     'SimpleMask.fx' : 'dummy_shader',
@@ -43,8 +44,7 @@ NATIVE_SHADERS = {
     'CS_UnderWater.fx' : 'dummy_shader',
     'CS_Tint.fx' : 'dummy_shader',
     'HardLight.fx' : 'dummy_shader',
-    'Multiply.fx' : 'dummy_shader',
-    'GrainPS2.fx' : 'dummy_shader'
+    'Multiply.fx' : 'dummy_shader'
 }
 
 def get_name(name):

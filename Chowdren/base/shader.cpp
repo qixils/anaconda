@@ -169,6 +169,42 @@ public:
     }
 };
 
+class GrainShader : public GLSLShader
+{
+public:
+    int fStrength, fSeed;
+    int iInvert;
+    int iR, iG, iB, iA;
+
+    GrainShader()
+    : GLSLShader("grain", false)
+    {
+
+    }
+
+    void initialize_parameters()
+    {
+        fStrength = get_uniform("fStrength");
+        fSeed = get_uniform("fSeed");
+        iInvert = get_uniform("iInvert");
+        iR = get_uniform("iR");
+        iG = get_uniform("iG");
+        iB = get_uniform("iB");
+        iA = get_uniform("iA");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fStrength", fStrength);
+        set_float(instance, "fSeed", fSeed);
+        set_int(instance, "iInvert", iInvert);
+        set_int(instance, "iR", iR);
+        set_int(instance, "iG", iG);
+        set_int(instance, "iB", iB);
+        set_int(instance, "iA", iA);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -199,6 +235,7 @@ Shader * blend_shader;
 Shader * offset_shader;
 Shader * dodgeblur_shader;
 Shader * invert_shader;
+Shader * grain_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -216,6 +253,7 @@ void init_shaders()
     offset_shader = new OffsetShader;
     dodgeblur_shader = new DodgeBlurShader;
     invert_shader = new InvertShader;
+    grain_shader = new GrainShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

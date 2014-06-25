@@ -22,6 +22,8 @@ public:
     void begin(FrameObject * instance, Image * image);
     virtual void set_parameters(FrameObject * instance);
     void end(FrameObject * instance);
+    void set_int(FrameObject * instance, const std::string & name,
+                   int uniform);
     void set_float(FrameObject * instance, const std::string & name,
                    int uniform);
     void set_vec4(FrameObject * instance, const std::string & name,

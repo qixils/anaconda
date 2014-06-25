@@ -163,6 +163,13 @@ void GLSLShader::end(FrameObject * instance)
     glUseProgram(0);
 }
 
+void GLSLShader::set_int(FrameObject * instance, const std::string & name,
+                           int uniform)
+{
+    int val = (int)(*instance->shader_parameters)[name];
+    glUniform1i((GLint)uniform, val);
+}
+
 void GLSLShader::set_float(FrameObject * instance, const std::string & name,
                            int uniform)
 {

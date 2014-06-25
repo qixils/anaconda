@@ -32,6 +32,8 @@ public:
     void load_encrypted(const std::string & filename, int method);
     void load_data(const std::string & data, int method);
     void set_value(const std::string & key, int value);
+    void add_value(const std::string & key, int value);
+    void sub_value(const std::string & key, int value);
     void set_string(const std::string & key, const std::string & value);
     int get_value(const std::string & key);
     const std::string & get_string(const std::string & key);

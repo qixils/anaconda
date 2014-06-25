@@ -3554,8 +3554,27 @@ TextBlitter::TextBlitter(int x, int y, int type_id)
     collision = new InstanceBox(this);
 }
 
+void TextBlitter::load(const std::string & filename)
+{
+    Image * new_image = new Image(filename, 0, 0, 0, 0);
+    if (!new_image->is_valid()) {
+        std::cout << "Could not load Text Blitter image " << filename
+            << std::endl;
+        delete new_image;
+        return;
+    }
+
+    if (image->handle == -1)
+        delete image;
+
+    image = new_image;
+    image->upload_texture();
+}
+
 TextBlitter::~TextBlitter()
 {
+    if (image->handle == -1)
+        delete image;
     delete collision;
 }
 

@@ -44,7 +44,12 @@ class SurfaceObject(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     13 : 'resize',
     15 : 'load',
-    78 : 'resize_canvas'
+    41 : 'set_dest_pos',
+    49 : 'blit_destination',
+    66 : 'set_dest_size',
+    78 : 'resize_canvas',
+    93 : 'scroll',
+    116 : 'set_stretch_mode'
 })
 
 conditions = make_table(ConditionMethodWriter, {

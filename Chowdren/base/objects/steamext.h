@@ -1,3 +1,6 @@
+#ifndef CHOWDREN_STEAMEXT_H
+#define CHOWDREN_STEAMEXT_H
+
 #include <string>
 #include "frameobject.h"
 
@@ -10,3 +13,5 @@ public:
     void unlock_achievement(const std::string & name);
     bool is_achievement_unlocked(const std::string & name);
 };
+
+#endif // CHOWDREN_STEAMEXT_H

@@ -3,7 +3,7 @@
 
 #include "chowconfig.h"
 #include "profiler.h"
-#include "keys.h"
+#include "keyconv.h"
 #include "manager.h"
 #include "platform.h"
 #include "include_gl.h"
@@ -37,29 +37,6 @@
 #include "movement.h"
 
 extern std::string newline_character;
-
-inline void split_string(const std::string &s, char delim,
-                  std::vector<std::string> &elems)
-{
-    std::stringstream ss(s);
-    std::string item;
-    while(std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-}
-
-inline void split_string(const std::string & str, const std::string & delims,
-                  std::vector<std::string> &elems)
-{
-    std::string::size_type last_pos = str.find_first_not_of(delims, 0);
-    std::string::size_type pos = str.find_first_of(delims, last_pos);
-
-    while (std::string::npos != pos || std::string::npos != last_pos) {
-        elems.push_back(str.substr(last_pos, pos - last_pos));
-        last_pos = str.find_first_not_of(delims, pos);
-        pos = str.find_first_of(delims, last_pos);
-    }
-}
 
 // string helpers
 
@@ -649,23 +626,33 @@ public:
     std::string text;
     int char_width, char_height;
     Image * image;
+    std::string * charmap_str;
     int * charmap;
     float flash_time, flash_interval;
     int alignment;
-    int x_spacing;
+    int x_spacing, y_spacing;
+    int y_scroll;
 
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
     void initialize(const std::string & charmap);
     void set_text(const std::string & text);
     void set_x_spacing(int spacing);
-    void set_x_align(int value);
-    void set_width(int width);
+    void set_y_spacing(int spacing);
+    void set_y_scroll(int value);
     int get_x_align();
+    void set_x_align(int value);
+    void set_y_align(int value);
+    void set_width(int width);
+    void set_height(int height);
     void draw();
     void update(float dt);
     void flash(float value);
+    std::string get_line(int index);
+    int get_line_count();
     const std::string & get_text();
+    std::string get_map_char(int index);
+    void replace_color(int from, int to);
 };
 
 typedef void (*ObstacleOverlapCallback)();
@@ -1240,6 +1227,21 @@ inline void spread_value(QualifierList & instances, int alt, int start)
         (*it)->alterables->values.set(alt, start);
         start++;
     }
+}
+
+inline int objects_in_zone(ObjectList & instances,
+                           int x1, int y1, int x2, int y2)
+{
+    int v[4] = {x1, y1, x2, y2};
+    int count = 0;
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        // XXX objects need to be fully contained in zone,
+        // but here we only check for collision
+        if (!collide_box(*it, v))
+            continue;
+        count++;
+    }
+    return count;
 }
 
 inline void set_random_seed(int seed)

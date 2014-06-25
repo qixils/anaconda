@@ -8,13 +8,14 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class AlphaImageObject(ObjectWriter):
     class_name = 'AlphaImageObject'
-    includes = ['objects/alphaimage.h']
+    filename = 'alphaimage'
     use_alterables = True
 
     def write_init(self, writer):
         pass
 
 actions = make_table(ActionMethodWriter, {
+    0 : 'set_image',
     32 : 'blend_color.set_alpha',
 })
 
@@ -22,6 +23,7 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : '.image',
     15 : '.blend_color.a'
 })
 

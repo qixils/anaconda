@@ -6,7 +6,12 @@
 class ColorizerObject : public FrameObject
 {
 public:
+    float r, g, b;
+
     ColorizerObject(int x, int y, int type_id);
+    void set_red(float r);
+    void set_green(float g);
+    void set_blue(float b);
 };
 
 #endif // CHOWDREN_COLORIZER_H

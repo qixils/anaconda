@@ -84,7 +84,7 @@ class ForEach(ObjectWriter):
             writer.putln('return true;')
             writer.end_brace()
 
-        writer.putmeth('bool call_dynamic_foreach', 'std::string name',
+        writer.putmeth('bool call_dynamic_foreach', 'const std::string & name',
             'FrameObject * selected')
         for name in loops.keys():
             obj = loop_objects[name]

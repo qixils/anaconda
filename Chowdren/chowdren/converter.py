@@ -36,6 +36,7 @@ from chowdren import shader
 from chowdren.shader import INK_EFFECTS
 from chowdren import hacks
 from chowdren.idpool import get_id
+from chowdren.code import CodeWriter
 import platform
 import math
 import wave
@@ -105,173 +106,6 @@ def copytree(src, dst, excludes=[]):
     if errors:
         raise shutil.Error, errors
 
-class CodeWriter(object):
-    indentation = 0
-    fp = None
-
-    def __init__(self, *arg, **kw):
-        self.open(*arg, **kw)
-
-    def open(self, filename=None):
-        self.fp = StringIO()
-        self.filename = filename
-
-    def format_line(self, line):
-        return self.get_spaces() + line
-
-    def putln(self, *lines, **kw):
-        wrap = kw.get('wrap', False)
-        indent = kw.get('indent', True)
-        if wrap:
-            indent = self.get_spaces(1)
-        for line in lines:
-            if wrap:
-                line = ('\n' + indent).join(textwrap.wrap(line))
-            if indent:
-                line = self.format_line(line)
-            self.fp.write(line + '\n')
-
-    def putlnc(self, line, *arg, **kw):
-        line = to_c(line, *arg)
-        self.putln(line, **kw)
-
-    def putraw(self, *arg, **kw):
-        indentation = self.indentation
-        self.indentation = 0
-        self.putln(*arg, **kw)
-        self.indentation = indentation
-
-    def putdefine(self, name, value):
-        if value is None:
-            return
-        if value == '':
-            self.putlnc('#define %s', name)
-            return
-        if isinstance(value, str):
-            value = to_c('%r', value)
-        self.putln('#define %s %s' % (name, value))
-
-    def putindent(self, extra = 0):
-        self.fp.write(self.get_spaces(extra))
-
-    def put(self, value, indent = False):
-        if indent:
-            self.putindent()
-        self.fp.write(value)
-
-    def get_data(self):
-        fp = self.fp
-        pos = fp.tell()
-        fp.seek(0)
-        data = fp.read()
-        fp.seek(pos)
-        return data
-
-    def putcode(self, writer):
-        data = writer.get_data().splitlines()
-        for line in data:
-            self.putln(line)
-
-    def putclass(self, name, subclass = None):
-        text = 'class %s' % name
-        if subclass is not None:
-            text += ' : public %s' % subclass
-        self.putln(text)
-        self.start_brace()
-
-    def start_brace(self):
-        self.putln('{')
-        self.indent()
-
-    def end_brace(self, semicolon = False):
-        self.dedent()
-        text = '}'
-        if semicolon:
-            text += ';'
-        self.putln(text)
-
-    def putdef(self, name, value, wrap = False):
-        new_value = '%r' % (value,)
-        self.putln('%s = %s' % (name, new_value), wrap = wrap)
-
-    def putmeth(self, name, *arg, **kw):
-        fullarg = list(arg)
-        self.putln('%s(%s)' % (name, ', '.join(fullarg)))
-        self.start_brace()
-
-    def put_label(self, name):
-        self.putln('%s: ;' % name)
-
-    def put_access(self, name):
-        self.dedent()
-        self.putln('%s:' % name)
-        self.indent()
-
-    def start_guard(self, name):
-        self.putln('#ifndef %s' % name)
-        self.putln('#define %s' % name)
-        self.putln('')
-
-    def close_guard(self, name):
-        self.putln('')
-        self.putln('#endif // %s' % name)
-
-    def putend(self):
-        self.putln('pass')
-        self.dedent()
-        self.putln('')
-
-    def indent(self):
-        self.indentation += 1
-
-    def dedent(self):
-        self.indentation -= 1
-        if self.indentation < 0:
-            raise ValueError('indentation cannot be lower than 0')
-
-    def get_spaces(self, extra = 0):
-        return (self.indentation + extra) * '    '
-
-    def close(self):
-        data = self.get_data()
-        self.fp.close()
-        self.fp = None
-        if self.filename is None:
-            return
-        try:
-            fp = open(self.filename, 'rb')
-            original_data = fp.read()
-            fp.close()
-            if original_data == data:
-                return
-        except IOError:
-            pass
-        fp = open(self.filename, 'wb')
-        fp.write(data)
-        fp.close()
-
-    def get_line_count(self):
-        return self.get_data().count('\n')
-
-    # misc. helpers
-
-    def putfont(self, font):
-        if font is None:
-            # default font
-            face = 'Arial'
-            size = 8
-            bold = False
-            italic = False
-            underline = False
-        else:
-            face = font.faceName
-            size = font.getSize()
-            bold = font.isBold()
-            italic = bool(font.italic)
-            underline = bool(font.underline)
-        self.putln('font = Font(%r, %r, %r, %r, %r)' % (face, size, bold,
-            italic, underline))
-
 native_extension_cache = {}
 
 try:
@@ -279,7 +113,7 @@ try:
     reg_name = 'Software\\Clickteam\\Multimedia Fusion Developer 2\\Settings'
     reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
     MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0]
-except ImportError:
+except (ImportError, WindowsError):
     MMF_BASE = ''
 
 MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
@@ -663,58 +497,6 @@ class Converter(object):
 
         self.open('config.py').write(repr(self.info_dict))
 
-        # write keys file
-        keys_file = self.open_code('keys.h')
-        keys_file.start_guard('CHOWDREN_KEYS_H')
-        keys_file.putln('#include <string>')
-        keys_file.putln('#include "keydef.h"')
-
-        keys_file.putmeth('inline int translate_vk_to_key', 'int vk')
-        keys_file.putln('switch (vk) {')
-        keys_file.indent()
-        for vk, name in VK_TO_SDL.iteritems():
-            keys_file.putln('case %s: return %s;' % (vk, name[0]))
-        keys_file.end_brace()
-        keys_file.putln('return -1;')
-        keys_file.end_brace()
-
-        keys_file.putmeth('inline int translate_string_to_key',
-                          'const std::string & name')
-        for vk, name in VK_TO_SDL.iteritems():
-            string_name = VK_TO_NAME.get(vk, None)
-            if string_name is None:
-                continue
-            keys_file.putlnc('if (name == %r) return %s;', string_name,
-                             name[0])
-        keys_file.putln('return -1;')
-        keys_file.end_brace()
-
-        keys_file.putmeth('inline std::string translate_vk_to_string',
-                          'int vk')
-        keys_file.putln('switch (vk) {')
-        keys_file.indent()
-        for vk, name in VK_TO_SDL.iteritems():
-            string_name = VK_TO_NAME.get(vk, None)
-            if string_name is None:
-                continue
-            keys_file.putlnc('case %s: return %r;', vk, string_name)
-        keys_file.end_brace()
-        keys_file.putln('return "";')
-        keys_file.end_brace()
-
-        keys_file.putmeth('inline std::string translate_key_to_string',
-                          'int key')
-        keys_file.putln('switch (key) {')
-        keys_file.indent()
-        for name, string_name in KEY_TO_NAME.iteritems():
-            keys_file.putlnc('case %s: return %r;', name, string_name)
-        keys_file.end_brace()
-        keys_file.putln('return "";')
-        keys_file.end_brace()
-
-        keys_file.close_guard('CHOWDREN_KEYS_H')
-        keys_file.close()
-
         # fonts
         if WRITE_FONTS:
             fonts_header = self.open_code('fonts.h')
@@ -823,6 +605,7 @@ class Converter(object):
         self.name_to_item = {}
         self.object_types = {}
         extension_includes = set()
+        extension_sources = set()
         self.event_callback_ids = itertools.count()
 
         type_id = itertools.count(2)
@@ -848,7 +631,8 @@ class Converter(object):
                 extra.add_define(define)
             self.all_objects[handle] = object_writer
             self.object_types[handle[0]] = object_type
-            extension_includes.update(object_writer.includes)
+            extension_includes.update(object_writer.get_includes())
+            extension_sources.update(object_writer.get_sources())
             if (object_writer.static or extra.is_special_object(name)
                 or object_writer.class_name == 'Undefined'):
                 continue
@@ -1017,11 +801,17 @@ class Converter(object):
         objects_file.close()
         objects_header.close()
 
-        extensions_file = self.open_code('extensions.h')
-        extensions_file.start_guard('CHOWDREN_EXTENSIONS_H')
+        extensions_header = self.open_code('extensions.h')
+        extensions_header.start_guard('CHOWDREN_EXTENSIONS_H')
         for include in extension_includes:
+            extensions_header.putln('#include "%s"' % include)
+        extensions_header.close_guard('CHOWDREN_EXTENSIONS_H')
+        extensions_header.close()
+
+        extensions_file = self.open_code('extensions.cpp')
+        extensions_file.putln('#include "extensions.h"')
+        for include in extension_sources:
             extensions_file.putln('#include "%s"' % include)
-        extensions_file.close_guard('CHOWDREN_EXTENSIONS_H')
         extensions_file.close()
 
         # write object updates

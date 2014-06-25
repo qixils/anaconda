@@ -387,7 +387,7 @@ class Lives(ObjectWriter):
 
 class SubApplication(ObjectWriter):
     class_name = 'SubApplication'
-    includes = ['objects/subapp.h']
+    filename = 'subapp'
 
     def write_init(self, writer):
         pass

@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (StaticConditionWriter, 
+from chowdren.writers.events import (StaticConditionWriter,
     StaticActionWriter, StaticExpressionWriter, make_table, ExpressionWriter)
 
 import base64
@@ -22,7 +22,7 @@ class Base64Decode(ExpressionWriter):
         next_exp = items[converter.item_index + 1]
         value = base64.b64decode(next_exp.loader.value)
         converter.item_index += 2
-        return to_c('std::string(%r)', value)
+        return to_c('std::string(%r, %s)', value, len(value))
 
 actions = make_table(StaticActionWriter, {
     0 : 'set_width'

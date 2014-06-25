@@ -330,6 +330,14 @@ void Media::set_sample_position(const std::string & name, double pos)
     channel->set_position(pos);
 }
 
+void Media::set_sample_frequency(const std::string & name, double freq)
+{
+    Channel * channel = get_sample(name);
+    if (channel == NULL)
+        return;
+    channel->set_frequency(freq);
+}
+
 double Media::get_sample_position(const std::string & name)
 {
     Channel * channel = get_sample(name);

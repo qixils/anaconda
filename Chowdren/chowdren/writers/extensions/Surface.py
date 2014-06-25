@@ -8,7 +8,7 @@ from mmfparser.data.font import LogFont
 
 class SurfaceObject(ObjectWriter):
     class_name = 'SurfaceObject'
-    includes = ['objects/surface.h']
+    filename = 'surface'
     use_alterables = True
 
     def write_init(self, writer):

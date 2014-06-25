@@ -6,7 +6,7 @@ class ObjectWriter(BaseWriter):
     common = None
     class_name = 'Undefined'
     static = False
-    includes = []
+    filename = None
     defines = []
     event_callbacks = None
     use_alterables = False
@@ -173,8 +173,24 @@ class ObjectWriter(BaseWriter):
             for index, value in enumerate(common.strings.items):
                 if value == '':
                     continue
-                writer.putlnc('alterables->strings.set(%s, %r);', index, value)
+                writer.putlnc('alterables->strings.set(%s, '
+                              'std::string(%r, %s));', index, value,
+                              len(value))
 
         if is_global:
             writer.end_brace()
 
+    def get_base_filename(self):
+        if '/' in self.filename:
+            return self.filename
+        return 'objects/%s' % self.filename
+
+    def get_includes(self):
+        if self.filename is None:
+            return []
+        return ['%s.h' % self.get_base_filename()]
+
+    def get_sources(self):
+        if self.filename is None:
+            return []
+        return ['%s.cpp' % self.get_base_filename()]

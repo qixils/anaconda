@@ -10,7 +10,7 @@ ON_FUNCTION = 2
 
 class Python(ObjectWriter):
     class_name = 'PythonInterpreter'
-    includes = ['pythonext.h']
+    filename = 'pythonext'
 
     def write_frame(self, writer):
         writer.add_member('PyObject * python_args')

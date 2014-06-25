@@ -81,7 +81,7 @@ class ComparisonWriter(ConditionWriter):
     def write(self, writer):
         comparison = self.get_comparison()
         parameters = [str(self.convert_parameter(parameter))
-            for parameter in self.parameters]
+            for parameter in self.get_parameters()]
         value = self.get_comparison_value()
         if len(parameters) == 1:
             value1 = value
@@ -92,6 +92,9 @@ class ComparisonWriter(ConditionWriter):
         else:
             raise NotImplementedError
         writer.put('%s) %s (%s)' % (value1, comparison, value2))
+
+    def get_parameters(self):
+        return self.parameters
 
     def get_comparison_value(self):
         return self.value
@@ -137,7 +140,7 @@ class DefaultExpression(ExpressionWriter):
 # method writers
 
 def get_method_out(writer):
-    parameters = tuple([str(writer.convert_parameter(item)) 
+    parameters = tuple([str(writer.convert_parameter(item))
         for item in writer.parameters])
     meth = writer.method
 

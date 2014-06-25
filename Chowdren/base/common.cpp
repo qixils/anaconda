@@ -1246,16 +1246,7 @@ FixedValue::operator FrameObject*() const
     return object;
 }
 
-// new-style object includes
-// XXX move everything to 'objects' directory, and only include implementations
-// of objects actually used
-#include "objects/alphaimage.cpp"
-#include "objects/systembox.cpp"
-#include "objects/assarray.cpp"
-#include "objects/surface.cpp"
-#include "objects/stringreplace.cpp"
-#include "objects/subapp.cpp"
-#include "objects/colorizer.cpp"
+// XXX move everything to 'objects' directory
 
 // Direction
 
@@ -3557,7 +3548,8 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 // TextBlitter
 
 TextBlitter::TextBlitter(int x, int y, int type_id)
-: FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0)
+: FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0), y_spacing(0),
+  y_scroll(0)
 {
     collision = new InstanceBox(this);
 }
@@ -3581,6 +3573,17 @@ void TextBlitter::initialize(const std::string & map_string)
     image->upload_texture();
 }
 
+int TextBlitter::get_x_align()
+{
+    if (alignment & ALIGN_LEFT)
+        return 0;
+    if (alignment & ALIGN_HCENTER)
+        return 1;
+    if (alignment & ALIGN_RIGHT)
+        return 2;
+    return 0;
+}
+
 void TextBlitter::set_x_align(int value)
 {
     alignment &= ~(ALIGN_LEFT | ALIGN_HCENTER | ALIGN_RIGHT);
@@ -3597,15 +3600,9 @@ void TextBlitter::set_x_align(int value)
     }
 }
 
-int TextBlitter::get_x_align()
+void TextBlitter::set_y_align(int value)
 {
-    if (alignment & ALIGN_LEFT)
-        return 0;
-    if (alignment & ALIGN_HCENTER)
-        return 1;
-    if (alignment & ALIGN_RIGHT)
-        return 2;
-    return 0;
+    std::cout << "Set vertical align: " << value << std::endl;
 }
 
 void TextBlitter::set_x_spacing(int value)
@@ -3613,9 +3610,25 @@ void TextBlitter::set_x_spacing(int value)
     x_spacing = value;
 }
 
+void TextBlitter::set_y_spacing(int value)
+{
+    y_spacing = value;
+}
+
+void TextBlitter::set_y_scroll(int value)
+{
+    y_scroll = value;
+}
+
 void TextBlitter::set_width(int width)
 {
     this->width = width;
+    collision->update_aabb();
+}
+
+void TextBlitter::set_height(int height)
+{
+    this->height = height;
     collision->update_aabb();
 }
 
@@ -3627,6 +3640,65 @@ void TextBlitter::set_text(const std::string & value)
 const std::string & TextBlitter::get_text()
 {
     return text;
+}
+
+int TextBlitter::get_line_count()
+{
+    int count = 1;
+    for (unsigned int i = 0; i < text.size(); i++) {
+        if (text[i] == '\n')
+            count++;
+    }
+    return count;
+}
+
+std::string TextBlitter::get_line(int index)
+{
+    int line = 0;
+    for (unsigned int i = 0; i < text.size(); i++) {
+        if (line > index)
+            break;
+        int start = i;
+        int size = 0;
+
+        // find start + end of line
+        while (true) {
+            if (i >= text.size())
+                break;
+            if (text[i] == '\n')
+                break;
+            unsigned char c = (unsigned char)text[i];
+            i++;
+            if (c == '\r')
+                continue;
+            size++;
+        }
+
+        if (line != index) {
+            line++;
+            continue;
+        }
+
+        return text.substr(start, size);
+    }
+
+    return std::string();
+}
+
+std::string TextBlitter::get_map_char(int i)
+{
+    return charmap_str->substr(i, 1);
+}
+
+void TextBlitter::replace_color(int from, int to)
+{
+    Color color1(from);
+    Color color2(to);
+    std::cout << "Replace color not implemented: " <<
+        int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
+        << " -> " <<
+        int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
+        << std::endl;
 }
 
 void TextBlitter::update(float dt)
@@ -3647,8 +3719,9 @@ void TextBlitter::draw()
     glBindTexture(GL_TEXTURE_2D, image->tex);
 
     int x_add = char_width + x_spacing;
+    int y_add = char_height + y_spacing;
 
-    int yy = y;
+    int yy = y + y_scroll;
     if (alignment & ALIGN_VCENTER)
         yy += height / 2 - char_height / 2;
 
@@ -3713,7 +3786,7 @@ void TextBlitter::draw()
             xx += x_add;
         }
 
-        yy += char_height;
+        yy += y_add;
     }
 
     glDisable(GL_TEXTURE_2D);

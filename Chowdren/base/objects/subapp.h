@@ -3,7 +3,7 @@
 
 #include "frameobject.h"
 
-class SubApplication
+class SubApplication : public FrameObject
 {
 public:
     SubApplication(int x, int y, int id);

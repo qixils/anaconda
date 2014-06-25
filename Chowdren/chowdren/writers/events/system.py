@@ -455,6 +455,20 @@ class NumberOfObjects(ComparisonWriter):
         obj = (self.data.objectInfo, self.data.objectType)
         return '%s.size()' % self.converter.get_object_list(obj)
 
+class CompareObjectsInZone(ComparisonWriter):
+    has_object = False
+    iterate_objects = False
+
+    def get_parameters(self):
+        return self.parameters[1:]
+
+    def get_comparison_value(self):
+        zone = self.parameters[0].loader
+        obj = (self.data.objectInfo, self.data.objectType)
+        obj_list = self.converter.get_object_list(obj)
+        return 'objects_in_zone(%s, %s, %s, %s, %s)' % (obj_list, zone.x1,
+            zone.y1, zone.x2, zone.y2)
+
 class CompareFixedValue(ConditionWriter):
     custom = True
     def write(self, writer):
@@ -508,6 +522,12 @@ class FacingInDirection(ConditionWriter):
             name = 'test_directions'
             value = parameter.value
         writer.put('%s(%s)' % (name, value))
+
+class InsidePlayfield(ConditionMethodWriter):
+    method = 'outside_playfield'
+
+    def is_negated(self):
+        return not ConditionMethodWriter.is_negated(self)
 
 # actions
 
@@ -974,7 +994,8 @@ class StringExpression(ExpressionWriter):
     def get_string(self):
         self.converter.start_clauses -= self.data.loader.value.count('(')
         self.converter.end_clauses -= self.data.loader.value.count(')')
-        return to_c('std::string(%r)', self.data.loader.value)
+        return to_c('std::string(%r, %s)', self.data.loader.value,
+                    len(self.data.loader.value))
 
 class EndParenthesis(ConstantExpression):
     value = ')'
@@ -1171,6 +1192,7 @@ actions = make_table(ActionMethodWriter, {
     'SetSamplePan' : 'media->set_sample_volume("%s", %s)',
     'SetSamplePosition' : 'media->set_sample_position("%s", %s)',
     'SetSampleVolume' : 'media->set_sample_volume("%s", %s)',
+    'SetSampleFrequency' : 'media->set_sample_frequency("%s", %s)',
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
@@ -1230,11 +1252,13 @@ conditions = make_table(ConditionMethodWriter, {
     'AnimationPlaying' : 'test_animation',
     'Chance' : 'random_chance',
     'CompareFixedValue' : CompareFixedValue,
+    'InsidePlayfield' : InsidePlayfield,
     'OutsidePlayfield' : 'outside_playfield',
     'IsObstacle' : 'test_background_collision',
     'IsOverlappingBackground' : 'overlaps_background',
     'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
+    'ObjectsInZone' : CompareObjectsInZone,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
     'NotAlways' : NotAlways,
@@ -1292,6 +1316,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'AlterableString' : AlterableStringExpression,
     'GlobalString' : GlobalStringExpression,
     'GlobalValue' : GlobalValueExpression,
+    'GlobalValueExpression' : '.global_values->get(-1 + ',
     'YPosition' : 'get_y()',
     'XPosition' : 'get_x()',
     'ActionX' : 'get_action_x()',

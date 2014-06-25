@@ -24,19 +24,40 @@ def hash_key(value):
     hashed_keys[value] = new_hash
     return new_hash
 
-class SetValue(ActionMethodWriter):
+class SetAction(ActionMethodWriter):
     def write(self, writer):
         key = self.parameters[1].loader.items
         key = hash_key(self.converter.convert_static_expression(key))
         value = self.convert_index(2)
-        writer.put('get_extra_alterables().set_value(%s, %s);' % (key,
-                                                                  value))
+        writer.putc('get_extra_alterables().%s(%s, %s);', self.func, key,
+                    value)
 
     def get_object(self):
         parameter = self.parameters[0].loader
         return parameter.objectInfo, parameter.objectType
 
-class GetValue(ExpressionMethodWriter):
+class SetValue(SetAction):
+    func = 'set_value'
+
+class SetString(SetAction):
+    func = 'set_string'
+
+class CompareValue(ComparisonWriter):
+    def __init__(self, *arg, **kw):
+        ComparisonWriter.__init__(self, *arg, **kw)
+        parameter = self.parameters[0].loader
+        self.obj = (parameter.objectInfo, parameter.objectType)
+        key = self.parameters[1].loader.items
+        self.key = hash_key(self.converter.convert_static_expression(key))
+        self.parameters = self.parameters[2:]
+
+    def get_comparison_value(self):
+        return 'get_extra_alterables().get_value(%s)' % self.key
+
+    def get_object(self):
+        return self.obj
+
+class GetExpression(ExpressionMethodWriter):
     def get_string(self):
         converter = self.converter
         items = converter.expression_items
@@ -56,17 +77,26 @@ class GetValue(ExpressionMethodWriter):
         converter.item_index += 2
 
         obj = self.converter.get_object(obj)
-        return '%s->get_extra_alterables().get_value(%s)' % (obj, name)
+        return '%s->get_extra_alterables().%s(%s)' % (obj, self.func, name)
+
+class GetValue(GetExpression):
+    func = 'get_value'
+
+class GetString(GetExpression):
+    func = 'get_string'
 
 actions = make_table(ActionMethodWriter, {
-    0 : SetValue
+    0 : SetValue,
+    2 : SetString
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    0 : CompareValue
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    0 : GetValue
+    0 : GetValue,
+    1 : GetString
 })
 
 def get_object():

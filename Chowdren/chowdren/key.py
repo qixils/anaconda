@@ -268,3 +268,69 @@ for vk, names in VK_TO_SDL.iteritems():
 
 def convert_key(value):
     return VK_TO_SDL[value][0]
+
+def main():
+    # generate key definition files
+    from chowdren.code import CodeWriter
+    from chowdren.common import get_base_path
+    import os
+
+    writer = CodeWriter(os.path.join(get_base_path(), 'keyconv.h'))
+
+    # write keys file
+    writer.start_guard('CHOWDREN_KEYCONV_H')
+    writer.putln('#include <string>')
+    writer.putln('#include "keydef.h"')
+    writer.putln('')
+
+    writer.putmeth('inline int translate_vk_to_key', 'int vk')
+    writer.putln('switch (vk) {')
+    writer.indent()
+    for vk, name in VK_TO_SDL.iteritems():
+        writer.putln('case %s: return %s;' % (vk, name[0]))
+    writer.end_brace()
+    writer.putln('return -1;')
+    writer.end_brace()
+    writer.putln('')
+
+    writer.putmeth('inline int translate_string_to_key',
+                   'const std::string & name')
+    for vk, name in VK_TO_SDL.iteritems():
+        string_name = VK_TO_NAME.get(vk, None)
+        if string_name is None:
+            continue
+        writer.putlnc('if (name == %r) return %s;', string_name,
+                         name[0])
+    writer.putln('return -1;')
+    writer.end_brace()
+    writer.putln('')
+
+    writer.putmeth('inline std::string translate_vk_to_string',
+                   'int vk')
+    writer.putln('switch (vk) {')
+    writer.indent()
+    for vk, name in VK_TO_SDL.iteritems():
+        string_name = VK_TO_NAME.get(vk, None)
+        if string_name is None:
+            continue
+        writer.putlnc('case %s: return %r;', vk, string_name)
+    writer.end_brace()
+    writer.putln('return "";')
+    writer.end_brace()
+    writer.putln('')
+
+    writer.putmeth('inline std::string translate_key_to_string',
+                   'int key')
+    writer.putln('switch (key) {')
+    writer.indent()
+    for name, string_name in KEY_TO_NAME.iteritems():
+        writer.putlnc('case %s: return %r;', name, string_name)
+    writer.end_brace()
+    writer.putln('return "";')
+    writer.end_brace()
+
+    writer.close_guard('CHOWDREN_KEYCONV_H')
+    writer.close()
+
+if __name__ == '__main__':
+    main()

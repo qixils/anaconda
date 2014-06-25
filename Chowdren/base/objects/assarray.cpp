@@ -116,4 +116,14 @@ void AssociateArray::clear()
     map->clear();
 }
 
+bool AssociateArray::has_key(const std::string & key)
+{
+    return map->find(key) != map->end();
+}
+
+void AssociateArray::remove_key(const std::string key)
+{
+    map->erase(key);
+}
+
 ArrayMap AssociateArray::global_map;

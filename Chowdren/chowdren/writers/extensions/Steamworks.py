@@ -8,8 +8,6 @@ from chowdren.writers.events import (ConditionMethodWriter,
     TrueCondition, FalseCondition, EmptyAction)
 
 class SteamObject(ObjectWriter):
-    # class_name = 'SteamObject'
-    # includes = ['steamext.h']
     static = True
     update = True
 

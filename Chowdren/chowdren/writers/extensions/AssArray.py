@@ -6,7 +6,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class AssociateArray(ObjectWriter):
     class_name = 'AssociateArray'
-    includes = ['objects/assarray.h']
+    filename = 'assarray'
 
     def write_init(self, writer):
         data = self.get_data()
@@ -22,6 +22,7 @@ class AssociateArray(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set_value',
     1 : 'set_string',
+    2 : 'remove_key',
     3 : 'clear',
     43 : 'load_encrypted',
     44 : 'set_key',
@@ -30,6 +31,7 @@ actions = make_table(ActionMethodWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    0 : 'has_key'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

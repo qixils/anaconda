@@ -33,3 +33,15 @@ void SystemBox::draw()
         draw_image(image, x + image->hotspot_x, y + image->hotspot_y);
     }
 }
+
+void SystemBox::set_size(int w, int h)
+{
+    width = w;
+    height = h;
+    collision->update_aabb();
+}
+
+void SystemBox::set_text(const std::string & text)
+{
+    this->text = text;
+}

@@ -12,7 +12,7 @@ def read_vec2(reader):
 class Box2D(ObjectWriter):
     class_name = 'Box2D'
     use_alterables = True
-    includes = ['box2d/box2dext.h']
+    filename = 'box2d/box2dext'
     update = True
 
     def write_init(self, writer):

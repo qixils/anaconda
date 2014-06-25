@@ -36,6 +36,8 @@ public:
     int get_value(const std::string & key);
     const std::string & get_string(const std::string & key);
     void set_key(const std::string & key);
+    void remove_key(const std::string & key);
+    bool has_key(const std::string & key);
     void clear();
 };
 

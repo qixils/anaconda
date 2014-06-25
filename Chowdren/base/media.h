@@ -60,6 +60,7 @@ public:
     void set_sample_volume(const std::string & name, double volume);
     void set_sample_pan(const std::string & name, double pan);
     void set_sample_position(const std::string & name, double pos);
+    void set_sample_frequency(const std::string & name, double freq);
     double get_sample_position(const std::string & name);
     double get_sample_duration(const std::string & name);
     void stop_sample(const std::string & name);

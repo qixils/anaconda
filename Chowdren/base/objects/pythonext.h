@@ -1,3 +1,6 @@
+#ifndef CHOWDREN_PYTHONEXT_H
+#define CHOWDREN_PYTHONEXT_H
+
 #include <string>
 #include "frameobject.h"
 
@@ -34,7 +37,6 @@ public:
         return value;
     }
 
-
     static PyObject * get_none();
     static PyObject * get_tuple_item(PyObject * t, int i);
     static double to_double(PyObject * value);
@@ -48,3 +50,5 @@ public:
     int as_number(PyObject * v);
     std::string as_string(double v);
 };
+
+#endif // CHOWDREN_PYTHONEXT_H

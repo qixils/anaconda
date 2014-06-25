@@ -73,13 +73,16 @@ class TextBlitter(ObjectWriter):
         if not align_flags:
             align_flags.append('0')
         writer.putln('alignment = %s;' % ' | '.join(align_flags))
-        writer.putln('static int * charmap = new int[256];')
+        writer.putln('static int charmap[256];')
+        writer.putlnc('static std::string charmap_str(%r, %s);',
+                      character_map, len(character_map))
         writer.putln('static bool initialized = false;')
-        writer.putln('this->charmap = charmap;')
+        writer.putln('this->charmap = &charmap[0];')
+        writer.putln('this->charmap_str = &charmap_str;')
         writer.putln('if (!initialized) {')
         writer.indent()
         writer.putln('initialized = true;')
-        writer.putln(to_c('initialize(%r);', character_map))
+        writer.putln('initialize(charmap_str);')
         writer.end_brace()
         # other data
         # data.openEditor()
@@ -91,8 +94,13 @@ class TextBlitter(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set_text',
     36 : 'set_x_align',
+    37 : 'set_y_align',
+    43 : 'set_y_scroll',
     44 : 'set_x_spacing',
-    58 : 'set_width'
+    45 : 'set_y_spacing',
+    57 : 'replace_color',
+    58 : 'set_width',
+    59 : 'set_height'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -100,8 +108,11 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_text()',
+    9 : 'get_x_align()',
     21 : '.width',
-    9 : 'get_x_align()'
+    32 : 'get_line_count',
+    33 : 'get_line',
+    42 : 'get_map_char'
 })
 
 def get_object():

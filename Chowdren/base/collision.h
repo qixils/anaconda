@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "mathcommon.h"
 #include "broadphase.h"
+#include "image.h"
 
 bool collide(CollisionBase * a, CollisionBase * b);
 
@@ -407,15 +408,26 @@ public:
 class PointCollision : public CollisionBase
 {
 public:
-    int x, y;
-
     PointCollision(int x, int y)
-    : CollisionBase(BOUNDING_BOX, true), x(x), y(y)
+    : CollisionBase(BOUNDING_BOX, true)
     {
         aabb[0] = x;
         aabb[1] = y;
         aabb[2] = x + 1;
         aabb[3] = y + 1;
+    }
+};
+
+class BoundingBox : public CollisionBase
+{
+public:
+    BoundingBox(int x1, int y1, int x2, int y2)
+    : CollisionBase(BOUNDING_BOX, true)
+    {
+        aabb[0] = x1;
+        aabb[1] = y1;
+        aabb[2] = x2;
+        aabb[3] = y2;
     }
 };
 

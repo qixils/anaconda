@@ -99,6 +99,9 @@ public:
 typedef hash_map<std::string, DynamicLoop> DynamicLoops;
 
 class Media;
+class GameManager;
+class GlobalValues;
+class GlobalStrings;
 
 class Frame
 {

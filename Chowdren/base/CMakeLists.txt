@@ -81,6 +81,7 @@ set(SRCS
     ${OBJECTSRCS}
     fonts.cpp
     lists.cpp
+    extensions.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${GLEW_C}
@@ -113,10 +114,6 @@ if (USE_STEAM)
                 "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
         endif()
     endif()
-    set(SRCS
-        ${SRCS}
-        steamext.cpp
-    )
 endif()
 
 if (USE_BOX2D)
@@ -220,10 +217,6 @@ set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 
 if (USE_PYTHON)
     add_definitions(-DCHOWDREN_USE_PYTHON)
-    set(SRCS
-        ${SRCS}
-        ${CHOWDREN_BASE_DIR}/pythonext.cpp
-    )
     find_package(PythonLibs 2.7 REQUIRED)
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()

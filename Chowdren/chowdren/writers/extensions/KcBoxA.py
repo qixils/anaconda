@@ -2,7 +2,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
-    ConditionMethodWriter, ExpressionMethodWriter, make_table)
+    ConditionMethodWriter, ExpressionMethodWriter, make_table, EmptyAction)
 from mmfparser.data.font import LogFont
 from mmfparser.bitdict import BitDict
 
@@ -58,7 +58,7 @@ NONE, HYPERLINK, BUTTON, CHECKBOX = xrange(4)
 
 class SystemBox(ObjectWriter):
     class_name = 'SystemBox'
-    includes = ['objects/systembox.h']
+    filename = 'systembox'
     use_alterables = True
 
     def write_init(self, writer):
@@ -124,6 +124,8 @@ class SystemBox(ObjectWriter):
         new_width = width - margin_left - margin_right
         new_height = height - margin_top - margin_bottom
 
+        writer.putlnc('text = std::string(%r, %s);', text, len(text))
+
         if flags['AlignTop']:
             y_align = 'top'
         elif flags['AlignVerticalCenter']:
@@ -145,13 +147,19 @@ class SystemBox(ObjectWriter):
         return [self.image]
 
 actions = make_table(ActionMethodWriter, {
-    1 : 'set_position'
+    0 : 'set_size',
+    1 : 'set_position',
+    54 : EmptyAction, # set text color, other
+    55 : 'set_text'
 })
 
 conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    29 : '.text',
+    31 : '.width',
+    32 : '.height'
 })
 
 def get_object():

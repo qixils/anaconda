@@ -16,5 +16,5 @@ void main()
     blend.g = HARD(B.g, L.g);
     blend.b = HARD(B.b, L.b);
     blend.a = HARD(B.a, L.a);
-	gl_FragColor = blend * gl_Color;
+    gl_FragColor = blend * gl_Color;
 }

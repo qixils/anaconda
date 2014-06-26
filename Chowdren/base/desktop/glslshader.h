@@ -1,8 +1,13 @@
 #include "../shader.h"
 
+
+#define GLSL_HAS_BACK 1
+#define GLSL_HAS_TEX_SIZE 2
+
 class GLSLShader : public Shader
 {
 public:
+
     static GLSLShader * current;
 #ifndef CHOWDREN_USE_GL
     GLint blend_color;
@@ -11,10 +16,10 @@ public:
     GLint size_uniform;
     bool initialized;
     std::string name;
-    bool has_background;
+    int flags;
     const char * texture_parameter;
 
-    GLSLShader(const std::string & name, bool has_back = false,
+    GLSLShader(const std::string & name, int flags = NULL,
                const char * texture_parameter = NULL);
     void initialize();
     GLuint attach_source(const std::string & ext, GLenum type);

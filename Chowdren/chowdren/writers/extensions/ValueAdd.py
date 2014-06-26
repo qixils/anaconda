@@ -24,6 +24,19 @@ def hash_key(value):
     hashed_keys[value] = new_hash
     return new_hash
 
+class SpreadValue(ActionMethodWriter):
+    custom = True
+
+    def write(self, writer):
+        key = self.parameters[1].loader.items
+        key = hash_key(self.converter.convert_static_expression(key))
+        start = self.convert_index(2)
+        step = self.convert_index(3)
+        obj = self.get_object()
+        object_list = self.converter.get_object(obj, True)
+        writer.putlnc('spread_value(%s, %s, %s);', object_list, alt, start,
+                      step)
+
 class SetAction(ActionMethodWriter):
     def write(self, writer):
         key = self.parameters[1].loader.items
@@ -87,6 +100,7 @@ class GetString(GetExpression):
 
 actions = make_table(ActionMethodWriter, {
     0 : SetValue,
+    1 : SpreadValue,
     2 : SetString
 })
 

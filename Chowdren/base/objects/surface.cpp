@@ -58,3 +58,8 @@ void SurfaceObject::blit(Active * obj)
 {
     std::cout << "Blit onto surface" << std::endl;
 }
+
+void SurfaceObject::set_effect(int index)
+{
+    std::cout << "Set Surface effect: " << index << std::endl;
+}

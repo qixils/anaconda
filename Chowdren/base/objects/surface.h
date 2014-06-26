@@ -15,6 +15,7 @@ public:
     void set_dest_pos(int x, int y);
     void set_dest_size(int w, int h);
     void blit(Active * obj);
+    void set_effect(int index);
 };
 
 #endif // CHOWDREN_SURFACE_H

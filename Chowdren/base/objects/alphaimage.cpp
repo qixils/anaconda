@@ -5,7 +5,7 @@ AlphaImageObject::AlphaImageObject(int x, int y, int type_id)
 {
 }
 
-AlphaImageObject::set_image(int index)
+void AlphaImageObject::set_image(int index)
 {
     image = index;
 }

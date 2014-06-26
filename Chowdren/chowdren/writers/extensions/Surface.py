@@ -44,6 +44,7 @@ class SurfaceObject(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     13 : 'resize',
     15 : 'load',
+    40 : 'set_effect', # by index
     41 : 'set_dest_pos',
     49 : 'blit_destination',
     66 : 'set_dest_size',

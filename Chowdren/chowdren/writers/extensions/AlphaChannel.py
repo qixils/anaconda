@@ -18,7 +18,8 @@ class AlphaImageObject(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set_image',
     32 : 'blend_color.set_alpha',
-    116 : '.width = %s'
+    15 : '.width = %s',
+    18 : '.height *= %s / 100.0'
 })
 
 conditions = make_table(ConditionMethodWriter, {

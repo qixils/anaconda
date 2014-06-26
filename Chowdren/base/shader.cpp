@@ -116,7 +116,7 @@ public:
     int height;
 
     OffsetShader()
-    : GLSLShader("offset", true)
+    : GLSLShader("offset", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
     {
 
     }
@@ -151,7 +151,7 @@ public:
     int radius;
 
     DodgeBlurShader()
-    : GLSLShader("dodgeblur", true)
+    : GLSLShader("dodgeblur", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
     {
 
     }
@@ -177,7 +177,7 @@ public:
     int r, g, b, a;
 
     GrainShader()
-    : GLSLShader("grain", false)
+    : GLSLShader("grain")
     {
 
     }
@@ -209,7 +209,7 @@ class MultiplyShader : public GLSLShader
 {
 public:
     MultiplyShader()
-    : GLSLShader("multiply", true)
+    : GLSLShader("multiply", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
     {
     }
 };
@@ -218,7 +218,7 @@ class HardLightShader : public GLSLShader
 {
 public:
     HardLightShader()
-    : GLSLShader("hardlight", true)
+    : GLSLShader("hardlight", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
     {
     }
 };
@@ -231,7 +231,7 @@ public:
     int original_power;
 
     TintShader()
-    : GLSLShader("tint", false)
+    : GLSLShader("tint")
     {
 
     }
@@ -258,7 +258,7 @@ public:
     int r, g, b, a;
 
     ChannelBlurShader()
-    : GLSLShader("channelblur", false)
+    : GLSLShader("channelblur")
     {
     }
 
@@ -289,7 +289,7 @@ public:
     int coeff;
 
     BgBloomShader()
-    : GLSLShader("bgbloom", true)
+    : GLSLShader("bgbloom", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
     {
     }
 
@@ -320,7 +320,7 @@ public:
     int freqY;
 
     UnderwaterShader()
-    : GLSLShader("underwater", false)
+    : GLSLShader("underwater")
     {
     }
 
@@ -353,7 +353,7 @@ public:
     int angle, x, y, shift_x, shift_y;
 
     RotateSubShader()
-    : GLSLShader("rotatesub", false)
+    : GLSLShader("rotatesub")
     {
     }
 
@@ -382,7 +382,7 @@ public:
     int fade, color;
 
     SimpleMaskShader()
-    : GLSLShader("simplemask", false)
+    : GLSLShader("simplemask")
     {
     }
 
@@ -406,7 +406,7 @@ public:
     int width, height, x_offset, y_offset;
 
     OffsetStationaryShader()
-    : GLSLShader("offsetstationary", true)
+    : GLSLShader("offsetstationary")
     {
     }
 
@@ -434,7 +434,8 @@ public:
     int alpha;
 
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", true, "pattern")
+    : GLSLShader("patternoverlay", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE,
+        "pattern")
     {
     }
 
@@ -455,6 +456,31 @@ public:
         set_float(instance, "x", x);
         set_float(instance, "y", y);
         set_float(instance, "alpha", alpha);
+    }
+};
+
+class SubPxShader : public GLSLShader
+{
+public:
+    int x, y, limit;
+
+    SubPxShader()
+    : GLSLShader("subpx", GLSL_HAS_TEX_SIZE)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        x = get_uniform("x");
+        y = get_uniform("y");
+        limit = get_uniform("limit");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_int(instance, "limit", limit);
+        set_float(instance, "x", x);
+        set_float(instance, "y", y);
     }
 };
 
@@ -499,6 +525,7 @@ Shader * rotatesub_shader;
 Shader * simplemask_shader;
 Shader * offsetstationary_shader;
 Shader * patternoverlay_shader;
+Shader * subpx_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -527,6 +554,7 @@ void init_shaders()
     simplemask_shader = new SimpleMaskShader;
     offsetstationary_shader = new OffsetStationaryShader;
     patternoverlay_shader = new PatternOverlayShader;
+    subpx_shader = new SubPxShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

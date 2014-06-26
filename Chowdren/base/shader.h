@@ -63,6 +63,8 @@ extern Shader * rotatesub_shader;
 extern Shader * simplemask_shader;
 extern Shader * offsetstationary_shader;
 extern Shader * patternoverlay_shader;
+extern Shader * crt_shader;
+extern Shader * subpx_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

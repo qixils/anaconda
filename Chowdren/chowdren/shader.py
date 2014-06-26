@@ -27,7 +27,7 @@ NATIVE_SHADERS = {
     'MonoExample.fx' : 'monochrome_shader',
     'HardMix.fx' : 'dummy_shader',
     'Overlay.fx' : 'dummy_shader',
-    'Lens.fx' : 'dummy_shader',
+    'Lens.fx' : 'dummy_shader',                             # todo
     'LinearDodge.fx' : 'dummy_shader',
     'SoftLight.fx' : 'dummy_shader',
     'PinLight.fx' : 'dummy_shader',
@@ -42,7 +42,13 @@ NATIVE_SHADERS = {
     'RotateSub.fx' : 'rotatesub_shader',
     'SimpleMask.fx' : 'simplemask_shader',
     'Offsetstationary.fx' : 'offsetstationary_shader',
-    'Pattern Overlay alonso.fx' : 'patternoverlay_shader'
+    'Pattern Overlay alonso.fx' : 'patternoverlay_shader',
+    'SubPx.fx' : 'subpx_shader',
+    'ColDirBlur alonso.fx' : 'coldirblur_shader',           # todo
+    'OverlayAlpha.fx' : 'overlayalpha_shader',              # todo
+    'Gradient.fx' : 'gradient_shader',                      # todo
+    'CS_ZoomOffset.fx' : 'zoomoffset_shader',               # todo
+    'CRT.fx' : 'crt_shader'                                 # todo
 }
 
 def get_name(name):

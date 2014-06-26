@@ -65,6 +65,7 @@ extern Shader * offsetstationary_shader;
 extern Shader * patternoverlay_shader;
 extern Shader * crt_shader;
 extern Shader * subpx_shader;
+extern Shader * zoomoffset_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

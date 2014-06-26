@@ -484,6 +484,38 @@ public:
     }
 };
 
+class ZoomOffsetShader : public GLSLShader
+{
+public:
+    int x, y, width, height;
+    int zoom_x, zoom_y;
+
+    ZoomOffsetShader()
+    : GLSLShader("zoomoffset")
+    {
+    }
+
+    void initialize_parameters()
+    {
+        x = get_uniform("fX");
+        y = get_uniform("fY");
+        width = get_uniform("fWidth");
+        height = get_uniform("fHeight");
+        zoom_x = get_uniform("fZoomX");
+        zoom_y = get_uniform("fZoomY");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fX", x);
+        set_float(instance, "fY", y);
+        set_float(instance, "fZoomX", zoom_x);
+        set_float(instance, "fZoomY", zoom_y);
+        set_float(instance, "fWidth", width);
+        set_float(instance, "fHeight", height);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -526,6 +558,7 @@ Shader * simplemask_shader;
 Shader * offsetstationary_shader;
 Shader * patternoverlay_shader;
 Shader * subpx_shader;
+Shader * zoomoffset_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -555,6 +588,7 @@ void init_shaders()
     offsetstationary_shader = new OffsetStationaryShader;
     patternoverlay_shader = new PatternOverlayShader;
     subpx_shader = new SubPxShader;
+    zoomoffset_shader = new ZoomOffsetShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

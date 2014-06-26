@@ -12,10 +12,10 @@ public:
     bool initialized;
     std::string name;
     bool has_background;
-    bool has_tex_param;
-    bool param_tex_set; // whether the uniform storing the texture slot index was set yet
+    const char * texture_parameter;
 
-    GLSLShader(const std::string & name, bool has_back = false, bool has_tex_param = false);
+    GLSLShader(const std::string & name, bool has_back = false,
+               const char * texture_parameter = NULL);
     void initialize();
     GLuint attach_source(const std::string & ext, GLenum type);
     GLuint get_background_texture();
@@ -31,6 +31,5 @@ public:
                    int uniform);
     void set_vec4(FrameObject * instance, const std::string & name,
                   int uniform);
-    void set_image(FrameObject * instance, const std::string & name,
-                   int uniform);
+    void set_image(FrameObject * instance, const std::string & name);
 };

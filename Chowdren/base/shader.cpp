@@ -430,20 +430,16 @@ public:
 class PatternOverlayShader : public GLSLShader
 {
 public:
-
-    int pattern;
     int x, y, width, height;
     int alpha;
 
-
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", true, true)
+    : GLSLShader("patternoverlay", true, "pattern")
     {
     }
 
     void initialize_parameters()
     {
-        pattern = get_uniform("pattern");
         x = get_uniform("x");
         y = get_uniform("y");
         width = get_uniform("width");
@@ -453,7 +449,7 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_image(instance, "pattern", pattern);
+        set_image(instance, "pattern");
         set_float(instance, "width", width);
         set_float(instance, "height", height);
         set_float(instance, "x", x);

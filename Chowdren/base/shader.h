@@ -30,10 +30,12 @@ class Shader
 public:
     virtual void begin(FrameObject * instance, Image * image) {}
     virtual void end(FrameObject * instance) {}
+
     virtual unsigned int get_background_texture()
     {
         return 0;
     }
+
     virtual bool has_texture_param()
     {
         return false;

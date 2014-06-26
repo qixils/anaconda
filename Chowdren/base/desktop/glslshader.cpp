@@ -28,9 +28,10 @@ static void initialize_background()
 
 GLSLShader * GLSLShader::current = NULL;
 
-GLSLShader::GLSLShader(const std::string & name, bool has_back, bool has_tex_param)
-: initialized(false), name(name), has_background(has_back), 
-  has_tex_param(has_tex_param), param_tex_set(false)
+GLSLShader::GLSLShader(const std::string & name, bool has_back,
+                       const char * texture_parameter)
+: initialized(false), name(name), has_background(has_back),
+  texture_parameter(texture_parameter)
 {
 }
 
@@ -44,6 +45,7 @@ void GLSLShader::initialize()
     glBindAttribLocation(program, POSITION_ATTRIB_IDX, POSITION_ATTRIB_NAME);
     glBindAttribLocation(program, TEXCOORD1_ATTRIB_IDX, TEXCOORD1_ATTRIB_NAME);
     glBindAttribLocation(program, TEXCOORD2_ATTRIB_IDX, TEXCOORD2_ATTRIB_NAME);
+    glBindAttribLocation(program, COLOR_ATTRIB_IDX, COLOR_ATTRIB_NAME);
 #endif
 
     glLinkProgram(program);
@@ -75,9 +77,9 @@ void GLSLShader::initialize()
         size_uniform = (GLint)get_uniform(SIZE_UNIFORM_NAME);
     }
 
-#ifndef CHOWDREN_USE_GL
-    blend_color = (GLint)get_uniform(COLOR_UNIFORM_NAME);
-#endif
+    if (texture_parameter != NULL) {
+        glUniform1i((GLint)get_uniform(texture_parameter), 2);
+    }
 
     glUseProgram(0);
 
@@ -99,7 +101,7 @@ GLuint GLSLShader::get_background_texture()
 
 bool GLSLShader::has_texture_param()
 {
-    return has_tex_param;
+    return texture_parameter != NULL;
 }
 
 GLuint GLSLShader::attach_source(const std::string & ext, GLenum type)
@@ -191,14 +193,8 @@ void GLSLShader::set_vec4(FrameObject * instance, const std::string & name,
     glUniform4f((GLint)uniform, a, b, c, d);
 }
 
-void GLSLShader::set_image(FrameObject * instance, const std::string & name,
-                          int uniform)
+void GLSLShader::set_image(FrameObject * instance, const std::string & name)
 {
-    if (!param_tex_set)
-    {
-        glUniform1i((GLint)get_uniform(name.c_str()), 2);
-        param_tex_set = true;
-    }
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, (GLuint)(*instance->shader_parameters)[name]);
     glActiveTexture(GL_TEXTURE0);

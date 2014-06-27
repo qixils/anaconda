@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <vector>
 
+extern std::string empty_string;
+
 inline double string_to_double(const std::string & in, double def = 0.0)
 {
     std::istringstream input(in);

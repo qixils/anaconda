@@ -9,6 +9,7 @@ class SurfaceObject : public FrameObject
 {
 public:
     SurfaceObject(int x, int y, int type_id);
+    ~SurfaceObject();
     void draw();
     void load(const std::string & filename, const std::string & ignore_ext);
     void resize(int w, int h);

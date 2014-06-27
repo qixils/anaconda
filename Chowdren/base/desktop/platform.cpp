@@ -750,15 +750,15 @@ bool platform_remove_file(const std::string & file)
 
 std::string convert_path(const std::string & v)
 {
+    std::string value = v;
+    if (value.compare(0, 3, "./\\") == 0)
+        value = std::string("./", 2) + value.substr(3);
 #ifndef _WIN32
-    std::string value = v;
     std::replace(value.begin(), value.end(), '\\', '/');
-    return value;
 #else
-    std::string value = v;
     std::replace(value.begin(), value.end(), '/', '\\');
-    return value;
 #endif
+    return value;
 }
 
 // debug

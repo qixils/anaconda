@@ -20,6 +20,9 @@ void StringParser::add_delimiter(const std::string & v)
 
 void StringParser::load(const std::string & filename)
 {
+    if (filename[0] == '[')
+        // work around HFA bug
+        return;
     read_file(filename.c_str(), value);
 }
 

@@ -102,31 +102,37 @@ public:
 
     void enable(int index)
     {
+        index &= 31;
         flags |= 1 << index;
     }
 
     void disable(int index)
     {
+        index &= 31;
         flags &= ~(1 << index);
     }
 
     void toggle(int index)
     {
+        index &= 31;
         flags ^= 1 << index;
     }
 
     bool is_on(int index)
     {
+        index &= 31;
         return (flags & (1 << index)) != 0;
     }
 
     bool is_off(int index)
     {
+        index &= 31;
         return (flags & (1 << index)) == 0;
     }
 
     int get(int index)
     {
+        index &= 31;
         return int(is_on(index));
     }
 };

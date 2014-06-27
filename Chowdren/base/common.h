@@ -37,8 +37,6 @@
 #include "movement.h"
 
 extern std::string newline_character;
-extern std::string empty_string;
-
 // string helpers
 
 inline int string_find(const std::string & a, const std::string & b,

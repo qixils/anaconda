@@ -1615,11 +1615,51 @@ void Active::update(float dt)
         update_frame();
 }
 
+inline int get_active_load_point(int value, int max)
+{
+    if (value == 100000) {
+        return max / 2;
+    } else if (value == 110000) {
+        return max;
+    }
+    return value;
+}
+
 void Active::load(const std::string & filename, int anim, int dir, int frame,
                   int hot_x, int hot_y, int action_x, int action_y,
                   int transparent_color)
 {
-    std::cout << "Load Active image: " << filename << std::endl;
+    Image * new_image = new Image(convert_path(filename), 0, 0, 0, 0);
+
+    if (!new_image->is_valid()) {
+        std::cout << "Could not load image " << filename << std::endl;
+        delete new_image;
+        return;
+    }
+
+    new_image->hotspot_x = get_active_load_point(hot_x, new_image->width);
+    new_image->hotspot_y = get_active_load_point(hot_x, new_image->height);
+    new_image->action_x = get_active_load_point(action_x, new_image->width);
+    new_image->action_y = get_active_load_point(action_y, new_image->height);
+
+    Animation * animation = animations->items[anim];
+    Direction * direction = animation->dirs[dir];
+
+    Image * old_image = direction->frames[frame];
+    if (old_image->handle == -1)
+        delete old_image;
+
+    new_image->upload_texture();
+    direction->frames[frame] = new_image;
+
+    // update the frame for all actives of this type
+    // this may break in the future, maybe
+    ObjectList::iterator it;
+    ObjectList & list = GameManager::instances.items[id];
+    for (it = list.begin(); it != list.end(); it++) {
+        Active * obj = (Active*)it->obj;
+        obj->update_frame();
+    }
 }
 
 void Active::draw()
@@ -3693,7 +3733,7 @@ void TextBlitter::load(const std::string & filename)
 
 TextBlitter::~TextBlitter()
 {
-    if (image->handle == -1)
+    if (image != NULL && image->handle == -1)
         delete image;
     if (!charmap_ref) {
         delete[] charmap;

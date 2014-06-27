@@ -9,6 +9,11 @@ SurfaceObject::SurfaceObject(int x, int y, int type_id)
     collision = new InstanceBox(this);
 }
 
+SurfaceObject::~SurfaceObject()
+{
+    delete collision;
+}
+
 void SurfaceObject::draw()
 {
 }

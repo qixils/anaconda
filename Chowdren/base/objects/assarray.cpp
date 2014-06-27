@@ -114,12 +114,18 @@ void AssociateArray::set_string(const std::string & key,
 
 int AssociateArray::get_value(const std::string & key)
 {
-    return (*map)[key].value;
+    ArrayMap::const_iterator it = map->find(key);
+    if (it == map->end())
+        return 0;
+    return it->second.value;
 }
 
 const std::string & AssociateArray::get_string(const std::string & key)
 {
-    return (*map)[key].string;
+    ArrayMap::const_iterator it = map->find(key);
+    if (it == map->end())
+        return empty_string;
+    return it->second.string;
 }
 
 void AssociateArray::clear()
@@ -185,7 +191,6 @@ ArrayAddress AssociateArray::get_prefix(const std::string & prefix, int index,
 
 const std::string & AssociateArray::get_key(ArrayAddress addr)
 {
-    static std::string empty_string("");
     if (addr.null)
         return empty_string;
     return addr.it->first;

@@ -581,6 +581,71 @@ public:
     }
 };
 
+class LensShader : public GLSLShader
+{
+public:
+    int coeff, base;
+
+    LensShader()
+    : GLSLShader("lens", GLSL_HAS_BACK)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        coeff = get_uniform("fCoeff");
+        base = get_uniform("fBase");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fCoeff", coeff);
+        set_float(instance, "fBase", base);
+    }
+};
+
+class ColDirBlurShader : public GLSLShader
+{
+public:
+    int rr, rg, rb, gr, gg, gb, br, bg, bb;
+    int angle, coeff;
+
+    ColDirBlurShader()
+    : GLSLShader("coldirblur", GLSL_HAS_BACK)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        rr = get_uniform("rr");
+        rg = get_uniform("rg");
+        rb = get_uniform("rb");
+        gr = get_uniform("gr");
+        gg = get_uniform("gg");
+        gb = get_uniform("gb");
+        br = get_uniform("br");
+        bg = get_uniform("bg");
+        bb = get_uniform("bb");
+        angle = get_uniform("fAngle");
+        coeff = get_uniform("fCoeff");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "rr", rr);
+        set_float(instance, "rg", rg);
+        set_float(instance, "rb", rb);
+        set_float(instance, "gr", gr);
+        set_float(instance, "gg", gg);
+        set_float(instance, "gb", gb);
+        set_float(instance, "br", br);
+        set_float(instance, "bg", bg);
+        set_float(instance, "bb", bb);
+        set_float(instance, "fAngle", angle);
+        set_float(instance, "fCoeff", coeff);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -626,6 +691,8 @@ Shader * subpx_shader;
 Shader * zoomoffset_shader;
 Shader * gradient_shader;
 Shader * overlayalpha_shader;
+Shader * lens_shader;
+Shader * coldirblur_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -658,6 +725,8 @@ void init_shaders()
     zoomoffset_shader = new ZoomOffsetShader;
     gradient_shader = new GradientShader;
     overlayalpha_shader = new OverlayAlphaShader;
+    lens_shader = new LensShader;
+    coldirblur_shader = new ColDirBlurShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

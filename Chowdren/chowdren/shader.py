@@ -27,7 +27,7 @@ NATIVE_SHADERS = {
     'MonoExample.fx' : 'monochrome_shader',
     'HardMix.fx' : 'dummy_shader',
     'Overlay.fx' : 'dummy_shader',
-    'Lens.fx' : 'dummy_shader',                             # todo
+    'Lens.fx' : 'lens_shader',
     'LinearDodge.fx' : 'dummy_shader',
     'SoftLight.fx' : 'dummy_shader',
     'PinLight.fx' : 'dummy_shader',
@@ -44,7 +44,7 @@ NATIVE_SHADERS = {
     'Offsetstationary.fx' : 'offsetstationary_shader',
     'Pattern Overlay alonso.fx' : 'patternoverlay_shader',
     'SubPx.fx' : 'subpx_shader',
-    'ColDirBlur alonso.fx' : 'coldirblur_shader',           # todo
+    'ColDirBlur alonso.fx' : 'coldirblur_shader',
     'OverlayAlpha.fx' : 'overlayalpha_shader',
     'Gradient.fx' : 'gradient_shader',
     'CS_ZoomOffset.fx' : 'zoomoffset_shader',

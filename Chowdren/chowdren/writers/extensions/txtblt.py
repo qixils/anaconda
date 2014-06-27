@@ -34,6 +34,7 @@ class TextBlitter(ObjectWriter):
     class_name = 'TextBlitter'
     use_alterables = True
     update = True
+    defines = ['CHOWDREN_USE_BLITTER']
 
     def write_init(self, writer):
         data = self.get_data()

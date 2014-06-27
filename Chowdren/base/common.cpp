@@ -647,6 +647,26 @@ public:
 static DefaultActive default_active;
 FrameObject * default_active_instance = &default_active;
 
+#ifdef CHOWDREN_USE_BLITTER
+
+class DefaultBlitter : public TextBlitter
+{
+public:
+    DefaultBlitter()
+    : TextBlitter(0, 0, 0)
+    {
+        layer = &default_layer;
+        width = height = 0;
+        collision = new InstanceBox(this);
+        create_alterables();
+    }
+};
+
+static DefaultBlitter default_blitter;
+FrameObject * default_blitter_instance = &default_blitter;
+
+#endif
+
 void Frame::add_layer(double scroll_x, double scroll_y, bool visible,
                       bool wrap_x, bool wrap_y)
 {
@@ -1036,7 +1056,24 @@ bool FrameObject::outside_playfield()
 
 int FrameObject::get_box_index(int index)
 {
-    int ret = collision->aabb[index];
+    int ret;
+    if (collision == NULL) {
+        switch (index) {
+            case 0:
+                ret = x;
+                break;
+            case 1:
+                ret = y;
+                break;
+            case 2:
+                ret = x + width;
+                break;
+            case 3:
+                ret = y + height;
+                break;
+        }
+    } else
+        ret = collision->aabb[index];
     if (index == 0 || index == 2)
         ret += layer->off_x;
     else
@@ -1089,6 +1126,7 @@ void FrameObject::destroy()
 
 void FrameObject::set_level(int index)
 {
+    index = int_max(0, index);
     layer->set_level(this, index);
 }
 

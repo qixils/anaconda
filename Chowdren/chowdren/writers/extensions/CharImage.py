@@ -19,6 +19,7 @@ class Character(object):
 class CharImage(ObjectWriter):
     class_name = 'CharacterImageObject'
     filename = 'charimage'
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()

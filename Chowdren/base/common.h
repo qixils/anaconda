@@ -78,7 +78,7 @@ inline std::string uppercase_string(std::string v)
 
 inline std::string right_string(const std::string & v, int count)
 {
-    count = int_min(int(v.size()), count);
+    count = int_max(0, int_min(int(v.size()), count));
     int index = int(v.size()) - count;
     return v.substr(index, count);
 }

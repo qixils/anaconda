@@ -10,6 +10,7 @@ from mmfparser.data.font import LogFont
 class ColorizerObject(ObjectWriter):
     class_name = 'ColorizerObject'
     filename = 'colorizer'
+    use_alterables = True
 
     def write_init(self, writer):
         pass

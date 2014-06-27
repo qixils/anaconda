@@ -749,8 +749,8 @@ class Converter(object):
             if hasattr(common, 'movements') and common.movements:
                 movements = common.movements.items
                 self.write_movements(objects_file, object_writer, movements)
-            if common and not common.isBackground():
-                object_writer.load_alterables(objects_file)
+
+            object_writer.load_alterables(objects_file)
             objects_file.end_brace()
 
             object_writer.write_class(objects_file)
@@ -2003,14 +2003,26 @@ class Converter(object):
             args = [name]
             if use_index:
                 args.append(self.iterated_index)
-            if object_type == 'Active*' and not is_qual and use_default:
-                getter_name = 'get_active_instance'
-            elif is_qual:
-                getter_name = 'get_qualifier'
-            else:
-                getter_name = 'get_instance'
+
+            getter_name = None
+            if not is_qual and use_default:
+                getter_name = self.get_instance_getter(object_type)
+
+            if not getter_name:
+                if is_qual:
+                    getter_name = 'get_qualifier'
+                else:
+                    getter_name = 'get_instance'
+
             args = ', '.join(args)
             return '((%s)%s(%s))' % (object_type, getter_name, args)
+
+    def get_instance_getter(self, object_type):
+        if object_type == 'Active*':
+            return 'get_active_instance'
+        elif object_type == 'TextBlitter*':
+            return 'get_blitter_instance'
+        return None
 
     def get_object_list(self, obj):
         if self.get_single(obj) is not None:

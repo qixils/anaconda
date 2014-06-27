@@ -233,6 +233,10 @@ void Media::play(SoundData * data, int channel, int loop)
 
 void Media::play(const std::string & filename, int channel, int loop)
 {
+    if (get_file_size(filename.c_str()) <= 0) {
+        std::cout << "Audio file does not exist: " << filename << std::endl;
+        return;
+    }
     SoundFile data(filename, convert_path(filename));
     play(&data, channel, loop);
 }

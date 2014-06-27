@@ -106,6 +106,27 @@ inline FrameObject * get_active_instance(ObjectList & list, int index)
     return list[index];
 }
 
+#ifdef CHOWDREN_USE_BLITTER
+
+extern FrameObject * default_blitter_instance;
+
+inline FrameObject * get_blitter_instance(ObjectList & list)
+{
+    if (list.empty())
+        return default_blitter_instance;
+    return list.back();
+}
+
+inline FrameObject * get_blitter_instance(ObjectList & list, int index)
+{
+    if (list.empty())
+        return default_blitter_instance;
+    index = (list.size() - 1) - (index % list.size());
+    return list[index];
+}
+
+#endif
+
 extern GameManager * global_manager;
 
 #endif // CHOWDREN_MANAGER_H

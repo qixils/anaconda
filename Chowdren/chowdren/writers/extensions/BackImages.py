@@ -9,6 +9,7 @@ from chowdren.writers.events import (ConditionMethodWriter,
 class BackImages(ObjectWriter):
     class_name = 'BackImages'
     filename = 'backimages'
+    use_alterables = True
 
     def is_background(self):
         return False

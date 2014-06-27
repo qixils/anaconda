@@ -406,7 +406,8 @@ double platform_get_time()
 size_t get_file_size(const char * filename)
 {
     struct stat st;
-    stat(filename, &st);
+    if (stat(filename, &st) != 0)
+        return 0;
     return st.st_size;
 }
 

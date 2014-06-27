@@ -45,7 +45,7 @@ NATIVE_SHADERS = {
     'Pattern Overlay alonso.fx' : 'patternoverlay_shader',
     'SubPx.fx' : 'subpx_shader',
     'ColDirBlur alonso.fx' : 'coldirblur_shader',           # todo
-    'OverlayAlpha.fx' : 'overlayalpha_shader',              # todo
+    'OverlayAlpha.fx' : 'overlayalpha_shader',
     'Gradient.fx' : 'gradient_shader',
     'CS_ZoomOffset.fx' : 'zoomoffset_shader',
     'CRT.fx' : 'crt_shader'                                 # todo

@@ -72,10 +72,10 @@ void GLSLShader::initialize()
     // setup uniforms
     glUniform1i((GLint)get_uniform(TEXTURE_SAMPLER_NAME), 0);
 
-    if (flags & GLSL_HAS_TEX_SIZE) {
+    if (flags & GLSL_HAS_BACK)
         glUniform1i((GLint)get_uniform(BACKTEX_SAMPLER_NAME), 1);
+    if (flags & GLSL_HAS_TEX_SIZE)
         size_uniform = (GLint)get_uniform(SIZE_UNIFORM_NAME);
-    }
 
     if (texture_parameter != NULL) {
         glUniform1i((GLint)get_uniform(texture_parameter), 2);

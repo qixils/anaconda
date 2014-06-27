@@ -560,6 +560,27 @@ public:
     }
 };
 
+class OverlayAlphaShader : public GLSLShader
+{
+public:
+    int alpha;
+
+    OverlayAlphaShader()
+    : GLSLShader("overlayalpha", GLSL_HAS_BACK)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        alpha = get_uniform("bgA");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "bgA", alpha);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -604,6 +625,7 @@ Shader * patternoverlay_shader;
 Shader * subpx_shader;
 Shader * zoomoffset_shader;
 Shader * gradient_shader;
+Shader * overlayalpha_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -635,6 +657,7 @@ void init_shaders()
     subpx_shader = new SubPxShader;
     zoomoffset_shader = new ZoomOffsetShader;
     gradient_shader = new GradientShader;
+    overlayalpha_shader = new OverlayAlphaShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

@@ -30,7 +30,7 @@ public:
                       double x1y1, double x1y2, double x1y3,
                       double x2y1, double x2y2, double x2y3,
                       double x3y1, double x3y2, double x3y3);
-    void save(const std::string & filename);
+    void save(const std::string & filename, const std::string & ext);
     void reverse_x();
     void add_image(int w, int h);
     void set_transparent_color(const Color & color, bool replace);

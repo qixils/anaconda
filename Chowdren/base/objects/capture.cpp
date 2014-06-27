@@ -1,8 +1,8 @@
 #include "objects/capture.h"
 
-void CaptureObject::set_filename(const std::string & filename)
+void CaptureObject::set_filename(const std::string & value)
 {
-    this->filename = filename;
+    filename = value;
 }
 
 void CaptureObject::capture_frame()
@@ -26,3 +26,5 @@ void CaptureObject::set_origin(int x, int y)
     std::cout << "Capture set pos not implemented: " << x << " " << y
         << std::endl;
 }
+
+std::string CaptureObject::filename;

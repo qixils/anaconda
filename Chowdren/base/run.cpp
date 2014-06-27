@@ -398,8 +398,10 @@ void GameManager::set_frame(int index)
         // reset_global_data();
         reset_globals();
     }
+
     std::cout << "Setting frame: " << index << std::endl;
     frame = get_frames(this)[index];
+
     // set some necessary pointers
     frame->global_values = values;
     frame->global_strings = strings;
@@ -709,6 +711,7 @@ int main(int argc, char *argv[])
 #endif
 
     GameManager manager;
+
     manager.run();
     return 0;
 }

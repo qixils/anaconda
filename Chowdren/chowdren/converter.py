@@ -712,9 +712,8 @@ class Converter(object):
                 elif ink_effect in INK_EFFECTS:
                     shader_name = INK_EFFECTS[ink_effect]
                 elif shader_name is None:
-                    print 'unknown inkeffect: %s' % ink_effect
-                    # raise NotImplementedError(
-                    #     'unknown inkeffect: %s' % ink_effect)
+                    raise NotImplementedError(
+                        'unknown inkeffect: %s' % ink_effect)
             if shader_name is not None:
                 objects_file.putln('set_shader(%s);' % shader.get_name(
                     shader_name))
@@ -1306,7 +1305,7 @@ class Converter(object):
         frames_file.putmeth('Frame ** get_frames', 'GameManager * manager')
         frames_file.putln('if (frames) return frames;')
 
-        frames_file.putln('frames = new Frame*[%s]();' % len(frame_funcs))
+        frames_file.putln('frames = new Frame*[%s]();' % max(processed_frames))
 
         for index in sorted(frame_funcs):
             frame = frame_funcs[index]
@@ -1921,9 +1920,22 @@ class Converter(object):
             out += ')'
 
         if self.end_clauses > self.start_clauses:
-            if out.endswith(', std::string())'):
-                # MMF string expression bug
-                out = out[:-16]
+            # MMF expression bug
+            remove = self.end_clauses - self.start_clauses
+
+            if remove != 1:
+                raise NotImplementedError()
+
+            end = len(out)
+
+            while True:
+                end = out.rindex('),', 0, end)
+                if out[end-1] != '(':
+                    break
+
+            filtered = out[end+1:]
+            out = out[:end+1]
+            print 'too many end-clauses, filtered', filtered
         return out
 
     def get_direction(self, parameter):

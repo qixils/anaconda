@@ -113,7 +113,8 @@ void SurfaceObject::apply_matrix(double div, double offset, double iterations,
     std::cout << "Apply matrix not implemented" << std::endl;
 }
 
-void SurfaceObject::save(const std::string & filename)
+void SurfaceObject::save(const std::string & filename,
+                         const std::string & ext)
 {
     std::cout << "Surface save not implemented: " << filename << std::endl;
 }

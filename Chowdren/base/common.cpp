@@ -1243,6 +1243,17 @@ void FrameObject::rotate_toward(int dir)
     set_direction(direction);
 }
 
+bool FrameObject::test_direction(int value)
+{
+    return get_direction() == value;
+}
+
+bool FrameObject::test_directions(int value)
+{
+    int direction = get_direction();
+    return ((value >> direction) & 1) != 0;
+}
+
 void FrameObject::update_flash(float dt, float interval, float & t)
 {
     if (interval == 0.0f)
@@ -1720,17 +1731,6 @@ void Active::paste(int collision_type)
 {
     layer->paste(image, x-image->hotspot_x, y-image->hotspot_y, 0, 0,
                  image->width, image->height, collision_type);
-}
-
-bool Active::test_direction(int value)
-{
-    return get_direction() == value;
-}
-
-bool Active::test_directions(int value)
-{
-    int direction = get_direction();
-    return ((value >> direction) & 1) != 0;
 }
 
 bool Active::test_animation(int value)

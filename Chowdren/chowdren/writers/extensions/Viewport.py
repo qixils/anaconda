@@ -9,6 +9,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 class Viewport(ObjectWriter):
     class_name = 'Viewport'
     defines = ['CHOWDREN_USE_VIEWPORT']
+    use_alterables = True
 
     def write_init(self, writer):
         data = self.get_data()

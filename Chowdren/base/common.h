@@ -218,8 +218,6 @@ public:
     void set_x_scale(float value);
     void set_y_scale(float value);
     void paste(int collision_type);
-    bool test_direction(int value);
-    bool test_directions(int value);
     bool test_animation(int value);
     void stop_animation();
     void start_animation();

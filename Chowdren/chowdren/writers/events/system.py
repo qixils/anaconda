@@ -333,7 +333,7 @@ class PlayerKeyCondition(ConditionWriter):
         keys = []
         flag_value = self.parameters[0].loader.value
         is_keyboard = controls.getControlType() == 'Keyboard'
-        if not is_keyboard:
+        if not is_keyboard and flag_value & 15:
             direction = flag_value & 15
             key = 'test_joystick_direction_flags(%s, %s)' % (player,
                                                              direction)
@@ -353,6 +353,18 @@ class PlayerKeyCondition(ConditionWriter):
                 key = JOYSTICK_BUTTONS[k]
                 key = '%s(%s, %s)' % (self.joystick_method, player, key)
             keys.append(key)
+
+        # true if nothing is pressed
+        if not keys:
+            if is_keyboard:
+                for k in flags.keys.keys():
+                    key = getattr(controls.keys, k.lower())
+                    key = convert_key(key.getValue())
+                    key = '!%s(%s)' % (self.key_method, key)
+                    keys.append(key)
+            else:
+                raise NotImplementedError()
+
         writer.put(' && '.join(keys))
 
 class PlayerKeyDown(PlayerKeyCondition):

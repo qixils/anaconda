@@ -7,6 +7,7 @@ from chowdren.writers.events import (StaticConditionWriter, StaticActionWriter,
 
 class ImageManipulator(ObjectWriter):
     class_name = 'ImageManipulator'
+    filename = 'imageconv'
     static = True
 
     def write_init(self, writer):
@@ -15,7 +16,7 @@ class ImageManipulator(ObjectWriter):
 actions = make_table(StaticActionWriter, {
     4 : 'save',
     7 : 'load',
-    23 : 'apply_gaus_blur'
+    23 : 'apply_gauss_blur'
 })
 
 conditions = make_table(StaticConditionWriter, {

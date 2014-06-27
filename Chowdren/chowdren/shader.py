@@ -9,7 +9,10 @@ INK_EFFECTS = {
     ADD_EFFECT : 'Add',
     SUBTRACT_EFFECT : 'Subtract',
     MONOCHROME_EFFECT : 'Monochrome',
-    INVERTED_EFFECT : 'Invert'
+    INVERTED_EFFECT : 'Invert',
+    XOR_EFFECT : 'XOR',
+    AND_EFFECT : 'AND',
+    OR_EFFECT : 'OR'
 }
 
 NATIVE_SHADERS = {
@@ -48,11 +51,16 @@ NATIVE_SHADERS = {
     'OverlayAlpha.fx' : 'overlayalpha_shader',
     'Gradient.fx' : 'gradient_shader',
     'CS_ZoomOffset.fx' : 'zoomoffset_shader',
-    'CRT.fx' : 'crt_shader'                                 # todo
+
+    # missing effects
+    'XOR' : 'dummy_shader',
+    'AND' : 'dummy_shader',
+    'OR' : 'dummy_shader',
+    'CRT.fx' : 'dummy_shader'
 }
 
 def get_name(name):
-    return NATIVE_SHADERS.get(name, name)
+    return NATIVE_SHADERS[name]
 
 VERTEX_REPLACEMENTS = {
     'gl_MultiTexCoord0': 'in_tex_coord1',

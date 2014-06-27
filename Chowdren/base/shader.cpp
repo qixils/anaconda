@@ -209,7 +209,7 @@ class MultiplyShader : public GLSLShader
 {
 public:
     MultiplyShader()
-    : GLSLShader("multiply", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
+    : GLSLShader("multiply", GLSL_HAS_BACK)
     {
     }
 };
@@ -218,7 +218,7 @@ class HardLightShader : public GLSLShader
 {
 public:
     HardLightShader()
-    : GLSLShader("hardlight", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
+    : GLSLShader("hardlight", GLSL_HAS_BACK)
     {
     }
 };

@@ -3,7 +3,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
-from chowdren.writers.events import (ActionMethodWriter, ConditionMethodWriter, 
+from chowdren.writers.events import (ActionMethodWriter, ConditionMethodWriter,
     ExpressionMethodWriter, make_table)
 
 class DirectionCalculator(ObjectWriter):
@@ -26,7 +26,19 @@ class LookAt(ActionMethodWriter):
         y = '%s->get_y() + %s' % (obj, details['y'])
         writer.put('look_at(%s, %s);' % (x, y))
 
+class RotateToward(ActionMethodWriter):
+    method = 'rotate_toward'
+
+    def write(self, writer):
+        direction = self.convert_index(0)
+        writer.putc('rotate_toward(%s);', direction)
+
+    def get_object(self):
+        loader = self.parameters[1].loader
+        return loader.objectInfo, loader.objectType
+
 actions = make_table(ActionMethodWriter, {
+    1: RotateToward,
     2 : LookAt
 })
 

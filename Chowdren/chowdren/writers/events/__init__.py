@@ -160,7 +160,11 @@ def get_method_out(writer):
 
 class ActionMethodWriter(ActionWriter):
     def write(self, writer):
-        writer.put(get_method_out(self) + ';')
+        try:
+            writer.put(get_method_out(self) + ';')
+        except TypeError, e:
+            print 'meth:', self.method
+            raise e
 
 class ConditionMethodWriter(ConditionWriter):
     def write(self, writer):

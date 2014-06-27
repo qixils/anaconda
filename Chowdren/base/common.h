@@ -37,6 +37,7 @@
 #include "movement.h"
 
 extern std::string newline_character;
+extern std::string empty_string;
 
 // string helpers
 
@@ -186,6 +187,7 @@ public:
     void force_frame(int value);
     void force_speed(int value);
     void force_direction(int value);
+    void restore_direction();
     void restore_animation();
     void restore_frame();
     void restore_speed();
@@ -232,6 +234,9 @@ public:
     bool is_animation_finished(int anim);
     void destroy();
     bool has_animation(int anim);
+    void load(const std::string & filename, int anim, int dir, int frame,
+              int hot_x, int hot_y, int action_x, int action_y,
+              int transparent_color);
 };
 
 class FTTextureFont;
@@ -380,6 +385,7 @@ class INI : public FrameObject
 public:
     static hash_map<std::string, SectionMap> global_data;
     std::string current_group;
+    std::string current_item;
     SectionMap data;
     std::vector<std::pair<std::string, std::string> > search_results;
     bool overwrite;
@@ -398,6 +404,7 @@ public:
                        const std::string & value);
     void set_group(const std::string & name);
     void set_group(const std::string & name, bool new_group);
+    void set_item(const std::string & name);
     std::string get_string(const std::string & item);
     std::string get_string(const std::string & group, const std::string & item,
                            const std::string & def);
@@ -456,9 +463,11 @@ public:
                    const std::string & dst_group, bool overwrite);
     size_t get_search_count();
     std::string get_search_result_group(int index);
+    const std::string & get_search_result_item(int index);
     std::string get_item_part(const std::string & group,
                               const std::string & item, int index,
                               const std::string & def);
+    void set_auto(bool save, bool load);
     ~INI();
 };
 
@@ -620,18 +629,28 @@ public:
     static float get_object_angle(FrameObject * a, FrameObject * b);
 };
 
+#define BLITTER_ANIMATION_NONE 0
+#define BLITTER_ANIMATION_SINWAVE 1
+
 class TextBlitter : public FrameObject
 {
 public:
     std::string text;
     int char_width, char_height;
+    int char_offset;
     Image * image;
     std::string * charmap_str;
     int * charmap;
     float flash_time, flash_interval;
     int alignment;
     int x_spacing, y_spacing;
-    int y_scroll;
+    int x_scroll, y_scroll;
+    bool charmap_ref;
+
+    int anim_type;
+    int anim_speed;
+    int anim_frame;
+    int wave_freq, wave_height;
 
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
@@ -640,8 +659,10 @@ public:
     void set_text(const std::string & text);
     void set_x_spacing(int spacing);
     void set_y_spacing(int spacing);
+    void set_x_scroll(int value);
     void set_y_scroll(int value);
     int get_x_align();
+    int get_y_align();
     void set_x_align(int value);
     void set_y_align(int value);
     void set_width(int width);
@@ -654,6 +675,11 @@ public:
     const std::string & get_text();
     std::string get_map_char(int index);
     void replace_color(int from, int to);
+    void set_transparent_color(int color);
+    void set_animation_parameter(int index, int value);
+    void set_animation_type(int value);
+    void set_charmap(const std::string & charmap);
+    const std::string & get_charmap();
 };
 
 typedef void (*ObstacleOverlapCallback)();
@@ -1214,6 +1240,27 @@ inline bool pick_random(QualifierList & instances)
     return true;
 }
 
+#ifdef CHOWDREN_USE_VALUEADD
+
+inline void spread_value(QualifierList & instances, int key, int start,
+                         int step)
+{
+    for (QualifierIterator it(instances); !it.end(); it++) {
+        (*it)->get_extra_alterables().set_value(key, start);
+        start += step;
+    }
+}
+
+inline void spread_value(ObjectList & instances, int key, int start, int step)
+{
+    for (ObjectIterator it(instances); !it.end(); it++) {
+        (*it)->get_extra_alterables().set_value(key, start);
+        start += step;
+    }
+}
+
+#endif
+
 inline void spread_value(ObjectList & instances, int alt, int start)
 {
     for (ObjectIterator it(instances); !it.end(); it++) {
@@ -1258,6 +1305,19 @@ inline void pick_objects_in_zone(ObjectList & instances,
     }
 }
 
+inline void pick_objects_in_zone(QualifierList & instances,
+                                 int x1, int y1, int x2, int y2)
+{
+    int v[4] = {x1, y1, x2, y2};
+    for (QualifierIterator it(instances); !it.end(); it++) {
+        // XXX objects need to be fully contained in zone,
+        // but here we only check for collision
+        if (collide_box(*it, v))
+            continue;
+        it.deselect();
+    }
+}
+
 inline void set_random_seed(int seed)
 {
     cross_srand(seed);
@@ -1294,6 +1354,31 @@ inline std::string get_command_arg(const std::string & arg)
 }
 
 std::string get_md5(const std::string & value);
+
+inline int get_ascii(const std::string & value)
+{
+    if (value.empty())
+        return 0;
+    return int((unsigned char)value[0]);
+}
+
+inline int reverse_color(int value)
+{
+    Color color(value);
+    color.r = 255 - color.r;
+    color.g = 255 - color.g;
+    color.b = 255 - color.b;
+    color.a = 0;
+    return color.get_int();
+}
+
+template <class T>
+inline T return_if(T val1, T val2, bool test)
+{
+    if (test)
+        return val1;
+    return val2;
+}
 
 inline std::string get_platform()
 {

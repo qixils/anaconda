@@ -149,6 +149,9 @@ class SystemBox(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set_size',
     1 : 'set_position',
+    6 : 'hide_fill',
+    22 : 'hide_border_1',
+    31 : 'hide_border_2',
     54 : EmptyAction, # set text color, other
     55 : 'set_text'
 })
@@ -159,7 +162,9 @@ conditions = make_table(ConditionMethodWriter, {
 expressions = make_table(ExpressionMethodWriter, {
     29 : '.text',
     31 : '.width',
-    32 : '.height'
+    32 : '.height',
+    34 : 'get_x()',
+    35 : 'get_y()'
 })
 
 def get_object():

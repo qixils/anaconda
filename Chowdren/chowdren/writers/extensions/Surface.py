@@ -41,22 +41,41 @@ class SurfaceObject(ObjectWriter):
         color = data.readColor()
         flags = data.readInt()
 
+class ReverseColor(ExpressionMethodWriter):
+    has_object = False
+    method = 'reverse_color'
+
 actions = make_table(ActionMethodWriter, {
+    1 : 'set_image',
+    3 : 'clear',
+    4 : 'create_alpha',
     13 : 'resize',
     15 : 'load',
+    14 : 'save',
+    19 : 'blit_alpha',
+    21 : 'reverse_x',
+    24 : 'set_transparent_color',
+    29 : 'set_edit_image',
+    39 : 'blend_color.set_semi_transparency(%s)',
     40 : 'set_effect', # by index
     41 : 'set_dest_pos',
-    49 : 'blit_destination',
+    49 : 'blit',
+    61 : 'apply_matrix',
+    62 : 'blit_background',
     66 : 'set_dest_size',
     78 : 'resize_canvas',
     93 : 'scroll',
-    116 : 'set_stretch_mode'
+    116 : 'set_stretch_mode',
+    17 : 'add_image'
 })
 
 conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    5 : 'get_edit_width()',
+    15 : 'get_image_width',
+    25 : ReverseColor
 })
 
 def get_object():

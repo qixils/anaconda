@@ -4,7 +4,7 @@ from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
 
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
-    ConditionMethodWriter, ExpressionMethodWriter, make_table)
+    ConditionMethodWriter, ExpressionMethodWriter, make_table, EmptyAction)
 
 class INI(ObjectWriter):
     class_name = 'INI'
@@ -142,7 +142,10 @@ actions = make_table(ActionMethodWriter, {
     10 : 'delete_item',
     29 : 'delete_item',
     43 : 'load_file',
+    44 : 'save_file',
     48 : 'load_string',
+    49 : 'set_auto',
+    52 : 'read_only = bool(%s)',
     32 : 'reset',
     38 : 'merge_file',
     45 : 'save_file',
@@ -153,6 +156,7 @@ actions = make_table(ActionMethodWriter, {
     47 : 'close',
     50 : 'set_compression',
     51 : 'set_encryption_key',
+    61 : EmptyAction, # open dialog box
     71 : SortGroup,
     78 : FileOperation
 })
@@ -177,6 +181,7 @@ expressions = make_table(ExpressionMethodWriter, {
     4 : 'get_item_name',
     12 : 'get_group_name',
     8 : 'get_value',
+    21 : 'get_search_result_item',
     20 : 'get_search_result_group',
     19 : 'get_search_count',
     37 : 'get_item_part',

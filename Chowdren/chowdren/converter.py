@@ -881,7 +881,8 @@ class Converter(object):
                 obj = (frameitem.handle, frameitem.objectType)
                 try:
                     object_writer = self.all_objects[obj]
-                    object_writers.append(object_writer)
+                    if object_writer not in object_writers:
+                        object_writers.append(object_writer)
                 except KeyError:
                     continue
                 if object_writer.static:
@@ -1790,6 +1791,8 @@ class Converter(object):
             name = item.getName()
             if name == 'String':
                 out += item.loader.value
+            elif name == 'Long':
+                out += str(item.loader.value)
             elif name == 'Plus':
                 continue
             elif name == 'AlterableString':
@@ -1894,7 +1897,9 @@ class Converter(object):
                     return convert_key(2)
                 elif button == 'Middle':
                     return convert_key(4)
-            elif parameter_name in ('Int', 'Short', 'Colour'):
+            elif parameter_name in ('Colour'):
+                return make_color(loader.value)
+            elif parameter_name in ('Int', 'Short'):
                 if parameter_type == 'NEWDIRECTION':
                     return parse_direction(loader.value)
                 elif parameter_type == 'TEXTNUMBER':
@@ -1914,6 +1919,11 @@ class Converter(object):
         self.end_clauses += out.count(')')
         for _ in xrange(self.start_clauses - self.end_clauses):
             out += ')'
+
+        if self.end_clauses > self.start_clauses:
+            if out.endswith(', std::string())'):
+                # MMF string expression bug
+                out = out[:-16]
         return out
 
     def get_direction(self, parameter):
@@ -2019,7 +2029,7 @@ class Converter(object):
                 ext_index = data.objectType - EXTENSION_BASE
                 ext = self.game.extensions.fromHandle(ext_index)
                 name = ext.name
-            print 'Could not get object type %r' % name
+            # print 'Could not get object type %r' % name
             raise e
 
     def get_object_class(self, object_type, star=True):

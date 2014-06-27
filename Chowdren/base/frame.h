@@ -149,6 +149,7 @@ public:
     int get_loop_index(const std::string & name);
     void set_timer(double value);
     void set_lives(int lives);
+    void set_score(int score);
     void set_display_center(int x = -1, int y = -1);
     void update_display_center();
     int frame_left();
@@ -164,6 +165,7 @@ public:
     bool is_joystick_direction_changed(int n);
     void clean_instances();
     void set_vsync(bool value);
+    int get_instance_count();
 };
 
 #endif // CHOWDREN_FRAME_H

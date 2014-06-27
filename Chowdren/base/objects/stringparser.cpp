@@ -1,5 +1,6 @@
 #include "objects/stringparser.h"
 #include "stringcommon.h"
+#include "filecommon.h"
 
 StringParser::StringParser(int x, int y, int id)
 : FrameObject(x, y, id), has_split(false)
@@ -15,6 +16,11 @@ void StringParser::add_delimiter(const std::string & v)
         return;
     }
     delimiters += v;
+}
+
+void StringParser::load(const std::string & filename)
+{
+    read_file(filename.c_str(), value);
 }
 
 void StringParser::split()

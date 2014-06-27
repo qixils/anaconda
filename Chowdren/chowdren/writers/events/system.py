@@ -782,8 +782,6 @@ class MoveBehind(ActionWriter):
     def write(self, writer):
         object_info = (self.parameters[0].loader.objectInfo,
                        self.parameters[0].loader.objectType)
-        # if object_info in self.converter.multiple_instances:
-        #     raise NotImplementedError
         writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
 
 class StartLoop(ActionWriter):
@@ -1241,6 +1239,7 @@ actions = make_table(ActionMethodWriter, {
     'MoveInFront' : MoveInFront,
     'MoveBehind' : MoveBehind,
     'ForceDirection' : 'force_direction',
+    'RestoreDirection' : 'restore_direction',
     'StopAnimation' : 'stop_animation',
     'StartAnimation' : 'start_animation',
     'RestoreSpeed' : 'restore_speed',
@@ -1276,13 +1275,19 @@ actions = make_table(ActionMethodWriter, {
     'Reverse' : 'get_movement()->reverse()',
     'ReplaceColor' : EmptyAction, # XXX fix,
     'SetLives' : 'set_lives',
+    'SetScore' : 'set_score',
     'SubtractLives' : 'set_lives(manager->lives - (%s))',
     'AddLives' : 'set_lives(manager->lives + (%s))',
     'EnableVsync' : 'set_vsync(true)',
     'DisableVsync' : 'set_vsync(false)',
     'SetGravity' : 'get_movement()->set_gravity',
+    'LoadActiveFrame' : 'load',
+    'SetClipboard' : EmptyAction,
     'SetFrameEffect' : EmptyAction, # XXX fix
-    'SetFrameEffectParameter' : EmptyAction # XXX fix
+    'SetFrameEffectParameter' : EmptyAction, # XXX fix
+    'SetFrameAlphaCoefficient' : EmptyAction, # XXX fix
+    # XXX implement this
+    'JumpSubApplicationFrame' : EmptyAction,
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -1398,6 +1403,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Sin' : 'sin_deg',
     'Cos' : 'cos_deg',
     'Exp' : 'get_exp',
+    'Log' : 'get_log10',
     'GetAngle' : 'get_angle()',
     'FrameHeight' : '.height',
     'FrameWidth' : '.width',
@@ -1426,13 +1432,14 @@ expressions = make_table(ExpressionMethodWriter, {
     'EffectParameter' : 'get_shader_parameter',
     'Floor' : 'get_floor',
     'Round' : 'int_round',
-    'AnimationNumber' : 'get_animation',
+    'AnimationNumber' : 'get_animation()',
     'Ceil' : 'ceil',
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetSamplePosition' : 'media->get_sample_position',
     'GetSampleDuration' : 'media->get_sample_duration',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
+    'GetChannelDuration' : '.media->get_channel_duration(-1 + ',
     'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',
@@ -1444,10 +1451,15 @@ expressions = make_table(ExpressionMethodWriter, {
     'ApplicationDirectory' : 'get_app_dir()',
     'ApplicationDrive' : 'get_app_drive()',
     'TimerValue' : '.(frame_time * 1000.0)',
+    'TimerHundreds' : '.(int(frame_time * 100) % 100)',
     'CounterValue': '.value',
     'CurrentFrame' : '.(index+1)',
     'GetFlag' : 'alterables->flags.get',
     'GetCommandItem' : 'get_command_arg',
     # 1 (standard), 2 (DirectDraw), 4 (Direct3D8) 8 (Direct3D9)
-    'DisplayMode' : '.8'
+    'DisplayMode' : '.8',
+    'GetClipboard' : '.empty_string',
+    'TotalObjectCount' : 'get_instance_count()',
+    'FrameRate' : '.manager->fps_limit.framerate',
+    'TemporaryPath' : 'get_temp_path()',
 })

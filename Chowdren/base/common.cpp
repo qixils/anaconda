@@ -726,6 +726,11 @@ void Frame::set_lives(int value)
     manager->lives = value;
 }
 
+void Frame::set_score(int value)
+{
+    manager->score = value;
+}
+
 void Frame::set_display_center(int x, int y)
 {
     if (x != -1) {
@@ -838,6 +843,17 @@ bool Frame::is_joystick_direction_changed(int n)
 void Frame::set_vsync(bool value)
 {
     platform_set_vsync(value);
+}
+
+int Frame::get_instance_count()
+{
+    int size = 0;
+    ObjectList::iterator it;
+    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
+        ObjectList & list = GameManager::instances.items[i];
+        size += list.size();
+    }
+    return size;
 }
 
 // FrameObject
@@ -1200,6 +1216,33 @@ void FrameObject::look_at(int x, int y)
     set_direction(get_direction_int(this->x, this->y, x, y));
 }
 
+void FrameObject::rotate_toward(int dir)
+{
+    dir = dir % 32;
+    int cc = dir - direction;
+    if (cc < 0)
+        cc += 32;
+    int cl = direction - dir;
+    if (cl < 0)
+        cl += 32;
+    int angle;
+    if (cc < cl)
+        angle = cc;
+    else
+        angle = cl;
+    // angle to turn, default to 1
+    if (angle > 1)
+        angle = 1;
+    if (cl < cc)
+        angle = -angle;
+    direction += angle;
+    if (direction >= 32)
+        direction -= 32;
+    if (direction < 0)
+        direction += 32;
+    set_direction(direction);
+}
+
 void FrameObject::update_flash(float dt, float interval, float & t)
 {
     if (interval == 0.0f)
@@ -1399,6 +1442,14 @@ void Active::force_direction(int value)
     update_direction();
 }
 
+void Active::restore_direction()
+{
+    if (forced_animation == DISAPPEARING)
+        return;
+    forced_direction = -1;
+    update_direction();
+}
+
 void Active::restore_animation()
 {
     forced_animation = -1;
@@ -1513,6 +1564,13 @@ void Active::update(float dt)
     }
     if (animation_frame != old_frame)
         update_frame();
+}
+
+void Active::load(const std::string & filename, int anim, int dir, int frame,
+                  int hot_x, int hot_y, int action_x, int action_y,
+                  int transparent_color)
+{
+    std::cout << "Load Active image: " << filename << std::endl;
 }
 
 void Active::draw()
@@ -2443,6 +2501,11 @@ void INI::set_group(const std::string & name, bool new_group)
     current_group = name;
 }
 
+void INI::set_item(const std::string & name)
+{
+    current_item = name;
+}
+
 std::string INI::get_string(const std::string & group, const std::string & item,
                             const std::string & def)
 {
@@ -2888,6 +2951,11 @@ std::string INI::get_search_result_group(int index)
     return search_results[index].first;
 }
 
+const std::string & INI::get_search_result_item(int index)
+{
+    return search_results[index].second;
+}
+
 std::string INI::get_item_part(const std::string & group,
                                const std::string & item, int index,
                                const std::string & def)
@@ -2900,6 +2968,15 @@ std::string INI::get_item_part(const std::string & group,
     if (index >= (int)elem.size())
         return def;
     return elem[index];
+}
+
+void INI::set_auto(bool save, bool load)
+{
+    if (load) {
+        std::cout << "Autoload not supported" << std::endl;
+    }
+
+    auto_save = save;
 }
 
 INI::~INI()
@@ -3553,7 +3630,8 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0), y_spacing(0),
-  y_scroll(0)
+  x_scroll(0), y_scroll(0), anim_type(BLITTER_ANIMATION_NONE),
+  charmap_ref(true)
 {
     collision = new InstanceBox(this);
 }
@@ -3579,6 +3657,10 @@ TextBlitter::~TextBlitter()
 {
     if (image->handle == -1)
         delete image;
+    if (!charmap_ref) {
+        delete[] charmap;
+        delete charmap_str;
+    }
     delete collision;
 }
 
@@ -3607,6 +3689,17 @@ int TextBlitter::get_x_align()
     return 0;
 }
 
+int TextBlitter::get_y_align()
+{
+    if (alignment & ALIGN_TOP)
+        return 0;
+    if (alignment & ALIGN_VCENTER)
+        return 1;
+    if (alignment & ALIGN_BOTTOM)
+        return 2;
+    return 0;
+}
+
 void TextBlitter::set_x_align(int value)
 {
     alignment &= ~(ALIGN_LEFT | ALIGN_HCENTER | ALIGN_RIGHT);
@@ -3626,6 +3719,18 @@ void TextBlitter::set_x_align(int value)
 void TextBlitter::set_y_align(int value)
 {
     std::cout << "Set vertical align: " << value << std::endl;
+    alignment &= ~(ALIGN_TOP | ALIGN_VCENTER | ALIGN_BOTTOM);
+    switch (value) {
+        case 0:
+            alignment |= ALIGN_TOP;
+            break;
+        case 1:
+            alignment |= ALIGN_VCENTER;
+            break;
+        case 2:
+            alignment |= ALIGN_BOTTOM;
+            break;
+    }
 }
 
 void TextBlitter::set_x_spacing(int value)
@@ -3636,6 +3741,11 @@ void TextBlitter::set_x_spacing(int value)
 void TextBlitter::set_y_spacing(int value)
 {
     y_spacing = value;
+}
+
+void TextBlitter::set_x_scroll(int value)
+{
+    x_scroll = value;
 }
 
 void TextBlitter::set_y_scroll(int value)
@@ -3724,15 +3834,66 @@ void TextBlitter::replace_color(int from, int to)
         << std::endl;
 }
 
+void TextBlitter::set_transparent_color(int v)
+{
+    Color color(v);
+    std::cout << "Set transparent color not implemented: " <<
+        int(color.r) << " " << int(color.g) << " " << int(color.b)
+        << std::endl;
+}
+
 void TextBlitter::update(float dt)
 {
     update_flash(dt, flash_interval, flash_time);
+
+    if (anim_type != BLITTER_ANIMATION_SINWAVE)
+        return;
+    anim_frame++;
 }
 
 void TextBlitter::flash(float value)
 {
     flash_interval = value;
     flash_time = 0.0f;
+}
+
+void TextBlitter::set_animation_type(int value)
+{
+    anim_type = value;
+}
+
+void TextBlitter::set_animation_parameter(int index, int value)
+{
+    switch (index) {
+        case 1:
+            wave_freq = value;
+            break;
+        case 2:
+            wave_height = value;
+            break;
+        default:
+            std::cout << "Invalid Text Blitter parameter: " << index
+                << std::endl;
+            break;
+    }
+}
+
+const std::string & TextBlitter::get_charmap()
+{
+    return *charmap_str;
+}
+
+void TextBlitter::set_charmap(const std::string & charmap)
+{
+
+    if (charmap_ref) {
+        this->charmap = new int[256];
+        charmap_ref = false;
+    } else {
+        delete charmap_str;
+    }
+    charmap_str = new std::string(charmap);
+    initialize(charmap);
 }
 
 void TextBlitter::draw()
@@ -3774,7 +3935,7 @@ void TextBlitter::draw()
             size++;
         }
 
-        int xx = x;
+        int xx = x + x_scroll;
 
         if (alignment & ALIGN_HCENTER)
             xx += width / 2 - (size * char_width) / 2
@@ -3786,24 +3947,31 @@ void TextBlitter::draw()
         for (int ii = start; ii < start+size; ii++) {
             unsigned char c = (unsigned char)text[ii];
 
-            int i = charmap[c];
-            int img_x = (i * char_width) % image->width;
-            int img_y = ((i * char_width) / image->width) * char_height;
+            int ci = charmap[c] - char_offset;
+            int img_x = (ci * char_width) % image->width;
+            int img_y = ((ci * char_width) / image->width) * char_height;
 
             float t_x1 = float(img_x) / float(image->width);
             float t_x2 = float(img_x+char_width) / float(image->width);
             float t_y1 = float(img_y) / float(image->height);
             float t_y2 = float(img_y+char_height) / float(image->height);
 
+            int yyy = yy;
+            if (anim_type == BLITTER_ANIMATION_SINWAVE) {
+                double t = double(anim_frame / anim_speed + x_add * ii);
+                t /= double(wave_freq);
+                yyy += int(sin(t) * wave_height);
+            }
+
             glBegin(GL_QUADS);
             glTexCoord2f(t_x1, t_y1);
-            glVertex2i(xx, yy);
+            glVertex2i(xx, yyy);
             glTexCoord2f(t_x2, t_y1);
-            glVertex2i(xx + char_width, yy);
+            glVertex2i(xx + char_width, yyy);
             glTexCoord2f(t_x2, t_y2);
-            glVertex2i(xx + char_width, yy + char_height);
+            glVertex2i(xx + char_width, yyy + char_height);
             glTexCoord2f(t_x1, t_y2);
-            glVertex2i(xx, yy + char_height);
+            glVertex2i(xx, yyy + char_height);
             glEnd();
 
             xx += x_add;
@@ -4274,6 +4442,14 @@ int get_joystick_dpad(int n)
 float get_joystick_dpad_degrees(int n)
 {
     int dir = get_joystick_dpad(n);
+    if (dir == 8)
+        return -1;
+    return dir * 45.0f;
+}
+
+float get_joystick_degrees(int n)
+{
+    int dir = get_joystick_direction(n);
     if (dir == 8)
         return -1;
     return dir * 45.0f;

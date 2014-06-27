@@ -70,6 +70,7 @@ public:
     double get_channel_position(unsigned int channel);
     void set_channel_position(unsigned int channel, double pos);
     double get_channel_volume(unsigned int channel);
+    double get_channel_duration(unsigned int channel);
     bool is_sample_playing(const std::string & name);
     bool is_channel_playing(unsigned int channel);
     bool is_channel_valid(unsigned int channel);

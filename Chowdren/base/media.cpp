@@ -397,6 +397,13 @@ void Media::set_channel_position(unsigned int channel, double pos)
     return channels[channel].set_position(pos);
 }
 
+double Media::get_channel_duration(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return 0.0;
+    return channels[channel].get_duration();
+}
+
 double Media::get_channel_volume(unsigned int channel)
 {
     if (!is_channel_valid(channel))

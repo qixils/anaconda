@@ -71,6 +71,7 @@ int get_joystick_direction_flags(int n);
 bool test_joystick_direction_flags(int n, int flags);
 int get_joystick_dpad(int n);
 float get_joystick_dpad_degrees(int n);
+float get_joystick_degrees(int n);
 float get_joystick_lt(int n);
 float get_joystick_rt(int n);
 float get_joystick_x(int n);

@@ -34,8 +34,12 @@ class SpreadValue(ActionMethodWriter):
         step = self.convert_index(3)
         obj = self.get_object()
         object_list = self.converter.get_object(obj, True)
-        writer.putlnc('spread_value(%s, %s, %s);', object_list, alt, start,
+        writer.putlnc('spread_value(%s, %s, %s, %s);', object_list, key, start,
                       step)
+
+    def get_object(self):
+        parameter = self.parameters[0].loader
+        return parameter.objectInfo, parameter.objectType
 
 class SetAction(ActionMethodWriter):
     def write(self, writer):

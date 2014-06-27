@@ -19,6 +19,35 @@ def get_layer(converter, name):
         raise NotImplementedError()
     return index, layer
 
+class MoveBehind(ActionMethodWriter):
+    def write(self, writer):
+        obj = (self.parameters[1].loader.objectInfo,
+               self.parameters[1].loader.objectType)
+        writer.putc('move_back(%s);', self.converter.get_object(obj))
+
+    def get_object(self):
+        parameter = self.parameters[0].loader
+        return (parameter.objectInfo, parameter.objectType)
+
+class MoveAbove(ActionMethodWriter):
+    def write(self, writer):
+        obj = (self.parameters[1].loader.objectInfo,
+               self.parameters[1].loader.objectType)
+        writer.putc('move_front(%s);', self.converter.get_object(obj))
+
+    def get_object(self):
+        parameter = self.parameters[0].loader
+        return (parameter.objectInfo, parameter.objectType)
+
+class MoveObject(ActionMethodWriter):
+    def write(self, writer):
+        level = self.convert_index(1)
+        writer.putc('set_level(%s);', level)
+
+    def get_object(self):
+        parameter = self.parameters[0].loader
+        return (parameter.objectInfo, parameter.objectType)
+
 class SetByName(ActionMethodWriter):
     def write(self, writer):
         name = self.converter.convert_static_expression(
@@ -38,6 +67,10 @@ class SetAlphaByName(SetByName):
     def write_layer(self, layer, writer):
         writer.put('set_alpha_coefficient(%s, %s);' % (layer,
                                                        self.convert_index(1)))
+
+class ShowByName(SetByName):
+    def write_layer(self, layer, writer):
+        writer.put('show_layer(%s);' % layer)
 
 class HideByName(SetByName):
     def write_layer(self, layer, writer):
@@ -90,10 +123,59 @@ class IsVisible(ConditionMethodWriter):
     has_object = False
     method = 'layers[%s+1]->visible'
 
+class GetObjectLevel(ExpressionMethodWriter):
+    has_object = False
+
+    def get_string(self):
+        converter = self.converter
+        items = converter.expression_items
+        last_exp = items[converter.item_index + 2]
+        if last_exp.getName() != 'EndParenthesis':
+            # XXX hack for HFA
+            if last_exp.getName() == 'Multiply':
+                return self.get_multiply_case()
+            else:
+                raise NotImplementedError()
+        next_exp = items[converter.item_index + 1]
+        obj = converter.get_object((next_exp.objectInfo, next_exp.objectType))
+        return '%s.get_level()' % obj
+
+    def get_multiply_case(self):
+        converter = self.converter
+        items = converter.expression_items
+
+        fixed_exp = items[converter.item_index + 1]
+        if fixed_exp.getName() != 'FixedValue':
+            raise NotImplementedError()
+
+        exp = items[converter.item_index + 2]
+        if exp.getName() != 'Multiply':
+            raise NotImplementedError()
+
+        alt_exp = items[converter.item_index + 3]
+        if alt_exp.getName() != 'AlterableValue':
+            raise NotImplementedError()
+
+        exp = items[converter.item_index + 4]
+        if exp.getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        converter.item_index += 2
+        obj = converter.get_object((fixed_exp.objectInfo,
+                                    fixed_exp.objectType))
+
+        # don't try this at home kids
+        # very hacky, expect for the alt + end paranthesis to follow
+        return 'return_if(%s->get_level(), 0, ' % obj
+
 actions = make_table(ActionMethodWriter, {
+    23 : MoveAbove,
+    24 : MoveBehind,
+    25 : MoveObject,
     30 : 'set_position(%s-1, %s, %s)',
     33 : SetXByName,
     34 : SetYByName,
+    36 : ShowByName,
     37 : HideByName,
     38 : 'set_layer(%s-1)',
     27 : 'sort_alt_decreasing',
@@ -107,6 +189,7 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    6 : GetObjectLevel,
     12 : GetLayerCount,
     14 : GetIndexByName,
     10 : GetXByName,

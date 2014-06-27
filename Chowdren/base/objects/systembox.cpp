@@ -1,6 +1,7 @@
 #include "objects/systembox.h"
 #include "include_gl.h"
 #include "collision.h"
+#include <iostream>
 
 SystemBox::SystemBox(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
@@ -32,6 +33,21 @@ void SystemBox::draw()
     } else if (type == TOPLEFT_IMAGE) {
         draw_image(image, x + image->hotspot_x, y + image->hotspot_y);
     }
+}
+
+void SystemBox::hide_border_1()
+{
+    std::cout << "Hide System Box border 1 not implemented" << std::endl;
+}
+
+void SystemBox::hide_border_2()
+{
+    std::cout << "Hide System Box border 1 not implemented" << std::endl;
+}
+
+void SystemBox::hide_fill()
+{
+    std::cout << "Hide System Box fill not implemented" << std::endl;
 }
 
 void SystemBox::set_size(int w, int h)

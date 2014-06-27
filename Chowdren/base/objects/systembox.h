@@ -20,6 +20,9 @@ public:
     void set_text(const std::string & text);
     void set_size(int w, int h);
     void draw();
+    void hide_border_1();
+    void hide_border_2();
+    void hide_fill();
 };
 
 #endif // CHOWDREN_SYSTEMBOX_H

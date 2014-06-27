@@ -11,6 +11,9 @@ the storage of some values.
 class BackImages : public FrameObject
 {
 public:
+    int x_off, y_off;
+    bool pattern;
+
     BackImages(int x, int y, int type_id);
 };
 

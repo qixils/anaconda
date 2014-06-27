@@ -25,6 +25,7 @@ class INI(ObjectWriter):
             writer.putlnc('load_file(%s);', filename)
 
 actions = make_table(ActionMethodWriter, {
+    1 : 'set_item',
     7 : 'set_value',
     9 : 'set_string',
     12 : 'delete_item',

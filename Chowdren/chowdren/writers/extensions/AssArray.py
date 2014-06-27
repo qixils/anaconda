@@ -39,7 +39,11 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_value',
-    1 : 'get_string'
+    1 : 'get_string',
+    10 : 'get_key',
+    13 : 'get_first',
+    15 : 'count_prefix',
+    18 : 'get_prefix'
 })
 
 def get_object():

@@ -19,6 +19,23 @@ public:
 
 typedef hash_map<std::string, AssociateArrayItem> ArrayMap;
 
+class ArrayAddress
+{
+public:
+    ArrayMap::const_iterator it;
+    bool null;
+
+    ArrayAddress(const ArrayMap::const_iterator & it)
+    : it(it), null(false)
+    {
+    }
+
+    ArrayAddress()
+    : null(true)
+    {
+    }
+};
+
 class AssociateArray : public FrameObject
 {
 public:
@@ -41,7 +58,12 @@ public:
     void remove_key(const std::string & key);
     bool has_key(const std::string & key);
     bool count_prefix(const std::string & key, int count);
+    int count_prefix(const std::string & key);
     void clear();
+    ArrayAddress get_first();
+    ArrayAddress get_prefix(const std::string & prefix, int index,
+                            ArrayAddress start);
+    const std::string & get_key(ArrayAddress addr);
 };
 
 #endif // CHOWDREN_ASSARRAY_H

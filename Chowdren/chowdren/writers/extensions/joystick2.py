@@ -41,7 +41,8 @@ expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_joystick_x',
     1 : 'get_joystick_y',
     6 : 'get_joystick_dpad_degrees',
-    22 : 'get_joystick_last_press'
+    22 : 'get_joystick_last_press',
+    26 : 'get_joystick_degrees'
 })
 
 def get_object():

@@ -134,6 +134,11 @@ bool AssociateArray::has_key(const std::string & key)
 
 bool AssociateArray::count_prefix(const std::string & key, int count)
 {
+    return count_prefix(key) >= count;
+}
+
+int AssociateArray::count_prefix(const std::string & key)
+{
     int n = 0;
     ArrayMap::const_iterator it;
     for (it = map->begin(); it != map->end(); it++) {
@@ -141,12 +146,49 @@ bool AssociateArray::count_prefix(const std::string & key, int count)
         if (other.compare(0, key.size(), key) == 0)
             n++;
     }
-    return n >= count;
+    return n;
 }
 
 void AssociateArray::remove_key(const std::string & key)
 {
     map->erase(key);
+}
+
+ArrayAddress AssociateArray::get_first()
+{
+    ArrayMap::const_iterator it;
+    it = map->begin();
+    if (it == map->end())
+        return ArrayAddress();
+    return ArrayAddress(it);
+}
+
+ArrayAddress AssociateArray::get_prefix(const std::string & prefix, int index,
+                                        ArrayAddress start)
+{
+    ArrayMap::const_iterator it;
+    if (start.null)
+        it = map->begin();
+    else
+        it = start.it;
+
+    for (; it != map->end(); it++) {
+        const std::string & other = it->first;
+        if (other.compare(0, prefix.size(), prefix) != 0)
+            continue;
+        if (index == 0)
+            return ArrayAddress(it);
+        index--;
+    }
+    return ArrayAddress();
+}
+
+const std::string & AssociateArray::get_key(ArrayAddress addr)
+{
+    static std::string empty_string("");
+    if (addr.null)
+        return empty_string;
+    return addr.it->first;
 }
 
 ArrayMap AssociateArray::global_map;

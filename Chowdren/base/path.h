@@ -22,6 +22,11 @@ inline std::string get_app_dir()
     return "./";
 }
 
+inline std::string get_temp_path()
+{
+    return "./";
+}
+
 inline std::string get_path_filename(const std::string & path)
 {
     size_t pos = path.find_last_of(PATH_SEP);

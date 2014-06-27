@@ -120,19 +120,16 @@ inline double get_abs(double v)
     return fabs(v);
 }
 
-inline double get_exp(int v)
+template <class T>
+inline double get_exp(T v)
 {
     return exp(double(v));
 }
 
-inline double get_exp(float v)
+template <class T>
+inline double get_log10(T v)
 {
-    return exp(double(v));
-}
-
-inline double get_exp(double v)
-{
-    return exp(double(v));
+    return log10(double(v));
 }
 
 inline int get_floor(int v)

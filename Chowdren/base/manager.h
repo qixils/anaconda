@@ -28,6 +28,7 @@ public:
     Color fade_color;
     float fade_dir;
     float fade_value;
+    int score;
     int lives;
     float timer_mul;
     static InstanceMap instances;

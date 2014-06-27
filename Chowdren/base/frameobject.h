@@ -159,6 +159,7 @@ public:
     void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();
     void look_at(int x, int y);
+    void rotate_toward(int dir);
     void update_flash(float dt, float interval, float & time);
     virtual void flash(float value);
     virtual void set_animation(int value);

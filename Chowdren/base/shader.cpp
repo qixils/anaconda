@@ -516,6 +516,50 @@ public:
     }
 };
 
+class GradientShader : public GLSLShader
+{
+public:
+    int a_rgb, b_rgb;
+    int a_a, b_a;
+    int coeff, offset, fade;
+    int t, f, r, mask;
+
+    GradientShader()
+    : GLSLShader("gradient")
+    {
+    }
+
+    void initialize_parameters()
+    {
+        a_rgb = get_uniform("fArgb");
+        a_a = get_uniform("fAa");
+        b_rgb = get_uniform("fBrgb");
+        b_a = get_uniform("fBa");
+        coeff = get_uniform("fCoeff");
+        offset = get_uniform("fOffset");
+        fade = get_uniform("fFade");
+        t = get_uniform("iT");
+        f = get_uniform("iF");
+        r = get_uniform("iR");
+        mask = get_uniform("iMask");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_vec4(instance, "fArgb", a_rgb);
+        set_float(instance, "fAa", a_a);
+        set_vec4(instance, "fBrgb", b_rgb);
+        set_float(instance, "fBa", b_a);
+        set_float(instance, "fCoeff", coeff);
+        set_float(instance, "fOffset", offset);
+        set_float(instance, "fFade", fade);
+        set_int(instance, "iT", t);
+        set_int(instance, "iF", f);
+        set_int(instance, "iR", r);
+        set_int(instance, "iMask", mask);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -559,6 +603,7 @@ Shader * offsetstationary_shader;
 Shader * patternoverlay_shader;
 Shader * subpx_shader;
 Shader * zoomoffset_shader;
+Shader * gradient_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -589,6 +634,7 @@ void init_shaders()
     patternoverlay_shader = new PatternOverlayShader;
     subpx_shader = new SubPxShader;
     zoomoffset_shader = new ZoomOffsetShader;
+    gradient_shader = new GradientShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

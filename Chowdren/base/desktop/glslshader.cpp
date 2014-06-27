@@ -64,7 +64,7 @@ void GLSLShader::initialize()
     glDetachShader(program, vert_shader);
     glDetachShader(program, frag_shader);
 
-    if ((flags & GLSL_HAS_BACK) && !background_initialized)
+    if ((flags & SHADER_HAS_BACK) && !background_initialized)
         initialize_background();
 
     glUseProgram(program);
@@ -72,9 +72,9 @@ void GLSLShader::initialize()
     // setup uniforms
     glUniform1i((GLint)get_uniform(TEXTURE_SAMPLER_NAME), 0);
 
-    if (flags & GLSL_HAS_BACK)
+    if (flags & SHADER_HAS_BACK)
         glUniform1i((GLint)get_uniform(BACKTEX_SAMPLER_NAME), 1);
-    if (flags & GLSL_HAS_TEX_SIZE)
+    if (flags & SHADER_HAS_TEX_SIZE)
         size_uniform = (GLint)get_uniform(SIZE_UNIFORM_NAME);
 
     if (texture_parameter != NULL) {
@@ -94,7 +94,7 @@ void GLSLShader::initialize_parameters()
 
 GLuint GLSLShader::get_background_texture()
 {
-    if (!(flags & GLSL_HAS_BACK))
+    if (!(flags & SHADER_HAS_BACK))
         return 0;
     return background_texture;
 }
@@ -142,7 +142,7 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
     if (!initialized)
         initialize();
 
-    if (flags & GLSL_HAS_BACK) {
+    if (flags & SHADER_HAS_BACK) {
         int * box = instance->collision->aabb;
         glc_copy_color_buffer_rect(background_texture, box[0], box[1],
                                    box[2], box[3]);
@@ -150,7 +150,7 @@ void GLSLShader::begin(FrameObject * instance, Image * image)
 
     glUseProgram(program);
 
-    if (flags & GLSL_HAS_TEX_SIZE)
+    if (flags & SHADER_HAS_TEX_SIZE)
         glUniform2f(size_uniform, 1.0f / image->width,
                                   1.0f / image->height);
 

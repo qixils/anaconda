@@ -17,6 +17,10 @@
 #define BACKTEX_SAMPLER_NAME "background_texture"
 #define SIZE_UNIFORM_NAME "texture_size"
 
+// shader flags
+#define SHADER_HAS_BACK 1
+#define SHADER_HAS_TEX_SIZE 2
+
 class FrameObject;
 class Image;
 

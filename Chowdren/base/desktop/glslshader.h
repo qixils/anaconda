@@ -1,9 +1,5 @@
 #include "../shader.h"
 
-
-#define GLSL_HAS_BACK 1
-#define GLSL_HAS_TEX_SIZE 2
-
 class GLSLShader : public Shader
 {
 public:

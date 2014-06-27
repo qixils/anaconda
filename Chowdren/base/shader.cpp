@@ -116,7 +116,7 @@ public:
     int height;
 
     OffsetShader()
-    : GLSLShader("offset", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
+    : GLSLShader("offset", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -151,7 +151,7 @@ public:
     int radius;
 
     DodgeBlurShader()
-    : GLSLShader("dodgeblur", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
+    : GLSLShader("dodgeblur", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -209,7 +209,7 @@ class MultiplyShader : public GLSLShader
 {
 public:
     MultiplyShader()
-    : GLSLShader("multiply", GLSL_HAS_BACK)
+    : GLSLShader("multiply", SHADER_HAS_BACK)
     {
     }
 };
@@ -218,7 +218,7 @@ class HardLightShader : public GLSLShader
 {
 public:
     HardLightShader()
-    : GLSLShader("hardlight", GLSL_HAS_BACK)
+    : GLSLShader("hardlight", SHADER_HAS_BACK)
     {
     }
 };
@@ -289,7 +289,7 @@ public:
     int coeff;
 
     BgBloomShader()
-    : GLSLShader("bgbloom", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE)
+    : GLSLShader("bgbloom", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -434,8 +434,8 @@ public:
     int alpha;
 
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", GLSL_HAS_BACK | GLSL_HAS_TEX_SIZE,
-        "pattern")
+    : GLSLShader("patternoverlay", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE,
+                 "pattern")
     {
     }
 
@@ -465,7 +465,7 @@ public:
     int x, y, limit;
 
     SubPxShader()
-    : GLSLShader("subpx", GLSL_HAS_TEX_SIZE)
+    : GLSLShader("subpx", SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -566,7 +566,7 @@ public:
     int alpha;
 
     OverlayAlphaShader()
-    : GLSLShader("overlayalpha", GLSL_HAS_BACK)
+    : GLSLShader("overlayalpha", SHADER_HAS_BACK)
     {
     }
 
@@ -587,7 +587,7 @@ public:
     int coeff, base;
 
     LensShader()
-    : GLSLShader("lens", GLSL_HAS_BACK)
+    : GLSLShader("lens", SHADER_HAS_BACK)
     {
     }
 
@@ -611,7 +611,7 @@ public:
     int angle, coeff;
 
     ColDirBlurShader()
-    : GLSLShader("coldirblur", GLSL_HAS_BACK)
+    : GLSLShader("coldirblur", SHADER_HAS_BACK)
     {
     }
 

@@ -646,6 +646,41 @@ public:
     }
 };
 
+
+class PerspectiveShader : public GLSLShader
+{
+public:
+    int effect;
+    int direction, perspective_dir;
+    int zoom, offset;
+    int sine_waves;
+
+    PerspectiveShader()
+    : GLSLShader("perspective", SHADER_HAS_TEX_SIZE)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        effect = get_uniform("effect");
+        direction = get_uniform("direction");
+        perspective_dir = get_uniform("perspective_dir");
+        zoom = get_uniform("zoom");
+        offset = get_uniform("offset");
+        sine_waves = get_uniform("sine_waves");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_int(instance, "effect", effect);
+        set_int(instance, "direction", direction);
+        set_int(instance, "perspective_dir", perspective_dir);
+        set_float(instance, "zoom", zoom);
+        set_float(instance, "offset", offset);
+        set_int(instance, "sine_waves", sine_waves);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -693,6 +728,8 @@ Shader * gradient_shader;
 Shader * overlayalpha_shader;
 Shader * lens_shader;
 Shader * coldirblur_shader;
+// Extension shaders
+Shader * perspective_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -727,6 +764,7 @@ void init_shaders()
     overlayalpha_shader = new OverlayAlphaShader;
     lens_shader = new LensShader;
     coldirblur_shader = new ColDirBlurShader;
+    perspective_shader = new PerspectiveShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

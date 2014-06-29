@@ -6,10 +6,10 @@
 class PerspectiveObject : public FrameObject
 {
 public:
-    double zoom;
-    double offset;
-
+	GLuint texture;
+	
     PerspectiveObject(int x, int y, int type_id);
+    ~PerspectiveObject();
     void draw();
     void set_waves(double value);
     void set_zoom(double value);

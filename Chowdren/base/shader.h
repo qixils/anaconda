@@ -79,6 +79,8 @@ extern Shader * gradient_shader;
 extern Shader * overlayalpha_shader;
 extern Shader * lens_shader;
 extern Shader * coldirblur_shader;
+// Extension shaders
+extern Shader * perspective_shader;
 #ifndef CHOWDREN_USE_GL
 extern Shader * basic_shader;
 extern Shader * texture_shader;

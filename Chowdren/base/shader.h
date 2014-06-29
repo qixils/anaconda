@@ -2,6 +2,7 @@
 #define CHOWDREN_SHADER_H
 
 #include <string>
+#include "image.h"
 
 // GLES attrib indexes
 #define MAX_ATTRIB 4
@@ -22,7 +23,6 @@
 #define SHADER_HAS_TEX_SIZE 2
 
 class FrameObject;
-class Image;
 
 extern std::string shader_path;
 void set_shader_path(const std::string & path);
@@ -32,8 +32,13 @@ void convert_vec4(int value, float & a, float & b, float & c, float & d);
 class Shader
 {
 public:
-    virtual void begin(FrameObject * instance, Image * image) {}
+    virtual void begin(FrameObject * instance, int width, int height) {}
     virtual void end(FrameObject * instance) {}
+
+    void begin(FrameObject * instance, Image * image)
+    {
+        begin(instance, image->width, image->height);
+    }
 
     virtual unsigned int get_background_texture()
     {

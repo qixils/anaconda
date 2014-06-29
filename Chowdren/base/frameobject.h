@@ -129,8 +129,10 @@ public:
     void set_blend_color(int color);
     virtual void draw();
     void draw_image(Image * img, int x, int y, double angle = 0.0,
-        double scale_x = 1.0, double scale_y = 1.0,
-        bool flip_x = false, bool flip_y = false);
+                    double scale_x = 1.0, double scale_y = 1.0,
+                    bool flip_x = false, bool flip_y = false);
+    void begin_draw(int width, int height);
+    void end_draw();
     virtual void set_direction(int value, bool set_movement = true);
     virtual int get_direction();
     bool mouse_over();

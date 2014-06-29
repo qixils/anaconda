@@ -927,8 +927,8 @@ class ActivateGroup(ActionWriter):
     def write(self, writer):
         container = self.converter.containers[
             self.parameters[0].loader.pointer]
-        writer.putlnc('if (%s) %s', container.code_name,
-                      self.converter.event_break)
+        writer.putlnc('if (!%s) {', container.code_name)
+        writer.indent()
         writer.putlnc('%s = true;', container.code_name)
         check_names = set()
         group_activations = self.converter.system_object.group_activations
@@ -936,6 +936,8 @@ class ActivateGroup(ActionWriter):
             check_names.update(group_activations[child])
         for name in check_names:
             writer.putln('%s = true;' % name)
+        writer.end_brace()
+
 
 class CenterDisplayX(ActionWriter):
     def write(self, writer):

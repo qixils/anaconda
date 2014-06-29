@@ -2,12 +2,21 @@
 #define CHOWDREN_SURFACE_H
 
 #include "frameobject.h"
+#include "image.h"
 
 class Active;
 
 class SurfaceObject : public FrameObject
 {
 public:
+    Image * image;
+
+    int image_count;
+    Image ** images;
+
+    int scroll_x, scroll_y;
+    bool wrap;
+
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();
     void draw();

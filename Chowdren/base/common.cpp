@@ -918,7 +918,21 @@ void FrameObject::draw_image(Image * img, int x, int y, double angle,
         has_tex_param = shader->has_texture_param();
     }
 
-    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex, has_tex_param);
+    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex,
+              has_tex_param);
+
+    if (shader != NULL)
+        shader->end(this);
+}
+
+void FrameObject::begin_draw(int width, int height)
+{
+    if (shader != NULL)
+        shader->begin(this, width, height);
+}
+
+void FrameObject::end_draw()
+{
     if (shader != NULL)
         shader->end(this);
 }
@@ -2239,6 +2253,7 @@ void QuickBackdrop::draw()
         }
         glDisable(GL_SCISSOR_TEST);
     } else {
+        begin_draw(width, height);
         glDisable(GL_TEXTURE_2D);
         int x1 = x;
         int y1 = y;
@@ -2261,6 +2276,7 @@ void QuickBackdrop::draw()
 
         draw_gradient(x1, y1, x2, y2, gradient_type, color, color2,
                       blend_color.a);
+        end_draw();
     }
 }
 
@@ -2554,7 +2570,7 @@ void INI::reset_global_data()
 }
 
 int INI::_parse_handler(void* user, const char* section, const char* name,
-                               const char* value)
+                        const char* value)
 {
     INI * reader = (INI*)user;
     reader->parse_handler(section, name, value);
@@ -2566,6 +2582,12 @@ void INI::parse_handler(const std::string & section, const std::string & name,
 {
     if (!overwrite && has_item(section, name))
         return;
+#ifdef CHOWDREN_INI_FILTER_QUOTES
+    if (value[0] == '"' && *value.rbegin() == '"') {
+        data[section][name] = value.substr(1, value.size() - 2);
+        return;
+    }
+#endif
     data[section][name] = value;
 }
 
@@ -3796,7 +3818,7 @@ void TextBlitter::set_x_align(int value)
 
 void TextBlitter::set_y_align(int value)
 {
-    std::cout << "Set vertical align: " << value << std::endl;
+    // std::cout << "Set vertical align: " << value << std::endl;
     alignment &= ~(ALIGN_TOP | ALIGN_VCENTER | ALIGN_BOTTOM);
     switch (value) {
         case 0:

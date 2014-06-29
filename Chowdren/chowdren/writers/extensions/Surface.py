@@ -41,6 +41,18 @@ class SurfaceObject(ObjectWriter):
         color = data.readColor()
         flags = data.readInt()
 
+        writer.putlnc('image_count = %s;', image_count)
+
+        if image_count:
+            image_names = [get_image_name(image) for image in images]
+            image_names = ', '.join(image_names)
+            writer.putlnc('static Image* static_images[%s] = {%s};',
+                          image_count, image_names)
+            writer.putlnc('images = (Image**)static_images;')
+            writer.putlnc('set_image(0);')
+        else:
+            writer.putlnc('image = NULL;')
+
 class ReverseColor(ExpressionMethodWriter):
     has_object = False
     method = 'reverse_color'

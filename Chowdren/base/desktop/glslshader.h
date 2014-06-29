@@ -23,7 +23,7 @@ public:
     bool has_texture_param();
     int get_uniform(const char * value);
     virtual void initialize_parameters();
-    void begin(FrameObject * instance, Image * image);
+    void begin(FrameObject * instance, int width, int height);
     virtual void set_parameters(FrameObject * instance);
     void end(FrameObject * instance);
     void set_int(FrameObject * instance, const std::string & name,

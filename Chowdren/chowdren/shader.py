@@ -53,10 +53,12 @@ NATIVE_SHADERS = {
     'CS_ZoomOffset.fx' : 'zoomoffset_shader',
 
     # missing effects
+    'CRT.fx' : 'dummy_shader',
+
+    # unsupported in HWA
     'XOR' : 'dummy_shader',
     'AND' : 'dummy_shader',
-    'OR' : 'dummy_shader',
-    'CRT.fx' : 'dummy_shader'
+    'OR' : 'dummy_shader'
 }
 
 def get_name(name):

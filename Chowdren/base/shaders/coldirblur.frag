@@ -36,8 +36,8 @@ void main()
     vec4 i = texture2D(background_texture, texture_coordinate1);
 
     // Apply colorizer math
-    vec4 o = 1.0;
-    o.rgb = vec3(rr, rg, rb)*i.r + vec3(gr, gg, gb)*i.g + vec3(br, bg, bb)*i.b;      
+    vec4 o = vec4(1.0);
+    o.rgb = vec3(rr, rg, rb)*i.r + vec3(gr, gg, gb)*i.g + vec3(br, bg, bb)*i.b;
     o.rgb = i.rgb + (o.rgb - i.rgb) * a.rgb;
     gl_FragColor = o;
 }

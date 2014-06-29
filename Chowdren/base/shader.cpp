@@ -20,7 +20,7 @@ void convert_vec4(int val, float & a, float & b, float & c, float & d)
 class SubtractShader : public Shader
 {
 public:
-    void begin(FrameObject * instance, Image * image)
+    void begin(FrameObject * instance, int width, int height)
     {
         glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
         glBlendFunc(GL_DST_COLOR, GL_ONE);
@@ -36,7 +36,7 @@ public:
 class AdditiveShader : public Shader
 {
 public:
-    void begin(FrameObject * instance, Image * image)
+    void begin(FrameObject * instance, int width, int height)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     }

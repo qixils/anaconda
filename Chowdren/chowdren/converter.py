@@ -124,7 +124,7 @@ EXTENSION_ALIAS = {
 }
 
 IGNORE_EXTENSIONS = set([
-    'kcwctrl', 'SteamChowdren', 'ChowdrenFont'
+    'kcwctrl', 'SteamChowdren', 'ChowdrenFont', 'INI++'
 ])
 
 def load_native_extension(name):
@@ -437,10 +437,10 @@ def fix_sound(data, extension):
 
 class Converter(object):
     debug = False
-    def __init__(self, filename, outdir, image_file = 'Sprites.dat',
-                 win_ico = None, mac_icns = None, company = None,
-                 version = None, copyright = None, base_only = False,
-                 wiiu=False):
+    def __init__(self, filename, outdir, image_file='Sprites.dat',
+                 win_ico=None, mac_icns=None, company=None,
+                 version=None, copyright=None, base_only=False,
+                 copy_shaders=False):
         self.filename = filename
         self.outdir = outdir
 
@@ -489,6 +489,12 @@ class Converter(object):
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
         hacks.init(self)
+
+
+        if copy_shaders:
+            src = os.path.join(self.base_path, 'shaders')
+            dst = self.get_filename('shaders')
+            copytree(src, dst)
 
         # format input
         self.format_file('resource.rc')

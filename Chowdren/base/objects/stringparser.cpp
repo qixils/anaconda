@@ -30,6 +30,7 @@ void StringParser::split()
 {
     if (has_split)
         return;
+    elements.clear();
     split_string(value, delimiters, elements);
     has_split = true;
 }

@@ -25,8 +25,8 @@ PerspectiveObject::~PerspectiveObject()
 
 void PerspectiveObject::draw()
 {
-    begin_draw(width, height);
-    
+    begin_draw();
+
     glc_copy_color_buffer_rect(texture, x, y, x + width, y + height);
 
     glEnable(GL_TEXTURE_2D);

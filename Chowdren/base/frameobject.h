@@ -132,6 +132,7 @@ public:
                     double scale_x = 1.0, double scale_y = 1.0,
                     bool flip_x = false, bool flip_y = false);
     void begin_draw(int width, int height);
+    void begin_draw();
     void end_draw();
     virtual void set_direction(int value, bool set_movement = true);
     virtual int get_direction();

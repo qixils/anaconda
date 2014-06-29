@@ -3,19 +3,27 @@
 
 #include "frameobject.h"
 #include "image.h"
+#include <string>
+#include "color.h"
 
 class Active;
 
 class SurfaceObject : public FrameObject
 {
 public:
+    std::string filename;
+
+    Color transparent;
+    bool has_transparent;
     Image * image;
 
     int image_count;
     Image ** images;
 
     int scroll_x, scroll_y;
+    int canvas_width, canvas_height;
     bool wrap;
+    bool has_reverse_x;
 
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();

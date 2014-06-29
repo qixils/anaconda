@@ -8,6 +8,7 @@
 #include <vector>
 #include "datastream.h"
 #include "chowconfig.h"
+#include "types.h"
 
 static int read_func(void *user, char *data, int size)
 {
@@ -341,4 +342,25 @@ Image * get_internal_image(unsigned int i)
         internal_images[i] = new Image(i);
 
     return internal_images[i];
+}
+
+typedef hash_map<std::string, Image*> ImageCache;
+static ImageCache image_cache;
+
+Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
+                        int act_x, int act_y, Color * color)
+{
+    Image * image;
+    ImageCache::const_iterator it = image_cache.find(filename);
+    if (it == image_cache.end()) {
+        image = new Image(filename, 0, 0, 0, 0, color);
+        if (!image->is_valid()) {
+            delete image;
+            image = NULL;
+        }
+        image_cache[filename] = image;
+    } else {
+        image = it->second;
+    }
+    return image;
 }

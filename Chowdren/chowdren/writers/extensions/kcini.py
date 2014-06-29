@@ -10,6 +10,7 @@ APP_DATA = 4
 
 class INI(ObjectWriter):
     class_name = 'INI'
+    filename = 'ini'
 
     def write_init(self, writer):
         data = self.get_data()

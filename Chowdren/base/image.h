@@ -60,5 +60,7 @@ public:
 };
 
 Image * get_internal_image(unsigned int i);
+Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
+                        int act_x, int act_y, Color * color = NULL);
 
 #endif // CHOWDREN_IMAGE_H

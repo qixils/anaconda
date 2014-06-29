@@ -9,6 +9,8 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 class INI(ObjectWriter):
     class_name = 'INI'
     use_alterables = True
+    filename = 'ini'
+    defines = ['CHOWDREN_USE_INIPP']
 
     def write_init(self, writer):
         data = self.get_data()

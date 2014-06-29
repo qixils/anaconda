@@ -455,6 +455,7 @@ class Converter(object):
         self.current_object = None
         self.iterated_index = self.iterated_object = self.iterated_name = None
         self.in_actions = False
+        self.strings = {}
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
@@ -1334,6 +1335,17 @@ class Converter(object):
 
         frames_file.close()
 
+        strings_file = self.open_code('strings.cpp')
+        strings_header = self.open_code('strings.h')
+        strings_header.start_guard('CHOWDREN_STRINGS_H')
+        for value, name in self.strings.iteritems():
+            strings_file.putlnc('const std::string %s(%r, %s);', name, value,
+                                len(value), cpp=False)
+            strings_header.putlnc('extern const std::string %s;', name)
+        strings_header.close_guard('CHOWDREN_STRINGS_H')
+        strings_file.close()
+        strings_header.close()
+
         # general configuration
         # this is the last thing we should do
         config_file = self.open_code('chowconfig.h')
@@ -1913,9 +1925,9 @@ class Converter(object):
             elif parameter_name == 'Extension':
                 return loader.get_reader()
             elif parameter_name in ('String', 'Filename'):
-                self.start_clauses -= loader.value.count('(')
-                self.end_clauses -= loader.value.count(')')
-                return to_c('%r', loader.value)
+                # self.start_clauses -= loader.value.count('(')
+                # self.end_clauses -= loader.value.count(')')
+                return self.intern_string(loader.value)
             elif parameter_name in ('TwoShorts'):
                 return to_c('%r, %r', loader.value1, loader.value2)
             else:
@@ -1930,6 +1942,7 @@ class Converter(object):
             remove = self.end_clauses - self.start_clauses
 
             if remove != 1:
+                print out
                 raise NotImplementedError()
 
             end = len(out)
@@ -1943,6 +1956,17 @@ class Converter(object):
             out = out[:end+1]
             print 'too many end-clauses, filtered', filtered
         return out
+
+    def intern_string(self, value):
+        if value == '':
+            return 'empty_string'
+        try:
+            return self.strings[value]
+        except KeyError:
+            pass
+        name = 'str_%s_%s' % (get_method_name(value), len(self.strings))
+        self.strings[value] = name
+        return name
 
     def get_direction(self, parameter):
         loader = parameter.loader

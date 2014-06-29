@@ -1065,9 +1065,9 @@ class ConstantExpression(ExpressionWriter):
 
 class StringExpression(ExpressionWriter):
     def get_string(self):
-        self.converter.start_clauses -= self.data.loader.value.count('(')
-        self.converter.end_clauses -= self.data.loader.value.count(')')
-        return to_c('%r', self.data.loader.value)
+        # self.converter.start_clauses -= self.data.loader.value.count('(')
+        # self.converter.end_clauses -= self.data.loader.value.count(')')
+        return self.converter.intern_string(self.data.loader.value)
 
 class EndParenthesis(ConstantExpression):
     value = ')'

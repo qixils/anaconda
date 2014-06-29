@@ -1,5 +1,5 @@
-#ifndef STRING_H
-#define STRING_H
+#ifndef CHOWDREN_STRINGCOMMON_H
+#define CHOWDREN_STRINGCOMMON_H
 
 #include <string>
 #include <sstream>
@@ -85,4 +85,4 @@ inline void split_string(const std::string & str, const std::string & delims,
     }
 }
 
-#endif // STRING_H
+#endif // CHOWDREN_STRINGCOMMON_H

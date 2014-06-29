@@ -151,8 +151,7 @@ void GLSLShader::begin(FrameObject * instance, int width, int height)
     glUseProgram(program);
 
     if (flags & SHADER_HAS_TEX_SIZE)
-        glUniform2f(size_uniform, 1.0f / width,
-                                  1.0f / height);
+        glUniform2f(size_uniform, 1.0f / width, 1.0f / height);
 
     set_parameters(instance);
 

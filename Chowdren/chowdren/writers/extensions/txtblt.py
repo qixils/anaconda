@@ -30,6 +30,27 @@ ANIM_SINSCROLL = 3
 ANIM_COSSCROLL = 4
 ANIM_TANSCROLL = 5
 
+FLAGS_CALLBACK = 2048
+FLAGS_CALLBACK_ONBEGIN = 4096
+FLAGS_CALLBACK_ONEND = 8192
+FLAGS_CALLBACK_ONBEGINL = 16384
+FLAGS_CALLBACK_ONENDL = 32768
+FLAGS_CALLBACK_ONCHAR = 65536
+FLAGS_BALLOON = 131072
+FLAGS_BALLOON_HINVERT = 262144
+FLAGS_BALLOON_KEEPSCREEN = 524288
+FLAGS_ANIM_EDGEFADE = 1
+FLAGS_TRANSPARENT = 1
+FLAGS_USETEXTFUNCS = 2
+FLAGS_DRAWVERTICLE = 4
+FLAGS_DEBUGON = 8
+FLAGS_DRAWCHARINTERUPT = 16
+FLAGS_WORDWRAPPING = 32
+FLAGS_MULTILINE = 64
+FLAGS_NOREDRAW = 128
+FLAGS_VARIABLEWIDTH = 256
+FLAGS_EDGEFADE = 1024
+
 class TextBlitter(ObjectWriter):
     class_name = 'TextBlitter'
     use_alterables = True
@@ -133,6 +154,9 @@ class TextBlitter(ObjectWriter):
         writer.end_brace()
         # other data
         # data.openEditor()
+        if flags & FLAGS_TRANSPARENT:
+            writer.putln('has_transparent = true;')
+            writer.putlnc('transparent_color = %s;', make_color(trans_color))
 
     def is_static_background(self):
         return False

@@ -301,13 +301,13 @@ void GameManager::draw()
         float aspect_width = window_width / float(WINDOW_WIDTH);
         float aspect_height = window_height / float(WINDOW_HEIGHT);
 
-        if (aspect_width > aspect_height) {
-            x_size = aspect_height * WINDOW_WIDTH;
-            y_size = aspect_height * WINDOW_HEIGHT;
-        } else {
-            x_size = aspect_width * WINDOW_WIDTH;
-            y_size = aspect_width * WINDOW_HEIGHT;
-        }
+        float aspect = std::min(aspect_width, aspect_height);
+
+#ifdef CHOWDREN_QUICK_SCALE
+        aspect = std::max(std::min(1.0f, aspect), floor(aspect));
+#endif
+        x_size = aspect * WINDOW_WIDTH;
+        y_size = aspect * WINDOW_HEIGHT;
 
         off_x = (window_width - x_size) / 2;
         off_y = (window_height - y_size) / 2;

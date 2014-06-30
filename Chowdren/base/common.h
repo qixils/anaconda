@@ -555,6 +555,9 @@ public:
     int anim_frame;
     int wave_freq, wave_height;
 
+    bool has_transparent;
+    Color transparent_color;
+
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
     void initialize(const std::string & charmap);

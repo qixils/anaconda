@@ -3134,14 +3134,21 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0), y_spacing(0),
   x_scroll(0), y_scroll(0), anim_type(BLITTER_ANIMATION_NONE),
-  charmap_ref(true)
+  charmap_ref(true), has_transparent(false)
 {
     collision = new InstanceBox(this);
 }
 
 void TextBlitter::load(const std::string & filename)
 {
-    Image * new_image = new Image(filename, 0, 0, 0, 0);
+    Color * color = NULL;
+    if (has_transparent) {
+        color = &transparent_color;
+        std::cout << "Blitter transparency: " << color->r << " " << color->g
+            << " " << color->b << std::endl;
+    }
+
+    Image * new_image = new Image(filename, 0, 0, 0, 0, color);
     if (!new_image->is_valid()) {
         std::cout << "Could not load Text Blitter image " << filename
             << std::endl;
@@ -3339,10 +3346,8 @@ void TextBlitter::replace_color(int from, int to)
 
 void TextBlitter::set_transparent_color(int v)
 {
-    Color color(v);
-    std::cout << "Set transparent color not implemented: " <<
-        int(color.r) << " " << int(color.g) << " " << int(color.b)
-        << std::endl;
+    has_transparent = true;
+    transparent_color = Color(v);
 }
 
 void TextBlitter::update(float dt)
@@ -3415,6 +3420,7 @@ void TextBlitter::draw()
     for (unsigned int i = 0; i < text.size(); i++) {
         int start = i;
         int size = 0;
+        int last_space = -1;
 
         // find start + end of line
         while (true) {
@@ -3423,11 +3429,17 @@ void TextBlitter::draw()
             if (text[i] == '\n')
                 break;
             if (size * x_add > width) {
+                if (last_space != -1) {
+                    size = last_space - start;
+                    i = last_space;
+                }
                 i--;
                 break;
             }
             unsigned char c = (unsigned char)text[i];
             i++;
+            if (c == ' ')
+                last_space = i;
             if (c == '\r')
                 continue;
             // remove leading spaces

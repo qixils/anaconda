@@ -2054,8 +2054,8 @@ class Converter(object):
             return 'get_blitter_instance'
         return None
 
-    def get_object_list(self, obj):
-        if self.get_single(obj) is not None:
+    def get_object_list(self, obj, allow_single=False):
+        if self.get_single(obj) is not None and not allow_single:
             raise NotImplementedError()
         type_id, is_qual = self.get_object_handle(obj)
         if is_qual:

@@ -535,9 +535,21 @@ public:
 #define BLITTER_ANIMATION_NONE 0
 #define BLITTER_ANIMATION_SINWAVE 1
 
+struct LineReference
+{
+    char * start;
+    int size;
+
+    LineReference(char * start, int size)
+    : start(start), size(size)
+    {
+    }
+};
+
 class TextBlitter : public FrameObject
 {
 public:
+    std::vector<LineReference> lines;
     std::string text;
     int char_width, char_height;
     int char_offset;

@@ -124,7 +124,6 @@ class TextBlitter(ObjectWriter):
         writer.putlnc('char_offset = %s;', char_offset)
         # writer.putlnc('off_x = %s;', image_offset[0])
         # writer.putlnc('off_y = %s;', image_offset[1])
-        writer.putlnc('text = %r;', text)
         writer.putln('image = %s;' % get_image_name(image))
         align_flags = []
         if horizontal_align == 0:
@@ -157,6 +156,7 @@ class TextBlitter(ObjectWriter):
         if flags & FLAGS_TRANSPARENT:
             writer.putln('has_transparent = true;')
             writer.putlnc('transparent_color = %s;', make_color(trans_color))
+        writer.putlnc('set_text(%r);', text)
 
     def is_static_background(self):
         return False

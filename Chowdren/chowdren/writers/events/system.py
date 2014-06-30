@@ -1136,7 +1136,7 @@ class ObjectCount(ExpressionWriter):
 
     def get_string(self):
         obj = (self.data.objectInfo, self.data.objectType)
-        instances = self.converter.get_object_list(obj)
+        instances = self.converter.get_object_list(obj, allow_single=True)
         return '%s.size()' % instances
 
 class ToString(ExpressionWriter):

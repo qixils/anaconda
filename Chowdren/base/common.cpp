@@ -3228,7 +3228,6 @@ void TextBlitter::set_x_align(int value)
 
 void TextBlitter::set_y_align(int value)
 {
-    // std::cout << "Set vertical align: " << value << std::endl;
     alignment &= ~(ALIGN_TOP | ALIGN_VCENTER | ALIGN_BOTTOM);
     switch (value) {
         case 0:
@@ -3278,6 +3277,54 @@ void TextBlitter::set_height(int height)
 void TextBlitter::set_text(const std::string & value)
 {
     text = value;
+
+    lines.clear();
+
+    if (text.empty()) {
+        lines.push_back(LineReference(NULL, 0));
+        return;
+    }
+
+    int x_add = char_width + x_spacing;
+    int y_add = char_height + y_spacing;
+
+    char * text_c = &text[0];
+
+    for (unsigned int i = 0; i < text.size(); i++) {
+        int start = i;
+        int size = 0;
+        int last_space = -1;
+
+        // find start + end of line
+        while (true) {
+            if (i >= text.size())
+                break;
+            if (text_c[i] == '\n')
+                break;
+            if (size * x_add > width) {
+                if (last_space != -1) {
+                    size = last_space - start;
+                    i = last_space;
+                }
+                i--;
+                break;
+            }
+            unsigned char c = (unsigned char)text_c[i];
+            i++;
+            if (c == ' ')
+                last_space = i;
+            if (c == '\r')
+                continue;
+            // remove leading spaces
+            if (i-1 == start && c == ' ') {
+                start++;
+                continue;
+            }
+            size++;
+        }
+
+        lines.push_back(LineReference(&text_c[start], size));
+    }
 }
 
 const std::string & TextBlitter::get_text()
@@ -3287,45 +3334,14 @@ const std::string & TextBlitter::get_text()
 
 int TextBlitter::get_line_count()
 {
-    int count = 1;
-    for (unsigned int i = 0; i < text.size(); i++) {
-        if (text[i] == '\n')
-            count++;
-    }
-    return count;
+    return int(lines.size());
 }
 
 std::string TextBlitter::get_line(int index)
 {
-    int line = 0;
-    for (unsigned int i = 0; i < text.size(); i++) {
-        if (line > index)
-            break;
-        int start = i;
-        int size = 0;
-
-        // find start + end of line
-        while (true) {
-            if (i >= text.size())
-                break;
-            if (text[i] == '\n')
-                break;
-            unsigned char c = (unsigned char)text[i];
-            i++;
-            if (c == '\r')
-                continue;
-            size++;
-        }
-
-        if (line != index) {
-            line++;
-            continue;
-        }
-
-        return text.substr(start, size);
-    }
-
-    return std::string();
+    if (index < 0 || index >= int(lines.size()))
+        return empty_string;
+    return std::string(lines[index].start, lines[index].size);
 }
 
 std::string TextBlitter::get_map_char(int i)
@@ -3393,7 +3409,6 @@ const std::string & TextBlitter::get_charmap()
 
 void TextBlitter::set_charmap(const std::string & charmap)
 {
-
     if (charmap_ref) {
         this->charmap = new int[256];
         charmap_ref = false;
@@ -3415,52 +3430,26 @@ void TextBlitter::draw()
 
     int yy = y + y_scroll;
     if (alignment & ALIGN_VCENTER)
-        yy += height / 2 - char_height / 2;
+        yy += height / 2 - lines.size() * char_height / 2
+              - (lines.size() - 1) * y_spacing;
 
-    for (unsigned int i = 0; i < text.size(); i++) {
-        int start = i;
-        int size = 0;
-        int last_space = -1;
+    std::vector<LineReference>::const_iterator it;
 
-        // find start + end of line
-        while (true) {
-            if (i >= text.size())
-                break;
-            if (text[i] == '\n')
-                break;
-            if (size * x_add > width) {
-                if (last_space != -1) {
-                    size = last_space - start;
-                    i = last_space;
-                }
-                i--;
-                break;
-            }
-            unsigned char c = (unsigned char)text[i];
-            i++;
-            if (c == ' ')
-                last_space = i;
-            if (c == '\r')
-                continue;
-            // remove leading spaces
-            if (i-1 == start && c == ' ') {
-                start++;
-                continue;
-            }
-            size++;
-        }
+    for (it = lines.begin(); it != lines.end(); it++) {
+        const LineReference & line = *it;
 
         int xx = x + x_scroll;
 
         if (alignment & ALIGN_HCENTER)
-            xx += width / 2 - (size * char_width) / 2
-                  - ((size - 1) * x_spacing) / 2;
+            xx += width / 2 - (line.size * char_width) / 2
+                  - ((line.size - 1) * x_spacing) / 2;
         else if (alignment & ALIGN_RIGHT)
-            xx += width - size * char_width - (size - 1) * x_spacing;
+            xx += width - line.size * char_width
+                  - (line.size - 1) * x_spacing;
 
         // draw line
-        for (int ii = start; ii < start+size; ii++) {
-            unsigned char c = (unsigned char)text[ii];
+        for (int i = 0; i < line.size; i++) {
+            unsigned char c = (unsigned char)line.start[i];
 
             int ci = charmap[c] - char_offset;
             int img_x = (ci * char_width) % image->width;
@@ -3473,7 +3462,7 @@ void TextBlitter::draw()
 
             int yyy = yy;
             if (anim_type == BLITTER_ANIMATION_SINWAVE) {
-                double t = double(anim_frame / anim_speed + x_add * ii);
+                double t = double(anim_frame / anim_speed + x_add * i);
                 t /= double(wave_freq);
                 yyy += int(sin(t) * wave_height);
             }

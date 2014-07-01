@@ -34,14 +34,14 @@ public:
 
         int get_display_width()
         {
-			if (handle == NULL)
-				return 0;
+            if (handle == NULL)
+                return 0;
             return canvas_width * width / double(handle->width);
         }
         int get_display_height()
         {
-			if (handle == NULL)
-				return 0;
+            if (handle == NULL)
+                return 0;
             return canvas_height * height / double(handle->height);
         }
     };
@@ -51,23 +51,27 @@ public:
         int dest_width, dest_height;
         int dest_x, dest_y;
         int stretch_mode;
-        int blit_settings;
+        int effect;
     };
 
+    // Edit-time flags
     bool display_selected;
     bool use_abs_coords;
 
+    // Runtime stuff
     BlitSettings blit_settings;
 
-    std::string filename;
-
+    // Image array
     std::vector<SurfaceImage> images;
 
+    // Current images
     SurfaceImage * displayed_image;
     int displayed_index;
     SurfaceImage * selected_image;
     int selected_index;
 
+    // File loading
+    std::string filename;
     bool load_failed;
 
     SurfaceObject(int x, int y, int type_id);

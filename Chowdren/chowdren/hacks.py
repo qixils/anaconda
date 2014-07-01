@@ -123,6 +123,8 @@ def write_defines(converter, writer):
     if is_hfa or is_test:
         writer.putln('#define CHOWDREN_INI_FILTER_QUOTES')
         writer.putln('#define CHOWDREN_INI_KEEP_ORDER')
+    if is_hfa:
+        writer.putln('#define CHOWDREN_FORCE_TRANSPARENT')
     writer.putln('#define CHOWDREN_USE_DYNTREE')
 
 def get_frames(converter, frames):

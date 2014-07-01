@@ -1,6 +1,5 @@
 #include <string>
 #include "image.h"
-#include "stb_image.c"
 #include "string.h"
 #include "color.h"
 #include <iostream>
@@ -10,12 +9,17 @@
 #include "chowconfig.h"
 #include "types.h"
 
+#define STBI_NO_STDIO
+#define STBI_NO_HDR
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.c"
+
 static int read_func(void *user, char *data, int size)
 {
    return ((FSFile*)user)->read(data, size);
 }
 
-static void skip_func(void *user, unsigned n)
+static void skip_func(void *user, int n)
 {
    ((FSFile*)user)->seek(n, SEEK_CUR);
 }
@@ -104,12 +108,19 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
         return;
     }
 
-    if ((channels == 1 || channels == 3) && color != NULL) {
-        for (int i = 0; i < width * height; i++) {
-            unsigned char * c = &image[i*4];
-            if (c[0] == color->r && c[1] == color->g && c[2] == color->b)
-                c[3] = 0;
-        }
+    if (color == NULL)
+        return;
+
+#ifndef CHOWDREN_FORCE_TRANSPARENT
+    if (channels != 1 && channels != 3)
+        return;
+#endif
+
+    for (int i = 0; i < width * height; i++) {
+        unsigned char * c = &image[i*4];
+        if (c[0] != color->r || c[1] != color->g || c[2] != color->b)
+            continue;
+        c[3] = 0;
     }
 }
 

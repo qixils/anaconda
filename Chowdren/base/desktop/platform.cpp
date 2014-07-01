@@ -110,6 +110,7 @@ static void set_resources_dir()
 
 void platform_init()
 {
+	//SetCurrentDirectoryA("d:\\dev\\c++\\anaconda\\Chowdren\\hfa\\");
     unsigned int flags = SDL_INIT_VIDEO | SDL_INIT_JOYSTICK |
                          SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC |
                          SDL_INIT_NOPARACHUTE;

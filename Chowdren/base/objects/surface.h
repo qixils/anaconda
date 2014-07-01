@@ -11,19 +11,62 @@ class Active;
 class SurfaceObject : public FrameObject
 {
 public:
+    struct SurfaceImage
+    {
+        SurfaceImage()
+        {
+        }
+
+        Image * handle;
+        Color transparent;
+        bool has_transparent;
+
+        // Simulated - actually modifies bitmap
+        int width, height; // Resize
+        int canvas_width, canvas_height; // Resize (canvas)
+        int scroll_x, scroll_y; // Scroll, resize canvas
+        bool wrap; // Scroll
+        bool has_reverse_x; // Reverse X
+
+        void reset(int w = 0, int h = 0); // Create blank image with specified size
+        void set_image(Image * image);
+        void draw(FrameObject * instance, int x, int y);
+
+        int get_display_width()
+        {
+			if (handle == NULL)
+				return 0;
+            return canvas_width * width / double(handle->width);
+        }
+        int get_display_height()
+        {
+			if (handle == NULL)
+				return 0;
+            return canvas_height * height / double(handle->height);
+        }
+    };
+
+    struct BlitSettings
+    {
+        int dest_width, dest_height;
+        int dest_x, dest_y;
+        int stretch_mode;
+        int blit_settings;
+    };
+
+    bool display_selected;
+    bool use_abs_coords;
+
+    BlitSettings blit_settings;
+
     std::string filename;
 
-    Color transparent;
-    bool has_transparent;
-    Image * image;
+    std::vector<SurfaceImage> images;
 
-    int image_count;
-    Image ** images;
-
-    int scroll_x, scroll_y;
-    int canvas_width, canvas_height;
-    bool wrap;
-    bool has_reverse_x;
+    SurfaceImage * displayed_image;
+    int displayed_index;
+    SurfaceImage * selected_image;
+    int selected_index;
 
     bool load_failed;
 
@@ -41,9 +84,8 @@ public:
     void blit_background();
     void blit_alpha(int image);
     void set_effect(int index);
-    void set_image(int index);
-    void set_edit_image(int index);
-    void set_transparent_color(const Color & color);
+    void set_display_image(int index);
+    void set_edit_image(int index, bool display = false);
     void create_alpha(int index);
     void clear(const Color & color);
     void clear(int value);

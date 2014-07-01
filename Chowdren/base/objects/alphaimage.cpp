@@ -13,9 +13,6 @@ AlphaImageObject::AlphaImageObject(int x, int y, int type_id)
 
 void AlphaImageObject::set_image(int index)
 {
-    if (name == "Chat bar") {
-        std::cout << "alpha change image: " << index << std::endl;
-    }
     this->index = index;
     image = &images[index];
 }

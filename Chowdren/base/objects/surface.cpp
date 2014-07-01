@@ -6,7 +6,8 @@
 #include "mathcommon.h"
 
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
-: FrameObject(x, y, type_id), scroll_x(0), scroll_y(0), wrap(false)
+: FrameObject(x, y, type_id), scroll_x(0), scroll_y(0), wrap(false),
+  load_failed(false)
 {
     collision = new InstanceBox(this);
 }
@@ -48,6 +49,11 @@ void SurfaceObject::draw()
     glDisable(GL_SCISSOR_TEST);
 }
 
+void SurfaceObject::update(float dt)
+{
+    load_failed = false;
+}
+
 void SurfaceObject::resize(int w, int h)
 {
     width = w;
@@ -70,19 +76,21 @@ void SurfaceObject::load(const std::string & filename,
     scroll_x = scroll_y = 0;
     wrap = false;
     has_reverse_x = false;
-    if (filename == this->filename)
+    if (filename != this->filename) {
+        this->filename = filename;
+        std::string path = convert_path(filename);
+
+        Color * trans = NULL;
+        if (has_transparent)
+            trans = &transparent;
+
+        image = get_image_cache(path, 0, 0, 0, 0, trans);
+    }
+
+    if (!image) {
+        load_failed = true;
         return;
-    this->filename = filename;
-    std::string path = convert_path(filename);
-
-    Color * trans = NULL;
-    if (has_transparent)
-        trans = &transparent;
-
-    image = get_image_cache(path, 0, 0, 0, 0, trans);
-
-    if (!image)
-        return;
+    }
 
     resize(image->width, image->height);
 }

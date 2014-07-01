@@ -3134,7 +3134,7 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0), y_spacing(0),
   x_scroll(0), y_scroll(0), anim_type(BLITTER_ANIMATION_NONE),
-  charmap_ref(true), has_transparent(false)
+  charmap_ref(true), has_transparent(false), callback_line_count(0)
 {
     collision = new InstanceBox(this);
 }
@@ -3262,22 +3262,26 @@ void TextBlitter::set_y_scroll(int value)
     y_scroll = value;
 }
 
-void TextBlitter::set_width(int width)
+void TextBlitter::set_width(int w)
 {
-    this->width = width;
+    width = w;
     collision->update_aabb();
 }
 
-void TextBlitter::set_height(int height)
+void TextBlitter::set_height(int h)
 {
-    this->height = height;
+    height = h;
     collision->update_aabb();
 }
 
 void TextBlitter::set_text(const std::string & value)
 {
     text = value;
+    update_lines();
+}
 
+void TextBlitter::update_lines()
+{
     lines.clear();
 
     if (text.empty()) {
@@ -3421,6 +3425,8 @@ void TextBlitter::set_charmap(const std::string & charmap)
 
 void TextBlitter::draw()
 {
+    begin_draw();
+
     blend_color.apply();
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, image->tex);
@@ -3435,14 +3441,16 @@ void TextBlitter::draw()
 
     std::vector<LineReference>::const_iterator it;
 
+    callback_line_count = int(lines.size());
+
     for (it = lines.begin(); it != lines.end(); it++) {
         const LineReference & line = *it;
 
         int xx = x + x_scroll;
 
         if (alignment & ALIGN_HCENTER)
-            xx += width / 2 - (line.size * char_width) / 2
-                  - ((line.size - 1) * x_spacing) / 2;
+            xx += (width - line.size * char_width -
+                   (line.size - 1) * x_spacing) / 2;
         else if (alignment & ALIGN_RIGHT)
             xx += width - line.size * char_width
                   - (line.size - 1) * x_spacing;
@@ -3485,6 +3493,8 @@ void TextBlitter::draw()
     }
 
     glDisable(GL_TEXTURE_2D);
+
+    end_draw();
 }
 
 // PlatformObject

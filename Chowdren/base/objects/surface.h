@@ -25,8 +25,11 @@ public:
     bool wrap;
     bool has_reverse_x;
 
+    bool load_failed;
+
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();
+    void update(float dt);
     void draw();
     void load(const std::string & filename, const std::string & ignore_ext);
     void resize(int w, int h);

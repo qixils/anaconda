@@ -10,6 +10,7 @@ class SurfaceObject(ObjectWriter):
     class_name = 'SurfaceObject'
     filename = 'surface'
     use_alterables = True
+    update = True
 
     def write_init(self, writer):
         data = self.get_data()
@@ -57,6 +58,10 @@ class ReverseColor(ExpressionMethodWriter):
     has_object = False
     method = 'reverse_color'
 
+class LoadFailed(ConditionMethodWriter):
+    is_always = True
+    method = '.load_failed'
+
 actions = make_table(ActionMethodWriter, {
     1 : 'set_image',
     3 : 'clear',
@@ -82,6 +87,7 @@ actions = make_table(ActionMethodWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    2 : LoadFailed
 })
 
 expressions = make_table(ExpressionMethodWriter, {

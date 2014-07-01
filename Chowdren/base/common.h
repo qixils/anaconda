@@ -532,8 +532,11 @@ public:
     static float get_object_angle(FrameObject * a, FrameObject * b);
 };
 
-#define BLITTER_ANIMATION_NONE 0
-#define BLITTER_ANIMATION_SINWAVE 1
+enum BlitterAnimation
+{
+    BLITTER_ANIMATION_NONE = 0,
+    BLITTER_ANIMATION_SINWAVE = 1
+};
 
 struct LineReference
 {
@@ -570,11 +573,14 @@ public:
     bool has_transparent;
     Color transparent_color;
 
+    int callback_line_count;
+
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
     void initialize(const std::string & charmap);
     void load(const std::string & filename);
     void set_text(const std::string & text);
+    void update_lines();
     void set_x_spacing(int spacing);
     void set_y_spacing(int spacing);
     void set_x_scroll(int value);

@@ -204,7 +204,7 @@ expressions = make_table(ExpressionMethodWriter, {
     32 : 'get_line_count()',
     33 : 'get_line',
     42 : 'get_map_char',
-    46 : 'get_line_count()', # callback, may not be right
+    46 : '.callback_line_count'
 })
 
 def get_object():

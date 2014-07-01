@@ -1171,12 +1171,12 @@ void FrameObject::move_back(FrameObject * other)
 
 void FrameObject::move_back()
 {
-    set_level(0);
+    layer->set_level(this, 0);
 }
 
 void FrameObject::move_front()
 {
-    set_level(-1);
+    layer->set_level(this, -1);
 }
 
 void FrameObject::move_front(FrameObject * other)

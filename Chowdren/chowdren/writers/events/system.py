@@ -728,6 +728,11 @@ class SetPosition(ActionWriter):
 
         end_name = 'pos_end_%s' % get_id(self)
 
+        details = self.convert_index(0)
+        x = str(details['x'])
+        y = str(details['y'])
+        parent = details.get('parent', None)
+
         single = self.converter.get_single(object_info)
         if single:
             obj = single
@@ -736,10 +741,6 @@ class SetPosition(ActionWriter):
                                                   copy=False)
             obj = '(*it)'
 
-        details = self.convert_index(0)
-        x = str(details['x'])
-        y = str(details['y'])
-        parent = details.get('parent', None)
         if parent is not None:
             parent = self.converter.get_object(parent)
             writer.putln('FrameObject * parent = %s;' % parent)

@@ -122,9 +122,9 @@ void INI::set_item(const std::string & name)
     current_item = name;
 }
 
-const std::string & INI::get_string(const std::string & group,
-                                    const std::string & item,
-                                    const std::string & def)
+const std::string & INI::get_string_default(const std::string & group,
+                                            const std::string & item,
+                                            const std::string & def)
 {
     SectionMap::const_iterator it = data.find(group);
     if (it == data.end())
@@ -135,15 +135,21 @@ const std::string & INI::get_string(const std::string & group,
     return (*new_it).second;
 }
 
-const std::string & INI::get_string(const std::string & item,
-                                    const std::string & def)
+const std::string & INI::get_string_default(const std::string & item,
+                                            const std::string & def)
 {
-    return get_string(current_group, item, def);
+    return get_string_default(current_group, item, def);
 }
 
 const std::string & INI::get_string(const std::string & item)
 {
-    return get_string(item, empty_string);
+    return get_string_default(item, empty_string);
+}
+
+const std::string & INI::get_string(const std::string & group,
+                                    const std::string & item)
+{
+    return get_string_default(group, item, empty_string);
 }
 
 const std::string & INI::get_string_index(const std::string & group,
@@ -582,7 +588,7 @@ std::string INI::get_item_part(const std::string & group,
 {
     if (index < 0)
         return def;
-    const std::string & value = get_string(group, item, empty_string);
+    const std::string & value = get_string_default(group, item, empty_string);
     std::vector<std::string> elem;
     split_string(value, ',', elem);
     if (index >= (int)elem.size())

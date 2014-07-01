@@ -2006,11 +2006,12 @@ class Converter(object):
             return self.iterated_name
         return None
 
-    def get_object(self, obj, as_list=False, use_default=False):
+    def get_object(self, obj, as_list=False, use_default=False, index=None):
         handle, object_type = obj
         object_type = self.get_object_class(object_type)
         use_index = (hacks.use_iteration_index(self) and self.iterated_index
-                     and self.in_actions)
+                     and self.in_actions) or index is not None
+        index = index or self.iterated_index
         if obj in self.has_single_selection:
             return self.has_single_selection[obj]
         if self.iterated_object == obj:
@@ -2020,7 +2021,7 @@ class Converter(object):
             if not as_list:
                 args = [ret]
                 if use_index:
-                    args.append(self.iterated_index)
+                    args.append(index)
                 args = ', '.join(args)
                 ret = '((%s)get_single(%s))' % (object_type, args)
             return ret
@@ -2032,7 +2033,7 @@ class Converter(object):
             type_id, is_qual = self.get_object_handle(obj)
             args = [name]
             if use_index:
-                args.append(self.iterated_index)
+                args.append(index)
 
             getter_name = None
             if not is_qual and use_default:

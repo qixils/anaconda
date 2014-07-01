@@ -40,12 +40,14 @@ public:
     void set_group(const std::string & name);
     void set_group(const std::string & name, bool new_group);
     void set_item(const std::string & name);
-    const std::string & get_string(const std::string & item);
     const std::string & get_string(const std::string & group,
-                                   const std::string & item,
-                                   const std::string & def);
-    const std::string & get_string(const std::string & item,
-                                   const std::string & def);
+                                   const std::string & item);
+    const std::string & get_string(const std::string & item);
+    const std::string & get_string_default(const std::string & group,
+                                           const std::string & item,
+                                           const std::string & def);
+    const std::string & get_string_default(const std::string & item,
+                                           const std::string & def);
     const std::string & get_string_index(const std::string & group,
                                          unsigned int index);
     const std::string & get_string_index(unsigned int index);

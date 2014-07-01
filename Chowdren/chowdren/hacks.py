@@ -44,7 +44,7 @@ def use_simple_or(converter):
     return is_knytt
 
 def use_iteration_index(converter):
-    return is_avgn or is_test
+    return is_avgn or is_test or is_hfa
 
 alterable_int_objects = [
     'MenuMainMapObject_',

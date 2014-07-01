@@ -503,7 +503,7 @@ public:
         return NULL;
     }
 
-    FrameObject* operator[](int index)
+    FrameObject * operator[](int index)
     {
         for (int i = 0; i < count; i++) {
             ObjectList & list = *items[i];

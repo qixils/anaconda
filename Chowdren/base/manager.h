@@ -74,7 +74,8 @@ inline FrameObject * get_instance(ObjectList & list, int index)
 {
     if (list.empty())
         return NULL;
-    index = (list.size() - 1) - (index % list.size());
+    int size = list.size();
+    index = (size - 1) - (index % size);
     return list[index];
 }
 
@@ -87,7 +88,8 @@ inline FrameObject * get_qualifier(QualifierList & list, int index)
 {
     if (list.empty())
         return NULL;
-    index = (list.size() - 1) - (index % list.size());
+    int size = list.size();
+    index = (size - 1) - (index % size);
     return list[index];
 }
 

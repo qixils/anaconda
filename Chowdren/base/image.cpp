@@ -104,7 +104,7 @@ Image::Image(const std::string & filename, int hot_x, int hot_y,
         return;
     }
 
-    if (/*(channels == 1 || channels == 3) &&*/ color != NULL) {
+    if ((channels == 1 || channels == 3) && color != NULL) {
         for (int i = 0; i < width * height; i++) {
             unsigned char * c = &image[i*4];
             if (c[0] == color->r && c[1] == color->g && c[2] == color->b)

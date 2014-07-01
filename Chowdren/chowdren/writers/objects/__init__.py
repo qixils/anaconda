@@ -173,9 +173,8 @@ class ObjectWriter(BaseWriter):
             for index, value in enumerate(common.strings.items):
                 if value == '':
                     continue
-                writer.putlnc('alterables->strings.set(%s, '
-                              'std::string(%r, %s));', index, value,
-                              len(value))
+                value = self.converter.intern_string(value)
+                writer.putlnc('alterables->strings.set(%s, %s);', index, value)
 
         if is_global:
             writer.end_brace()

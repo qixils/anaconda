@@ -2234,25 +2234,36 @@ static void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
     glEnd();
 }
 
+static int align_pos(int a, int b)
+{
+    return (a / b) * b;
+}
+
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
 #ifdef CHOWDREN_LAYER_WRAP
-        int x = this->x;
-        int y = this->y;
-        int width = this->width;
-        int height = this->height;
+        int x, y;
+        int width, height;
 
         // this is a cheap implementation of the wrap feature.
         // we expect objects to extend on either the X or Y axis.
         if (layer->wrap_x) {
-            x = frame->off_x * layer->scroll_x + x_offset - image->width;
+
+            x = frame->off_y * layer->scroll_y + x_offset - image->width;
             width = WINDOW_WIDTH + image->width * 2;
         } else if (layer->wrap_y) {
             y = frame->off_y * layer->scroll_y + y_offset - image->height;
             height = WINDOW_HEIGHT + image->height * 2;
-        }
+        } else
 #endif
+        {
+            x = this->x;
+            y = this->y;
+            width = this->width;
+            height = this->height;
+        }
+
         glEnable(GL_SCISSOR_TEST);
         glc_scissor_world(x, y, width, height);
         blend_color.apply();
@@ -3309,7 +3320,7 @@ void TextBlitter::update_lines()
                 break;
             if (text_c[i] == '\n')
                 break;
-            if (size * x_add > width) {
+            if (wrap && size * x_add > width) {
                 if (last_space != -1) {
                     size = last_space - start;
                     i = last_space;

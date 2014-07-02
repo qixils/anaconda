@@ -167,6 +167,11 @@ class QuickBackdrop(ObjectWriter):
         color2 = shape.color2
         fill = shape.getFill()
 
+        if fill == 'Motif' and shape.image in self.converter.solid_images:
+            # HFA optimization
+            fill = 'Solid'
+            color1 = self.converter.solid_images[shape.image]
+
         writer.putln('width = %s;' % self.common.width)
         writer.putln('height = %s;' % self.common.height)
         if fill != 'Motif':

@@ -565,6 +565,7 @@ public:
     int x_scroll, y_scroll;
     int x_off, y_off;
     bool charmap_ref;
+    bool wrap;
 
     int anim_type;
     int anim_speed;

@@ -46,7 +46,6 @@ import struct
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 PROFILE = False
-PROFILE_TIME = 0.0005
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -491,7 +490,6 @@ class Converter(object):
             base_path = self.base_path.replace('\\', '/'))
         hacks.init(self)
 
-
         if copy_shaders:
             src = os.path.join(self.base_path, 'shaders')
             dst = self.get_filename('shaders')
@@ -502,7 +500,7 @@ class Converter(object):
         self.format_file('Application.cmake', 'CMakeLists.txt')
         self.copy_file('icon.icns', overwrite=False)
 
-        self.open('config.py').write(repr(self.info_dict))
+        self.write_config(self.info_dict, 'config.py')
 
         # fonts
         if WRITE_FONTS:
@@ -532,7 +530,10 @@ class Converter(object):
 
         # print 'Image count:', len(game.images.items)
 
-        if image_file is not None:
+        if image_file is None:
+            self.solid_images = self.read_config('images.py')
+        else:
+            self.solid_images = {}
             image_fp = open(self.get_filename(image_file), 'wb')
             image_data = ByteReader()
             image_header = ByteReader(image_fp)
@@ -555,6 +556,10 @@ class Converter(object):
                     handle = image.handle
                     pil_image = Image.fromstring('RGBA', (image.width,
                         image.height), image.getImageData())
+                    colors = pil_image.getcolors(1)
+                    if colors is not None:
+                        color, = colors
+                        self.solid_images[handle] = color[1]
                     temp = StringIO()
                     pil_image.save(temp, 'PNG')
                     temp = temp.getvalue()
@@ -562,6 +567,7 @@ class Converter(object):
                     image_data.write(temp)
             image_header.writeReader(image_data)
             image_fp.close()
+            self.write_config(self.solid_images, 'images.py')
 
         # sounds
         if WRITE_SOUNDS:
@@ -776,10 +782,12 @@ class Converter(object):
                 objects_file.end_brace()
 
             if PROFILE:
-                objects_file.putmeth('void update', 'float dt')
-                objects_file.putlnc('PROFILE_BLOCK(%s_update);', class_name)
-                objects_file.putlnc('%s::update(dt);', subclass)
-                objects_file.end_brace()
+                if object_writer.update:
+                    objects_file.putmeth('void update', 'float dt')
+                    objects_file.putlnc('PROFILE_BLOCK(%s_update);',
+                                        class_name)
+                    objects_file.putlnc('%s::update(dt);', subclass)
+                    objects_file.end_brace()
                 objects_file.putmeth('void draw')
                 objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
                 objects_file.putlnc('%s::draw();', subclass)
@@ -2198,6 +2206,15 @@ class Converter(object):
 
     def open(self, *path):
         return open(self.get_filename(*path), 'wb')
+
+    def write_config(self, data, *path):
+        with open(self.get_filename(*path), 'wb') as fp:
+            fp.write(repr(data))
+
+    def read_config(self, *path):
+        with open(self.get_filename(*path), 'rb') as fp:
+            data = fp.read()
+        return eval(data)
 
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)

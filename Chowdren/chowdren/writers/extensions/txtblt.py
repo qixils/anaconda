@@ -91,24 +91,12 @@ class TextBlitter(ObjectWriter):
 
         # read animation
         animation_type = data.readByte()
-        type_name = ANIMATION_NAMES[animation_type]
-
-        if type_name not in ('None', 'Sin Wave'):
-            raise NotImplementedError('invalid blitter animation: %s'
-                                      % type_name)
         data.skipBytes(3)
         animation_speed = data.readInt()
         speed_count = data.readInt()
         param = [data.readInt() for _ in xrange(16)]
         options = data.readInt()
         p1 = data.readInt()
-
-        if type_name == 'Sin Wave':
-            writer.putln('anim_type = BLITTER_ANIMATION_SINWAVE;')
-            writer.putlnc('anim_frame = 0;')
-            writer.putlnc('anim_speed = %s;', animation_speed)
-            writer.putlnc('wave_freq = %s;', param[1])
-            writer.putlnc('wave_height = %s;', param[2])
 
         ball_left = data.readInt()
         ball_top = data.readInt()
@@ -117,6 +105,19 @@ class TextBlitter(ObjectWriter):
         ball_source = (data.readInt(), data.readInt())
         ball_min = (data.readInt(), data.readInt())
         ball_max = (data.readInt(), data.readInt())
+
+        type_name = ANIMATION_NAMES[animation_type]
+
+        if type_name not in ('None', 'Sin Wave'):
+            raise NotImplementedError('invalid blitter animation: %s'
+                                      % type_name)
+
+        if type_name == 'Sin Wave':
+            writer.putln('anim_type = BLITTER_ANIMATION_SINWAVE;')
+            writer.putlnc('anim_frame = 0;')
+            writer.putlnc('anim_speed = %s;', animation_speed)
+            writer.putlnc('wave_freq = %s;', param[1])
+            writer.putlnc('wave_height = %s;', param[2])
 
         writer.putln('width = %s;' % width)
         writer.putln('height = %s;' % height)
@@ -157,6 +158,7 @@ class TextBlitter(ObjectWriter):
         if flags & FLAGS_TRANSPARENT:
             writer.putln('has_transparent = true;')
             writer.putlnc('transparent_color = %s;', make_color(trans_color))
+        writer.putlnc('wrap = %s;', bool(flags & FLAGS_WORDWRAPPING))
         writer.putlnc('set_text(%r);', text)
 
     def is_static_background(self):

@@ -440,6 +440,7 @@ void INI::search(const std::string & group, const std::string & item,
                  const std::string & value)
 {
     search_results.clear();
+    search_time = frame->loop_count;
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
     for (it1 = data.begin(); it1 != data.end(); it1++) {
@@ -565,6 +566,13 @@ void INI::merge_map(SectionMap & data2, const std::string & src_group,
         data[dst_group][(*it).first] = (*it).second;
     }
     save_auto();
+}
+
+bool INI::has_search_results()
+{
+    if (search_results.empty())
+        return false;
+    return search_time == frame->loop_count;
 }
 
 size_t INI::get_search_count()

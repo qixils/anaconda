@@ -56,6 +56,7 @@ class TextBlitter(ObjectWriter):
     use_alterables = True
     update = True
     defines = ['CHOWDREN_USE_BLITTER']
+    default_instance = 'default_blitter_instance'
 
     def write_init(self, writer):
         data = self.get_data()
@@ -122,8 +123,8 @@ class TextBlitter(ObjectWriter):
         writer.putln('char_width = %s;' % char_size[0])
         writer.putln('char_height = %s;' % char_size[1])
         writer.putlnc('char_offset = %s;', char_offset)
-        # writer.putlnc('off_x = %s;', image_offset[0])
-        # writer.putlnc('off_y = %s;', image_offset[1])
+        writer.putlnc('x_off = %s;', image_offset[0])
+        writer.putlnc('y_off = %s;', image_offset[1])
         writer.putln('image = %s;' % get_image_name(image))
         align_flags = []
         if horizontal_align == 0:
@@ -174,6 +175,8 @@ actions = make_table(ActionMethodWriter, {
     6 : '.char_offset = %s',
     7 : 'set_charmap',
     13 : 'load',
+    17 : '.x_off = %s',
+    18 : '.y_off = %s',
     36 : 'set_x_align',
     37 : 'set_y_align',
     42 : 'set_x_scroll',
@@ -203,6 +206,8 @@ expressions = make_table(ExpressionMethodWriter, {
     23 : ASCIIValue,
     32 : 'get_line_count()',
     33 : 'get_line',
+    34 : '.x_off',
+    35 : '.y_off',
     42 : 'get_map_char',
     46 : '.callback_line_count'
 })

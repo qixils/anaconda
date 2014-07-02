@@ -2007,8 +2007,8 @@ class Converter(object):
         return None
 
     def get_object(self, obj, as_list=False, use_default=False, index=None):
-        handle, object_type = obj
-        object_type = self.get_object_class(object_type)
+        handle = obj[0]
+        object_type = self.get_object_class(obj[1])
         use_index = (hacks.use_iteration_index(self) and self.iterated_index
                      and self.in_actions) or index is not None
         index = index or self.iterated_index
@@ -2035,25 +2035,21 @@ class Converter(object):
             if use_index:
                 args.append(index)
 
-            getter_name = None
-            if not is_qual and use_default:
-                getter_name = self.get_instance_getter(object_type)
+            if use_default:
+                default_instance = self.get_default_instance(obj[1])
+                if default_instance:
+                    args.append(default_instance)
 
-            if not getter_name:
-                if is_qual:
-                    getter_name = 'get_qualifier'
-                else:
-                    getter_name = 'get_instance'
+            if is_qual:
+                getter_name = 'get_qualifier'
+            else:
+                getter_name = 'get_instance'
 
             args = ', '.join(args)
             return '((%s)%s(%s))' % (object_type, getter_name, args)
 
-    def get_instance_getter(self, object_type):
-        if object_type == 'Active*':
-            return 'get_active_instance'
-        elif object_type == 'TextBlitter*':
-            return 'get_blitter_instance'
-        return None
+    def get_default_instance(self, object_type):
+        return self.get_object_writer(object_type).default_instance
 
     def get_object_list(self, obj, allow_single=False):
         if self.get_single(obj) is not None and not allow_single:

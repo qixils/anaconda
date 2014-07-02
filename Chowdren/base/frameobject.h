@@ -737,4 +737,6 @@ public:
     }
 };
 
+void setup_default_instance(FrameObject * obj);
+
 #endif // CHOWDREN_FRAMEOBJECT_H

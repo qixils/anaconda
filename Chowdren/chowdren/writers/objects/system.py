@@ -14,6 +14,7 @@ class Active(ObjectWriter):
     class_name = 'Active'
     use_alterables = True
     update = True
+    default_instance = 'default_active_instance'
 
     def write_init(self, writer):
         common = self.common

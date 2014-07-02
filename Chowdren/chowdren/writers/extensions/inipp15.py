@@ -1,8 +1,6 @@
 from chowdren.writers.objects import ObjectWriter
-
 from chowdren.common import (get_image_name, get_animation_name, to_c,
     make_color)
-
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table, EmptyAction)
 
@@ -129,6 +127,11 @@ class SortGroup(ActionMethodWriter):
             raise NotImplementedError
         writer.put('sort_group_by_name(%s);' % group)
 
+class SearchSuccess(ConditionMethodWriter):
+    is_always = True
+    method = 'has_search_results'
+
+
 class GetMD5(ExpressionMethodWriter):
     has_object = False
     method = 'get_md5'
@@ -166,7 +169,9 @@ actions = make_table(ActionMethodWriter, {
 conditions = make_table(ConditionMethodWriter, {
     1 : 'has_item',
     4 : 'has_item',
-    3 : 'has_group'
+    3 : 'has_group',
+    13 : SearchSuccess
+    # 8 : OnDialogClose
 })
 
 expressions = make_table(ExpressionMethodWriter, {

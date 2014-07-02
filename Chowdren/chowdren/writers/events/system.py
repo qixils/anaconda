@@ -526,7 +526,7 @@ class CompareObjectsInZone(ComparisonWriter):
     def get_comparison_value(self):
         zone = self.parameters[0].loader
         obj = (self.data.objectInfo, self.data.objectType)
-        obj_list = self.converter.get_object_list(obj)
+        obj_list = self.converter.get_object(obj, True)
         return 'objects_in_zone(%s, %s, %s, %s, %s)' % (obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
 
@@ -536,7 +536,10 @@ class PickObjectsInZone(ConditionWriter):
         objs = set()
         zone = self.parameters[0].loader
         for action in self.converter.current_group.actions:
-            objs.add(action.get_object())
+            obj = action.get_object()
+            if obj[0] is None:
+                continue
+            objs.add(obj)
         for obj in objs:
             obj_list = self.converter.create_list(obj, writer)
             writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',

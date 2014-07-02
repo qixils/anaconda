@@ -133,5 +133,6 @@ def get_frames(converter, frames):
     return {
         0: frames[0],
         4 : frames[4],
-        21 : frames[21]
+        21 : frames[21],
+        22 : frames[22]
     }

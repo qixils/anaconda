@@ -563,6 +563,7 @@ public:
     int alignment;
     int x_spacing, y_spacing;
     int x_scroll, y_scroll;
+    int x_off, y_off;
     bool charmap_ref;
 
     int anim_type;

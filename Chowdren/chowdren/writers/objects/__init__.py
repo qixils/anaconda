@@ -13,6 +13,7 @@ class ObjectWriter(BaseWriter):
     has_color = False
     update = False
     movement_count = 0
+    default_instance = None
 
     def __init__(self, *arg, **kw):
         self.event_callbacks = {}

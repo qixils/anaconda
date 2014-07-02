@@ -631,14 +631,19 @@ void Frame::draw(int remote)
 
 static Layer default_layer(0, 1.0, 1.0, false, false, false);
 
+void setup_default_instance(FrameObject * obj)
+{
+    obj->layer = &default_layer;
+    obj->width = obj->height = 0;
+}
+
 class DefaultActive : public Active
 {
 public:
     DefaultActive()
     : Active(0, 0, 0)
     {
-        layer = &default_layer;
-        width = height = 0;
+        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
     }
@@ -655,8 +660,7 @@ public:
     DefaultBlitter()
     : TextBlitter(0, 0, 0)
     {
-        layer = &default_layer;
-        width = height = 0;
+        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
     }
@@ -3461,7 +3465,9 @@ void TextBlitter::draw()
 
             int ci = charmap[c] - char_offset;
             int img_x = (ci * char_width) % image->width;
+            img_x = clamp(img_x + x_off, 0, image->width);
             int img_y = ((ci * char_width) / image->width) * char_height;
+            img_y = clamp(img_y + y_off, 0, image->height);
 
             float t_x1 = float(img_x) / float(image->width);
             float t_x2 = float(img_x+char_width) / float(image->width);

@@ -105,7 +105,7 @@ int get_huffman_tree(HuffmanNode in_nodes[], bool set_codes = true)
     return node_count;
 }
 
-#define INI_MAGIC 0xE482B83C
+#define HUFFMAN_MAGIC 0xE482B83C
 
 bool compress_huffman(const std::string & in_data, const char * filename)
 {
@@ -133,7 +133,7 @@ bool compress_huffman(const std::string & in_data, const char * filename)
     int node_count = get_huffman_tree(nodes);
 
     // construct compressed buffer
-    stream << (unsigned int)INI_MAGIC;
+    stream << (unsigned int)HUFFMAN_MAGIC;
     stream << (unsigned int)in_data.size();
     stream << (unsigned char)(node_count-1);
 
@@ -179,7 +179,7 @@ bool decompress_huffman(const char * filename, std::string & out)
 
     unsigned int magic;
     stream >> magic;
-    if (magic != INI_MAGIC) {
+    if (magic != HUFFMAN_MAGIC) {
         std::cout << "Invalid Huffman file magic" << std::endl;
         return false;
     }

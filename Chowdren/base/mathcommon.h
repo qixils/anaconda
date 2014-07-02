@@ -100,6 +100,12 @@ inline int int_max(int value1, int value2)
 }
 
 template <class T>
+inline T clamp(T value, T min, T max)
+{
+    return std::max(min, std::min(value, max));
+}
+
+template <class T>
 inline T clamp(T val)
 {
     return std::max<T>(0, std::min<T>(val, 1));

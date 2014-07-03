@@ -146,6 +146,19 @@ void GameManager::on_key(int key, bool state)
     idle_timer_started = true;
     idle_timer = 0.0;
 #endif
+
+#ifdef CHOWDREN_IS_DESKTOP
+    if (state && key == SDLK_RETURN) {
+        bool alt = keyboard.is_pressed(SDLK_LALT) ||
+                   keyboard.is_pressed(SDLK_RALT);
+        if (alt) {
+            fullscreen = !fullscreen;
+            platform_set_fullscreen(fullscreen);
+        }
+        return;
+    }
+#endif
+
     if (state)
         keyboard.add(key);
     else

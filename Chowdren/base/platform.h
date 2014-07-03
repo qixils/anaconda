@@ -35,6 +35,7 @@ bool platform_remove_file(const std::string & path);
 const std::string & platform_get_appdata_dir();
 const std::string & platform_get_language();
 void platform_set_vsync(bool value);
+void platform_set_fullscreen(bool value);
 
 // debug
 void platform_print_stats();

@@ -12,7 +12,6 @@
 #include "../include_gl.h"
 #include "../manager.h"
 #include "../mathcommon.h"
-#include <tinythread/tinythread.h>
 #include <iostream>
 
 GLuint screen_texture;
@@ -29,7 +28,12 @@ inline bool check_opengl_extension(const char * name)
 {
     if (SDL_GL_ExtensionSupported(name) == SDL_TRUE)
         return true;
-    std::cout << "OpenGL extension '" << name << "' not supported." << std::endl;
+    std::string message;
+    message += "OpenGL extension '";
+    message += name;
+    message += "' not supported.";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL error",
+                             message.c_str(), NULL);
     return false;
 }
 
@@ -264,6 +268,16 @@ void platform_set_vsync(bool value)
         return;
 
     std::cout << "Set vsync failed: " << SDL_GetError() << std::endl;
+}
+
+void platform_set_fullscreen(bool value)
+{
+    int flags;
+    if (value)
+        flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    else
+        flags = 0;
+    SDL_SetWindowFullscreen(global_window, flags);
 }
 
 void platform_begin_draw()

@@ -31,7 +31,7 @@ void PerspectiveObject::draw()
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glColor3f(1, 0, 0);
+    glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
     glBegin(GL_QUADS);
     glTexCoord2f(back_texcoords[0], back_texcoords[1]);
     glVertex2d(x, y);

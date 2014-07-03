@@ -3157,11 +3157,8 @@ TextBlitter::TextBlitter(int x, int y, int type_id)
 void TextBlitter::load(const std::string & filename)
 {
     Color * color = NULL;
-    if (has_transparent) {
+    if (has_transparent)
         color = &transparent_color;
-        std::cout << "Blitter transparency: " << color->r << " " << color->g
-            << " " << color->b << std::endl;
-    }
 
     Image * new_image = new Image(filename, 0, 0, 0, 0, color);
     if (!new_image->is_valid()) {
@@ -3372,11 +3369,11 @@ void TextBlitter::replace_color(int from, int to)
 {
     Color color1(from);
     Color color2(to);
-    std::cout << "Replace color not implemented: " <<
-        int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
-        << " -> " <<
-        int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
-        << std::endl;
+    // std::cout << "Replace color not implemented: " <<
+    //     int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
+    //     << " -> " <<
+    //     int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
+    //     << std::endl;
 }
 
 void TextBlitter::set_transparent_color(int v)

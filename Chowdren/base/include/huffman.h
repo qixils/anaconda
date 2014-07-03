@@ -179,10 +179,8 @@ bool decompress_huffman(const char * filename, std::string & out)
 
     unsigned int magic;
     stream >> magic;
-    if (magic != HUFFMAN_MAGIC) {
-        std::cout << "Invalid Huffman file magic" << std::endl;
+    if (magic != HUFFMAN_MAGIC)
         return false;
-    }
 
     unsigned int size;
     stream >> size;

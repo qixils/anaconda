@@ -339,11 +339,6 @@ size_t get_file_size(const char * filename)
     return st.st_size;
 }
 
-// for some reason, "unix" is not defined on OS X
-#ifdef __APPLE__
-#define unix
-#endif
-
 #include <boost/filesystem.hpp>
 
 void create_directories(const std::string & value)

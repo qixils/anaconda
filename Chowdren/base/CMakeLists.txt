@@ -279,8 +279,6 @@ if(APPLE)
 elseif(WIN32)
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
     set(DLL_PATH "${CMAKE_SOURCE_DIR}/bin/win32")
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/bin/win32/Microsoft.VC90.CRT"
-            DESTINATION .)
 else()
     set(BIN_DIR "bin")
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/bin/${EXE_NAME}")

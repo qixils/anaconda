@@ -15,7 +15,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <tinythread/tinythread.h>
+
+#include <boost/thread/thread.hpp>
+#include <boost/thread/recursive_mutex.hpp>
+
 #include <math.h>
 #include "../types.h"
 #include "../audiodecoders.h"
@@ -92,8 +95,8 @@ public:
     ALCcontext * context;
     ALboolean direct_channels_ext, sub_buffer_data_ext;
     std::vector<SoundStream*> streams;
-    tthread::thread * streaming_thread;
-    tthread::recursive_mutex stream_mutex;
+    boost::thread * streaming_thread;
+    boost::recursive_mutex stream_mutex;
     volatile bool closing;
 
     AudioDevice();
@@ -801,7 +804,7 @@ AudioDevice::AudioDevice()
 #ifdef CHOWDREN_IS_EMSCRIPTEN
     stream_update();
 #else
-    streaming_thread = new tthread::thread(_stream_update, (void*)this);
+    streaming_thread = new boost::thread(_stream_update, (void*)this);
 #endif
 }
 
@@ -835,7 +838,7 @@ void AudioDevice::stream_update()
         for (it = streams.begin(); it != streams.end(); it++)
             (*it)->update();
         stream_mutex.unlock();
-        tthread::this_thread::sleep_for(tthread::chrono::milliseconds(125));
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(125));
     }
 #endif
 }

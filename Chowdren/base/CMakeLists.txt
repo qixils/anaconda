@@ -256,7 +256,7 @@ else()
     else()
         find_package(OpenGLES2 REQUIRED)
     endif()
-    find_package(Boost REQUIRED COMPONENTS filesystem system)
+    find_package(Boost REQUIRED COMPONENTS filesystem system thread chrono)
 endif()
 
 set(EXE_NAME "Chowdren")

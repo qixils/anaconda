@@ -15,6 +15,7 @@ public:
     void set(int value);
     void start();
     void finish();
+    double normalize(double delta);
 };
 
 #endif // CHOWDREN_FPSLIMIT_H

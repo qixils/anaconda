@@ -33,16 +33,21 @@ void FPSLimiter::set(int value)
     framerate = value;
 }
 
+double FPSLimiter::normalize(double delta)
+{
+    if (delta > 1.0)
+        return 1.0 / framerate;
+    return delta;
+}
+
 void FPSLimiter::start()
 {
     double current_time = platform_get_time();
     next_update = current_time + 1.0 / framerate;
-    dt = current_time - old_time;
+    dt = normalize(current_time - old_time);
     old_time = current_time;
     if (dt < 0.0)
         dt = 0.001;
-    if (dt > 1.0)
-        dt = 1.0 / framerate;
     current_framerate = 1.0 / dt;
 }
 
@@ -51,6 +56,7 @@ void FPSLimiter::finish()
 #ifdef CHOWDREN_IS_DESKTOP
     if (framerate >= 100)
         return;
-    platform_sleep(next_update - platform_get_time());
+    double t = normalize(next_update - platform_get_time());
+    platform_sleep(t);
 #endif
 }

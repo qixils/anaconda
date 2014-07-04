@@ -621,6 +621,11 @@ class BounceAction(CollisionAction):
 
 class CreateBase(ActionWriter):
     custom = True
+
+    def get_create_info(self):
+        object_info = self.parameters[0].loader.objectInfo
+        return (object_info, self.converter.object_types[object_info])
+
     def write(self, writer):
         details = self.convert_index(0)
         if details is None:
@@ -634,8 +639,7 @@ class CreateBase(ActionWriter):
         use_direction = details.get('use_direction', False)
         use_action_point = details.get('use_action_point', False)
 
-        object_info = self.parameters[0].loader.objectInfo
-        object_info = (object_info, self.converter.object_types[object_info])
+        object_info = self.get_create_info()
         if is_shoot:
             create_object = details['shoot_object']
             if use_action_point and not use_direction:
@@ -645,19 +649,42 @@ class CreateBase(ActionWriter):
         else:
             create_object = details['create_object']
 
-        action_index = self.converter.current_group.actions.index(self)
+        # here are some crazy heuristics to properly emulate the super wonky
+        # MMF2 create selection behaviour
+        actions = self.converter.current_group.actions
+        self_index = actions.index(self)
 
-        if object_info != parent_info:
-            has_selection = object_info in self.converter.has_selection
-            last_info, last_index = self.converter.current_group.last_created
-            was_last = (object_info == last_info and
-                        action_index - last_index > 1)
-            if not has_selection or was_last:
-                list_name = self.converter.get_object_list(object_info)
-                writer.putlnc('%s.empty_selection();', list_name)
-                self.converter.set_list(object_info, list_name)
+        has_after_spaced = False
+        has_after = False
+        has_before = False
 
-        self.converter.current_group.last_created = (object_info, action_index)
+        for index, action in enumerate(actions):
+            if index == self_index:
+                continue
+            if action.data.getName() != 'CreateObject':
+                continue
+            if action.get_create_info() != object_info:
+                continue
+            delta = self_index - index
+            if delta >= 2:
+                has_after_spaced = True
+            if delta > 0:
+                has_after = True
+            if delta < 0:
+                has_before = True
+
+        list_name = self.converter.get_object_list(object_info)
+        has_selection = object_info in self.converter.has_selection
+
+        select_single = (not has_after and not has_before and
+                         parent_info is not None and not has_selection)
+        if select_single:
+            obj = self.converter.get_object(object_info)
+            self.converter.set_object(object_info, obj)
+
+        if object_info != parent_info and (not has_selection or has_after):
+            writer.putlnc('%s.empty_selection();', list_name)
+            self.converter.set_list(object_info, list_name)
 
         single_parent = self.converter.get_single(parent_info)
         if single_parent:
@@ -667,6 +694,7 @@ class CreateBase(ActionWriter):
                                                   copy=False)
             writer.putlnc('FrameObject * parent = *p_it;')
             parent = 'parent'
+
         writer.start_brace()
         if parent_info is not None and not is_shoot:
             if use_action_point:
@@ -693,6 +721,8 @@ class CreateBase(ActionWriter):
         writer.putlnc('FrameObject * new_obj; // %s', details)
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
+        if not select_single:
+            writer.putlnc('%s.add_back();', list_name)
         if is_shoot:
             writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
                           details['shoot_speed'], direction)

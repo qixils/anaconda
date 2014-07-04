@@ -243,9 +243,15 @@ public:
         items.resize(i+1);
         ObjectListItem & item = items[i];
         item.obj = obj;
+        obj->index = i;
+    }
+
+    void add_back()
+    {
+        int i = items.size() - 1;
+        ObjectListItem & item = items[i];
         item.next = items[0].next;
         items[0].next = i;
-        obj->index = i;
     }
 
     ObjectList & clear_selection()

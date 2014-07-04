@@ -250,7 +250,6 @@ class EventGroup(object):
     or_save = False
     or_final = False
     or_type = None
-    last_created = (None, None)
 
     def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):

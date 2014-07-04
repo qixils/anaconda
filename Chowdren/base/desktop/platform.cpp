@@ -282,7 +282,6 @@ void platform_set_fullscreen(bool value)
 
 void platform_begin_draw()
 {
-
 }
 
 void platform_swap_buffers()

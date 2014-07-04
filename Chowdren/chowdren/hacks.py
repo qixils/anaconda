@@ -74,7 +74,7 @@ def use_safe_division(converter):
     return is_hfa or is_test
 
 def get_startup_instances(converter, instances):
-    if not is_hfa:
+    if not is_hfa or converter.current_frame_index != 0:
         return instances
     # bug in Text Blitter object, need to move them to front
     new_instances = []
@@ -131,9 +131,7 @@ def write_defines(converter, writer):
 def get_frames(converter, frames):
     if not is_hfa:
         return frames
-    return {
-        0: frames[0],
-        4 : frames[4],
-        21 : frames[21],
-        22 : frames[22]
-    }
+    new_frames = {}
+    for index in (0, 4, 21, 22, 23, 24, 25, 26, 27, 28):
+        new_frames[index] = frames[index]
+    return new_frames

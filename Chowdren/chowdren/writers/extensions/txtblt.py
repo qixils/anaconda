@@ -123,6 +123,8 @@ class TextBlitter(ObjectWriter):
         writer.putln('height = %s;' % height)
         writer.putln('char_width = %s;' % char_size[0])
         writer.putln('char_height = %s;' % char_size[1])
+        writer.putlnc('x_spacing = %s;', char_spacing[0])
+        writer.putlnc('y_spacing = %s;', char_spacing[1])
         writer.putlnc('char_offset = %s;', char_offset)
         writer.putlnc('x_off = %s;', image_offset[0])
         writer.putlnc('y_off = %s;', image_offset[1])
@@ -198,7 +200,11 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_text()',
+    1 : '.char_width',
+    2 : '.char_height',
     4 : 'get_charmap()',
+    5 : '.image->width',
+    6 : '.image->height',
     9 : 'get_x_align()',
     10 : 'get_y_align()',
     16 : '.y_scroll',

@@ -22,10 +22,10 @@ def get_loop_index_name(name):
     return 'loop_%s_index' % get_method_name(name)
 
 def get_repeat_name(group):
-    return 'repeat_%s' % group.global_id
+    return 'repeat_%s' % group.unique_id
 
 def get_restrict_name(group):
-    return 'restrict_%s' % group.global_id
+    return 'restrict_%s' % group.unique_id
 
 PROFILE_LOOPS = set([])
 
@@ -365,7 +365,8 @@ class PlayerKeyCondition(ConditionWriter):
             else:
                 raise NotImplementedError()
 
-        writer.put(' && '.join(keys))
+        cond = ' && '.join(keys)
+        writer.put('!manager->ignore_controls && (%s)' % cond)
 
 class PlayerKeyDown(PlayerKeyCondition):
     key_method = 'is_key_pressed'
@@ -532,14 +533,20 @@ class CompareObjectsInZone(ComparisonWriter):
 
 class PickObjectsInZone(ConditionWriter):
     custom = True
+
     def write(self, writer):
         objs = set()
         zone = self.parameters[0].loader
         for action in self.converter.current_group.actions:
             obj = action.get_object()
+            if obj in objs:
+                continue
             if obj[0] is None:
                 continue
+            if not self.converter.has_multiple_instances(obj):
+                self.converter.current_group.force_multiple.add(obj)
             objs.add(obj)
+
         for obj in objs:
             obj_list = self.converter.create_list(obj, writer)
             writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',
@@ -1305,8 +1312,8 @@ actions = make_table(ActionMethodWriter, {
     'SetRandomSeed' : 'set_random_seed',
     'SetTimer' : 'set_timer((%s) / 1000.0)',
     'SetLoopIndex' : SetLoopIndex,
-    'IgnoreControls' : EmptyAction, # XXX fix
-    'RestoreControls' : EmptyAction, # XXX fix,
+    'IgnoreControls' : '.manager->ignore_controls = true', # XXX fix
+    'RestoreControls' : '.manager->ignore_controls = false', # XXX fix,
     'ChangeControlType' : EmptyAction, # XXX fix,
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',

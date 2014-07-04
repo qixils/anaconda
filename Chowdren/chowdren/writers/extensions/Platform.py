@@ -24,8 +24,10 @@ TEST_OVERLAP_PLATFORM = 1
 
 class PlatformObject(ObjectWriter):
     class_name = 'PlatformObject'
+    filename = 'platformext'
     use_alterables = True
     update = True
+    default_instance = 'default_platform_instance'
 
     def initialize(self):
         self.overlap_obstacle_name = self.add_event_callback(

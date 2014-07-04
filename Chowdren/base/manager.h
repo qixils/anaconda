@@ -42,6 +42,7 @@ public:
 #endif
     InputList keyboard;
     InputList mouse;
+    bool ignore_controls;
 
     GameManager();
     void on_key(int key, bool state);

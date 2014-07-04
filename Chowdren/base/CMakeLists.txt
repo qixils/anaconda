@@ -82,6 +82,7 @@ set(SRCS
     lists.cpp
     extensions.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
+    ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${GLEW_C}
     ${PLATFORM_CPP}
@@ -196,6 +197,7 @@ if(MSVC)
     add_definitions("-D_CRT_SECURE_NO_WARNINGS")
     # multicore compile
     add_definitions("/MP")
+    add_definitions("/arch:SSE2")
 endif()
 
 add_definitions(-DGLEW_STATIC)

@@ -44,7 +44,7 @@ GameManager * global_manager;
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
-  fade_value(0.0f), fade_dir(0.0f), lives(0)
+  fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false)
 {
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
@@ -72,7 +72,7 @@ GameManager::GameManager()
 
     fps_limit.set(FRAMERATE);
 
-    set_frame(0);
+    set_frame(26);
 }
 
 void GameManager::reset_globals()
@@ -387,6 +387,8 @@ void GameManager::draw_fade()
 
 void GameManager::set_frame(int index)
 {
+    ignore_controls = false;
+
 #ifdef CHOWDREN_IS_DEMO
     idle_timer = 0.0;
     idle_timer_started = false;

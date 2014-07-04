@@ -354,10 +354,16 @@ size_t get_file_size(const char * filename)
 
 #include <boost/filesystem.hpp>
 
-void create_directories(const std::string & value)
+void create_file_directories(const std::string & value)
 {
     boost::filesystem::path path(value);
     path.remove_filename();
+    boost::filesystem::create_directories(path);
+}
+
+void create_directories(const std::string & value)
+{
+    boost::filesystem::path path(value);
     boost::filesystem::create_directories(path);
 }
 

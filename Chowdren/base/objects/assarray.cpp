@@ -196,4 +196,9 @@ const std::string & AssociateArray::get_key(ArrayAddress addr)
     return addr.it->first;
 }
 
+void AssociateArray::save(const std::string & path, int method)
+{
+    std::cout << "Associate array save not implemented" << std::endl;
+}
+
 ArrayMap AssociateArray::global_map;

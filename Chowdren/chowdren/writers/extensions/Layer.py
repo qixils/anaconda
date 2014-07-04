@@ -138,7 +138,8 @@ class GetObjectLevel(ExpressionMethodWriter):
                 raise NotImplementedError()
         next_exp = items[converter.item_index + 1]
         obj = converter.get_object((next_exp.objectInfo, next_exp.objectType))
-        return '%s.get_level()' % obj
+        converter.item_index += 2
+        return '%s->get_level()' % obj
 
     def get_multiply_case(self):
         converter = self.converter

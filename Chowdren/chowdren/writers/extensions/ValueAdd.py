@@ -12,6 +12,18 @@ class ValueAdd(ObjectWriter):
     def write_init(self, writer):
         pass
 
+    @staticmethod
+    def write_application(converter):
+        writer = converter.open_code('extra_keys.cpp')
+        writer.putmeth('int hash_extra_key', 'const std::string & value')
+        for key, value in hashed_keys.iteritems():
+            writer.putlnc('if (value.compare(0, %s, %r) == 0) return %s;',
+                          len(key), key, value, cpp=False)
+        writer.putln('return -1;')
+        writer.end_brace()
+        writer.close()
+
+
 hashed_keys = {}
 
 def hash_key(value):
@@ -44,7 +56,11 @@ class SpreadValue(ActionMethodWriter):
 class SetAction(ActionMethodWriter):
     def write(self, writer):
         key = self.parameters[1].loader.items
-        key = hash_key(self.converter.convert_static_expression(key))
+        key = self.converter.convert_static_expression(key)
+        if key is None:
+            key = 'hash_extra_key(%s)' % self.convert_index(1)
+        else:
+            key = hash_key(key)
         value = self.convert_index(2)
         writer.putc('get_extra_alterables().%s(%s, %s);', self.func, key,
                     value)

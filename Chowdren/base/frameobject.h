@@ -48,6 +48,8 @@ enum ObjectFlags
 
 #ifdef CHOWDREN_USE_VALUEADD
 
+int hash_extra_key(const std::string & value);
+
 class ExtraAlterables
 {
 public:

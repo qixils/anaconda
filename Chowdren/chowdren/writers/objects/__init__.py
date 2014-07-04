@@ -194,3 +194,7 @@ class ObjectWriter(BaseWriter):
         if self.filename is None:
             return []
         return ['%s.cpp' % self.get_base_filename()]
+
+    @staticmethod
+    def write_application(converter):
+        pass

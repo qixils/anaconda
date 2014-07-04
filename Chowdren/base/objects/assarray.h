@@ -64,6 +64,7 @@ public:
     ArrayAddress get_prefix(const std::string & prefix, int index,
                             ArrayAddress start);
     const std::string & get_key(ArrayAddress addr);
+    void save(const std::string & filename, int method);
 };
 
 #endif // CHOWDREN_ASSARRAY_H

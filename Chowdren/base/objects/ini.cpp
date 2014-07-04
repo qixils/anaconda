@@ -284,7 +284,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         reset(false);
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
-    create_directories(filename);
+    create_file_directories(filename);
 
     if (!encrypt_key.empty() || use_compression) {
         std::string new_data;

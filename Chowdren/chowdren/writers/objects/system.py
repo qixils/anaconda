@@ -21,8 +21,8 @@ class Active(ObjectWriter):
         animations = common.animations.loadedAnimations
         max_anim = max(animations)+1
         writer.putlnc('static Animation * anims[%s];', max_anim)
-        writer.putlnc('static Animations saved_animations(%s,'
-                      '(Animation**)&anims);', max_anim)
+        writer.putlnc('static Animations saved_animations(%s, '
+                      '&anims[0]);', max_anim)
         writer.putln('this->animations = &saved_animations;')
         writer.putln('static bool initialized = false;')
         writer.putln('if (!initialized) {')

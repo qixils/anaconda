@@ -264,12 +264,15 @@ class EventGroup(object):
         self.not_always = not_always
         self.or_index = or_index
         self.or_type = or_type
+        self.force_multiple = set()
 
     def set_groups(self, converter, groups):
         is_simple = hacks.use_simple_or(converter)
         if len(groups) == 1:
             self.name = 'event_%s' % self.global_id
+            self.unique_id = self.global_id
             return
+        self.unique_id = '%s_%s' % (self.global_id, self.or_index)
         if is_simple:
             self.name = 'event_or_%s_%s' % (self.global_id, self.or_index)
             return
@@ -620,6 +623,7 @@ class Converter(object):
         extension_includes = set()
         extension_sources = set()
         self.event_callback_ids = itertools.count()
+        application_writers = set()
 
         type_id = itertools.count(2)
         qualifier_id = itertools.count(1)
@@ -642,6 +646,7 @@ class Converter(object):
                 continue
             for define in object_writer.defines:
                 extra.add_define(define)
+            application_writers.add(object_writer.write_application)
             self.all_objects[handle] = object_writer
             self.object_types[handle[0]] = object_type
             extension_includes.update(object_writer.get_includes())
@@ -1353,6 +1358,9 @@ class Converter(object):
         strings_file.close()
         strings_header.close()
 
+        for writer in application_writers:
+            writer(self)
+
         # general configuration
         # this is the last thing we should do
         config_file = self.open_code('chowconfig.h')
@@ -1961,7 +1969,7 @@ class Converter(object):
 
             filtered = out[end+1:]
             out = out[:end+1]
-            print 'too many end-clauses, filtered', filtered
+            # print 'too many end-clauses, filtered', filtered
         return out
 
     def intern_string(self, value):
@@ -1993,7 +2001,11 @@ class Converter(object):
     def has_multiple_instances(self, handle):
         if is_qualifier(handle[0]):
             return True
-        return handle in self.multiple_instances
+        if handle in self.multiple_instances:
+            return True
+        if handle in self.current_group.force_multiple:
+            return True
+        return False
 
     def create_list(self, object_info, writer):
         single = self.get_single(object_info)
@@ -2069,8 +2081,10 @@ class Converter(object):
     def get_object_name(self, obj):
         if is_qualifier(obj[0]):
             return self.qualifier_names[obj]
-        else:
-            return self.object_names[obj]
+        if obj[1] == EXTENSION_BASE:
+            obj_type = self.object_types[obj[0]]
+            obj = (obj[0], obj_type)
+        return self.object_names[obj]
 
     def get_list_name(self, object_name):
         return '%s_instances' % get_method_name(object_name, True)
@@ -2078,6 +2092,9 @@ class Converter(object):
     def get_object_handle(self, obj):
         if is_qualifier(obj[0]):
             return (self.qualifier_names[obj], True)
+        if obj[1] == EXTENSION_BASE:
+            obj_type = self.object_types[obj[0]]
+            obj = (obj[0], obj_type)
         try:
             return ('%s_type' % self.object_names[obj], False)
         except Exception, e:
@@ -2087,7 +2104,6 @@ class Converter(object):
                 ext_index = data.objectType - EXTENSION_BASE
                 ext = self.game.extensions.fromHandle(ext_index)
                 name = ext.name
-            # print 'Could not get object type %r' % name
             raise e
 
     def get_object_class(self, object_type, star=True):

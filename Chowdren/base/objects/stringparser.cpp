@@ -49,3 +49,11 @@ const std::string & StringParser::get_element(int i)
         return empty_string;
     return elements[i];
 }
+
+std::string StringParser::replace(const std::string & from,
+                                  const std::string & to)
+{
+    std::string ret = value;
+    replace_substring(ret, from, to);
+    return ret;
+}

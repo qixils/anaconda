@@ -5,6 +5,7 @@
 #include <sstream>
 #include <ctype.h>
 #include <vector>
+#include <algorithm>
 
 extern std::string empty_string;
 
@@ -39,11 +40,9 @@ inline std::string number_to_string(T value)
     return input.str();
 }
 
-inline std::string to_lower(std::string str)
+inline void to_lower(std::string & str)
 {
-    for (std::string::iterator i = str.begin(); i != str.end(); ++i)
-        *i = static_cast<char>(tolower(*i));
-    return str;
+    std::transform(str.begin(), str.end(), str.begin(), tolower);
 }
 
 inline void replace_substring(std::string & str,

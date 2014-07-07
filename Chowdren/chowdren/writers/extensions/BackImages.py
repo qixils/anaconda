@@ -10,6 +10,7 @@ class BackImages(ObjectWriter):
     class_name = 'BackImages'
     filename = 'backimages'
     use_alterables = True
+    default_instance = 'default_backimages_instance'
 
     def is_background(self):
         return False

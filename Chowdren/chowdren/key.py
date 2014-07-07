@@ -386,15 +386,15 @@ def main():
     from chowdren.common import get_base_path
     import os
 
-    writer = CodeWriter(os.path.join(get_base_path(), 'keyconv.h'))
+    writer = CodeWriter(os.path.join(get_base_path(), 'keyconv.cpp'))
 
     # write keys file
-    writer.start_guard('CHOWDREN_KEYCONV_H')
     writer.putln('#include <string>')
     writer.putln('#include "keydef.h"')
+    writer.putln('#include "stringcommon.h"')
     writer.putln('')
 
-    writer.putmeth('inline int translate_vk_to_key', 'int vk')
+    writer.putmeth('int translate_vk_to_key', 'int vk')
     writer.putln('switch (vk) {')
     writer.indent()
     for vk, name in VK_TO_SDL.iteritems():
@@ -404,19 +404,22 @@ def main():
     writer.end_brace()
     writer.putln('')
 
-    writer.putmeth('inline int translate_string_to_key',
-                   'const std::string & name')
+    writer.putmeth('int translate_string_to_key',
+                   'const std::string & in_name')
+    writer.putln('std::string name = in_name;')
+    writer.putln('to_lower(name);')
     for vk, name in VK_TO_SDL.iteritems():
         string_name = VK_TO_NAME.get(vk, None)
         if string_name is None:
             continue
-        writer.putlnc('if (name == %r) return %s;', string_name,
-                         name[0])
+        string_name = string_name.lower()
+        writer.putlnc('if (name.compare(0, %s, %r) == 0) return %s;',
+                      len(string_name), string_name, name[0], cpp=False)
     writer.putln('return -1;')
     writer.end_brace()
     writer.putln('')
 
-    writer.putmeth('inline std::string translate_vk_to_string',
+    writer.putmeth('std::string translate_vk_to_string',
                    'int vk')
     writer.putln('switch (vk) {')
     writer.indent()
@@ -430,7 +433,7 @@ def main():
     writer.end_brace()
     writer.putln('')
 
-    writer.putmeth('inline std::string translate_key_to_string',
+    writer.putmeth('std::string translate_key_to_string',
                    'int key')
     writer.putln('switch (key) {')
     writer.indent()
@@ -440,7 +443,6 @@ def main():
     writer.putln('return "";')
     writer.end_brace()
 
-    writer.close_guard('CHOWDREN_KEYCONV_H')
     writer.close()
 
 if __name__ == '__main__':

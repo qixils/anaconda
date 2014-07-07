@@ -24,6 +24,7 @@ actions = make_table(ActionMethodWriter, {
     1 : 'set_string',
     2 : 'remove_key',
     3 : 'clear',
+    8 : 'save',
     43 : 'load_encrypted',
     44 : 'set_key',
     25 : EmptyAction, # set_file_saving_interval

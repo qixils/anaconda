@@ -12,7 +12,6 @@
 #include "../include_gl.h"
 #include "../manager.h"
 #include "../mathcommon.h"
-#include <tinythread/tinythread.h>
 #include <iostream>
 
 GLuint screen_texture;
@@ -29,7 +28,12 @@ inline bool check_opengl_extension(const char * name)
 {
     if (SDL_GL_ExtensionSupported(name) == SDL_TRUE)
         return true;
-    std::cout << "OpenGL extension '" << name << "' not supported." << std::endl;
+    std::string message;
+    message += "OpenGL extension '";
+    message += name;
+    message += "' not supported.";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL error",
+                             message.c_str(), NULL);
     return false;
 }
 
@@ -164,72 +168,21 @@ void platform_poll_events()
     update_joystick();
 }
 
-#ifdef _WIN32
+// time
 
-void platform_sleep(double t)
+double platform_get_time()
 {
-    DWORD tt;
-
-    if(t == 0.0) {
-        tt = 0;
-    } else if (t < 0.001) {
-        tt = 1;
-    } else if (t > 2147483647.0) {
-        tt = 2147483647;
-    } else {
-        tt = (DWORD)(t*1000.0 + 0.5);
-    }
-    Sleep(tt);
+    Uint64 s = SDL_GetPerformanceCounter();
+    s -= start_time;
+    return s / double(SDL_GetPerformanceFrequency());
 }
 
-#else
-
 void platform_sleep(double t)
 {
-    if (t == 0.0) {
-        sched_yield();
+    if (t < 0.001)
         return;
-    }
-
-    struct timeval  currenttime;
-    struct timespec wait;
-    pthread_mutex_t mutex;
-    pthread_cond_t  cond;
-    long dt_sec, dt_usec;
-
-    // Not all pthread implementations have a pthread_sleep() function. We
-    // do it the portable way, using a timed wait for a condition that we
-    // will never signal. NOTE: The unistd functions sleep/usleep suspends
-    // the entire PROCESS, not a signle thread, which is why we can not
-    // use them to implement glfwSleep.
-
-    // Set timeout time, relatvie to current time
-    gettimeofday( &currenttime, NULL );
-    dt_sec  = (long) t;
-    dt_usec = (long) ((t - (double)dt_sec) * 1000000.0);
-    wait.tv_nsec = (currenttime.tv_usec + dt_usec) * 1000L;
-    if( wait.tv_nsec > 1000000000L )
-    {
-        wait.tv_nsec -= 1000000000L;
-        dt_sec ++;
-    }
-    wait.tv_sec  = currenttime.tv_sec + dt_sec;
-
-    // Initialize condition and mutex objects
-    pthread_mutex_init( &mutex, NULL );
-    pthread_cond_init( &cond, NULL );
-
-    // Do a timed wait
-    pthread_mutex_lock( &mutex );
-    pthread_cond_timedwait( &cond, &mutex, &wait );
-    pthread_mutex_unlock( &mutex );
-
-    // Destroy condition and mutex objects
-    pthread_mutex_destroy( &mutex );
-    pthread_cond_destroy( &cond );
+    SDL_Delay(t * 1000.0);
 }
-
-#endif
 
 bool platform_display_closed()
 {
@@ -317,9 +270,18 @@ void platform_set_vsync(bool value)
     std::cout << "Set vsync failed: " << SDL_GetError() << std::endl;
 }
 
+void platform_set_fullscreen(bool value)
+{
+    int flags;
+    if (value)
+        flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    else
+        flags = 0;
+    SDL_SetWindowFullscreen(global_window, flags);
+}
+
 void platform_begin_draw()
 {
-
 }
 
 void platform_swap_buffers()
@@ -378,27 +340,6 @@ const std::string & platform_get_language()
     return language;
 }
 
-// time
-
-#ifdef _WIN32
-// apparently, QueryPerformanceCounter sucks on Windows. use timeGetTime!
-
-double platform_get_time()
-{
-    return timeGetTime() / 1000.0;
-}
-
-#else
-
-double platform_get_time()
-{
-    Uint64 s = SDL_GetPerformanceCounter();
-    s -= start_time;
-    return double(s) / double(SDL_GetPerformanceFrequency());
-}
-
-#endif
-
 // filesystem stuff
 
 #include <sys/stat.h>
@@ -411,20 +352,19 @@ size_t get_file_size(const char * filename)
     return st.st_size;
 }
 
-// for some reason, "unix" is not defined on OS X
-#ifdef __APPLE__
-#define unix
-#endif
+#include <boost/filesystem.hpp>
 
-#include <platformstl/platformstl.hpp>
-#include <platformstl/filesystem/path.hpp>
-#include <platformstl/filesystem/directory_functions.hpp>
+void create_file_directories(const std::string & value)
+{
+    boost::filesystem::path path(value);
+    path.remove_filename();
+    boost::filesystem::create_directories(path);
+}
 
 void create_directories(const std::string & value)
 {
-    platformstl::path path(value);
-    path.pop();
-    platformstl::create_directory_recurse(path);
+    boost::filesystem::path path(value);
+    boost::filesystem::create_directories(path);
 }
 
 #ifdef _WIN32

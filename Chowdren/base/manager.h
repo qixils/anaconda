@@ -42,6 +42,7 @@ public:
 #endif
     InputList keyboard;
     InputList mouse;
+    bool ignore_controls;
 
     GameManager();
     void on_key(int key, bool state);
@@ -61,8 +62,6 @@ public:
     void draw_fade();
 };
 
-extern FrameObject * default_active_instance;
-
 inline FrameObject * get_instance(ObjectList & list)
 {
     if (list.empty())
@@ -76,6 +75,22 @@ inline FrameObject * get_instance(ObjectList & list, int index)
         return NULL;
     int size = list.size();
     index = (size - 1) - (index % size);
+    return list[index];
+}
+
+inline FrameObject * get_instance(ObjectList & list, FrameObject * def)
+{
+    if (list.empty())
+        return def;
+    return list.back();
+}
+
+inline FrameObject * get_instance(ObjectList & list, int index,
+                                  FrameObject * def)
+{
+    if (list.empty())
+        return def;
+    index = (list.size() - 1) - (index % list.size());
     return list[index];
 }
 
@@ -93,40 +108,27 @@ inline FrameObject * get_qualifier(QualifierList & list, int index)
     return list[index];
 }
 
-inline FrameObject * get_active_instance(ObjectList & list)
+inline FrameObject * get_qualifier(QualifierList & list, FrameObject * def)
 {
-    if (list.empty())
-        return default_active_instance;
-    return list.back();
+    FrameObject * ret = list.back();
+    if (ret == NULL)
+        return def;
+    return ret;
 }
 
-inline FrameObject * get_active_instance(ObjectList & list, int index)
+inline FrameObject * get_qualifier(QualifierList & list, int index,
+                                   FrameObject * def)
 {
     if (list.empty())
-        return default_active_instance;
-    index = (list.size() - 1) - (index % list.size());
+        return def;
+    int size = list.size();
+    index = (size - 1) - (index % size);
     return list[index];
 }
 
+extern FrameObject * default_active_instance;
 #ifdef CHOWDREN_USE_BLITTER
-
 extern FrameObject * default_blitter_instance;
-
-inline FrameObject * get_blitter_instance(ObjectList & list)
-{
-    if (list.empty())
-        return default_blitter_instance;
-    return list.back();
-}
-
-inline FrameObject * get_blitter_instance(ObjectList & list, int index)
-{
-    if (list.empty())
-        return default_blitter_instance;
-    index = (list.size() - 1) - (index % list.size());
-    return list[index];
-}
-
 #endif
 
 extern GameManager * global_manager;

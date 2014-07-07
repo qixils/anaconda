@@ -48,6 +48,8 @@ enum ObjectFlags
 
 #ifdef CHOWDREN_USE_VALUEADD
 
+int hash_extra_key(const std::string & value);
+
 class ExtraAlterables
 {
 public:
@@ -243,9 +245,15 @@ public:
         items.resize(i+1);
         ObjectListItem & item = items[i];
         item.obj = obj;
+        obj->index = i;
+    }
+
+    void add_back()
+    {
+        int i = items.size() - 1;
+        ObjectListItem & item = items[i];
         item.next = items[0].next;
         items[0].next = i;
-        obj->index = i;
     }
 
     ObjectList & clear_selection()
@@ -736,5 +744,7 @@ public:
         }
     }
 };
+
+void setup_default_instance(FrameObject * obj);
 
 #endif // CHOWDREN_FRAMEOBJECT_H

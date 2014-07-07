@@ -22,10 +22,10 @@ def get_loop_index_name(name):
     return 'loop_%s_index' % get_method_name(name)
 
 def get_repeat_name(group):
-    return 'repeat_%s' % group.global_id
+    return 'repeat_%s' % group.unique_id
 
 def get_restrict_name(group):
-    return 'restrict_%s' % group.global_id
+    return 'restrict_%s' % group.unique_id
 
 PROFILE_LOOPS = set([])
 
@@ -365,7 +365,8 @@ class PlayerKeyCondition(ConditionWriter):
             else:
                 raise NotImplementedError()
 
-        writer.put(' && '.join(keys))
+        cond = ' && '.join(keys)
+        writer.put('!manager->ignore_controls && (%s)' % cond)
 
 class PlayerKeyDown(PlayerKeyCondition):
     key_method = 'is_key_pressed'
@@ -526,17 +527,26 @@ class CompareObjectsInZone(ComparisonWriter):
     def get_comparison_value(self):
         zone = self.parameters[0].loader
         obj = (self.data.objectInfo, self.data.objectType)
-        obj_list = self.converter.get_object_list(obj)
+        obj_list = self.converter.get_object(obj, True)
         return 'objects_in_zone(%s, %s, %s, %s, %s)' % (obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
 
 class PickObjectsInZone(ConditionWriter):
     custom = True
+
     def write(self, writer):
         objs = set()
         zone = self.parameters[0].loader
         for action in self.converter.current_group.actions:
-            objs.add(action.get_object())
+            obj = action.get_object()
+            if obj in objs:
+                continue
+            if obj[0] is None:
+                continue
+            if not self.converter.has_multiple_instances(obj):
+                self.converter.current_group.force_multiple.add(obj)
+            objs.add(obj)
+
         for obj in objs:
             obj_list = self.converter.create_list(obj, writer)
             writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',
@@ -618,6 +628,11 @@ class BounceAction(CollisionAction):
 
 class CreateBase(ActionWriter):
     custom = True
+
+    def get_create_info(self):
+        object_info = self.parameters[0].loader.objectInfo
+        return (object_info, self.converter.object_types[object_info])
+
     def write(self, writer):
         details = self.convert_index(0)
         if details is None:
@@ -631,8 +646,7 @@ class CreateBase(ActionWriter):
         use_direction = details.get('use_direction', False)
         use_action_point = details.get('use_action_point', False)
 
-        object_info = self.parameters[0].loader.objectInfo
-        object_info = (object_info, self.converter.object_types[object_info])
+        object_info = self.get_create_info()
         if is_shoot:
             create_object = details['shoot_object']
             if use_action_point and not use_direction:
@@ -642,19 +656,42 @@ class CreateBase(ActionWriter):
         else:
             create_object = details['create_object']
 
-        action_index = self.converter.current_group.actions.index(self)
+        # here are some crazy heuristics to properly emulate the super wonky
+        # MMF2 create selection behaviour
+        actions = self.converter.current_group.actions
+        self_index = actions.index(self)
 
-        if object_info != parent_info:
-            has_selection = object_info in self.converter.has_selection
-            last_info, last_index = self.converter.current_group.last_created
-            was_last = (object_info == last_info and
-                        action_index - last_index > 1)
-            if not has_selection or was_last:
-                list_name = self.converter.get_object_list(object_info)
-                writer.putlnc('%s.empty_selection();', list_name)
-                self.converter.set_list(object_info, list_name)
+        has_after_spaced = False
+        has_after = False
+        has_before = False
 
-        self.converter.current_group.last_created = (object_info, action_index)
+        for index, action in enumerate(actions):
+            if index == self_index:
+                continue
+            if action.data.getName() != 'CreateObject':
+                continue
+            if action.get_create_info() != object_info:
+                continue
+            delta = self_index - index
+            if delta >= 2:
+                has_after_spaced = True
+            if delta > 0:
+                has_after = True
+            if delta < 0:
+                has_before = True
+
+        list_name = self.converter.get_object_list(object_info)
+        has_selection = object_info in self.converter.has_selection
+
+        select_single = (not has_after and not has_before and
+                         parent_info is not None and not has_selection)
+        if select_single:
+            obj = self.converter.get_object(object_info)
+            self.converter.set_object(object_info, obj)
+
+        if object_info != parent_info and (not has_selection or has_after):
+            writer.putlnc('%s.empty_selection();', list_name)
+            self.converter.set_list(object_info, list_name)
 
         single_parent = self.converter.get_single(parent_info)
         if single_parent:
@@ -664,6 +701,7 @@ class CreateBase(ActionWriter):
                                                   copy=False)
             writer.putlnc('FrameObject * parent = *p_it;')
             parent = 'parent'
+
         writer.start_brace()
         if parent_info is not None and not is_shoot:
             if use_action_point:
@@ -690,6 +728,8 @@ class CreateBase(ActionWriter):
         writer.putlnc('FrameObject * new_obj; // %s', details)
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
+        if not select_single:
+            writer.putlnc('%s.add_back();', list_name)
         if is_shoot:
             writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
                           details['shoot_speed'], direction)
@@ -1272,8 +1312,8 @@ actions = make_table(ActionMethodWriter, {
     'SetRandomSeed' : 'set_random_seed',
     'SetTimer' : 'set_timer((%s) / 1000.0)',
     'SetLoopIndex' : SetLoopIndex,
-    'IgnoreControls' : EmptyAction, # XXX fix
-    'RestoreControls' : EmptyAction, # XXX fix,
+    'IgnoreControls' : '.manager->ignore_controls = true', # XXX fix
+    'RestoreControls' : '.manager->ignore_controls = false', # XXX fix,
     'ChangeControlType' : EmptyAction, # XXX fix,
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',

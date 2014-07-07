@@ -284,7 +284,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         reset(false);
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
-    create_directories(filename);
+    create_file_directories(filename);
 
     if (!encrypt_key.empty() || use_compression) {
         std::string new_data;
@@ -440,6 +440,7 @@ void INI::search(const std::string & group, const std::string & item,
                  const std::string & value)
 {
     search_results.clear();
+    search_time = frame->loop_count;
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
     for (it1 = data.begin(); it1 != data.end(); it1++) {
@@ -565,6 +566,13 @@ void INI::merge_map(SectionMap & data2, const std::string & src_group,
         data[dst_group][(*it).first] = (*it).second;
     }
     save_auto();
+}
+
+bool INI::has_search_results()
+{
+    if (search_results.empty())
+        return false;
+    return search_time == frame->loop_count;
 }
 
 size_t INI::get_search_count()

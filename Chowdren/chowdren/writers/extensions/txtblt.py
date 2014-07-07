@@ -56,6 +56,7 @@ class TextBlitter(ObjectWriter):
     use_alterables = True
     update = True
     defines = ['CHOWDREN_USE_BLITTER']
+    default_instance = 'default_blitter_instance'
 
     def write_init(self, writer):
         data = self.get_data()
@@ -90,24 +91,12 @@ class TextBlitter(ObjectWriter):
 
         # read animation
         animation_type = data.readByte()
-        type_name = ANIMATION_NAMES[animation_type]
-
-        if type_name not in ('None', 'Sin Wave'):
-            raise NotImplementedError('invalid blitter animation: %s'
-                                      % type_name)
         data.skipBytes(3)
         animation_speed = data.readInt()
         speed_count = data.readInt()
         param = [data.readInt() for _ in xrange(16)]
         options = data.readInt()
         p1 = data.readInt()
-
-        if type_name == 'Sin Wave':
-            writer.putln('anim_type = BLITTER_ANIMATION_SINWAVE;')
-            writer.putlnc('anim_frame = 0;')
-            writer.putlnc('anim_speed = %s;', animation_speed)
-            writer.putlnc('wave_freq = %s;', param[1])
-            writer.putlnc('wave_height = %s;', param[2])
 
         ball_left = data.readInt()
         ball_top = data.readInt()
@@ -117,13 +106,28 @@ class TextBlitter(ObjectWriter):
         ball_min = (data.readInt(), data.readInt())
         ball_max = (data.readInt(), data.readInt())
 
+        type_name = ANIMATION_NAMES[animation_type]
+
+        if type_name not in ('None', 'Sin Wave'):
+            raise NotImplementedError('invalid blitter animation: %s'
+                                      % type_name)
+
+        if type_name == 'Sin Wave':
+            writer.putln('anim_type = BLITTER_ANIMATION_SINWAVE;')
+            writer.putlnc('anim_frame = 0;')
+            writer.putlnc('anim_speed = %s;', animation_speed)
+            writer.putlnc('wave_freq = %s;', param[1])
+            writer.putlnc('wave_height = %s;', param[2])
+
         writer.putln('width = %s;' % width)
         writer.putln('height = %s;' % height)
         writer.putln('char_width = %s;' % char_size[0])
         writer.putln('char_height = %s;' % char_size[1])
+        writer.putlnc('x_spacing = %s;', char_spacing[0])
+        writer.putlnc('y_spacing = %s;', char_spacing[1])
         writer.putlnc('char_offset = %s;', char_offset)
-        # writer.putlnc('off_x = %s;', image_offset[0])
-        # writer.putlnc('off_y = %s;', image_offset[1])
+        writer.putlnc('x_off = %s;', image_offset[0])
+        writer.putlnc('y_off = %s;', image_offset[1])
         writer.putln('image = %s;' % get_image_name(image))
         align_flags = []
         if horizontal_align == 0:
@@ -156,6 +160,7 @@ class TextBlitter(ObjectWriter):
         if flags & FLAGS_TRANSPARENT:
             writer.putln('has_transparent = true;')
             writer.putlnc('transparent_color = %s;', make_color(trans_color))
+        writer.putlnc('wrap = %s;', bool(flags & FLAGS_WORDWRAPPING))
         writer.putlnc('set_text(%r);', text)
 
     def is_static_background(self):
@@ -174,6 +179,8 @@ actions = make_table(ActionMethodWriter, {
     6 : '.char_offset = %s',
     7 : 'set_charmap',
     13 : 'load',
+    17 : '.x_off = %s',
+    18 : '.y_off = %s',
     36 : 'set_x_align',
     37 : 'set_y_align',
     42 : 'set_x_scroll',
@@ -193,7 +200,11 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : 'get_text()',
+    1 : '.char_width',
+    2 : '.char_height',
     4 : 'get_charmap()',
+    5 : '.image->width',
+    6 : '.image->height',
     9 : 'get_x_align()',
     10 : 'get_y_align()',
     16 : '.y_scroll',
@@ -203,6 +214,8 @@ expressions = make_table(ExpressionMethodWriter, {
     23 : ASCIIValue,
     32 : 'get_line_count()',
     33 : 'get_line',
+    34 : '.x_off',
+    35 : '.y_off',
     42 : 'get_map_char',
     46 : '.callback_line_count'
 })

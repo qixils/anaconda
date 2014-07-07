@@ -30,6 +30,7 @@ public:
     std::string filename;
     std::string global_key;
     std::string encrypt_key;
+    unsigned int search_time;
 
     INI(int x, int y, int type_id);
     static void reset_global_data();
@@ -102,6 +103,7 @@ public:
     void merge_map(const SectionMap & data2, bool overwrite);
     void merge_map(SectionMap & data2, const std::string & src_group,
                    const std::string & dst_group, bool overwrite);
+    bool has_search_results();
     size_t get_search_count();
     const std::string & get_search_result_group(int index);
     const std::string & get_search_result_item(int index);

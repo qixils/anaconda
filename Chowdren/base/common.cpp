@@ -8,6 +8,10 @@
 #include "md5.h"
 #include "strings.cpp"
 
+#ifdef CHOWDREN_USE_VALUEADD
+#include "extra_keys.cpp"
+#endif
+
 std::string newline_character("\r\n");
 std::string empty_string("");
 
@@ -631,14 +635,19 @@ void Frame::draw(int remote)
 
 static Layer default_layer(0, 1.0, 1.0, false, false, false);
 
+void setup_default_instance(FrameObject * obj)
+{
+    obj->layer = &default_layer;
+    obj->width = obj->height = 0;
+}
+
 class DefaultActive : public Active
 {
 public:
     DefaultActive()
     : Active(0, 0, 0)
     {
-        layer = &default_layer;
-        width = height = 0;
+        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
     }
@@ -655,8 +664,7 @@ public:
     DefaultBlitter()
     : TextBlitter(0, 0, 0)
     {
-        layer = &default_layer;
-        width = height = 0;
+        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
     }
@@ -718,6 +726,7 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
 
 void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
+    new_layer = clamp(new_layer, 0, layers.size()-1);
     instance->layer->remove_object(instance);
     Layer * layer = layers[new_layer];
     if (instance->collision)
@@ -1069,8 +1078,7 @@ bool FrameObject::outside_playfield()
     int * box = collision->aabb;
     return !collides(box[0] + layer->off_x, box[1] + layer->off_y,
                      box[2] + layer->off_x, box[3] + layer->off_y,
-                     frame->off_x, frame->off_y,
-                     frame->width+frame->off_x, frame->height+frame->off_y);
+                     0, 0, frame->width, frame->height);
 }
 
 int FrameObject::get_box_index(int index)
@@ -1171,12 +1179,12 @@ void FrameObject::move_back(FrameObject * other)
 
 void FrameObject::move_back()
 {
-    set_level(0);
+    layer->set_level(this, 0);
 }
 
 void FrameObject::move_front()
 {
-    set_level(-1);
+    layer->set_level(this, -1);
 }
 
 void FrameObject::move_front(FrameObject * other)
@@ -1482,7 +1490,7 @@ void Active::force_animation(int value)
 
 void Active::force_frame(int value)
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     forced_frame = value;
     update_frame();
@@ -1490,7 +1498,7 @@ void Active::force_frame(int value)
 
 void Active::force_speed(int value)
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     Direction * dir = get_direction_data();
     int delta = dir->max_speed - dir->min_speed;
@@ -1512,7 +1520,7 @@ void Active::force_direction(int value)
 
 void Active::restore_direction()
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     forced_direction = -1;
     update_direction();
@@ -1528,7 +1536,7 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     animation_frame = forced_frame;
     forced_frame = -1;
@@ -1589,7 +1597,7 @@ void Active::update_action_point()
 
 void Active::update(float dt)
 {
-    if (animation_finished == DISAPPEARING) {
+    if (flags & FADEOUT && animation_finished == DISAPPEARING) {
         FrameObject::destroy();
         return;
     }
@@ -1623,7 +1631,7 @@ void Active::update(float dt)
         animation_frame--;
 
 #ifdef CHOWDREN_RESTORE_ANIMATIONS
-        if (forced_animation != -1 && forced_animation != DISAPPEARING)
+        if (forced_animation != -1 && (flags & FADEOUT) == 0)
             restore_animation();
 #else
         if (forced_animation == APPEARING)
@@ -1781,7 +1789,7 @@ int Active::get_animation(int value)
 
 void Active::set_direction(int value, bool set_movement)
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
@@ -1879,7 +1887,7 @@ bool Active::is_animation_finished(int anim)
 
 void Active::destroy()
 {
-    if (forced_animation == DISAPPEARING)
+    if (flags & FADEOUT)
         return;
     if (!has_animation(DISAPPEARING)) {
         FrameObject::destroy();
@@ -2230,25 +2238,36 @@ static void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
     glEnd();
 }
 
+static int align_pos(int a, int b)
+{
+    return (a / b) * b;
+}
+
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
 #ifdef CHOWDREN_LAYER_WRAP
-        int x = this->x;
-        int y = this->y;
-        int width = this->width;
-        int height = this->height;
+        int x, y;
+        int width, height;
 
         // this is a cheap implementation of the wrap feature.
         // we expect objects to extend on either the X or Y axis.
         if (layer->wrap_x) {
-            x = frame->off_x * layer->scroll_x + x_offset - image->width;
+
+            x = frame->off_y * layer->scroll_y + x_offset - image->width;
             width = WINDOW_WIDTH + image->width * 2;
         } else if (layer->wrap_y) {
             y = frame->off_y * layer->scroll_y + y_offset - image->height;
             height = WINDOW_HEIGHT + image->height * 2;
-        }
+        } else
 #endif
+        {
+            x = this->x;
+            y = this->y;
+            width = this->width;
+            height = this->height;
+        }
+
         glEnable(GL_SCISSOR_TEST);
         glc_scissor_world(x, y, width, height);
         blend_color.apply();
@@ -2515,6 +2534,11 @@ const std::string & StringTokenizer::get(int index)
 const std::string & File::get_appdata_directory()
 {
     return platform_get_appdata_dir();
+}
+
+void File::create_directory(const std::string & path)
+{
+    create_directories(path);
 }
 
 bool File::file_exists(const std::string & path)
@@ -3142,11 +3166,8 @@ TextBlitter::TextBlitter(int x, int y, int type_id)
 void TextBlitter::load(const std::string & filename)
 {
     Color * color = NULL;
-    if (has_transparent) {
+    if (has_transparent)
         color = &transparent_color;
-        std::cout << "Blitter transparency: " << color->r << " " << color->g
-            << " " << color->b << std::endl;
-    }
 
     Image * new_image = new Image(filename, 0, 0, 0, 0, color);
     if (!new_image->is_valid()) {
@@ -3305,7 +3326,7 @@ void TextBlitter::update_lines()
                 break;
             if (text_c[i] == '\n')
                 break;
-            if (size * x_add > width) {
+            if (wrap && size * x_add > width) {
                 if (last_space != -1) {
                     size = last_space - start;
                     i = last_space;
@@ -3357,11 +3378,11 @@ void TextBlitter::replace_color(int from, int to)
 {
     Color color1(from);
     Color color2(to);
-    std::cout << "Replace color not implemented: " <<
-        int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
-        << " -> " <<
-        int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
-        << std::endl;
+    // std::cout << "Replace color not implemented: " <<
+    //     int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
+    //     << " -> " <<
+    //     int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
+    //     << std::endl;
 }
 
 void TextBlitter::set_transparent_color(int v)
@@ -3461,7 +3482,9 @@ void TextBlitter::draw()
 
             int ci = charmap[c] - char_offset;
             int img_x = (ci * char_width) % image->width;
+            img_x = clamp(img_x + x_off, 0, image->width);
             int img_y = ((ci * char_width) / image->width) * char_height;
+            img_y = clamp(img_y + y_off, 0, image->height);
 
             float t_x1 = float(img_x) / float(image->width);
             float t_x2 = float(img_x+char_width) / float(image->width);
@@ -3495,164 +3518,6 @@ void TextBlitter::draw()
     glDisable(GL_TEXTURE_2D);
 
     end_draw();
-}
-
-// PlatformObject
-
-// XXX hack
-static PlatformObject * last_instance = NULL;
-
-PlatformObject::PlatformObject(int x, int y, int type_id)
-: FrameObject(x, y, type_id), instance(NULL), paused(false),
-  add_x_vel(0), add_y_vel(0), x_move_count(0), y_move_count(0), x_vel(0),
-  y_vel(0), left(false), right(false), obstacle_collision(false),
-  platform_collision(false), on_ground(false), through_collision_top(false),
-  jump_through(false)
-{
-}
-
-void PlatformObject::update(float dt)
-{
-    bool l = left;
-    bool r = right;
-    left = right = false;
-
-    if (instance == NULL || paused || instance->flags & DESTROYING)
-        return;
-
-    if (r && !l)
-        x_vel += x_accel;
-    if (l && !r)
-        x_vel -= x_accel;
-    if (x_vel != 0 && ((!l && !r) || (l && r))) {
-        x_vel -= (x_vel / get_abs(x_vel)) * x_decel;
-        if (x_vel <= x_decel && x_vel >= 0 - x_decel)
-            x_vel = 0;
-    }
-
-    x_vel = std::min(std::max(x_vel, -max_x_vel), max_x_vel);
-    y_vel = std::min(std::max(y_vel + gravity, -max_y_vel), max_y_vel);
-    int x_vel_2 = x_vel + add_x_vel;
-    int y_vel_2 = y_vel + add_y_vel;
-    int x_vel_sign = sign_int(x_vel_2);
-    int y_vel_sign = sign_int(y_vel_2);
-    x_move_count += get_abs(x_vel_2);
-    y_move_count += get_abs(y_vel_2);
-
-    bool overlaps;
-
-    while (x_move_count > 100) {
-        overlaps = overlaps_obstacle();
-        if (!overlaps) {
-            instance->set_x(instance->x + x_vel_sign);
-            overlaps = overlaps_obstacle();
-        }
-        if (overlaps) {
-            for (int i = 0; i < step_up; i++) {
-                instance->set_y(instance->y - 1);
-                overlaps = overlaps_obstacle();
-                if (!overlaps)
-                    break;
-            }
-            if (overlaps) {
-                instance->set_position(
-                    instance->x - x_vel_sign,
-                    instance->y + step_up);
-                x_vel = x_move_count = 0;
-            }
-        }
-        x_move_count -= 100;
-    }
-
-    while (y_move_count > 100) {
-        overlaps = overlaps_obstacle();
-        if (!overlaps) {
-            instance->set_y(instance->y + y_vel_sign);
-            on_ground = false;
-            overlaps = overlaps_obstacle();
-        }
-        if (overlaps) {
-            instance->set_y(instance->y - y_vel_sign);
-            if (y_vel_2 > 0)
-                on_ground = true;
-            y_vel = y_move_count = 0;
-        }
-        if (overlaps_platform() && y_vel_2 > 0) {
-            if (through_collision_top) {
-                instance->set_y(instance->y - 1);
-                if (!overlaps_platform()) {
-                    instance->set_y(instance->y - y_vel_sign);
-                    y_vel = y_move_count = 0;
-                    on_ground = true;
-                }
-                instance->set_y(instance->y + 1);
-            } else {
-                instance->set_y(instance->y - y_vel_sign);
-                y_vel = y_move_count = 0;
-                on_ground = true;
-            }
-        }
-        y_move_count -= 100;
-    }
-
-    if (slope_correction > 0 && y_vel_2 >= 0) {
-        bool tmp = false;
-        for (int i = 0; i < slope_correction; i++) {
-            instance->set_y(instance->y + 1);
-            if (overlaps_obstacle()) {
-                instance->set_y(instance->y - 1);
-                on_ground = true;
-                tmp = true;
-                break;
-            }
-        }
-        if (!tmp)
-            instance->set_y(instance->y - slope_correction);
-    }
-}
-
-bool PlatformObject::overlaps_obstacle()
-{
-    obstacle_collision = false;
-    call_overlaps_obstacle();
-    return obstacle_collision;
-}
-
-bool PlatformObject::overlaps_platform()
-{
-    platform_collision = false;
-    call_overlaps_platform();
-    return platform_collision;
-}
-
-void PlatformObject::set_object(FrameObject * instance)
-{
-    this->instance = instance;
-}
-
-bool PlatformObject::is_falling()
-{
-    return !on_ground && y_vel > 0;
-}
-
-bool PlatformObject::is_jumping()
-{
-    return !on_ground && y_vel <= 0;
-}
-
-bool PlatformObject::is_moving()
-{
-    return get_abs(x_vel) > 0;
-}
-
-void PlatformObject::jump_in_air()
-{
-    y_vel -= jump_hold_height;
-}
-
-void PlatformObject::jump()
-{
-    y_vel = 0 - jump_strength;
 }
 
 // ActivePicture

@@ -3,6 +3,7 @@
 
 #include "chowconfig.h"
 #include "profiler.h"
+#include "keydef.h"
 #include "keyconv.h"
 #include "manager.h"
 #include "platform.h"
@@ -388,6 +389,7 @@ class File
 {
 public:
     static const std::string & get_appdata_directory();
+    static void create_directory(const std::string & path);
     static bool file_exists(const std::string & path);
     static bool name_exists(const std::string & path);
     static void delete_file(const std::string & path);
@@ -563,7 +565,9 @@ public:
     int alignment;
     int x_spacing, y_spacing;
     int x_scroll, y_scroll;
+    int x_off, y_off;
     bool charmap_ref;
+    bool wrap;
 
     int anim_type;
     int anim_speed;
@@ -604,49 +608,6 @@ public:
     void set_animation_type(int value);
     void set_charmap(const std::string & charmap);
     const std::string & get_charmap();
-};
-
-typedef void (*ObstacleOverlapCallback)();
-typedef void (*PlatformOverlapCallback)();
-
-class PlatformObject : public FrameObject
-{
-public:
-    FrameObject * instance;
-    bool left, right;
-    bool paused;
-
-    int x_vel, y_vel;
-    int max_x_vel, max_y_vel;
-    int add_x_vel, add_y_vel;
-    int x_move_count, y_move_count;
-    int x_accel, x_decel;
-    int gravity;
-    int jump_strength;
-    int jump_hold_height;
-    int step_up;
-    int slope_correction;
-    bool on_ground;
-    bool jump_through, through_collision_top;
-
-    bool obstacle_collision;
-    bool platform_collision;
-
-    ObstacleOverlapCallback obstacle_callback;
-    PlatformOverlapCallback platform_callback;
-
-    PlatformObject(int x, int y, int type_id);
-    void set_object(FrameObject * instance);
-    virtual void call_overlaps_obstacle() = 0;
-    virtual void call_overlaps_platform() = 0;
-    bool overlaps_obstacle();
-    bool overlaps_platform();
-    bool is_falling();
-    bool is_jumping();
-    bool is_moving();
-    void jump();
-    void jump_in_air();
-    void update(float dt);
 };
 
 class ActivePicture : public FrameObject

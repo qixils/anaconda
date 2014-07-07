@@ -55,7 +55,7 @@ inline std::string get_path_ext(const std::string & path)
     std::string::size_type pos = path.find_last_of(".");
     if (pos != std::string::npos)
         ext = path.substr(pos + 1);
-    ext = to_lower(ext);
+    to_lower(ext);
     return ext;
 }
 

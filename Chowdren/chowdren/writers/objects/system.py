@@ -14,14 +14,15 @@ class Active(ObjectWriter):
     class_name = 'Active'
     use_alterables = True
     update = True
+    default_instance = 'default_active_instance'
 
     def write_init(self, writer):
         common = self.common
         animations = common.animations.loadedAnimations
         max_anim = max(animations)+1
         writer.putlnc('static Animation * anims[%s];', max_anim)
-        writer.putlnc('static Animations saved_animations(%s,'
-                      '(Animation**)&anims);', max_anim)
+        writer.putlnc('static Animations saved_animations(%s, '
+                      '&anims[0]);', max_anim)
         writer.putln('this->animations = &saved_animations;')
         writer.putln('static bool initialized = false;')
         writer.putln('if (!initialized) {')
@@ -165,6 +166,11 @@ class QuickBackdrop(ObjectWriter):
         color1 = shape.color1
         color2 = shape.color2
         fill = shape.getFill()
+
+        if fill == 'Motif' and shape.image in self.converter.solid_images:
+            # HFA optimization
+            fill = 'Solid'
+            color1 = self.converter.solid_images[shape.image]
 
         writer.putln('width = %s;' % self.common.width)
         writer.putln('height = %s;' % self.common.height)

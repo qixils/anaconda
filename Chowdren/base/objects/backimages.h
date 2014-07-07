@@ -17,4 +17,6 @@ public:
     BackImages(int x, int y, int type_id);
 };
 
+extern FrameObject * default_backimages_instance;
+
 #endif // CHOWDREN_BACKIMAGES_H

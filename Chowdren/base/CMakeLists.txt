@@ -27,11 +27,11 @@ include_directories("${CHOWDREN_BASE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
 set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
-option(USE_BOX2D OFF)
-option(USE_PYTHON ON)
-option(USE_STEAM OFF)
-option(ENABLE_STEAM ON)
-option(EMULATE_WIIU OFF)
+option(USE_BOX2D "Use Box2D" OFF)
+option(USE_PYTHON "Use Python" OFF)
+option(USE_STEAM "Use Steam (otherwise emulate)" OFF)
+option(ENABLE_STEAM "Enable Steam" ON)
+option(EMULATE_WIIU "Emulate Wii U features" OFF)
 
 if (CMAKE_CROSSCOMPILING)
     set(USE_GL OFF)
@@ -40,9 +40,9 @@ if (CMAKE_CROSSCOMPILING)
 elseif (EMSCRIPTEN)
     set(USE_GLES2 ON)
 else()
-    option(USE_GL ON)
-    option(USE_GLES1 OFF)
-    option(USE_GLES2 OFF)
+    option(USE_GL "Use OpenGL" ON)
+    option(USE_GLES1 "Use OpenGL ES 1" OFF)
+    option(USE_GLES2 "Use OpenGL ES 2" OFF)
 endif()
 
 if(EMSCRIPTEN)
@@ -68,7 +68,6 @@ if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
     set(PLATFORM_SRCS
         ${CHOWDREN_BASE_DIR}/desktop/glc.cpp
         ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
-        ${CHOWDREN_BASE_DIR}/include/tinythread/tinythread.cpp
         ${PLATFORM_SRCS}
     )
 
@@ -83,6 +82,7 @@ set(SRCS
     lists.cpp
     extensions.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
+    ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${GLEW_C}
     ${PLATFORM_CPP}
@@ -197,6 +197,7 @@ if(MSVC)
     add_definitions("-D_CRT_SECURE_NO_WARNINGS")
     # multicore compile
     add_definitions("/MP")
+    add_definitions("/arch:SSE2")
 endif()
 
 add_definitions(-DGLEW_STATIC)
@@ -234,10 +235,10 @@ if(APPLE)
     set(SRCS ${SRCS} ${DATA_SRCS})
 endif()
 
+add_definitions(-DBOOST_ALL_NO_LIB)
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME ON)
-find_package(Boost)
+set(Boost_USE_STATIC_RUNTIME OFF)
 
 if (CMAKE_CROSSCOMPILING)
     # libogg
@@ -246,6 +247,7 @@ if (CMAKE_CROSSCOMPILING)
     set(VORBIS_INCLUDE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
     include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
     set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
+    find_package(Boost REQUIRED)
 else()
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)
@@ -255,6 +257,7 @@ else()
     else()
         find_package(OpenGLES2 REQUIRED)
     endif()
+    find_package(Boost REQUIRED COMPONENTS filesystem system thread chrono)
 endif()
 
 set(EXE_NAME "Chowdren")
@@ -267,7 +270,6 @@ target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${PLATFORM_LIBRARIES} ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES}
     ${EGL_LIBRARIES} ${Boost_LIBRARIES})
 
-
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
 
 set(BIN_DIR ".")
@@ -278,8 +280,6 @@ if(APPLE)
 elseif(WIN32)
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
     set(DLL_PATH "${CMAKE_SOURCE_DIR}/bin/win32")
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/bin/win32/Microsoft.VC90.CRT"
-            DESTINATION .)
 else()
     set(BIN_DIR "bin")
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/bin/${EXE_NAME}")

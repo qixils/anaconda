@@ -153,7 +153,9 @@ actions = make_table(ActionMethodWriter, {
     22 : 'hide_border_1',
     31 : 'hide_border_2',
     54 : EmptyAction, # set text color, other
-    55 : 'set_text'
+    55 : 'set_text',
+    62 : 'set_visible(true)',
+    63 : 'set_visible(false)'
 })
 
 conditions = make_table(ConditionMethodWriter, {

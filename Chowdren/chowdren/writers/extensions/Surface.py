@@ -21,7 +21,6 @@ class SurfaceObject(ObjectWriter):
         width_def = data.readShort()
         height_def = data.readShort()
 
-        open('test.dat', 'wb').write(str(data))
         images = []
         for _ in xrange(16):
             images.append(data.readShort())
@@ -29,11 +28,10 @@ class SurfaceObject(ObjectWriter):
         image_count = data.readShort()
         images = images[:image_count]
 
-
         load_first = data.readByte() != 0 # always true!
         use_abs = data.readByte() != 0
         threaded_io = data.readByte() != 0 # unused (I bet)
-        keep_points = data.readByte() != 0 #unused
+        keep_points = data.readByte() != 0 # unused
         multi_imgs = data.readByte() != 0
         disp_target = data.readByte() != 0
         select_last = data.readByte() != 0 # always false!
@@ -46,16 +44,6 @@ class SurfaceObject(ObjectWriter):
 
         writer.putlnc('display_selected = %s;', disp_target)
         writer.putlnc('use_abs_coords = %s;', use_abs)
-
-        #if image_count:
-        #    image_names = [get_image_name(image) for image in images]
-        #    image_names = ', '.join(image_names)
-        #    writer.putlnc('static Image* static_images[%s] = {%s};',
-        #                  image_count, image_names)
-        #    writer.putlnc('images = (Image**)static_images;')
-        #    writer.putlnc('set_image(0);')
-        #else:
-        #    pass#writer.putlnc('image = NULL;')
 
         image_names = [get_image_name(image) for image in images]
 
@@ -75,8 +63,8 @@ class SurfaceObject(ObjectWriter):
                 elif i > 0 and image_count > 1:
                     writer.putln('tmp.reset();')
                     writer.putln('images.push_back(tmp);')
-        #single image
         else:
+            # single image
             if image_count > 0 and images[0] != -1:
                 writer.putlnc('tmp.set_image(%s);', image_names[0])
             else:
@@ -84,10 +72,6 @@ class SurfaceObject(ObjectWriter):
             writer.putln('images.push_back(tmp);')
         # load_first always true -> there will always be an image 0
         writer.putln('set_edit_image(0, true);')
-
-
-
-
 
 
 class ReverseColor(ExpressionMethodWriter):

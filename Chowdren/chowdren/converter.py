@@ -46,7 +46,6 @@ import struct
 WRITE_FONTS = True
 WRITE_SOUNDS = True
 PROFILE = False
-PROFILE_TIME = 0.0005
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -251,7 +250,6 @@ class EventGroup(object):
     or_save = False
     or_final = False
     or_type = None
-    last_created = (None, None)
 
     def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -266,12 +264,15 @@ class EventGroup(object):
         self.not_always = not_always
         self.or_index = or_index
         self.or_type = or_type
+        self.force_multiple = set()
 
     def set_groups(self, converter, groups):
         is_simple = hacks.use_simple_or(converter)
         if len(groups) == 1:
             self.name = 'event_%s' % self.global_id
+            self.unique_id = self.global_id
             return
+        self.unique_id = '%s_%s' % (self.global_id, self.or_index)
         if is_simple:
             self.name = 'event_or_%s_%s' % (self.global_id, self.or_index)
             return
@@ -491,7 +492,6 @@ class Converter(object):
             base_path = self.base_path.replace('\\', '/'))
         hacks.init(self)
 
-
         if copy_shaders:
             src = os.path.join(self.base_path, 'shaders')
             dst = self.get_filename('shaders')
@@ -502,7 +502,7 @@ class Converter(object):
         self.format_file('Application.cmake', 'CMakeLists.txt')
         self.copy_file('icon.icns', overwrite=False)
 
-        self.open('config.py').write(repr(self.info_dict))
+        self.write_config(self.info_dict, 'config.py')
 
         # fonts
         if WRITE_FONTS:
@@ -532,7 +532,10 @@ class Converter(object):
 
         # print 'Image count:', len(game.images.items)
 
-        if image_file is not None:
+        if image_file is None:
+            self.solid_images = self.read_config('images.py')
+        else:
+            self.solid_images = {}
             image_fp = open(self.get_filename(image_file), 'wb')
             image_data = ByteReader()
             image_header = ByteReader(image_fp)
@@ -555,6 +558,10 @@ class Converter(object):
                     handle = image.handle
                     pil_image = Image.fromstring('RGBA', (image.width,
                         image.height), image.getImageData())
+                    colors = pil_image.getcolors(1)
+                    if colors is not None:
+                        color, = colors
+                        self.solid_images[handle] = color[1]
                     temp = StringIO()
                     pil_image.save(temp, 'PNG')
                     temp = temp.getvalue()
@@ -562,6 +569,7 @@ class Converter(object):
                     image_data.write(temp)
             image_header.writeReader(image_data)
             image_fp.close()
+            self.write_config(self.solid_images, 'images.py')
 
         # sounds
         if WRITE_SOUNDS:
@@ -615,6 +623,7 @@ class Converter(object):
         extension_includes = set()
         extension_sources = set()
         self.event_callback_ids = itertools.count()
+        application_writers = set()
 
         type_id = itertools.count(2)
         qualifier_id = itertools.count(1)
@@ -637,6 +646,7 @@ class Converter(object):
                 continue
             for define in object_writer.defines:
                 extra.add_define(define)
+            application_writers.add(object_writer.write_application)
             self.all_objects[handle] = object_writer
             self.object_types[handle[0]] = object_type
             extension_includes.update(object_writer.get_includes())
@@ -776,10 +786,12 @@ class Converter(object):
                 objects_file.end_brace()
 
             if PROFILE:
-                objects_file.putmeth('void update', 'float dt')
-                objects_file.putlnc('PROFILE_BLOCK(%s_update);', class_name)
-                objects_file.putlnc('%s::update(dt);', subclass)
-                objects_file.end_brace()
+                if object_writer.update:
+                    objects_file.putmeth('void update', 'float dt')
+                    objects_file.putlnc('PROFILE_BLOCK(%s_update);',
+                                        class_name)
+                    objects_file.putlnc('%s::update(dt);', subclass)
+                    objects_file.end_brace()
                 objects_file.putmeth('void draw')
                 objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
                 objects_file.putlnc('%s::draw();', subclass)
@@ -1345,6 +1357,9 @@ class Converter(object):
         strings_header.close_guard('CHOWDREN_STRINGS_H')
         strings_file.close()
         strings_header.close()
+
+        for writer in application_writers:
+            writer(self)
 
         # general configuration
         # this is the last thing we should do
@@ -1954,7 +1969,7 @@ class Converter(object):
 
             filtered = out[end+1:]
             out = out[:end+1]
-            print 'too many end-clauses, filtered', filtered
+            # print 'too many end-clauses, filtered', filtered
         return out
 
     def intern_string(self, value):
@@ -1986,7 +2001,11 @@ class Converter(object):
     def has_multiple_instances(self, handle):
         if is_qualifier(handle[0]):
             return True
-        return handle in self.multiple_instances
+        if handle in self.multiple_instances:
+            return True
+        if handle in self.current_group.force_multiple:
+            return True
+        return False
 
     def create_list(self, object_info, writer):
         single = self.get_single(object_info)
@@ -2007,8 +2026,8 @@ class Converter(object):
         return None
 
     def get_object(self, obj, as_list=False, use_default=False, index=None):
-        handle, object_type = obj
-        object_type = self.get_object_class(object_type)
+        handle = obj[0]
+        object_type = self.get_object_class(obj[1])
         use_index = (hacks.use_iteration_index(self) and self.iterated_index
                      and self.in_actions) or index is not None
         index = index or self.iterated_index
@@ -2035,25 +2054,21 @@ class Converter(object):
             if use_index:
                 args.append(index)
 
-            getter_name = None
-            if not is_qual and use_default:
-                getter_name = self.get_instance_getter(object_type)
+            if use_default:
+                default_instance = self.get_default_instance(obj[1])
+                if default_instance:
+                    args.append(default_instance)
 
-            if not getter_name:
-                if is_qual:
-                    getter_name = 'get_qualifier'
-                else:
-                    getter_name = 'get_instance'
+            if is_qual:
+                getter_name = 'get_qualifier'
+            else:
+                getter_name = 'get_instance'
 
             args = ', '.join(args)
             return '((%s)%s(%s))' % (object_type, getter_name, args)
 
-    def get_instance_getter(self, object_type):
-        if object_type == 'Active*':
-            return 'get_active_instance'
-        elif object_type == 'TextBlitter*':
-            return 'get_blitter_instance'
-        return None
+    def get_default_instance(self, object_type):
+        return self.get_object_writer(object_type).default_instance
 
     def get_object_list(self, obj, allow_single=False):
         if self.get_single(obj) is not None and not allow_single:
@@ -2066,8 +2081,10 @@ class Converter(object):
     def get_object_name(self, obj):
         if is_qualifier(obj[0]):
             return self.qualifier_names[obj]
-        else:
-            return self.object_names[obj]
+        if obj[1] == EXTENSION_BASE:
+            obj_type = self.object_types[obj[0]]
+            obj = (obj[0], obj_type)
+        return self.object_names[obj]
 
     def get_list_name(self, object_name):
         return '%s_instances' % get_method_name(object_name, True)
@@ -2075,6 +2092,9 @@ class Converter(object):
     def get_object_handle(self, obj):
         if is_qualifier(obj[0]):
             return (self.qualifier_names[obj], True)
+        if obj[1] == EXTENSION_BASE:
+            obj_type = self.object_types[obj[0]]
+            obj = (obj[0], obj_type)
         try:
             return ('%s_type' % self.object_names[obj], False)
         except Exception, e:
@@ -2084,7 +2104,6 @@ class Converter(object):
                 ext_index = data.objectType - EXTENSION_BASE
                 ext = self.game.extensions.fromHandle(ext_index)
                 name = ext.name
-            # print 'Could not get object type %r' % name
             raise e
 
     def get_object_class(self, object_type, star=True):
@@ -2202,6 +2221,15 @@ class Converter(object):
 
     def open(self, *path):
         return open(self.get_filename(*path), 'wb')
+
+    def write_config(self, data, *path):
+        with open(self.get_filename(*path), 'wb') as fp:
+            fp.write(repr(data))
+
+    def read_config(self, *path):
+        with open(self.get_filename(*path), 'rb') as fp:
+            data = fp.read()
+        return eval(data)
 
     def get_filename(self, *path):
         return os.path.join(self.outdir, *path)

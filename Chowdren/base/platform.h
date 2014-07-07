@@ -21,6 +21,7 @@ double platform_get_time();
 void platform_sleep(double v);
 size_t get_file_size(const char * filename);
 void create_directories(const std::string & v);
+void create_file_directories(const std::string & v);
 int translate_vk_to_key(int vk);
 int translate_key_to_vk(int key);
 int translate_string_to_key(const std::string & name);
@@ -35,6 +36,7 @@ bool platform_remove_file(const std::string & path);
 const std::string & platform_get_appdata_dir();
 const std::string & platform_get_language();
 void platform_set_vsync(bool value);
+void platform_set_fullscreen(bool value);
 
 // debug
 void platform_print_stats();

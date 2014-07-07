@@ -74,7 +74,7 @@ def use_safe_division(converter):
     return is_hfa or is_test
 
 def get_startup_instances(converter, instances):
-    if not is_hfa:
+    if not is_hfa or converter.current_frame_index != 0:
         return instances
     # bug in Text Blitter object, need to move them to front
     new_instances = []
@@ -123,13 +123,15 @@ def write_defines(converter, writer):
     if is_hfa or is_test:
         writer.putln('#define CHOWDREN_INI_FILTER_QUOTES')
         writer.putln('#define CHOWDREN_INI_KEEP_ORDER')
+    if is_hfa:
+        writer.putln('#define CHOWDREN_FORCE_TRANSPARENT')
+        writer.putln('#define CHOWDREN_VSYNC')
     writer.putln('#define CHOWDREN_USE_DYNTREE')
 
 def get_frames(converter, frames):
     if not is_hfa:
         return frames
-    return {
-        0: frames[0],
-        4 : frames[4],
-        21 : frames[21]
-    }
+    new_frames = {}
+    for index in (0, 4, 21, 22, 23, 24, 25, 26, 27, 28):
+        new_frames[index] = frames[index]
+    return new_frames

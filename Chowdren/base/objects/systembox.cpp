@@ -37,17 +37,17 @@ void SystemBox::draw()
 
 void SystemBox::hide_border_1()
 {
-    std::cout << "Hide System Box border 1 not implemented" << std::endl;
+    // std::cout << "Hide System Box border 1 not implemented" << std::endl;
 }
 
 void SystemBox::hide_border_2()
 {
-    std::cout << "Hide System Box border 1 not implemented" << std::endl;
+    // std::cout << "Hide System Box border 1 not implemented" << std::endl;
 }
 
 void SystemBox::hide_fill()
 {
-    std::cout << "Hide System Box fill not implemented" << std::endl;
+    // std::cout << "Hide System Box fill not implemented" << std::endl;
 }
 
 void SystemBox::set_size(int w, int h)

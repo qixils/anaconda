@@ -5,12 +5,14 @@
 #include "shader.h"
 #include "mathcommon.h"
 
+// SurfaceObject
+
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
-: FrameObject(x, y, type_id), selected_index(-1),
-    displayed_index(-1), load_failed(false)
+: FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
+  load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
+  stretch_mode(0), effect(0)
 {
     collision = new InstanceBox(this);
-    memset(&blit_settings, sizeof(BlitSettings), 0);
 }
 
 SurfaceObject::~SurfaceObject()
@@ -27,11 +29,10 @@ void SurfaceObject::draw()
     if (display_selected)
         displayed_image = selected_image;
 
-    if (displayed_image != NULL)
-    {
-        blend_color.apply();
-        displayed_image->draw(this, x, y);
-    }
+    if (displayed_image == NULL)
+        return;
+    blend_color.apply();
+    displayed_image->draw(this, x, y);
 }
 
 void SurfaceObject::update(float dt)
@@ -41,99 +42,95 @@ void SurfaceObject::update(float dt)
 
 void SurfaceObject::resize(int w, int h)
 {
-    if (selected_image)
-    {
-        selected_image->width = w;
-        selected_image->height = h;
-        
-        if (displayed_image == selected_image)
-        {
-            width = selected_image->width;
-            height = selected_image->height;
-            collision->update_aabb();
-        }
-    }
+    if (selected_image == NULL)
+        return;
+    selected_image->width = w;
+    selected_image->height = h;
+
+    if (displayed_image != selected_image)
+        return;
+    width = selected_image->width;
+    height = selected_image->height;
+    collision->update_aabb();
 }
 
 void SurfaceObject::resize_canvas(int x1, int y1, int x2, int y2)
 {
-    if (selected_image)
-    {
-        if ((x2 - x1) == 0 || (y2 - y1) == 0)
-            selected_image->reset();
-        else
-        {
-            // x1 and y1 are always zero, yay
-            //selected_image->scroll_x += x1;
-            //selected_image->scroll_y += y1;
-            selected_image->canvas_width = std::min(selected_image->canvas_width, x2);
-            selected_image->canvas_height = std::min(selected_image->canvas_height, y2);
-        }
+    if (selected_image == NULL)
+        return;
+
+    if (x2 - x1 == 0 || y2 - y1 == 0) {
+        selected_image->reset();
+        return;
     }
+    // x1 and y1 are always zero, yay
+    //selected_image->scroll_x += x1;
+    //selected_image->scroll_y += y1;
+    selected_image->canvas_width = std::min(selected_image->canvas_width,
+                                            x2);
+    selected_image->canvas_height = std::min(selected_image->canvas_height,
+                                             y2);
 }
 
 void SurfaceObject::load(const std::string & filename,
                          const std::string & ignore_ext)
 {
-    if (selected_image)
-    {
-        Color old_trans = selected_image->transparent;
-        selected_image->reset();
-        selected_image->transparent = Color(255, 0, 255); // old_trans;
-        
-        std::string path = convert_path(filename);
+    if (selected_image == NULL)
+        return;
+    Color old_trans = selected_image->transparent;
+    selected_image->reset();
+    selected_image->transparent = Color(255, 0, 255); // old_trans;
 
-        Color * trans = NULL;
-        if (selected_image->has_transparent)
-            trans = &selected_image->transparent;
+    std::string path = convert_path(filename);
 
-        Image * image = get_image_cache(path, 0, 0, 0, 0, trans);
-        selected_image->set_image(image);
+    Color * trans = NULL;
+    if (selected_image->has_transparent)
+        trans = &selected_image->transparent;
 
-        if (!image)
-            load_failed = true;
+    Image * image = get_image_cache(path, 0, 0, 0, 0, trans);
+    selected_image->set_image(image);
 
-        set_edit_image(selected_index);
-    }
+    if (image == NULL)
+        load_failed = true;
+
+    set_edit_image(selected_index);
 }
 
 void SurfaceObject::set_stretch_mode(int v)
 {
-    blit_settings.stretch_mode = v;
+    stretch_mode = v;
 }
 
 void SurfaceObject::set_dest_pos(int x, int y)
 {
-    blit_settings.dest_x = x;
-    blit_settings.dest_y = y;
+    dest_x = x;
+    dest_y = y;
 }
 
 void SurfaceObject::set_dest_size(int w, int h)
 {
-    blit_settings.dest_width = w;
-    blit_settings.dest_height = h;
+    dest_width = w;
+    dest_height = h;
 }
 
 void SurfaceObject::scroll(int x, int y, int wrap)
 {
     SurfaceImage * image = selected_image;
-    if (image && image->handle)
-    {
-        image->scroll_x = (image->scroll_x + x) % image->handle->width;
-        image->scroll_y = (image->scroll_y + y) % image->handle->height;
-        image->wrap = wrap != 0;
-    }
+    if (image == NULL || image->handle == NULL)
+        return;
+    image->scroll_x = (image->scroll_x + x) % image->handle->width;
+    image->scroll_y = (image->scroll_y + y) % image->handle->height;
+    image->wrap = wrap != 0;
 }
 
 void SurfaceObject::blit(Active * obj)
 {
-
     // std::cout << "Blit onto surface" << std::endl;
 }
 
 void SurfaceObject::set_effect(int index)
 {
-    blit_settings.effect = index;
+    effect = index;
 }
 
 void SurfaceObject::set_display_image(int index)
@@ -141,13 +138,10 @@ void SurfaceObject::set_display_image(int index)
     if (display_selected)
         return;
 
-    if (index < 0 || index >= images.size())
-    {
+    if (index < 0 || index >= int(images.size())) {
         displayed_index = -1;
         displayed_image = NULL;
-    }
-    else
-    {
+    } else {
         displayed_index = index;
         displayed_image = &images[index];
     }
@@ -155,25 +149,21 @@ void SurfaceObject::set_display_image(int index)
 
 void SurfaceObject::set_edit_image(int index, bool display)
 {
-    if (index < 0 || index >= images.size())
-	{
+    if (index < 0 || index >= int(images.size())) {
 		selected_index = -1;
         selected_image = NULL;
-	}
-    else
-	{
+	} else {
 		selected_index = index;
         selected_image = &images[index];
 	}
-    
+
     if (display_selected || display)
         set_display_image(index);
 
-    if (displayed_image == selected_image)
-    {
-        width = selected_image->get_display_width();
-        height = selected_image->get_display_height();
-    }
+    if (displayed_image != selected_image)
+        return;
+    width = selected_image->get_display_width();
+    height = selected_image->get_display_height();
 }
 
 void SurfaceObject::create_alpha(int index)
@@ -218,8 +208,9 @@ void SurfaceObject::save(const std::string & filename,
 
 void SurfaceObject::reverse_x()
 {
-    if (selected_image)
-        selected_image->has_reverse_x ^= !selected_image->has_reverse_x;
+    if (selected_image == NULL)
+        return;
+    selected_image->has_reverse_x = !selected_image->has_reverse_x;
 }
 
 void SurfaceObject::add_image(int w, int h)
@@ -230,16 +221,13 @@ void SurfaceObject::add_image(int w, int h)
     images.push_back(new_image);
 }
 
-#include <fstream>
-
 void SurfaceObject::set_transparent_color(const Color & color, bool replace)
 {
-    if (selected_image)
-    {
-        //selected_image->has_transparent = true;
-        //selected_image->transparent = color;
-        //printf("newest color %x\n", color.get_int());
-    }
+    if (selected_image == NULL)
+        return;
+    // selected_image->has_transparent = true;
+    // selected_image->transparent = color;
+    // printf("newest color %x\n", color.get_int());
 }
 
 int SurfaceObject::get_edit_width()
@@ -256,7 +244,9 @@ int SurfaceObject::get_image_width(int index)
     return selected_image->width;
 }
 
-void SurfaceObject::SurfaceImage::reset(int w, int h)
+// SurfaceImage
+
+void SurfaceImage::reset(int w, int h)
 {
     handle = NULL;
     has_transparent = true; //?
@@ -271,21 +261,18 @@ void SurfaceObject::SurfaceImage::reset(int w, int h)
     has_reverse_x = false;
 }
 
-void SurfaceObject::SurfaceImage::set_image(Image * image)
+void SurfaceImage::set_image(Image * image)
 {
-	if (image == NULL)
-	{
+	if (image == NULL) {
 		reset();
 		handle = NULL;
-	}
-    else
-	{
+	} else {
 		reset(image->width, image->height);
 		handle = image;
 	}
 }
 
-void SurfaceObject::SurfaceImage::draw(FrameObject * instance, int x, int y)
+void SurfaceImage::draw(FrameObject * instance, int x, int y)
 {
     if (handle == NULL)
         return;
@@ -297,8 +284,8 @@ void SurfaceObject::SurfaceImage::draw(FrameObject * instance, int x, int y)
     glc_scissor_world(x, y, get_display_width(), get_display_height());
 
     if ((scroll_x == 0 && scroll_y == 0) || !wrap) {
-        instance->draw_image(handle, x + scroll_x, y + scroll_y, 0.0, scale_x, scale_y,
-                   has_reverse_x);
+        instance->draw_image(handle, x + scroll_x, y + scroll_y, 0.0,
+                             scale_x, scale_y, has_reverse_x);
     } else {
         int start_x = x - (handle->width - scroll_x);
         int start_y = y - (handle->height - scroll_y);

@@ -1,5 +1,6 @@
 #version 120
 
+uniform sampler2D texture;
 varying vec2 texture_coordinate;
 uniform float fBlur;
 uniform float fAmplitudeX;
@@ -21,11 +22,11 @@ void main()
     vec4 texBL;
     vec4 texBR;
     vec4 texTR;
-    texTL = texture2D(texture, vec2(i.x-fBlur,i.y-fBlur));
-    texBL = texture2D(texture, vec2(i.x-fBlur,i.y+fBlur));
-    texBR = texture2D(texture, vec2(i.x+fBlur,i.y+fBlur));
-    texTR = texture2D(texture, vec2(i.x+fBlur,i.y-fBlur));
-    
+    texTL = texture2D(texture, vec2(i.x-fBlur, i.y-fBlur));
+    texBL = texture2D(texture, vec2(i.x-fBlur, i.y+fBlur));
+    texBR = texture2D(texture, vec2(i.x+fBlur, i.y+fBlur));
+    texTR = texture2D(texture, vec2(i.x+fBlur, i.y-fBlur));
+
     vec4 col = texture2D(texture, i);
     col = (col+ texTL + texBL + texBR + texTR)/5.0;
     gl_FragColor = col * gl_Color;

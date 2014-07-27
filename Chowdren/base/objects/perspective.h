@@ -7,13 +7,14 @@ class PerspectiveObject : public FrameObject
 {
 public:
 	GLuint texture;
-	
+
     PerspectiveObject(int x, int y, int type_id);
     ~PerspectiveObject();
     void draw();
     void set_waves(double value);
     void set_zoom(double value);
     void set_offset(double value);
+    void set_width(int width);
 };
 
 #endif // CHOWDREN_PERSPECTIVE_H

@@ -52,7 +52,7 @@ class PlayerControl(DataLoader):
     button2 = None
     button3 = None
     button4 = None
-    
+
     def initialize(self):
         self.up = Key()
         self.down = Key()
@@ -62,10 +62,11 @@ class PlayerControl(DataLoader):
         self.button2 = Key()
         self.button3 = Key()
         self.button4 = Key()
-    
+
     def read(self, reader):
         self.controlType = reader.readInt()
         count = reader.readInt(True) # 16
+        checkDefault(reader, count, 16)
         self.up = Key(reader.readInt())
         self.down = Key(reader.readInt())
         self.left = Key(reader.readInt())
@@ -79,13 +80,12 @@ class PlayerControl(DataLoader):
 
     def getControlType(self):
         return controlTypes[self.controlType-1]
-        
+
     def write(self, reader):
         reader.writeInt(self.controlType)
         reader.writeInt(16, True)
-        for item in (self.up, self.down, self.left,
-                self.right, self.button1, self.button2, self.button3,
-                self.button4):
+        for item in (self.up, self.down, self.left, self.right,
+                     self.button1, self.button2, self.button3, self.button4):
             reader.writeInt(item.getValue())
 
         for _ in xrange(8):

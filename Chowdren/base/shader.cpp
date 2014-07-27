@@ -1,6 +1,7 @@
 #include "shader.h"
 #include "include_gl.h"
 #include "platform.h"
+#include "frameobject.h"
 
 std::string shader_path = "./shaders";
 
@@ -47,7 +48,18 @@ public:
     }
 };
 
+
+
 #include "glslshader.h"
+
+void GLSLShader::set_image(FrameObject * instance, const std::string & name)
+{
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)(*instance->shader_parameters)[name]);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+// shader implementations
 
 class MonochromeShader : public GLSLShader
 {

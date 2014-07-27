@@ -98,6 +98,7 @@ int ini_parse_stream(T & input,
     char section[MAX_SECTION] = "";
     char prev_name[MAX_NAME] = "";
 
+    bool has_group = false;
     char* start;
     char* end;
     char* name;
@@ -122,23 +123,26 @@ int ini_parse_stream(T & input,
 #endif
         start = lskip(rstrip(start));
 
-        if (*start == ';' || *start == '#') {
+        char c = *start;
+
+        if (c == ';' || c == '#' || (c == '/' && start[1] == '/')) {
             /* Per Python ConfigParser, allow '#' comments at start of line */
         }
-        else if (*start == '[') {
+        else if (c == '[') {
             /* A "[section]" line */
             end = find_char_or_comment(start + 1, ']');
             if (*end == ']') {
                 *end = '\0';
                 strncpy0(section, start + 1, sizeof(section));
                 *prev_name = '\0';
+                has_group = true;
             }
             else if (!error) {
                 /* No ']' found on section line */
                 error = lineno;
             }
         }
-        else if (*start && *start != ';') {
+        else if (c && c != ';' && has_group) {
             /* Not a comment, must be a name[=:]value pair */
             end = find_char_or_comment(start, '=');
             if (*end != '=') {

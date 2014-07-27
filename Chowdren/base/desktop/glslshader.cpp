@@ -30,7 +30,7 @@ GLSLShader * GLSLShader::current = NULL;
 
 GLSLShader::GLSLShader(const std::string & name, int flags,
                        const char * texture_parameter)
-: initialized(false), name(name),  flags(flags),
+: initialized(false), name(name), flags(flags),
   texture_parameter(texture_parameter)
 {
 }
@@ -190,13 +190,6 @@ void GLSLShader::set_vec4(FrameObject * instance, const std::string & name,
     float a, b, c, d;
     convert_vec4(val, a, b, c, d);
     glUniform4f((GLint)uniform, a, b, c, d);
-}
-
-void GLSLShader::set_image(FrameObject * instance, const std::string & name)
-{
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, (GLuint)(*instance->shader_parameters)[name]);
-    glActiveTexture(GL_TEXTURE0);
 }
 
 int GLSLShader::get_uniform(const char * value)

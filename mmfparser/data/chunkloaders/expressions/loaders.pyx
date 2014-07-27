@@ -25,20 +25,20 @@ class End(Empty):
 cdef class String(DataLoader):
     cdef public:
         bytes value
-    
+
     cpdef read(self, ByteReader reader):
-        self.value = reader.readString()
-    
+        self.value = self.readString(reader)
+
     def write(self, reader):
         reader.writeString(self.value)
 
 cdef class Long(DataLoader):
     cdef public:
         int value
-    
+
     cpdef read(self, ByteReader reader):
         self.value = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeInt(self.value)
 
@@ -46,11 +46,11 @@ cdef class Double(DataLoader):
     cdef public:
         double value
         float floatValue
-    
+
     cpdef read(self, ByteReader reader):
         self.value = reader.readDouble()
         self.floatValue = reader.readFloat()
-    
+
     def write(self, reader):
         reader.writeDouble(self.value)
         reader.writeFloat(self.floatValue)
@@ -58,13 +58,13 @@ cdef class Double(DataLoader):
 cdef class GlobalCommon(DataLoader):
     cdef public:
         short value
-    
+
     cpdef read(self, ByteReader reader):
         # Oi et OIlist qui servent a rien
         # I does not translate. Sorry. Failure. :(
         reader.skipBytes(4)
         self.value = reader.readShort()
-    
+
     def write(self, reader):
         reader.write('\x00' * 4)
         reader.writeShort(self.value)
@@ -81,7 +81,7 @@ cdef class ExtensionCommon(DataLoader):
 
     cpdef read(self, ByteReader reader):
         self.value = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.value)
 

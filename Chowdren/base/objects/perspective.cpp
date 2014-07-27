@@ -23,6 +23,12 @@ PerspectiveObject::~PerspectiveObject()
     delete collision;
 }
 
+void PerspectiveObject::set_width(int width)
+{
+    this->width = width;
+    collision->update_aabb();
+}
+
 void PerspectiveObject::draw()
 {
     begin_draw();

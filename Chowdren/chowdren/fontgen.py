@@ -5,7 +5,7 @@ from ctypes import byref
 from mmfparser.bytereader import ByteReader
 
 """
-XXX use kerning information
+XXX use kerning information?
 
 Format:
 
@@ -56,18 +56,6 @@ class Glyph(object):
         self.width = bitmap.width
         self.height = bitmap.rows
         self.buf = bitmap.buffer
-        # if (stroke) {
-        #     FT_Stroker stroker;
-        #     FT_Stroker_New(*FTLibrary::Instance().GetLibrary(), &stroker);
-        #     FT_Stroker_Set(stroker,
-        #         180,
-        #         FT_STROKER_LINECAP_ROUND,
-        #         FT_STROKER_LINEJOIN_ROUND,
-        #         0
-        #     );
-        #     FT_Glyph_StrokeBorder(&actual_glyph, stroker, 0, 1);
-        #     FT_Stroker_Done(stroker);
-        # }
 
     def get_cbox(self):
         outline = self.glyph.outline
@@ -108,6 +96,7 @@ class Font(object):
         metrics = self.font.size
         self.ascender = metrics.ascender / 64.0
         self.descender = metrics.descender / 64.0
+        self.glyph_dict = {}
         self.glyphs = []
         self.charmap = {}
         charcode, agindex = font.get_first_char()
@@ -137,13 +126,18 @@ class Font(object):
         else:
             return size.height / 64.0
 
-    def load_char(self, c):
+    def load_char(self, c, force=False):
         self.font.load_char(c, freetype.FT_LOAD_FORCE_AUTOHINT)
         glyph = Glyph(self, c)
         if (glyph.x1 == 0.0 and glyph.y1 == 0.0 and
-            glyph.x2 == 0.0 and glyph.y2 == 0.0):
+            glyph.x2 == 0.0 and glyph.y2 == 0.0 and not force):
             return
         self.glyphs.append(glyph)
+        self.glyph_dict[c] = glyph
+        return glyph
+
+    def get_glyph(self, c):
+        return self.glyph_dict[c]
 
     def write(self, writer):
         writer.writeInt(self.size)
@@ -154,17 +148,6 @@ class Font(object):
         writer.writeInt(len(self.glyphs))
         for glyph in self.glyphs:
             glyph.write(writer)
-
-    def convert_monospace(self):
-        # create a monospace-like version of the font.
-        # this is useful for japanese fonts where you don't want variations
-        # on font widths
-        max_width = 0
-        for glyph in self.glyphs:
-            max_width = max(glyph.advance[0], max_width)
-        print 'Max width used for advance:', max_width
-        for glyph in self.glyphs:
-            glyph.advance = (max_width, glyph.advance[1])
 
 def generate_font(filename, charset, out, sizes):
     fonts = []

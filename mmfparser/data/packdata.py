@@ -32,7 +32,7 @@ class PackFile(DataLoader):
     compressed = False
 
     def read(self, reader):
-        self.filename = reader.read(reader.readShort())
+        self.filename = self.readString(reader, reader.readShort())
         if self.settings['hasBingo']:
             self.bingo = reader.readInt()
         data = reader.read(reader.readInt())
@@ -57,14 +57,16 @@ class PackFile(DataLoader):
 def checkSize(reader, size):
     return len(reader) - reader.tell() >= size
 
+UNICODE_VERSION = 17360735
+
 class PackData(DataLoader):
     formatVersion = None
     runtimeCompressed = None
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
         header = reader.read(8) # read file header
         if header != PACK_HEADER:
@@ -74,6 +76,8 @@ class PackData(DataLoader):
         checkDefault(reader, headerSize, 32)
         dataSize = reader.readInt() # total pack data size + 32
         self.formatVersion = reader.readInt()
+        if self.formatVersion == UNICODE_VERSION:
+            self.settings['unicode'] = True
         checkDefault(reader, reader.readInt(), 0)
         checkDefault(reader, reader.readInt(), 0)
         count = reader.readInt()
@@ -93,8 +97,8 @@ class PackData(DataLoader):
             reader.skipBytes(value)
         hasBingo = reader.read(4) != GAME_HEADER
         reader.seek(offset)
-        
-        self.items = [self.new(PackFile, reader, hasBingo = hasBingo) 
+
+        self.items = [self.new(PackFile, reader, hasBingo = hasBingo)
             for _ in xrange(count)]
 
     def write(self, reader):

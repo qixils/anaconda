@@ -17,8 +17,11 @@ class StartForObject(ActionWriter):
     def write(self, writer):
         writer.start_brace()
         eval_name = self.convert_index(0)
-        object_type = self.parameters[1].loader.objectType
-        object_class = self.converter.get_object_class(object_type)
+
+        obj_param = self.parameters[1].loader
+        obj = (obj_param.objectInfo, obj_param.objectType)
+        obj = self.converter.filter_object_type(obj)
+        object_class = self.converter.get_object_class(obj[1])
         name = None
         try:
             exp, = self.parameters[0].loader.items[:-1]
@@ -29,8 +32,9 @@ class StartForObject(ActionWriter):
             writer.putln('std::string name = %s;' % eval_name)
             func_call = 'call_dynamic_foreach(name, '
             object_class = 'FrameObject*'
-        with self.converter.iterate_object(
-                self.parameters[1].loader.objectInfo, writer, 'selected'):
+        obj_param = self.parameters[1].loader
+        obj = (obj_param.objectInfo, obj_param.objectType)
+        with self.converter.iterate_object(obj, writer, 'selected'):
             if name is not None:
                 writer.putln('foreach_instance_%s = *selected;' % name)
             writer.putln('if (!%s((%s)*selected))) break;' % (func_call,
@@ -61,7 +65,9 @@ class ForEach(ObjectWriter):
             try:
                 object_info = parameters[1].loader.objectInfo
                 object_type = parameters[1].loader.objectType
-                loop_objects[real_name] = (object_info, object_type)
+                obj = (object_info, object_type)
+                obj = self.converter.filter_object_type(obj)
+                loop_objects[real_name] = obj
             except IndexError:
                 # for ON_LOOP
                 pass
@@ -75,11 +81,11 @@ class ForEach(ObjectWriter):
         for real_name, groups in loops.iteritems():
             obj = loop_objects[real_name]
             name = get_method_name(real_name)
-            object_class = self.converter.get_object_class(obj[0])
+            object_class = self.converter.get_object_class(obj[1])
             writer.putmeth('bool foreach_%s' % name, '%s selected' %
                            object_class)
             for group in groups:
-                self.converter.set_object(obj[1], 'selected')
+                self.converter.set_object(obj, 'selected')
                 self.converter.write_event(writer, group, True)
             writer.putln('return true;')
             writer.end_brace()
@@ -88,7 +94,7 @@ class ForEach(ObjectWriter):
             'FrameObject * selected')
         for name in loops.keys():
             obj = loop_objects[name]
-            object_class = self.converter.get_object_class(obj[0])
+            object_class = self.converter.get_object_class(obj[1])
             writer.putlnc('if (name == %r) return foreach_%s((%s)selected);',
                           name, get_method_name(name), object_class)
         writer.putln('return false;')

@@ -91,6 +91,8 @@ def get_startup_instances(converter, instances):
     new_instances += text_blitters
     return new_instances
 
+def use_safe_create(converter):
+    return is_avgn
 
 def use_global_instances(converter):
     return True
@@ -127,6 +129,8 @@ def write_defines(converter, writer):
         writer.putln('#define CHOWDREN_FORCE_TRANSPARENT')
         writer.putln('#define CHOWDREN_VSYNC')
     writer.putln('#define CHOWDREN_USE_DYNTREE')
+    if is_avgn:
+        writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
 
 def get_frames(converter, frames):
     if not is_hfa:

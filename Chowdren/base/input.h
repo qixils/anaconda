@@ -41,6 +41,25 @@ enum {
     CHOWDREN_AXIS_MAX
 };
 
+enum {
+    CONTROL_KEYBOARD = 0,
+    CONTROL_JOYSTICK1,
+    CONTROL_JOYSTICK2,
+    CONTROL_JOYSTICK3,
+    CONTROL_JOYSTICK4
+};
+
+enum {
+    CONTROL_UP = 1 << 0,
+    CONTROL_DOWN = 1 << 1,
+    CONTROL_LEFT = 1 << 2,
+    CONTROL_RIGHT = 1 << 3,
+    CONTROL_BUTTON1 = 1 << 4,
+    CONTROL_BUTTON2 = 1 << 5,
+    CONTROL_BUTTON3 = 1 << 6,
+    CONTROL_BUTTON4 = 1 << 7
+};
+
 class InputList
 {
 public:
@@ -76,6 +95,9 @@ float get_joystick_lt(int n);
 float get_joystick_rt(int n);
 float get_joystick_x(int n);
 float get_joystick_y(int n);
+
+bool is_player_pressed(int player, int flags);
+bool is_player_pressed_once(int player, int flags);
 
 int remap_button(int n);
 

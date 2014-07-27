@@ -84,6 +84,8 @@ public:
     void blit(Active * obj);
     void blit_background();
     void blit_alpha(int image);
+    void blit_image(int image);
+    void set_alpha_mode(int mode);
     void set_effect(int index);
     void set_display_image(int index);
     void set_edit_image(int index, bool display = false);
@@ -101,6 +103,7 @@ public:
     int get_edit_width();
     int get_image_width(int index);
     void scroll(int x, int y, int wrap);
+    void resize_source(int w, int h);
 };
 
 #endif // CHOWDREN_SURFACE_H

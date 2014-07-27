@@ -170,7 +170,7 @@ public:
     bool test_directions(int value);
     virtual void flash(float value);
     virtual void set_animation(int value);
-    virtual void set_offset(int dx, int dy);
+    virtual void set_backdrop_offset(int dx, int dy);
 
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables & get_extra_alterables()

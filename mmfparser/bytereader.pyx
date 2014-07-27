@@ -151,7 +151,7 @@ cdef class ByteReader:
         else:
             self.pos += value
 
-    cdef void _read(self, void * value, int size):
+    cdef bint _read(self, void * value, int size):
         cdef size_t read_bytes
         if self.fp != NULL:
             read_bytes = fread(value, 1, size, self.fp)
@@ -161,6 +161,7 @@ cdef class ByteReader:
             check_available(self, size)
             memcpy(value, (self.buffer + self.pos), size)
             self.pos += size
+        return True
 
     cpdef read(self, int size = -1):
         cdef char * buf
@@ -244,7 +245,7 @@ cdef class ByteReader:
             return <unsigned int>value
         return value
 
-    cpdef bytes readString(self, size = None):
+    cpdef bytes readString(self, size=None):
         IF LOG_POSITION:
             self.lastPosition = self.tell()
         if size is not None:
@@ -257,17 +258,22 @@ cdef class ByteReader:
             data += c
         return data
 
-    cpdef unicode readUnicodeString(self):
+    cpdef unicode readUnicodeString(self, size=None):
+        if size is not None:
+            return self.readReader(size*2).readUnicodeString()
+
         cdef int currentPosition = self.tell()
-        cdef short newShort
+        cdef int endPosition
+        data = ''
         while 1:
-            newShort = self.readShort()
-            if newShort == 0:
+            endPosition = self.tell()
+            c = self.read(2)
+            if len(c) != 2:
                 break
-        cdef size_t size = self.tell() - 2 - currentPosition
-        self.seek(currentPosition)
-        data = self.read(size)
-        self.skipBytes(2)
+            if c == '\x00\x00':
+                break
+            data += c
+
         IF LOG_POSITION:
             self.lastPosition = currentPosition
         return data.decode('utf-16-le')

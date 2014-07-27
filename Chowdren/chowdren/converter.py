@@ -10,7 +10,7 @@ from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, EXTENSION_BASE,
     NONE_EFFECT, SEMITRANSPARENT_EFFECT, INVERTED_EFFECT,
     XOR_EFFECT, AND_EFFECT, OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT,
-    SUBTRACT_EFFECT, HWA_EFFECT, SHADER_EFFECT)
+    SUBTRACT_EFFECT, HWA_EFFECT, SHADER_EFFECT, getObjectType)
 from mmfparser.data.chunkloaders.shaders import INT, FLOAT, INT_FLOAT4, IMAGE
 from mmfparser.data.chunkloaders.frame import NONE_PARENT
 from mmfparser.bitdict import BitDict
@@ -1345,6 +1345,23 @@ class Converter(object):
                     value))
         frames_file.end_brace()
 
+        frames_file.putmeth('void setup_keys', 'GameManager * manager')
+        controls = self.game.header.controls.items[0]
+        is_keyboard = controls.getControlType() == 'Keyboard'
+
+        if is_keyboard:
+            frames_file.putln('manager->control_type = CONTROL_KEYBOARD;')
+        else:
+            frames_file.putln('manager->control_type = CONTROL_JOYSTICK1;')
+
+        for name in ('up', 'down', 'left', 'right', 'button1', 'button2',
+                     'button3', 'button4'):
+            key = getattr(controls.keys, name)
+            key = convert_key(key.getValue())
+            frames_file.putlnc('manager->%s = %s;', name, key)
+
+        frames_file.end_brace()
+
         frames_file.close()
 
         strings_file = self.open_code('strings.cpp')
@@ -2078,32 +2095,42 @@ class Converter(object):
             return type_id
         return self.get_list_name(self.get_object_name(obj))
 
+    def filter_object_type(self, obj):
+        if is_qualifier(obj[0]):
+            return obj
+        if obj in self.all_objects:
+            return obj
+        print 'getting real object type for obj', obj
+        obj_type = self.object_types[obj[0]]
+        new_obj = (obj[0], obj_type)
+        return new_obj
+
     def get_object_name(self, obj):
         if is_qualifier(obj[0]):
             return self.qualifier_names[obj]
-        if obj[1] == EXTENSION_BASE:
-            obj_type = self.object_types[obj[0]]
-            obj = (obj[0], obj_type)
+        obj = self.filter_object_type(obj)
         return self.object_names[obj]
 
     def get_list_name(self, object_name):
         return '%s_instances' % get_method_name(object_name, True)
 
+    def get_type_name(self, object_type):
+        name = getObjectType(object_type)
+        if name == 'Extension':
+            ext_index = object_type - EXTENSION_BASE
+            ext = self.game.extensions.fromHandle(ext_index)
+            name = ext.name
+        return name
+
     def get_object_handle(self, obj):
         if is_qualifier(obj[0]):
             return (self.qualifier_names[obj], True)
-        if obj[1] == EXTENSION_BASE:
-            obj_type = self.object_types[obj[0]]
-            obj = (obj[0], obj_type)
+        obj = self.filter_object_type(obj)
         try:
             return ('%s_type' % self.object_names[obj], False)
         except Exception, e:
             data = self.all_objects[obj].data
-            name = data.getTypeName()
-            if name == 'Extension':
-                ext_index = data.objectType - EXTENSION_BASE
-                ext = self.game.extensions.fromHandle(ext_index)
-                name = ext.name
+            name = self.get_type_name(data.objectType)
             raise e
 
     def get_object_class(self, object_type, star=True):
@@ -2197,11 +2224,13 @@ class Converter(object):
             key = item.getName()
         object_name = None
         if item.hasObjectInfo():
-            object_writer = self.all_objects.get(item.objectInfo, None)
+            obj = (item.objectInfo, item.objectType)
+            object_writer = self.all_objects.get(obj, None)
             if object_writer:
                 object_name = object_writer.data.name
         else:
             object_name = None
+
         if extra.is_special_object(object_name):
             writer_module = extra
         try:

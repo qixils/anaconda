@@ -44,7 +44,8 @@ GameManager * global_manager;
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
-  fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false)
+  fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false),
+  last_control_flags(0), control_flags(0)
 {
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
@@ -65,6 +66,7 @@ GameManager::GameManager()
 
     // application setup
     reset_globals();
+    setup_keys(this);
     media = new Media;
 
     // setup random generator from start
@@ -72,7 +74,7 @@ GameManager::GameManager()
 
     fps_limit.set(FRAMERATE);
 
-    set_frame(26);
+    set_frame(0);
 }
 
 void GameManager::reset_globals()
@@ -435,6 +437,8 @@ void GameManager::set_fade(const Color & color, float fade_dir)
         fade_value = 0.0f;
 }
 
+static int get_player_control_flags(int player);
+
 bool GameManager::update()
 {
     static int measure_time = 0;
@@ -448,6 +452,10 @@ bool GameManager::update()
     // update input
     keyboard.update();
     mouse.update();
+
+    int new_control = get_player_control_flags(1);
+    control_flags = new_control & ~(last_control_flags);
+    last_control_flags = new_control;
 
     fps_limit.start();
     platform_poll_events();
@@ -693,6 +701,72 @@ bool is_key_pressed_once(int key)
     if (key < 0)
         return false;
     return global_manager->keyboard.is_pressed_once(key);
+}
+
+enum {
+    JOYSTICK_BUTTON1 = CHOWDREN_BUTTON_A,
+    JOYSTICK_BUTTON2 = CHOWDREN_BUTTON_B,
+    JOYSTICK_BUTTON3 = CHOWDREN_BUTTON_X,
+    JOYSTICK_BUTTON4 = CHOWDREN_BUTTON_Y,
+};
+
+static int get_player_control_flags(int player)
+{
+    GameManager * m = global_manager;
+    if (m->ignore_controls)
+        return 0;
+
+    int flags = 0;
+
+    if (m->control_type == CONTROL_KEYBOARD) {
+        if (is_key_pressed(m->up))
+            flags |= CONTROL_UP;
+        if (is_key_pressed(m->down))
+            flags |= CONTROL_DOWN;
+        if (is_key_pressed(m->left))
+            flags |= CONTROL_LEFT;
+        if (is_key_pressed(m->right))
+            flags |= CONTROL_RIGHT;
+        if (is_key_pressed(m->button1))
+            flags |= CONTROL_BUTTON1;
+        if (is_key_pressed(m->button2))
+            flags |= CONTROL_BUTTON2;
+        if (is_key_pressed(m->button3))
+            flags |= CONTROL_BUTTON3;
+        if (is_key_pressed(m->button4))
+            flags |= CONTROL_BUTTON4;
+    } else {
+        flags |= get_joystick_direction_flags(player);
+        if (is_joystick_pressed(player, JOYSTICK_BUTTON1))
+            flags |= CONTROL_BUTTON1;
+        if (is_joystick_pressed(player, JOYSTICK_BUTTON2))
+            flags |= CONTROL_BUTTON2;
+        if (is_joystick_pressed(player, JOYSTICK_BUTTON3))
+            flags |= CONTROL_BUTTON3;
+        if (is_joystick_pressed(player, JOYSTICK_BUTTON4))
+            flags |= CONTROL_BUTTON4;
+    }
+    return flags;
+}
+
+bool is_player_pressed(int player, int flags)
+{
+    GameManager * m = global_manager;
+    if (m->ignore_controls)
+        return false;
+    if (flags == 0)
+        return m->last_control_flags == 0;
+    return (m->last_control_flags & flags) == flags;
+}
+
+bool is_player_pressed_once(int player, int flags)
+{
+    GameManager * m = global_manager;
+    if (m->ignore_controls)
+        return false;
+    if (flags == 0)
+        return m->control_flags == 0;
+    return (m->control_flags & flags) == flags;
 }
 
 // main function

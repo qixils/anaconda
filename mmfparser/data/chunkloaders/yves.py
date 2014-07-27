@@ -44,7 +44,7 @@ class AppIcon(DataLoader):
     width = 16
     height = 16
     points = None
-    
+
     def read(self, reader):
         """
         zipped BITMAPINFO
@@ -53,7 +53,7 @@ class AppIcon(DataLoader):
         self.saveReader = reader
         # just skip the BITMAPINFOHEADER-- we really don't care
         reader.skipBytes(reader.readInt() - 4)
-        
+
         colorIndexes = []
         for _ in xrange(16 * 16):
             b = reader.readByte(True)
@@ -61,14 +61,14 @@ class AppIcon(DataLoader):
             r = reader.readByte(True)
             reader.skipBytes(1)
             colorIndexes.append((r, g, b))
-        
+
         self.points = []
         for y in xrange(16):
             xList = []
             for x in xrange(16):
                 xList.append(colorIndexes[reader.readByte(True)])
             self.points = xList + self.points
-        
+
         self.alpha = []
         for _ in xrange(16 * 16 / 8):
             newAlphas = byteflag.getFlags(reader.readByte(True), *xrange(8))
@@ -79,20 +79,20 @@ class AppIcon(DataLoader):
                 else:
                     # is opaque
                     self.alpha.append(255)
-    
+
     def createDisplay(self):
         from mmfparser.player.common import join_image
         from mmfparser.player.sprite import ImageData
-        newImage = ImageData(16, 16, 'RGBA', join_image(self.points, 
+        newImage = ImageData(16, 16, 'RGBA', join_image(self.points,
             self.alpha), -16 * 4)
         return newImage
-    
+
     def write(self, reader):
         reader.writeReader(self.saveReader)
-        
+
 class DemoVersion(DataLoader):
     """
-    <Yves> if a CCN contains this chunk, 
+    <Yves> if a CCN contains this chunk,
     then it has been saved with the demo version of MMF2
     """
     def read(self, reader):
@@ -102,9 +102,9 @@ class BinaryItem(DataLoader):
     name = None
     data = None
     def read(self, reader):
-        self.name = reader.read(reader.readShort(True))
+        self.name = self.readString(reader, reader.readShort(True))
         self.data = reader.readReader(reader.readInt(True))
-    
+
     def write(self, reader):
         reader.writeShort(len(self.name))
         reader.write(self.name)
@@ -113,14 +113,14 @@ class BinaryItem(DataLoader):
 
 class BinaryFiles(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
         self.items = [self.new(BinaryItem, reader)
             for _ in xrange(reader.readInt(True))]
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items), True)
         for item in self.items:

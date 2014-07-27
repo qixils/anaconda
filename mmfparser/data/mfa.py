@@ -1463,8 +1463,8 @@ class MFA(DataLoader):
         self.controls.write(reader)
         if self.menu:
             menuData = self.menu.generate()
-            reader.writeReader(menuData)
             reader.writeInt(len(menuData))
+            reader.writeReader(menuData)
         else:
             reader.writeInt(0)
         reader.writeInt(self.windowMenuIndex)

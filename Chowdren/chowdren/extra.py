@@ -26,19 +26,11 @@ SPECIAL_OBJECTS = set([SPRITES_STRING, PLATFORM_STRING, PLATFORM_STRING_TEMP,
 def is_special_object(name):
     return name in SPECIAL_OBJECTS
 
-def convert_repr_bool(value):
-    value = eval(value.replace('std::string', 'str'))
-    if value in ('Yes', 'Enabled'):
-        return True
-    elif value in ('No', 'Disabled'):
-        return False
-    else:
-        raise NotImplementedError
-
 class GetString(ExpressionWriter):
     has_object = False
     def get_string(self):
-        name = self.converter.all_objects[self.data.objectInfo].data.name
+        obj = (self.data.objectInfo, self.data.objectType)
+        name = self.converter.all_objects[obj].data.name
         if name in PLATFORM_STRINGS:
             return 'get_platform()'
         elif name == LANGUAGE_STRING:
@@ -49,31 +41,44 @@ class GetString(ExpressionWriter):
 class SetString(ActionWriter):
     has_object = False
     def write(self, writer):
-        name = self.converter.all_objects[self.data.objectInfo].data.name
+        obj = (self.data.objectInfo, self.data.objectType)
+        name = self.converter.all_objects[obj].data.name
         if name == SPRITES_STRING:
             writer.put('set_image_path(%s);' % self.convert_index(0))
         elif name == FONT_STRING:
             writer.put('set_font_path(%s);' % self.convert_index(0))
         elif name == RESIZE_STRING:
-            writer.put(to_c('set_window_resize(%s);', convert_repr_bool(
-                self.convert_index(0))))
+            writer.putc('set_window_resize(%s);', self.get_bool(0))
         elif name == SHADERS_STRING:
             writer.put('set_shader_path(%s);' % self.convert_index(0))
         elif name == SOUNDS_STRING:
             writer.put('set_sounds_path(%s);' % self.convert_index(0))
         elif name == STEAM_STRING:
-            v = convert_repr_bool(self.convert_index(0))
+            v = self.get_bool(0)
             # writer.put(to_c('SteamObject::set_enabled(%s);', v))
         elif name == REMOTE_STRING:
             v = self.convert_index(0)
             writer.put('platform_set_remote_setting(%s);' % v)
         elif name == BORDER_STRING:
-            v = convert_repr_bool(self.convert_index(0))
+            v = self.get_bool(0)
             writer.put(to_c('platform_set_border(%s);', v))
         elif name == UTF8_STRING:
-            v = convert_repr_bool(self.convert_index(0))
+            v = self.get_bool(0)
             if v:
                 defines.append('#define CHOWDREN_TEXT_USE_UTF8')
+
+    def get_bool(self, index):
+        value = self.convert_index(0)
+
+        for test in ('Yes', 'Enabled'):
+            if value == self.converter.strings.get(test, None):
+                return True
+
+        for test in ('No', 'Disabled'):
+            if value == self.converter.strings.get(test, None):
+                return False
+
+        raise NotImplementedError()
 
 defines = []
 

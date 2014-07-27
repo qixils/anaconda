@@ -3,7 +3,7 @@
 {
     "Name": "Steamworks Chowdren"
     "Author": "Mathias Kaerlev"
-    "Copyright": "Copyright (C) 2013 Mathias Kaerlev"
+    "Copyright": "Copyright (C) 2013-2014 Mathias Kaerlev"
     "Comment": "Steamworks extension for Chowdren"
     "URL": "http://mp2.dk"
     "Help": ""
@@ -29,8 +29,8 @@
 [
     {
         "Title": "Unlock achievement %0"
-    
-        "Parameters": 
+
+        "Parameters":
         [
             ["Text", "Achievement API name"]
         ]
@@ -42,8 +42,8 @@
     {
         "Title": "%o : Is achievement %0 unlocked"
         "Triggered": false
-     
-        "Parameters": 
+
+        "Parameters":
         [
             ["Text", "Achievement API name"]
         ]
@@ -51,8 +51,8 @@
     {
         "Title": "%o : Is ready"
         "Triggered": false
-     
-        "Parameters": 
+
+        "Parameters":
         []
     }
 ]

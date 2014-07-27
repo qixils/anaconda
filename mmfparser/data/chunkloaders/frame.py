@@ -231,7 +231,7 @@ class Layer(DataLoader):
         self.yCoefficient = reader.readFloat()
         self.numberOfBackgrounds = reader.readInt()
         self.backgroundIndex = reader.readInt()
-        self.name = reader.readString()
+        self.name = self.readString(reader)
 
     def write(self, reader):
         reader.writeInt(self.flags.getFlags(), True)

@@ -22,10 +22,12 @@ class Base64Decode(ExpressionWriter):
         next_exp = items[converter.item_index + 1]
         value = base64.b64decode(next_exp.loader.value)
         converter.item_index += 2
-        return to_c('std::string(%r, %s)', value, len(value))
+        value = self.converter.intern_string(value)
+        return value
 
 actions = make_table(StaticActionWriter, {
-    0 : 'set_width'
+    0 : 'set_width',
+    1 : 'set_scale'
 })
 
 conditions = make_table(StaticConditionWriter, {

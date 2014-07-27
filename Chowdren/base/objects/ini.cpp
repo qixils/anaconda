@@ -5,6 +5,7 @@
 #include "stringcommon.h"
 #include "huffman.h"
 #include "filecommon.h"
+#include "frame.h"
 
 inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
@@ -284,7 +285,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         reset(false);
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
-    create_file_directories(filename);
+    create_directories(filename);
 
     if (!encrypt_key.empty() || use_compression) {
         std::string new_data;
@@ -312,7 +313,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
     int e = ini_parse_file(filename.c_str(), _parse_handler, this);
     if (e != 0) {
         std::cout << "INI load failed (" << filename << ") with code " << e
-        << std::endl;
+            << std::endl;
     }
 }
 

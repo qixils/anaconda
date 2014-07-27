@@ -78,20 +78,22 @@ inline std::string uppercase_string(std::string v)
 
 inline std::string right_string(const std::string & v, int count)
 {
-    count = int_max(0, int_min(int(v.size()), count));
+    count = clamp(count, 0, int(v.size()));
     int index = int(v.size()) - count;
     return v.substr(index, count);
 }
 
 inline std::string mid_string(const std::string & v, int index, int count)
 {
-    if (index > int(v.size()))
-        return "";
+    int size = int(v.size());
+    index = clamp(index, 0, size);
+    count = clamp(count, 0, size - index);
     return v.substr(index, count);
 }
 
 inline std::string left_string(const std::string & v, int count)
 {
+    count = clamp(count, 0, int(v.size()));
     return v.substr(0, count);
 }
 
@@ -258,6 +260,7 @@ public:
     std::string draw_text;
     bool draw_text_set;
     FTSimpleLayout * layout;
+    float scale;
 
     Text(int x, int y, int type_id);
     ~Text();
@@ -272,6 +275,7 @@ public:
     bool get_italic();
     void set_bold(bool value);
     std::string get_paragraph(int index);
+    void set_scale(float scale);
     void set_width(int w);
     int get_width();
     int get_height();
@@ -286,6 +290,7 @@ public:
     static int get_width(FrameObject * obj);
     static int get_height(FrameObject * obj);
     static void set_width(FrameObject * obj, int w);
+    static void set_scale(FrameObject * obj, float scale);
 };
 
 class Backdrop : public FrameObject
@@ -321,7 +326,7 @@ public:
 
 #ifdef CHOWDREN_LAYER_WRAP
     int x_offset, y_offset;
-    void set_offset(int dx, int dy);
+    void set_backdrop_offset(int dx, int dy);
 #endif
 };
 

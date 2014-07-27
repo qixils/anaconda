@@ -93,15 +93,18 @@ actions = make_table(ActionMethodWriter, {
     21 : 'reverse_x',
     24 : 'set_transparent_color',
     29 : 'set_edit_image',
+    38 : 'set_alpha_mode',
     39 : 'blend_color.set_semi_transparency(%s)',
     40 : 'set_effect', # by index
     41 : 'set_dest_pos',
     49 : 'blit',
     61 : 'apply_matrix',
     62 : 'blit_background',
+    63 : 'blit_image',
     66 : 'set_dest_size',
     78 : 'resize_canvas',
     93 : 'scroll',
+    115 : 'resize_source',
     116 : 'set_stretch_mode',
     17 : 'add_image'
 })

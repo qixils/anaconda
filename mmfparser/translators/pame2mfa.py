@@ -33,6 +33,7 @@ from mmfparser.data.chunkloaders.objectinfo import (PLAYER, KEYBOARD, CREATE,
 from mmfparser.data.chunkloaders.frame import NONE_PARENT
 from mmfparser.data.chunkloaders.objects import HIDDEN
 from mmfparser.data.chunkloaders.parameters.loaders import Group, GroupPointer
+from mmfparser.data.checksum import make_group_checksum
 
 def convert_alterables(values, kind):
     alterables = ValueList()
@@ -82,6 +83,7 @@ def save_data_loader(loader):
 def translate(game, print_func = dummy_out):
     onepointfive = game.settings.get('old', False)
     mfa = MFA(ByteReader(open('template.mfa', 'rb')))
+
     # mfa = MFA()
     mfa.frames = []
     mfa.mfaBuild = 4 #MFA_CURRENT_VERSION
@@ -91,6 +93,7 @@ def translate(game, print_func = dummy_out):
     mfa.description = ''
     mfa.path = game.editorFilename
     mfa.stamp = 6196 * '\x00'
+
     mfa.fonts = game.fonts or mfa.new(FontBank, compressed = False)
     mfa.sounds = game.sounds or mfa.new(SoundBank, compressed = False)
     mfa.music = game.music or mfa.new(MusicBank, compressed = False)
@@ -99,6 +102,7 @@ def translate(game, print_func = dummy_out):
             continue
         for item in bank.items:
             item.settings = {'compressed' : False}
+
     # mfa.icons = mfa.new(AGMIBank)
     images = mfa.new(AGMIBank)
     images.items = game.images.items
@@ -154,20 +158,24 @@ def translate(game, print_func = dummy_out):
     mfa.menu = game.menu
     mfa.windowMenuIndex = header.windowsMenuIndex or 0
     mfa.menuImages = {}
-    globalValues = mfa.globalValues = mfa.new(ValueList)
+    globalValues = mfa.new(ValueList)
     if game.globalValues is not None:
         for index, item in enumerate(game.globalValues.items):
             newValue = ValueItem()
             newValue.name = 'Global Value %s' % (index + 1)
             newValue.value = item
             globalValues.items.append(newValue)
-    globalStrings = mfa.globalStrings = mfa.new(ValueList)
+    globalStrings = mfa.new(ValueList)
     if game.globalStrings is not None:
         for index, item in enumerate(game.globalStrings.items):
             newValue = ValueItem()
             newValue.name = 'Global String %s' % (index + 1)
             newValue.value = item
             globalStrings.items.append(newValue)
+
+    mfa.globalValues = globalValues
+    mfa.globalStrings = globalStrings
+
     mfa.globalEvents = ''
     mfa.graphicMode = header.mode
     # mfa.iconImages = []
@@ -177,6 +185,7 @@ def translate(game, print_func = dummy_out):
     frameItems = {}
 
     for itemIndex, item in enumerate(game.frameItems.items):
+    # for itemIndex, item in enumerate([]):
         newItem = mfa.new(FrameItem)
         newItem.name = item.name or ('Unnamed %s' % itemIndex)
         newItem.objectType = item.objectType
@@ -376,7 +385,7 @@ def translate(game, print_func = dummy_out):
     indexHandles = dict(
         [(v, index) for (index, v) in enumerate(game.frameHandles)])
 
-    for index, frame in enumerate(game.frames):
+    for index, frame in enumerate(game.frames[:20]):
         frame.load()
         newFrame = mfa.new(Frame)
         newFrame.handle = indexHandles[index]
@@ -529,6 +538,7 @@ def translate(game, print_func = dummy_out):
                     offset = parameter.offset + 2
                 groups[offset] = groupId
                 parameter.id = groupId
+                parameter.password = make_group_checksum('', parameter.name)
                 groupId += 1
 
         for name, parameter in loop_parameters():

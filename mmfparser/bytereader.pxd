@@ -24,7 +24,7 @@ cdef class ByteReader:
     cdef bint shared
     cdef FILE * fp
     cdef object python_fp
-    
+
     cpdef int tell(self)
     cpdef data(self)
     cpdef bint seek(self, int pos, int mode = ?)
@@ -36,12 +36,12 @@ cdef class ByteReader:
     cpdef float readFloat(self)
     cpdef double readDouble(self)
     cpdef readInt(self, bint asUnsigned = ?)
-    cpdef bytes readString(self, size = ?)
-    cpdef unicode readUnicodeString(self)
+    cpdef bytes readString(self, size=?)
+    cpdef unicode readUnicodeString(self, size=?)
     cpdef tuple readColor(self)
     cpdef ByteReader readReader(self, size_t size)
     cpdef bint write(self, bytes data)
     cpdef bint write_size(self, char * data, size_t size)
     cpdef bint skipBytes(self, size_t n)
     cpdef bint rewind(self, size_t n)
-    cdef void _read(self, void * value, int size)
+    cdef bint _read(self, void * value, int size) except False

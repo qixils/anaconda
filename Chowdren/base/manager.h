@@ -42,6 +42,11 @@ public:
 #endif
     InputList keyboard;
     InputList mouse;
+
+    // player controls
+    int up, down, left, right, button1, button2, button3, button4;
+    int last_control_flags, control_flags;
+    int control_type;
     bool ignore_controls;
 
     GameManager();

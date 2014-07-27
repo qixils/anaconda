@@ -54,6 +54,10 @@ void SurfaceObject::resize(int w, int h)
     collision->update_aabb();
 }
 
+void SurfaceObject::resize_source(int w, int h)
+{
+}
+
 void SurfaceObject::resize_canvas(int x1, int y1, int x2, int y2)
 {
     if (selected_image == NULL)
@@ -99,6 +103,10 @@ void SurfaceObject::load(const std::string & filename,
 void SurfaceObject::set_stretch_mode(int v)
 {
     stretch_mode = v;
+}
+
+void SurfaceObject::set_alpha_mode(int mode)
+{
 }
 
 void SurfaceObject::set_dest_pos(int x, int y)
@@ -190,6 +198,11 @@ void SurfaceObject::blit_background()
 void SurfaceObject::blit_alpha(int image)
 {
     std::cout << "Blit onto image alpha channel: " << image << std::endl;
+}
+
+void SurfaceObject::blit_image(int image)
+{
+    std::cout << "Blit onto image: " << image << std::endl;
 }
 
 void SurfaceObject::apply_matrix(double div, double offset, double iterations,

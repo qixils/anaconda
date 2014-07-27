@@ -55,8 +55,8 @@ class Python(ObjectWriter):
         writer.indent()
         writer.putln('python_initialized = true;')
         for name in self.function_names:
-            writer.putln(to_c('%s::add_function(%r, (void*)_python_%s);',
-                self.class_name, name, name))
+            writer.putlnc('%s::add_function(%r, (void*)_python_%s);',
+                          self.class_name, name, name, cpp=False)
         writer.end_brace()
 
 class GetArgumentPointer(ExpressionMethodWriter):

@@ -26,7 +26,8 @@ class Perspective(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set_zoom',
     5 : 'set_waves',
-    6 : 'set_offset'
+    6 : 'set_offset',
+    12 : 'set_width'
 })
 
 conditions = make_table(ConditionMethodWriter, {

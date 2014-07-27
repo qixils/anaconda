@@ -183,7 +183,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
          it2++) {
         FrameObject * object = *it2;
         object->set_position(object->x + dx, object->y + dy);
-        object->set_offset(-dx, -dy);
+        object->set_backdrop_offset(-dx, -dy);
     }
 #endif
 }
@@ -210,10 +210,10 @@ void Layer::set_position(int x, int y)
         FrameObject * item = *it2;
 #ifdef CHOWDREN_LAYER_WRAP
         if (wrap_x) {
-            item->set_offset(dx, 0);
+            item->set_backdrop_offset(dx, 0);
             continue;
         } if (wrap_y) {
-            item->set_offset(0, dy);
+            item->set_backdrop_offset(0, dy);
             continue;
         }
 #endif
@@ -1038,6 +1038,8 @@ bool FrameObject::mouse_over()
         return false;
     int x, y;
     frame->get_mouse_pos(&x, &y);
+    x -= layer->off_x;
+    y -= layer->off_y;
     PointCollision col1(x, y);
     return collide(&col1, collision);
 }
@@ -1334,7 +1336,7 @@ void FrameObject::set_animation(int value)
 {
 }
 
-void FrameObject::set_offset(int dx, int dy)
+void FrameObject::set_backdrop_offset(int dx, int dy)
 {
 }
 
@@ -1964,7 +1966,7 @@ FTTextureFont * get_font(int size)
 
 Text::Text(int x, int y, int type_id)
 : FrameObject(x, y, type_id), initialized(false), current_paragraph(0),
-  draw_text_set(false), layout(NULL)
+  draw_text_set(false), layout(NULL), scale(1.0f)
 {
     collision = new InstanceBox(this);
 }
@@ -1991,6 +1993,7 @@ void Text::draw()
         set_visible(false);
         return;
     }
+
     update_draw_text();
     blend_color.apply();
     glPushMatrix();
@@ -2026,7 +2029,7 @@ void Text::draw()
 #endif
 
         glTranslated((int)off_x, (int)off_y, 0.0);
-        glScalef(1, -1, 1);
+        glScalef(scale, -scale, scale);
         font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint());
         glPopMatrix();
     }
@@ -2110,12 +2113,19 @@ void Text::update_draw_text()
 
 void Text::set_width(int w)
 {
+    // XXX should have aabb update
     width = w;
     if (layout == NULL) {
         layout = new FTSimpleLayout;
         layout->SetFont(font);
     }
     layout->SetLineLength(w);
+}
+
+void Text::set_scale(float scale)
+{
+    // XXX should have aabb update
+    this->scale = scale;
 }
 
 int Text::get_width()
@@ -2151,6 +2161,11 @@ int FontInfo::get_height(FrameObject * obj)
 void FontInfo::set_width(FrameObject * obj, int width)
 {
     ((Text*)obj)->set_width(width);
+}
+
+void FontInfo::set_scale(FrameObject * obj, float scale)
+{
+    ((Text*)obj)->set_scale(scale);
 }
 
 std::string FontInfo::vertical_tab("\x0B");
@@ -2193,7 +2208,7 @@ QuickBackdrop::QuickBackdrop(int x, int y, int type_id)
 }
 
 #ifdef CHOWDREN_LAYER_WRAP
-void QuickBackdrop::set_offset(int dx, int dy)
+void QuickBackdrop::set_backdrop_offset(int dx, int dy)
 {
     x_offset = (x_offset + dx) % image->width;
     y_offset = (y_offset + dy) % image->height;
@@ -3082,6 +3097,8 @@ void Viewport::set_height(int h)
 void Viewport::draw()
 {
     if (src_width == width && src_height == height)
+        return;
+    if (src_width == 0 || src_height == 0)
         return;
     int src_x1 = center_x - src_width / 2;
     int src_y1 = center_y - src_height / 2;

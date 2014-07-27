@@ -59,7 +59,10 @@ def main():
         print value
 
     newMfa = translate(newGame, print_func = out)
-    newMfa.write(ByteReader(open(os.path.join(output, 'out.mfa'), 'wb')))
+    out_path = os.path.join(output, 'out.mfa')
+    newMfa.write(ByteReader(open(out_path, 'wb')))
+
+    # newMfa = MFA(ByteReader(open(out_path, 'rb')))
     print 'Finished!'
 
 if __name__ == '__main__':

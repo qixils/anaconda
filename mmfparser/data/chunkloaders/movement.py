@@ -38,7 +38,7 @@ MOVEMENT_TYPES = [
 class Static(DataLoader):
     def read(self, reader):
         pass
-    
+
     def write(self, reader):
         pass
 
@@ -54,7 +54,7 @@ class Mouse(DataLoader):
         self.y1 = reader.readShort()
         self.y2 = reader.readShort()
         unusedFlags = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.x1)
         reader.writeShort(self.x2)
@@ -69,7 +69,7 @@ class Race(DataLoader):
     rotationSpeed = None
     bounceFactor = None
     reverseEnabled = None
-    
+
     def read(self, reader):
         self.speed = reader.readShort()
         self.acceleration = reader.readShort()
@@ -78,7 +78,7 @@ class Race(DataLoader):
         self.bounceFactor = reader.readShort()
         self.angles = reader.readShort()
         self.reverseEnabled = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.speed)
         reader.writeShort(self.acceleration)
@@ -101,7 +101,7 @@ class EightDirections(DataLoader):
         self.deceleration = reader.readShort()
         self.bounceFactor = reader.readShort()
         self.directions = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeShort(self.speed)
         reader.writeShort(self.acceleration)
@@ -115,14 +115,14 @@ class Ball(DataLoader):
     angles = None
     security = None
     deceleration = None
-    
+
     def read(self, reader):
         self.speed = reader.readShort()
         self.randomizer = reader.readShort()
         self.angles = reader.readShort()
         self.security = reader.readShort()
         self.deceleration = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.speed)
         reader.writeShort(self.randomizer)
@@ -139,7 +139,7 @@ class Path(DataLoader):
 
     def initialize(self):
         self.steps = []
-    
+
     def read(self, reader):
         count = reader.readShort()
         self.minimumSpeed = reader.readShort()
@@ -150,13 +150,13 @@ class Path(DataLoader):
         reader.skipBytes(1) # "free"
         for _ in xrange(count):
             currentPosition = reader.tell()
-            
+
             reader.skipBytes(1)
             size = reader.readByte(True)
             self.steps.append(self.new(Step, reader))
-            
+
             reader.seek(currentPosition + size)
-    
+
     def write(self, reader):
         reader.writeShort(len(self.steps))
         reader.writeShort(self.minimumSpeed)
@@ -170,7 +170,7 @@ class Path(DataLoader):
             stepData = step.generate()
             reader.writeByte(len(stepData) + 2)
             reader.writeReader(stepData)
-        
+
 class Step(DataLoader):
     speed = None
     direction = None
@@ -182,7 +182,7 @@ class Step(DataLoader):
     length = None
     pause = None
     name = None
-    
+
     def read(self, reader):
         self.speed = reader.readByte()
         self.direction = reader.readByte()
@@ -195,7 +195,7 @@ class Step(DataLoader):
         name = reader.readString()
         if len(name) > 0:
             self.name = name
-    
+
     def write(self, reader):
         reader.writeByte(self.speed)
         reader.writeByte(self.direction)
@@ -228,7 +228,7 @@ class Platform(DataLoader):
         self.control = reader.readShort()
         self.gravity = reader.readShort()
         self.jumpStrength = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.speed)
         reader.writeShort(self.acceleration)
@@ -236,10 +236,10 @@ class Platform(DataLoader):
         reader.writeShort(self.control)
         reader.writeShort(self.gravity)
         reader.writeShort(self.jumpStrength)
-    
+
     def getControl(self):
         return CONTROLS[self.control]
-    
+
     def setControl(self, name):
         self.control = CONTROLS.index(name)
 
@@ -247,10 +247,10 @@ class Extension(DataLoader):
     id = None
     data = None
     name = None
-    
+
     def read(self, reader):
         self.data = reader.readReader(self.settings['dataSize'])
-    
+
     def write(self, reader):
         reader.writeReader(self.data)
 
@@ -267,7 +267,7 @@ MOVEMENT_CLASSES = {
 
 class Movements(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
 
@@ -280,7 +280,7 @@ class Movements(DataLoader):
                 rootPosition = rootPosition))
             reader.seek(currentPosition + 16)
             currentPosition = reader.tell()
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items), True)
         for item in self.items:
@@ -292,37 +292,37 @@ class Movement(DataLoader):
     movingAtStart = None
     directionAtStart = None
     loader = None
-    
+
     def read(self, reader):
         # extension stuff (if extension, that is)
         rootPosition = self.settings['rootPosition']
-        
+
         nameOffset = reader.readInt()
         movementId = reader.readInt()
         newOffset = reader.readInt()
         dataSize = reader.readInt()
-        
+
         reader.seek(rootPosition + newOffset)
         self.player = reader.readShort()
         self.type = reader.readShort()
         self.movingAtStart = reader.readByte()
-        
+
         reader.skipBytes(3) # free
-        
+
         self.directionAtStart = reader.readInt()
-        
+
         if self.getName() == 'Extension':
             reader.skipBytes(14)
             dataSize -= 14
-        
+
         self.loader = self.new(MOVEMENT_CLASSES[self.type], reader,
             dataSize = dataSize - 12)
-        
+
         if self.getName() == 'Extension':
             reader.seek(rootPosition + nameOffset)
-            self.loader.name = reader.readString()[:-4]
+            self.loader.name = self.readString(reader)[:-4]
             self.loader.id = movementId
-    
+
     def write(self, reader):
         loaderData = self.loader.generate()
         if self.getName() == 'Extension':
@@ -344,11 +344,11 @@ class Movement(DataLoader):
         if self.getName() == 'Extension':
             reader.write('\x00' * 14)
         reader.writeReader(loaderData)
-        
+
         # print 'read %s' % self.getName()
-    
+
     def getName(self):
         return MOVEMENT_TYPES[self.type]
-    
+
     def setName(self, name):
         self.type = MOVEMENT_TYPES.index(name)

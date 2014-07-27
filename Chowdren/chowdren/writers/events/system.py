@@ -317,13 +317,6 @@ KEY_FLAGS = BitDict(
     'Button4'
 )
 
-JOYSTICK_CONDITIONS = {
-    'Button1' : 'CHOWDREN_BUTTON_A',
-    'Button2' : 'CHOWDREN_BUTTON_B',
-    'Button3' : 'CHOWDREN_BUTTON_X',
-    'Button4' : 'CHOWDREN_BUTTON_Y'
-}
-
 class PlayerKeyCondition(ConditionWriter):
     method = None
 
@@ -332,50 +325,25 @@ class PlayerKeyCondition(ConditionWriter):
         controls = self.converter.game.header.controls.items[player-1]
         keys = []
         flag_value = self.parameters[0].loader.value
-        is_keyboard = controls.getControlType() == 'Keyboard'
-        if not is_keyboard and flag_value & 15:
-            direction = flag_value & 15
-            key = 'test_joystick_direction_flags(%s, %s)' % (player,
-                                                             direction)
-            keys.append(key)
-            flag_value &= ~15
 
         flags = KEY_FLAGS.copy()
         flags.setFlags(flag_value)
         for k, v in flags.iteritems():
             if not v:
                 continue
-            if is_keyboard:
-                key = getattr(controls.keys, k.lower())
-                key = convert_key(key.getValue())
-                key = '%s(%s)' % (self.key_method, key)
-            else:
-                key = JOYSTICK_BUTTONS[k]
-                key = '%s(%s, %s)' % (self.joystick_method, player, key)
-            keys.append(key)
-
-        # true if nothing is pressed
+            keys.append('CONTROL_%s' % k.upper())
         if not keys:
-            if is_keyboard:
-                for k in flags.keys.keys():
-                    key = getattr(controls.keys, k.lower())
-                    key = convert_key(key.getValue())
-                    key = '!%s(%s)' % (self.key_method, key)
-                    keys.append(key)
-            else:
-                raise NotImplementedError()
+            keys.append('0')
+        flag_value = ' | '.join(keys)
 
-        cond = ' && '.join(keys)
-        writer.put('!manager->ignore_controls && (%s)' % cond)
+        writer.putc('%s(%s, %s)', self.key_method, player, flag_value)
 
 class PlayerKeyDown(PlayerKeyCondition):
-    key_method = 'is_key_pressed'
-    joystick_method = 'is_joystick_pressed'
+    key_method = 'is_player_pressed'
 
 class PlayerKeyPressed(PlayerKeyCondition):
     is_always = True
-    key_method = 'is_key_pressed_once'
-    joystick_method = 'is_joystick_pressed_once'
+    key_method = 'is_player_pressed_once'
 
 class TimerEquals(ConditionWriter):
     is_always = True
@@ -694,6 +662,14 @@ class CreateBase(ActionWriter):
             self.converter.set_list(object_info, list_name)
 
         single_parent = self.converter.get_single(parent_info)
+        safe = (select_single and parent_info is not None and not
+                single_parent and hacks.use_safe_create(self.converter))
+        safe_name = None
+
+        if safe:
+            safe_name = 'has_create_%s' % get_id(self)
+            writer.putlnc('bool %s; %s = false;', safe_name, safe_name)
+
         if single_parent:
             parent = single_parent
         elif parent_info is not None:
@@ -701,6 +677,8 @@ class CreateBase(ActionWriter):
                                                   copy=False)
             writer.putlnc('FrameObject * parent = *p_it;')
             parent = 'parent'
+            if safe:
+                writer.putlnc('%s = true;', safe_name)
 
         writer.start_brace()
         if parent_info is not None and not is_shoot:
@@ -749,6 +727,16 @@ class CreateBase(ActionWriter):
         if parent_info is not None and not single_parent:
             self.converter.end_object_iteration(parent_info, writer, 'p_it',
                                                 copy=False)
+
+        if safe:
+            writer.putlnc('if (!%s) {', safe_name)
+            writer.indent()
+            writer.putln('FrameObject * new_obj;')
+            self.converter.create_object(create_object, 0, 0, 0, 'new_obj',
+                                         writer)
+            writer.putlnc('new_obj->destroy();')
+            writer.end_brace()
+
         if False: # action_name == 'DisplayText':
             paragraph = parameters[1].loader.value
             if paragraph != 0:
@@ -1314,7 +1302,7 @@ actions = make_table(ActionMethodWriter, {
     'SetLoopIndex' : SetLoopIndex,
     'IgnoreControls' : '.manager->ignore_controls = true', # XXX fix
     'RestoreControls' : '.manager->ignore_controls = false', # XXX fix,
-    'ChangeControlType' : EmptyAction, # XXX fix,
+    'ChangeControlType' : '.manager->control_type = %s', # XXX fix,
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
     'SetSpeed' : 'get_movement()->set_speed',

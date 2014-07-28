@@ -12,7 +12,7 @@
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.c"
+#include "stb_image.h"
 
 static int read_func(void *user, char *data, int size)
 {

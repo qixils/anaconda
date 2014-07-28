@@ -228,6 +228,8 @@ class EventContainer(object):
 
 class ContainerMark(object):
     is_container_mark = True
+    conditions = ()
+
     def __init__(self, container, mark):
         self.container = container
         self.mark = mark
@@ -1237,17 +1239,23 @@ class Converter(object):
             # write 'always' event subfunctions
             group_index = 0
             call_groups = []
+            first_groups = []
+
             while True:
                 try:
                     group = always_groups[group_index]
                 except IndexError:
                     break
+
+                # if group.conditions and group.conditions[0].force_first:
+                #     first_groups.append(group)
+                # else:
                 call_groups.append(group)
+
                 if group.is_container_mark:
                     group_index += 1
                     continue
-                frame_file.putmeth('void event_func_%s'
-                    % group.global_id)
+                frame_file.putmeth('void event_func_%s' % group.global_id)
                 while True:
                     try:
                         new_group = always_groups[group_index]
@@ -1264,6 +1272,8 @@ class Converter(object):
             frame_file.putmeth('void handle_events')
             end_markers = []
             self.begin_events()
+
+            call_groups = first_groups + call_groups
 
             for group in call_groups:
                 if group.is_container_mark:
@@ -1709,7 +1719,10 @@ class Converter(object):
                           group.name)
             self.has_selection = {}
             new_selection = {}
-            if group.or_type == 'OrLogical':
+
+            is_logical = group.or_type == 'OrLogical'
+            # if group.or_type == 'OrLogical':
+            if True:
                 for obj, or_bools in group.or_instance_groups.iteritems():
                     list_name = self.get_object_list(obj)
                     new_selection[obj] = list_name
@@ -1723,7 +1736,10 @@ class Converter(object):
                     writer.putlnc('} else {')
                     writer.indent()
                     instance_list = self.get_object(obj, True)
-                    writer.putlnc('%s.clear_selection();', list_name)
+                    if is_logical:
+                        writer.putlnc('%s.clear_selection();', list_name)
+                    else:
+                        writer.putlnc('%s.empty_selection();', list_name)
                     writer.end_brace()
             writer.start_brace()
             self.has_selection = new_selection # group.or_selected
@@ -1831,6 +1847,7 @@ class Converter(object):
             new_list = group.or_selected[obj]
             writer.putlnc('%s.add(%s);', new_list,
                           self.get_object_list(obj))
+
         writer.end_brace()
 
     def convert_static_expression(self, items, start=0, end=-1):
@@ -1867,6 +1884,8 @@ class Converter(object):
         loader = container.loader
         out = ''
         self.start_clauses = self.end_clauses = 0
+        parameter_type = container.getName()
+
         if loader.isExpression:
             self.expression_items = loader.items[:-1]
             self.item_index = 0
@@ -1887,9 +1906,11 @@ class Converter(object):
                 self.last_out = out
                 out += expression_writer.get_string()
                 self.item_index += 1
+
+            if parameter_type == 'VARGLOBAL_EXP':
+                out = '-1 + ' + out
         else:
             parameter_name = type(container.loader).__name__
-            parameter_type = container.getName()
             if parameter_name == 'Object':
                 return self.get_object((loader.objectInfo, loader.objectType))
             elif parameter_name == 'Sample':

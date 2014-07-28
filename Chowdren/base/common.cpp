@@ -2606,24 +2606,24 @@ void WindowControl::set_focus(bool value)
 
 int WindowControl::get_x()
 {
-    std::cout << "Get window x" << std::endl;
+    // std::cout << "Get window x" << std::endl;
     return 0;
 }
 
 int WindowControl::get_y()
 {
-    std::cout << "Get window y" << std::endl;
+    // std::cout << "Get window y" << std::endl;
     return 0;
 }
 
 void WindowControl::set_x(int x)
 {
-    std::cout << "Set window x: " << x << std::endl;
+    // std::cout << "Set window x: " << x << std::endl;
 }
 
 void WindowControl::set_y(int y)
 {
-    std::cout << "Set window y: " << y << std::endl;
+    // std::cout << "Set window y: " << y << std::endl;
 }
 
 void WindowControl::set_position(int x, int y)

@@ -82,8 +82,8 @@ inline int get_direction_int(int x1, int y1, int x2, int y2)
 
 inline int int_round(double d)
 {
+    // mmf behaviour
     int v = (int)floor(d + 0.5);
-    // MMF behaviour - don't ask me
     if (d - v > 0.5)
         v++;
     return v;

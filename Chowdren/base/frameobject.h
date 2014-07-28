@@ -475,6 +475,13 @@ public:
         return *this;
     }
 
+    void empty_selection()
+    {
+        for (int i = 0; i < count; i++) {
+            items[i]->empty_selection();
+        }
+    }
+
     bool has_selection()
     {
         for (int i = 0; i < count; i++) {

@@ -74,7 +74,7 @@ GameManager::GameManager()
 
     fps_limit.set(FRAMERATE);
 
-    set_frame(0);
+    set_frame(27);
 }
 
 void GameManager::reset_globals()

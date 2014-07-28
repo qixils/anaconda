@@ -6,6 +6,7 @@ is_anne = False
 is_knytt_japan = False
 is_test = False
 is_hfa = False
+is_fp = False
 
 def init(converter):
     name = converter.info_dict.get('name').lower()
@@ -21,6 +22,7 @@ def init(converter):
     is_knytt_japan = 'japan' in name
     is_test = 'application' in name
     is_hfa = 'alicia' in name
+    is_fp = 'freedom' in name
 
     if is_avgn:
         # hack to set default keyboard keys

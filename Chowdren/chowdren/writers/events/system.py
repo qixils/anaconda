@@ -343,6 +343,7 @@ class PlayerKeyDown(PlayerKeyCondition):
 
 class PlayerKeyPressed(PlayerKeyCondition):
     is_always = True
+    force_first = True
     key_method = 'is_player_pressed_once'
 
 class TimerEquals(ConditionWriter):

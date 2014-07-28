@@ -44,6 +44,9 @@ public:
     void jump();
     void jump_in_air();
     void update(float dt);
+    void set_x_vel(int value);
+    void set_max_x_vel(int value);
+    void set_x_accel(int value);
 };
 
 extern FrameObject * default_platform_instance;

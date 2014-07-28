@@ -54,6 +54,7 @@ NATIVE_SHADERS = {
 
     # missing effects
     'CRT.fx' : 'dummy_shader',
+    'FlipY.fx' : 'dummy_shader',
 
     # unsupported in HWA
     'XOR' : 'dummy_shader',

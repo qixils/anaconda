@@ -36,7 +36,7 @@ from chowdren import shader
 from chowdren.shader import INK_EFFECTS
 from chowdren import hacks
 from chowdren.idpool import get_id
-from chowdren.code import CodeWriter
+from chowdren.codewriter import CodeWriter
 import platform
 import math
 import wave
@@ -1297,6 +1297,7 @@ class Converter(object):
             frame_file.end_brace()
 
             frame_file.close()
+            frame.close()
 
             if generated_groups:
                 missing_groups = []
@@ -1862,7 +1863,7 @@ class Converter(object):
             elif name == 'Plus':
                 continue
             elif name == 'AlterableString':
-                object_info = item.objectInfo
+                object_info = (item.objectInfo, item.objectType)
                 index = item.loader.value
                 writer = self.all_objects[object_info]
                 value = writer.common.strings.items[index]
@@ -2155,15 +2156,6 @@ class Converter(object):
             raise e
 
     def get_object_class(self, object_type, star=True):
-        # if object_info is not None:
-        #     if self.current_object and object_info == self.current_object[0]:
-        #         object_type = self.current_object[1]
-        #     else:
-        #         if is_qualifier(object_info):
-        #             object_type = self.qualifier_types[
-        #                 get_qualifier(object_info)]
-        #         else:
-        #             object_type = self.object_types[object_info]
         try:
             ret = self.get_object_writer(object_type).class_name
             if star:

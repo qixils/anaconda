@@ -90,10 +90,13 @@ systemDict = {
         -1 : 'NoAllObjectsInZone' # NoAllObjectsInZone_Old
     },
     -4 : {
-        -2 : 'TimerLess',
+        -8 : 'Every',
+        -7 : 'TimerEquals',
+        -6 : 'OnTimerEvent',
         -5 : 'CompareAwayTime',
         -4 : 'Every',
         -3 : 'TimerEquals',
+        -2 : 'TimerLess',
         -1 : 'TimerGreater'
     },
     -3 : {
@@ -109,6 +112,7 @@ systemDict = {
         -2 : 'EndOfFrame'
     },
     -1 : {
+        -27 : 'ElseIf',
         -11 : 'GroupEnd',
         -26 : 'Chance',
         -25 : 'OrLogical',
@@ -139,6 +143,7 @@ systemDict = {
 }
 
 extensionDict = {
+    -41 : 'OnObjectLoop',
     -11 : 'EnteringPlayfield',
     -40 : 'IsStrikeOut',
     -39 : 'IsUnderline',

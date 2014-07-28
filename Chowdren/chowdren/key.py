@@ -382,7 +382,7 @@ def convert_key(value):
 
 def main():
     # generate key definition files
-    from chowdren.code import CodeWriter
+    from chowdren.codewriter import CodeWriter
     from chowdren.common import get_base_path
     import os
 

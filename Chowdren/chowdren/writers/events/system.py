@@ -572,7 +572,10 @@ class FacingInDirection(ConditionWriter):
             value = self.convert_index(0)
         else:
             name = 'test_directions'
-            value = parameter.value
+            try:
+                value = parameter.value
+            except AttributeError:
+                value = 'invalid'
         writer.put('%s(%s)' % (name, value))
 
 class InsidePlayfield(ConditionMethodWriter):
@@ -806,11 +809,10 @@ class LookAt(ActionWriter):
         x = str(details['x'])
         y = str(details['y'])
         parent = details.get('parent', None)
-        if not parent:
-            raise NotImplementedError()
-        parent = self.converter.get_object(parent)
-        x = '%s->x + %s' % (parent, x)
-        y = '%s->y + %s' % (parent, y)
+        if parent:
+            parent = self.converter.get_object(parent)
+            x = '%s->x + %s' % (parent, x)
+            y = '%s->y + %s' % (parent, y)
         writer.put('set_direction(get_direction_int(%s->x, %s->y, %s, %s));'
             % (instance, instance, x, y))
 
@@ -1166,6 +1168,9 @@ class ObjectCount(ExpressionWriter):
 
     def get_string(self):
         obj = (self.data.objectInfo, self.data.objectType)
+        if (obj in self.converter.all_objects and
+            self.converter.all_objects[obj].static):
+            return str(1)
         instances = self.converter.get_object_list(obj, allow_single=True)
         return '%s.size()' % instances
 

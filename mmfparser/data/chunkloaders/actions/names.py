@@ -150,10 +150,13 @@ systemDict = {
         1 : 'ShowCursor'
     },
     -5 : {
-        0 : 'CreateObject'
+        0 : 'CreateObject',
+        1 : 'CreateObjectByName'
     },
     -4 : {
-        0 : 'SetTimer'
+        0 : 'SetTimer',
+        1 : 'ScheduleEvent',
+        2 : 'ScheduleEventTimes'
     },
     -3 : {
         0 : 'NextFrame',
@@ -299,5 +302,19 @@ extensionDict = {
     64 : 'SetEffectParameter',
     65 : 'SetAlphaCoefficient',
     66 : 'SetRGBCoefficient',
-    67 : 'SetEffectImage'
+    67 : 'SetEffectImage',
+    68 : 'SetFriction',
+    69 : 'SetElasticity',
+    70 : 'ApplyImpulse',
+    71 : 'ApplyAngularImpulse',
+    72 : 'ApplyForce',
+    73 : 'ApplyTorque',
+    74 : 'SetLinearVelocity',
+    75 : 'SetAngularVelocity',
+    76 : 'Foreach',
+    77 : 'ForeachTwoObjects',
+    78 : 'StopForce',
+    79 : 'StopTorque',
+    80 : 'SetDensity',
+    81 : 'SetGravityScale'
 }

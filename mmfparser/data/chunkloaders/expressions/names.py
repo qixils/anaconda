@@ -82,7 +82,8 @@ systemDict = {
         108 : 'RTFXPARATEXT',
         109 : 'RTFYPARATEXT',
         110 : 'RTFMEMSIZE',
-        111 : 'RTFGETFOCUSWORD'
+        111 : 'RTFGETFOCUSWORD',
+        112 : 'RTFGETHYPERLINK'
     },
     9 : {
         80 : 'SubApplicationFrameNumber',
@@ -123,7 +124,8 @@ systemDict = {
         1 : 'TimerHundreds',
         2 : 'TimerSeconds',
         3 : 'TimerHours',
-        4 : 'TimerMinutes'
+        4 : 'TimerMinutes',
+        5 : 'TimerEventIndex'
     },
     -3 : {
         0 : 'CurrentFrameOld',
@@ -141,7 +143,10 @@ systemDict = {
         12 : 'GetVirtualHeight',
         13 : 'FrameBackgroundColor',
         14 : 'DisplayMode',
-        15 : 'PixelShaderVersion'
+        15 : 'PixelShaderVersion',
+        16 : 'FrameAlphaCoefficient',
+        17 : 'FrameRGBCoefficient',
+        18 : 'FrameEffectParameter'
     },
     -1 : {
         0 : 'Long',
@@ -201,6 +206,12 @@ systemDict = {
         57 : 'TemporaryBinaryFilePath',
         58 : 'FloatToString',
         59 : 'Atan2',
+        60 : 'Zero',
+        61 : 'Empty',
+        62 : 'DistanceBetween',
+        63 : 'AngleBetween',
+        64 : 'ClampValue',
+        65 : 'RandomRange',
         -1 : 'Parenthesis',
         -3 : 'Virgule',
         -2 : 'EndParenthesis'
@@ -238,7 +249,17 @@ extensionDict = {
     28 : 'RGBCoefficient', # HWA
     29 : 'EffectParameter', # HWA
     30 : 'AlterableValueIndex',
-    31 : 'AlterableStringIndex'
+    31 : 'AlterableStringIndex',
+    32 : 'ObjectDistanceBetween',
+    33 : 'ObjectAngleBetween',
+    34 : 'ObjectLoopIndex',
+    35 : 'RigidbodyFriction',
+    36 : 'RigidbodyRestitution',
+    37 : 'RigidbodyDensity',
+    38 : 'RigidbodyVelocity',
+    39 : 'RigidbodyAngle',
+    40 : 'GetWidth',
+    41 : 'GetHeight'
 }
 
 

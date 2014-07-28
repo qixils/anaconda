@@ -67,11 +67,11 @@ GROUP_FLAGS = BitDict(
     'ComplexGroup',
     'Breakpoint',
     'AlwaysClean',
-    'OriginGroup',
+    'OrInGroup',
     'StopInGroup',
     'OrLogical',
     'Grouped',
-    'InActive',
+    'Inactive',
     'NoGood'
 )
 

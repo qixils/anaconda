@@ -76,7 +76,9 @@ parameterNames = {
     61 : 'ALTSTRING',
     62 : 'ALTSTRING_EXP',
     63 : 'FILENAME',
-    64 : 'FASTLOOPNAME'
+    64 : 'FASTLOOPNAME',
+    65 : 'CHAR_ENCODING_INPUT',
+    66 : 'CHAR_ENCODING_OUTPUT'
 }
 
 def getName(id):

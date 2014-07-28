@@ -120,7 +120,9 @@ class Int(ParameterCommon):
 
 SAMPLE_FLAGS = BitDict(
     'Uninterruptible',
-    'Bad'
+    'Bad',
+    'IPhoneAudioPlayer',
+    'IPhoneOpenAL'
 )
 
 
@@ -333,7 +335,7 @@ GROUP_FLAGS = BitDict(
     'Closed',
     'ParentInactive',
     'GroupInactive',
-    'Global'
+    'Global' # unicode?
 )
 
 class Group(ParameterCommon):
@@ -464,6 +466,17 @@ class Click(ParameterCommon):
     def getButton(self):
         return CLICK_NAMES[self.click]
 
+class CharacterEncoding(ParameterCommon):
+    def read(self, reader):
+        raise NotImplementedError()
+        # typedef struct {
+        #     WORD    wCharEncoding;
+        #     DWORD   dwUnusedParam;
+        # } charEncodingParam;
+
+    def write(self, reader):
+        raise NotImplementedError()
+
 class Bug(ParameterCommon):
     def read(self, reader):
         pass
@@ -536,5 +549,7 @@ parameterLoaders = [
     Short,
     ExpressionParameter,
     Filename,
-    String
+    String,
+    CharacterEncoding,
+    CharacterEncoding
 ]

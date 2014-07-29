@@ -47,29 +47,27 @@ class SurfaceObject(ObjectWriter):
 
         image_names = [get_image_name(image) for image in images]
 
-        writer.putln('SurfaceImage tmp;')
         if multi_imgs:
-            # blank first image
-            if image_count == 0 or images[0] == -1:
-                writer.putln('tmp.reset(width, height);')
-                writer.putln('images.push_back(tmp);')
-            for i in range(0, image_count):
-                writer.putlnc('// Image %d', i)
+            if image_count == 0:
+                writer.putln('images.resize(1);')
+                writer.putln('images[0].reset(width, height);')
+            else:
+                writer.putlnc('images.resize(%s);', image_count)
+
+            for i, image in enumerate(images):
                 # non-blank images
-                if images[i] != -1:
-                    writer.putlnc('tmp.set_image(%s);', image_names[i])
-                    writer.putln('images.push_back(tmp);')
-                # blank images (NOT first)
-                elif i > 0 and image_count > 1:
-                    writer.putln('tmp.reset();')
-                    writer.putln('images.push_back(tmp);')
+                if image != -1:
+                    writer.putlnc('images[%s].set_image(%s);', i,
+                                  image_names[i])
+                else:
+                    writer.putlnc('images[%s].reset();', i)
         else:
+            writer.putln('images.resize(1);')
             # single image
             if image_count > 0 and images[0] != -1:
-                writer.putlnc('tmp.set_image(%s);', image_names[0])
+                writer.putlnc('images[0].set_image(%s);', image_names[0])
             else:
-                writer.putlnc('tmp.reset(width, height);')
-            writer.putln('images.push_back(tmp);')
+                writer.putlnc('images[0].reset(width, height);')
         # load_first always true -> there will always be an image 0
         writer.putln('set_edit_image(0, true);')
 

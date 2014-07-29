@@ -10,7 +10,7 @@
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
-  stretch_mode(0), effect(0)
+  stretch_mode(0), effect(0), selected_image(NULL)
 {
     collision = new InstanceBox(this);
 }
@@ -228,10 +228,10 @@ void SurfaceObject::reverse_x()
 
 void SurfaceObject::add_image(int w, int h)
 {
-    SurfaceImage new_image;
-    new_image.width = w;
-    new_image.height = h;
-    images.push_back(new_image);
+    int index = images.size();
+    images.resize(index + 1);
+    images[index].width = w;
+    images[index].height = h;
 }
 
 void SurfaceObject::set_transparent_color(const Color & color, bool replace)

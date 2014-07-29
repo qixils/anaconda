@@ -107,13 +107,15 @@ def copytree(src, dst, excludes=[]):
 
 native_extension_cache = {}
 
-try:
-    import _winreg
-    reg_name = 'Software\\Clickteam\\Multimedia Fusion Developer 2\\Settings'
-    reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
-    MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0]
-except (ImportError, WindowsError):
-    MMF_BASE = ''
+if sys.platform == 'win32':
+    try:
+        import _winreg
+        reg_name = ('Software\\Clickteam\\Multimedia Fusion Developer 2\\'
+                    'Settings')
+        reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
+        MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0]
+    except (ImportError, WindowsError):
+        MMF_BASE = ''
 
 MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
 MMF_EXT = '.mfx'

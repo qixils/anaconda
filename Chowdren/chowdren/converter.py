@@ -1382,6 +1382,7 @@ class Converter(object):
         strings_file = self.open_code('strings.cpp')
         strings_header = self.open_code('strings.h')
         strings_header.start_guard('CHOWDREN_STRINGS_H')
+        strings_header.putln('#include <string>')
         for value, name in self.strings.iteritems():
             strings_file.putlnc('const std::string %s(%r, %s);', name, value,
                                 len(value), cpp=False)

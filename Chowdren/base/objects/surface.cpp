@@ -232,6 +232,8 @@ void SurfaceObject::add_image(int w, int h)
     images.resize(index + 1);
     images[index].width = w;
     images[index].height = h;
+    if (selected_index != -1)
+        selected_image = &images[selected_index];
 }
 
 void SurfaceObject::set_transparent_color(const Color & color, bool replace)

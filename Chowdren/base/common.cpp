@@ -15,10 +15,25 @@
 std::string newline_character("\r\n");
 std::string empty_string("");
 
+static const char hex_characters[] = "0123456789abcdef";
+
 std::string get_md5(const std::string & value)
 {
-    MD5 md5;
-    return md5.get_hex_digest(value);
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, &value[0], value.size());
+    std::string res;
+    res.resize(32);
+    unsigned char digest[16];
+    MD5_Final(digest, &ctx);
+
+    for (int i = 0; i < 16; i++) {
+        unsigned char b = digest[i];
+        res[i*2] = hex_characters[(b >> 4) & 0xf];
+        res[i*2+1] = hex_characters[b & 0xF];
+    }
+
+    return res;
 }
 
 // Font

@@ -343,7 +343,6 @@ class PlayerKeyDown(PlayerKeyCondition):
 
 class PlayerKeyPressed(PlayerKeyCondition):
     is_always = True
-    force_first = True
     key_method = 'is_player_pressed_once'
 
 class TimerEquals(ConditionWriter):
@@ -372,7 +371,9 @@ class TimerEvery(ConditionWriter):
     custom = True
 
     def write(self, writer):
-        seconds = self.parameters[0].loader.delay / 1000.0
+        time = self.parameters[0].loader
+        time = getattr(time, 'delay', None) or time.timer
+        seconds = time / 1000.0
         name = 'every_%s' % get_id(self)
         name2 = '%s_frame' % name
         writer.putln('static float %s = 0.0f;' % name)
@@ -572,10 +573,7 @@ class FacingInDirection(ConditionWriter):
             value = self.convert_index(0)
         else:
             name = 'test_directions'
-            try:
-                value = parameter.value
-            except AttributeError:
-                value = 'invalid'
+            value = parameter.value
         writer.put('%s(%s)' % (name, value))
 
 class InsidePlayfield(ConditionMethodWriter):

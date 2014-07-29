@@ -133,11 +133,13 @@ def write_defines(converter, writer):
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
+    if is_hfa:
+        writer.putln('#define CHOWDREN_IS_HFA')
 
 def get_frames(converter, frames):
     if not is_hfa:
         return frames
     new_frames = {}
-    for index in (0, 4, 21, 22, 23, 24, 25, 26, 27, 28):
+    for index in (0, 4, 21, 22, 23, 24, 25, 26, 27, 28, 29):
         new_frames[index] = frames[index]
     return new_frames

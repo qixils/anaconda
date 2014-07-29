@@ -1823,6 +1823,8 @@ class Converter(object):
         self.has_selection = {}
         self.collision_objects = set()
         self.current_object = None
+        self.current_group = None
+        self.current_event_id = None
 
     def write_instance_save(self, group, writer):
         if not self.has_selection:
@@ -2043,6 +2045,8 @@ class Converter(object):
         if handle in self.multiple_instances:
             return True
         if handle in self.current_group.force_multiple:
+            return True
+        if self.current_group.or_type == 'OrFiltered':
             return True
         return False
 

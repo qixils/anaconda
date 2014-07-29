@@ -323,9 +323,9 @@ struct BackgroundCallback
     bool on_callback(void * data)
     {
         FrameObject * obj = (FrameObject*)data;
-        if (obj->collision == NULL)
+        if (obj->id != BACKGROUND_TYPE)
             return true;
-        if (!(obj->flags & BACKGROUND))
+        if (obj->collision == NULL)
             return true;
         return !collide(col, obj->collision);
     }
@@ -840,7 +840,7 @@ int Frame::get_mouse_y()
 
 bool Frame::test_background_collision(int x, int y)
 {
-    if (x < 0 || y < 0 || x > width || y > width)
+    if (x < 0 || y < 0 || x > width || y > height)
         return false;
     std::vector<Layer*>::const_iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {

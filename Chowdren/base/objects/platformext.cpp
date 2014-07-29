@@ -33,6 +33,7 @@ void PlatformObject::update(float dt)
 
     x_vel = std::min(std::max(x_vel, -max_x_vel), max_x_vel);
     y_vel = std::min(std::max(y_vel + gravity, -max_y_vel), max_y_vel);
+
     int x_vel_2 = x_vel + add_x_vel;
     int y_vel_2 = y_vel + add_y_vel;
     int x_vel_sign = sign_int(x_vel_2);
@@ -156,26 +157,26 @@ void PlatformObject::jump()
     y_vel = 0 - jump_strength;
 }
 
-void PlatformObject::set_x_vel(int value)
-{
-    std::cout << "set x vel: " << value << std::endl;
-    x_vel = value;
-}
+// void PlatformObject::set_x_vel(int value)
+// {
+//     std::cout << "set x vel: " << value << std::endl;
+//     x_vel = value;
+// }
 
-void PlatformObject::set_max_x_vel(int value)
-{
-    if (value != max_x_vel)
-        std::cout << "set max x vel: " << value << std::endl;
-    max_x_vel = value;
-}
+// void PlatformObject::set_max_x_vel(int value)
+// {
+//     // if (value != max_x_vel)
+//     //     std::cout << "set max x vel: " << value << std::endl;
+//     max_x_vel = value;
+// }
 
-void PlatformObject::set_x_accel(int value)
-{
-    if (value != x_accel && value != 50 && value != 1000) {
-        std::cout << "set x accel: " << value << std::endl;
-    }
-    x_accel = value;
-}
+// void PlatformObject::set_x_accel(int value)
+// {
+//     // if (value != x_accel && value != 50 && value != 1000) {
+//     //     std::cout << "set x accel: " << value << std::endl;
+//     // }
+//     x_accel = value;
+// }
 
 void PlatformObject::call_overlaps_obstacle()
 {

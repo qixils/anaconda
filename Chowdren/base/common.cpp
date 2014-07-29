@@ -2353,6 +2353,8 @@ void Counter::calculate_box()
 
 Image * Counter::get_image()
 {
+    if (maximum <= minimum)
+        return images[0];
     int max_index = image_count - 1;
     int i = (((value - minimum) * max_index) / (maximum - minimum));
     return images[i];

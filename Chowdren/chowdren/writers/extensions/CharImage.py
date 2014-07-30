@@ -74,6 +74,8 @@ class CharImage(ObjectWriter):
                 characters.append(Character(
                     images[i], external[i], clip[i], sizes[i]))
             aliases.append(Alias(name, characters))
+        writer.putlnc('width = %s;', width)
+        writer.putlnc('height = %s;', height)
 
 
 actions = make_table(ActionMethodWriter, {

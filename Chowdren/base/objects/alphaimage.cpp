@@ -15,6 +15,8 @@ void AlphaImageObject::set_image(int index)
 {
     this->index = index;
     image = &images[index];
+    width = image->width;
+    height = image->height;
 }
 
 void AlphaImageObject::set_hotspot(int x, int y)

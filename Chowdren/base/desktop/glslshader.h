@@ -15,7 +15,7 @@ public:
     int flags;
     const char * texture_parameter;
 
-    GLSLShader(const std::string & name, int flags = NULL,
+    GLSLShader(const std::string & name, int flags = 0,
                const char * texture_parameter = NULL);
     void initialize();
     GLuint attach_source(const std::string & ext, GLenum type);

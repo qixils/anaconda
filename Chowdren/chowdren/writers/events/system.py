@@ -50,23 +50,22 @@ class SystemObject(ObjectWriter):
             index_name = get_loop_index_name(name)
             writer.putln('%s = false;' % running_name)
             writer.putln('%s = 0;' % index_name)
-        if not self.dynamic_loops:
-            return
-        writer.putln('static bool loops_initialized = false;')
-        writer.putln('if (!loops_initialized) {')
-        writer.indent()
-        for loop in self.dynamic_loops:
-            loop_method = 'loop_wrapper_' + get_method_name(loop)
-            running_name = get_loop_running_name(loop)
-            index_name = get_loop_index_name(loop)
-            writer.putlnc('loops[%r].set(&%s, &%s, &%s);',
-                          loop, loop_method, running_name, index_name)
-        writer.putln('loops_initialized = true;')
+        if self.dynamic_loops:
+            writer.putln('static bool loops_initialized = false;')
+            writer.putln('if (!loops_initialized) {')
+            writer.indent()
+            for loop in self.dynamic_loops:
+                loop_method = 'loop_wrapper_' + get_method_name(loop)
+                running_name = get_loop_running_name(loop)
+                index_name = get_loop_index_name(loop)
+                writer.putlnc('loops[%r].set(&%s, &%s, &%s);',
+                              loop, loop_method, running_name, index_name)
+            writer.putln('loops_initialized = true;')
+            writer.end_brace()
         for name in self.repeats:
             writer.putlnc('%s = 0;', name)
         for name in self.restrict:
             writer.putlnc('%s = frame_time;', name)
-        writer.end_brace()
 
     def write_restrict_for(self, writer):
         self.restrict = []

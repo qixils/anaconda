@@ -419,7 +419,8 @@ public:
     int last_press;
 
     JoystickData(int device, SDL_GameController * c)
-    : controller(c), has_effect(false), has_rumble(false), last_press(0)
+    : controller(c), has_effect(false), has_rumble(false), last_press(0),
+      device(device)
     {
         joy = SDL_GameControllerGetJoystick(c);
         instance = SDL_JoystickInstanceID(joy);

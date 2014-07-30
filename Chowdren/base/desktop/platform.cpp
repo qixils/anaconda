@@ -419,7 +419,8 @@ public:
     int last_press;
 
     JoystickData()
-    : has_effect(false), has_rumble(false), last_press(0)
+    : has_effect(false), has_rumble(false), last_press(0), controller(NULL),
+      haptics(NULL)
     {
     }
 
@@ -434,7 +435,8 @@ public:
 
     ~JoystickData()
     {
-        SDL_GameControllerClose(controller);
+        if (controller != NULL)
+            SDL_GameControllerClose(controller);
         if (haptics != NULL)
             SDL_HapticClose(haptics);
     }

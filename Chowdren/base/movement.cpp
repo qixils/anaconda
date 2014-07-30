@@ -68,7 +68,10 @@ Movement::Movement(FrameObject * instance)
 : instance(instance), speed(0), add_x(0), add_y(0), max_speed(0),
   back_col(false)
 {
+}
 
+Movement::~Movement()
+{
 }
 
 void Movement::update(float dt)

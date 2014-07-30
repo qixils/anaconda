@@ -231,13 +231,17 @@ void FSFile::open(const char * filename, const char * mode)
     }
     if (new_handle == NULL) {
         new_handle = new StandardFile(this, filename, is_read);
-        if (closed)
+        if (closed) {
+            delete new_handle;
             return;
+        }
     }
 #else
     HANDLE_BASE * new_handle = new StandardFile(this, filename, is_read);
-    if (closed)
+    if (closed) {
+        delete new_handle;
         return;
+    }
 #endif
     handle = (void*)new_handle;
     closed = false;

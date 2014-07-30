@@ -928,6 +928,10 @@ FrameObject::~FrameObject()
         delete[] movements;
     }
     delete shader_parameters;
+
+#ifdef CHOWDREN_USE_VALUEADD
+    delete extra_alterables;
+#endif
 }
 
 void FrameObject::draw_image(Image * img, int x, int y, double angle,

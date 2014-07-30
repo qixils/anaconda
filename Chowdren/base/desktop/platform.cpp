@@ -401,7 +401,7 @@ const std::string & platform_get_appdata_dir()
 // joystick
 
 class JoystickData;
-static std::vector<JoystickData*> joysticks;
+static std::vector<JoystickData> joysticks;
 static SDL_HapticEffect rumble_effect;
 
 class JoystickData
@@ -418,10 +418,15 @@ public:
     const float * axes;
     int last_press;
 
-    JoystickData(int device, SDL_GameController * c)
-    : controller(c), has_effect(false), has_rumble(false), last_press(0),
-      device(device)
+    JoystickData()
+    : has_effect(false), has_rumble(false), last_press(0)
     {
+    }
+
+    void init(int device, SDL_GameController * c)
+    {
+        controller = c;
+        this->device = device;
         joy = SDL_GameControllerGetJoystick(c);
         instance = SDL_JoystickInstanceID(joy);
         init_rumble();
@@ -500,17 +505,17 @@ public:
 
 JoystickData & get_joy(int n)
 {
-    return *joysticks[n-1];
+    return joysticks[n-1];
 }
 
 JoystickData * get_joy_instance(int instance)
 {
-    std::vector<JoystickData*>::iterator it;
+    std::vector<JoystickData>::iterator it;
     for (it = joysticks.begin(); it != joysticks.end(); it++) {
-        JoystickData * j = *it;
-        if (j->instance != instance)
+        JoystickData & j = *it;
+        if (j.instance != instance)
             continue;
-        return j;
+        return &j;
     }
     return NULL;
 }
@@ -519,26 +524,30 @@ void add_joystick(int device)
 {
     if (!SDL_IsGameController(device))
         return;
-    std::vector<JoystickData*>::iterator it;
+    std::vector<JoystickData>::iterator it;
     for (it = joysticks.begin(); it != joysticks.end(); it++) {
-        JoystickData * j = *it;
-        if (j->device == device)
+        JoystickData & j = *it;
+        if (j.device == device)
             return;
     }
     SDL_GameController * c = SDL_GameControllerOpen(device);
     if (c == NULL)
         return;
-    joysticks.push_back(new JoystickData(device, c));
+    int index = joysticks.size();
+    joysticks.resize(index+1);
+    joysticks[index].init(device, c);
 }
 
 void remove_joystick(int instance)
 {
-    JoystickData * joy = get_joy_instance(instance);
-    if (joy == NULL)
-        return;
-    delete joy;
-    joysticks.erase(std::remove(joysticks.begin(), joysticks.end(),
-                    joy), joysticks.end());
+    std::vector<JoystickData>::iterator it;
+    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+        JoystickData & j = *it;
+        if (j.instance != instance)
+            continue;
+        joysticks.erase(it);
+        break;
+    }
 }
 
 void init_joystick()

@@ -20,6 +20,7 @@ public:
     unsigned int directions;
 
     Movement(FrameObject * instance);
+    virtual ~Movement();
     virtual void update(float dt);
     virtual void set_max_speed(int speed);
     virtual void set_speed(int speed);

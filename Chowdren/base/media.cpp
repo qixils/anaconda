@@ -215,6 +215,8 @@ Media::~Media()
         delete sound;
     }
 
+    stop_samples();
+
     ChowdrenAudio::close_audio();
 }
 

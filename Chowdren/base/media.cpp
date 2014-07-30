@@ -132,7 +132,7 @@ void Channel::pause()
 
 void Channel::stop()
 {
-    if (is_invalid())
+    if (sound == NULL)
         return;
     sound->destroy();
     sound = NULL;
@@ -209,6 +209,12 @@ Media::Media()
 
 Media::~Media()
 {
+    SoundMap::const_iterator it;
+    for (it = sounds.begin(); it != sounds.end(); it++) {
+        SoundData * sound = it->second;
+        delete sound;
+    }
+
     ChowdrenAudio::close_audio();
 }
 

@@ -59,7 +59,7 @@ public:
     int effect;
 
     // Image array
-    std::vector<SurfaceImage> images;
+    vector<SurfaceImage> images;
 
     // Current images
     SurfaceImage * displayed_image;

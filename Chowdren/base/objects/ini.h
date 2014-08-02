@@ -3,7 +3,6 @@
 
 #include "frameobject.h"
 #include "types.h"
-#include <vector>
 
 #ifdef CHOWDREN_INI_KEEP_ORDER
 #include <boost/container/flat_map.hpp>
@@ -22,7 +21,7 @@ public:
     std::string current_group;
     std::string current_item;
     SectionMap data;
-    std::vector<std::pair<std::string, std::string> > search_results;
+    vector<std::pair<std::string, std::string> > search_results;
     bool overwrite;
     bool read_only;
     bool auto_save;

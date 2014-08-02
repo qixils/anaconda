@@ -69,21 +69,15 @@ cdef inline void ensure_size(ByteReader reader, size_t size):
 cdef inline void ensure_write_size(ByteReader reader, size_t size):
     ensure_size(reader, reader.pos + size)
 
-DEF LOG_POSITION = 0
-
 cimport cython
 
 @cython.final
 cdef class ByteReader:
     def __cinit__(self, input = None, start = None, size = None):
         self.pos = 0
-        IF LOG_POSITION:
-            self.lastPosition = 0
         if isinstance(input, file):
             self.fp = PyFile_AsFile(input)
             self.python_fp = input
-            IF LOG_POSITION:
-                self.lastPosition = self.tell()
             self.shared = False
             self.start = 0
             return
@@ -129,8 +123,6 @@ cdef class ByteReader:
     cpdef bint seek(self, int pos, int mode = 0):
         if self.fp != NULL:
             fseek(self.fp, pos, mode)
-            IF LOG_POSITION:
-                self.lastPosition = self.tell()
         else:
             if mode == 2:
                 pos += self.data_size
@@ -141,8 +133,6 @@ cdef class ByteReader:
             if pos < 0:
                 pos = 0
             self.pos = pos
-            IF LOG_POSITION:
-                self.lastPosition = pos
 
     cpdef adjust(self, int to):
         cdef int value = to - (self.tell() % to)
@@ -173,8 +163,6 @@ cdef class ByteReader:
             read_bytes = fread(buf, 1, size, self.fp)
             return newData
         else:
-            IF LOG_POSITION:
-                self.lastPosition = self.tell()
             if size == -1 or size + self.pos > self.data_size:
                 size = self.data_size - self.pos
             if size < 0:
@@ -246,8 +234,6 @@ cdef class ByteReader:
         return value
 
     cpdef bytes readString(self, size=None):
-        IF LOG_POSITION:
-            self.lastPosition = self.tell()
         if size is not None:
             return self.readReader(size).readString()
         data = ''
@@ -274,8 +260,6 @@ cdef class ByteReader:
                 break
             data += c
 
-        IF LOG_POSITION:
-            self.lastPosition = currentPosition
         return data.decode('utf-16-le')
 
     cpdef tuple readColor(self):
@@ -284,8 +268,6 @@ cdef class ByteReader:
         cdef short g = self.readByte(True)
         cdef short b = self.readByte(True)
         self.skipBytes(1)
-        IF LOG_POSITION:
-            self.lastPosition = currentPosition
         return (r, g, b)
 
     cpdef ByteReader readReader(self, size_t size):

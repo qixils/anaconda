@@ -3,7 +3,7 @@
 #include "../include_gl.h"
 #include "../mathcommon.h"
 #include "glslshader.h"
-#include <vector>
+#include "../types.h"
 #include <string.h>
 
 struct Vec2
@@ -30,7 +30,7 @@ struct MatContainer
 
 typedef Vec3 Quad[4];
 typedef Vec2 TexQuad[4];
-typedef std::vector<MatContainer> Stack;
+typedef vector<MatContainer> Stack;
 
 void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
                                 int y2)

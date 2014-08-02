@@ -598,7 +598,7 @@ std::string INI::get_item_part(const std::string & group,
     if (index < 0)
         return def;
     const std::string & value = get_string_default(group, item, empty_string);
-    std::vector<std::string> elem;
+    vector<std::string> elem;
     split_string(value, ',', elem);
     if (index >= (int)elem.size())
         return def;

@@ -5,7 +5,7 @@
 #include <string>
 #include "include_gl.h"
 #include "color.h"
-#include <vector>
+#include "types.h"
 #include "platform.h"
 
 const std::string & get_image_path();

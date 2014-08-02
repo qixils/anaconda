@@ -19,7 +19,7 @@ GameManager * global_manager;
 #include <stdlib.h>
 #include <time.h>
 #include "chowconfig.h"
-#include "frames.h"
+#include "framedata.h"
 #include "common.h"
 #include "fonts.h"
 #include "crossrand.h"
@@ -50,6 +50,8 @@ GameManager::GameManager()
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
 #endif
+    static Frames static_frames(this);
+    frame = &static_frames;
 
     global_manager = this;
 
@@ -67,7 +69,7 @@ GameManager::GameManager()
     // application setup
     reset_globals();
     setup_keys(this);
-    media = new Media;
+    media = frame->media = new Media;
 
     // setup random generator from start
     cross_srand((unsigned int)time(NULL));
@@ -87,8 +89,8 @@ void GameManager::reset_globals()
         delete values;
     if (strings != NULL)
         delete strings;
-    values = new GlobalValues;
-    strings = new GlobalStrings;
+    values = frame->global_values = new GlobalValues;
+    strings = frame->global_strings = new GlobalStrings;
     setup_globals(values, strings);
 }
 
@@ -186,7 +188,6 @@ int GameManager::update_frame()
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_FUNC();
 #endif
-
     double dt = fps_limit.dt;
     if (fade_dir != 0.0f) {
         fade_value += fade_dir * (float)dt;
@@ -403,9 +404,10 @@ void GameManager::set_frame(int index)
 #ifndef CHOWDREN_SAMPLES_OVER_FRAMES
     media->stop_samples();
 #endif
-    if (frame != NULL) {
+
+    if (frame->index != -1)
         frame->on_end();
-    }
+
     if (index == -2) {
         platform_begin_draw();
         media->stop_samples();
@@ -421,12 +423,7 @@ void GameManager::set_frame(int index)
     }
 
     std::cout << "Setting frame: " << index << std::endl;
-    frame = get_frames(this)[index];
-
-    // set some necessary pointers
-    frame->global_values = values;
-    frame->global_strings = strings;
-    frame->media = media;
+    frame->set_index(index);
     frame->on_start();
     std::cout << "Frame set" << std::endl;
 }
@@ -555,7 +552,7 @@ InstanceMap GameManager::instances;
 
 void InputList::add(int v)
 {
-    std::vector<InputState>::iterator it;
+    vector<InputState>::iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         InputState & s = *it;
         if (s.key != v)
@@ -571,7 +568,7 @@ void InputList::add(int v)
 
 void InputList::remove(int v)
 {
-    std::vector<InputState>::iterator it;
+    vector<InputState>::iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         InputState & s = *it;
         if (s.key != v)
@@ -583,7 +580,7 @@ void InputList::remove(int v)
 
 bool InputList::is_pressed(int v)
 {
-    std::vector<InputState>::const_iterator it;
+    vector<InputState>::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         const InputState & s = *it;
         if (s.key != v)
@@ -595,7 +592,7 @@ bool InputList::is_pressed(int v)
 
 bool InputList::is_pressed_once(int v)
 {
-    std::vector<InputState>::const_iterator it;
+    vector<InputState>::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         const InputState & s = *it;
         if (s.key != v)
@@ -607,7 +604,7 @@ bool InputList::is_pressed_once(int v)
 
 bool InputList::is_any_pressed()
 {
-    std::vector<InputState>::const_iterator it;
+    vector<InputState>::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         const InputState & s = *it;
         if (s.state == INPUT_STATE_RELEASED)
@@ -619,7 +616,7 @@ bool InputList::is_any_pressed()
 
 bool InputList::is_any_pressed_once()
 {
-    std::vector<InputState>::const_iterator it;
+    vector<InputState>::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         const InputState & s = *it;
         if (s.state != INPUT_STATE_PRESSED)
@@ -631,7 +628,7 @@ bool InputList::is_any_pressed_once()
 
 bool InputList::is_released_once(int v)
 {
-    std::vector<InputState>::const_iterator it;
+    vector<InputState>::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         const InputState & s = *it;
         if (s.key != v)
@@ -648,7 +645,7 @@ void InputList::clear()
 
 void InputList::update()
 {
-    std::vector<InputState>::iterator it = items.begin();
+    vector<InputState>::iterator it = items.begin();
     while (it != items.end()) {
         InputState & s = *it;
         if (s.state != INPUT_STATE_RELEASED) {

@@ -1,7 +1,7 @@
 #ifndef CHOWDREN_FRAME_H
 #define CHOWDREN_FRAME_H
 
-#include <vector>
+#include "types.h"
 #include <list>
 #include "broadphase.h"
 #include "frameobject.h"
@@ -9,7 +9,7 @@
 class BackgroundItem;
 class CollisionBase;
 
-typedef std::vector<BackgroundItem*> BackgroundItems;
+typedef vector<BackgroundItem*> BackgroundItems;
 
 class Background
 {
@@ -47,9 +47,13 @@ public:
     bool order_changed;
     bool wrap_x, wrap_y;
 
+    Layer();
     Layer(int index, double scroll_x, double scroll_y, bool visible,
           bool wrap_x, bool wrap_y);
     ~Layer();
+    void init(int index, double scroll_x, double scroll_y, bool visible,
+              bool wrap_x, bool wrap_y);
+    void reset();
     void scroll(int off_x, int off_y, int dx, int dy);
     void set_position(int x, int y);
     void add_background_object(FrameObject * instance);
@@ -103,18 +107,32 @@ class GameManager;
 class GlobalValues;
 class GlobalStrings;
 
-class Frame
+class FrameData
 {
 public:
     std::string name;
+    Frame * frame;
+
+    FrameData(Frame * frame);
+    virtual void event_callback(int id);
+    virtual void on_start();
+    virtual void on_end();
+    virtual void handle_events();
+};
+
+class Frame
+{
+public:
     int width, height;
     int virtual_width, virtual_height;
     int index;
+    Color background_color;
+    DynamicLoops * loops;
+    FrameData * data;
+
     GameManager * manager;
     FlatObjectList destroyed_instances;
-    std::vector<Layer*> layers;
-    DynamicLoops loops;
-    Color background_color;
+    vector<Layer> layers;
     GlobalValues * global_values;
     GlobalStrings * global_strings;
     Media * media;
@@ -124,24 +142,16 @@ public:
     int next_frame;
     unsigned int loop_count;
     double frame_time;
-    unsigned int frame_iteration;
     int timer_base;
     float timer_mul;
+    unsigned int frame_iteration;
 
-    Frame(const std::string & name, int width, int height,
-          int virtual_width, int virtual_height,
-          Color background_color, int index, GameManager * manager);
-    virtual void event_callback(int id);
-    virtual void on_start();
-    virtual void on_end();
-    virtual void handle_events();
-    virtual void update_objects(float dt) = 0;
+    Frame(GameManager * manager);
+    void reset();
     bool update(float dt);
     void pause();
     void restart();
     void draw(int remote);
-    void add_layer(double scroll_x, double scroll_y, bool wrap_x,
-                   bool wrap_y, bool visible);
     FrameObject * add_object(FrameObject * object, int layer_indcex);
     FrameObject * add_object(FrameObject * object, Layer * layer);
     void add_background_object(FrameObject * object, int layer_index);
@@ -166,6 +176,29 @@ public:
     void clean_instances();
     void set_vsync(bool value);
     int get_instance_count();
+
+    virtual void set_index(int index) = 0;
+
+    void event_callback(int id)
+    {
+        data->event_callback(id);
+    }
+
+    void on_start()
+    {
+        data->on_start();
+    }
+
+    void on_end()
+    {
+        data->on_end();
+        reset();
+    }
+
+    void set_data(FrameData * data)
+    {
+        this->data = data;
+    }
 };
 
 #endif // CHOWDREN_FRAME_H

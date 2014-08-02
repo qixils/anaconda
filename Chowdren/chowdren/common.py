@@ -106,12 +106,6 @@ def to_c(format_spec, *args, **kw):
         new_args.append(arg)
     return format_spec % tuple(new_args)
 
-def get_image_name(value, pointer = True):
-    ret = 'get_internal_image(%s)' % value
-    if not pointer:
-        ret = '(*%s)' % ret
-    return ret
-
 def make_color(value):
     return 'Color(%s)' % ', '.join([str(item) for item in value])
 
@@ -211,3 +205,6 @@ def get_animation_name(index):
         return ANIMATION_NAMES[index]
     except IndexError:
         return str(index)
+
+TEMPORARY_GROUP_ID = 'thisisthetempid'
+TEMPORARY_HASH_ID = 'thisisthehashid'

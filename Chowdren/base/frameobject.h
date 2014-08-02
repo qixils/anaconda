@@ -5,7 +5,6 @@
 #include "alterables.h"
 #include "color.h"
 #include <string>
-#include <vector>
 #include "types.h"
 #include <algorithm>
 #include <stdarg.h>
@@ -182,7 +181,7 @@ public:
 #endif
 };
 
-typedef std::vector<FrameObject*> FlatObjectList;
+typedef vector<FrameObject*> FlatObjectList;
 
 #define LAST_SELECTED 0
 
@@ -190,9 +189,13 @@ struct ObjectListItem
 {
     FrameObject * obj;
     unsigned int next;
+
+    ObjectListItem()
+    {
+    }
 };
 
-typedef std::vector<ObjectListItem> ObjectListItems;
+typedef vector<ObjectListItem> ObjectListItems;
 
 /*
 Layout of ObjectList:
@@ -681,7 +684,7 @@ class SavedSelection
 {
 public:
     unsigned int start;
-    std::vector<int> items;
+    vector<int> items;
 
     SavedSelection()
     {
@@ -720,7 +723,7 @@ public:
 class SavedQualifierSelection
 {
 public:
-    std::vector<SavedSelection> items;
+    vector<SavedSelection> items;
 
     SavedQualifierSelection()
     {
@@ -728,7 +731,7 @@ public:
 
     void clear()
     {
-        std::vector<SavedSelection>::iterator it;
+        vector<SavedSelection>::iterator it;
         for (it = items.begin(); it != items.end(); it++) {
             it->clear();
         }

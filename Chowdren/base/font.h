@@ -18,7 +18,7 @@ typedef enum
 
 #include <math.h>
 #include "include_gl.h"
-#include <vector>
+#include "types.h"
 #include "datastream.h"
 #include <string>
 
@@ -303,7 +303,7 @@ class FTCharToGlyphIndexMap
 class FTGlyph;
 class FTFont;
 
-typedef std::vector<FTGlyph*> GlyphVector;
+typedef vector<FTGlyph*> GlyphVector;
 
 class FTGlyphContainer
 {
@@ -406,7 +406,7 @@ public:
     GLsizei maximumGLTextureSize;
     GLsizei textureWidth;
     GLsizei textureHeight;
-    std::vector<GLuint> textureIDList;
+    vector<GLuint> textureIDList;
     int glyphHeight;
     int glyphWidth;
     unsigned int padding;
@@ -500,7 +500,7 @@ class FTSimpleLayout
 
 };
 
-typedef std::vector<FTTextureFont*> FontList;
+typedef vector<FTTextureFont*> FontList;
 
 bool load_fonts(const std::string & filename, FontList & fonts);
 

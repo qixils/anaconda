@@ -6,8 +6,7 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING)
-from chowdren.common import (get_image_name, get_animation_name, to_c,
-    make_color)
+from chowdren.common import get_animation_name, to_c, make_color
 from chowdren import hacks
 
 class Active(ObjectWriter):
@@ -74,6 +73,7 @@ class Active(ObjectWriter):
         return True
 
     def write_class(self, writer):
+        get_image = self.converter.get_image
         animations = self.common.animations.loadedAnimations
         for animation_index, animation in animations.iteritems():
             single_loop = animation.getName() in ('Appearing', 'Disappearing')
@@ -91,7 +91,7 @@ class Active(ObjectWriter):
                     direction.maxSpeed, loop_count, direction.backTo))
                 for image in direction.frames:
                     writer.putln('add_image(%s, %s, %s);' % (animation_name,
-                        direction_index, get_image_name(image)))
+                        direction_index, get_image(image)))
             writer.end_brace()
 
     def get_images(self):
@@ -114,7 +114,7 @@ class Backdrop(ObjectWriter):
             raise NotImplementedError
 
     def write_init(self, writer):
-        image = get_image_name(self.common.image)
+        image = self.converter.get_image(self.common.image)
         writer.putln('image = %s;' % image)
         if self.data.name.endswith('(DRC)'):
             writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
@@ -185,7 +185,7 @@ class QuickBackdrop(ObjectWriter):
             writer.putln('color2 = %s;' % make_color(color2))
         elif fill == 'Motif':
             writer.putlnc('image = %s;',
-                          get_image_name(shape.image))
+                          self.converter.get_image(shape.image))
         elif color2 is not None:
             raise NotImplementedError
         else:
@@ -288,7 +288,7 @@ class Counter(ObjectWriter):
                 writer.putln('initialized = true;')
                 for char_index, char in enumerate(COUNTER_FRAMES):
                     writer.putlnc('counter_images[%s] = %s;', char_index,
-                        get_image_name(counters.frames[char_index]))
+                        self.converter.get_image(counters.frames[char_index]))
                 writer.end_brace()
                 writer.putln('images = (Image**)&counter_images;')
                 writer.putln('image_count = 14;')
@@ -323,8 +323,8 @@ class Counter(ObjectWriter):
                 writer.indent()
                 writer.putln('initialized = true;')
                 for index, image in enumerate(counters.frames):
-                    writer.putlnc('counter_images[%s] = %s;',
-                        index, get_image_name(counters.frames[index]))
+                    image = self.converter.get_image(image)
+                    writer.putlnc('counter_images[%s] = %s;', index, image)
                 writer.end_brace()
                 writer.putln('images = (Image**)&counter_images;')
                 writer.putlnc('image_count = %s;', size)
@@ -386,7 +386,7 @@ class Lives(ObjectWriter):
         if display_type != ANIMATION:
             raise NotImplementedError()
         image = counters.frames[0]
-        writer.putln('image = %s;' % get_image_name(image))
+        writer.putln('image = %s;' % self.converter.get_image(image))
 
     def get_images(self):
         return [self.common.counters.frames[0]]

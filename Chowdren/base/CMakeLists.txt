@@ -62,6 +62,7 @@ elseif (USE_GLES2)
 endif()
 
 FILE(GLOB FRAMESRCS "frame*.cpp")
+FILE(GLOB EVENTSRCS "events*.cpp")
 FILE(GLOB OBJECTSRCS "objects*.cpp")
 
 if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
@@ -70,10 +71,6 @@ if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
         ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
         ${PLATFORM_SRCS}
     )
-
-    if (USE_GL)
-        set(PLATFORM_SRCS ${CHOWDREN_BASE_DIR}/glew.c ${PLATFORM_SRCS})
-    endif()
 endif()
 
 set(SRCS
@@ -84,11 +81,11 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
-    ${GLEW_C}
     ${PLATFORM_CPP}
     ${CHOWDREN_BASE_DIR}/shader.cpp
     ${CHOWDREN_BASE_DIR}/font.cpp
     ${FRAMESRCS}
+    ${EVENTSRCS}
     ${CHOWDREN_BASE_DIR}/movement.cpp
     ${CHOWDREN_BASE_DIR}/common.cpp
     ${CHOWDREN_BASE_DIR}/media.cpp
@@ -195,12 +192,14 @@ if(MSVC)
     # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305")
     add_definitions("-D_CRT_SECURE_NO_WARNINGS")
+    add_definitions("-D_SCL_SECURE_NO_WARNINGS")
     # multicore compile
     add_definitions("/MP")
     add_definitions("/arch:SSE2")
+    # Disable RTTI
+    STRING(REGEX REPLACE "/GR" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
 endif()
-
-add_definitions(-DGLEW_STATIC)
 
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)

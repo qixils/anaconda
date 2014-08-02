@@ -1,13 +1,14 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
-#include <vector>
+#include "types.h"
+#include "stringcommon.h"
 #include <string>
 
 class GlobalValues
 {
 public:
-    std::vector<double> values;
+    vector<double> values;
 
     GlobalValues()
     {
@@ -49,7 +50,7 @@ public:
 class GlobalStrings
 {
 public:
-    std::vector<std::string> values;
+    vector<std::string> values;
 
     GlobalStrings()
     {
@@ -58,8 +59,7 @@ public:
     const std::string & get(size_t index)
     {
         if (index >= values.size()) {
-            static std::string empty;
-            return empty;
+            return empty_string;
         }
         return values[index];
     }

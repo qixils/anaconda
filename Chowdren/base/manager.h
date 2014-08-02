@@ -1,6 +1,7 @@
 #ifndef CHOWDREN_MANAGER_H
 #define CHOWDREN_MANAGER_H
 
+#include "events.h"
 #include "globals.h"
 #include "color.h"
 #include "fpslimit.h"

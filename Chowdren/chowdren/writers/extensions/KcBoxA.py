@@ -1,5 +1,5 @@
 from chowdren.writers.objects import ObjectWriter
-from chowdren.common import (get_image_name, get_animation_name, to_c,
+from chowdren.common import (get_animation_name, to_c,
     make_color)
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table, EmptyAction)
@@ -103,7 +103,7 @@ class SystemBox(ObjectWriter):
         if self.image == -1:
             raise NotImplementedError()
 
-        writer.putln('image = %s;' % get_image_name(self.image))
+        writer.putln('image = %s;' % self.converter.get_image(self.image))
         data.skipBytes(2) # rData_wFree
         text_color = read_system_color(data)
         margin_left = data.readShort()

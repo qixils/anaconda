@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 #include <ctype.h>
-#include <vector>
+#include "types.h"
 #include <algorithm>
 
 extern std::string empty_string;
@@ -62,7 +62,7 @@ inline void replace_substring(std::string & str,
 }
 
 inline void split_string(const std::string & s, char delim,
-                         std::vector<std::string> & elems)
+                         vector<std::string> & elems)
 {
     std::stringstream ss(s);
     std::string item;
@@ -72,7 +72,7 @@ inline void split_string(const std::string & s, char delim,
 }
 
 inline void split_string(const std::string & str, const std::string & delims,
-                         std::vector<std::string> & elems)
+                         vector<std::string> & elems)
 {
     std::string::size_type last_pos = str.find_first_not_of(delims, 0);
     std::string::size_type pos = str.find_first_of(delims, last_pos);

@@ -126,10 +126,17 @@ class ObjectWriter(BaseWriter):
         return []
 
     def add_event_callback(self, name):
-        wrapper_name = '%s_%s' % (name, get_id(self))
         event_id = self.converter.event_callback_ids.next()
-        self.event_callbacks[(name, wrapper_name)] = event_id
-        return wrapper_name
+        self.event_callbacks[name] = event_id
+        return event_id
+
+    def write_event_callback(self, name, writer, groups):
+        wrapper_name = '%s_%s_%s' % (name, get_id(self),
+                                     self.converter.current_frame_index)
+        event_id = self.event_callbacks[name]
+        wrapper_name = self.converter.write_generated(wrapper_name, writer,
+                                                      groups)
+        self.converter.event_callbacks[event_id] = wrapper_name
 
     def write_internal_class(self, writer):
         if not self.is_global():
@@ -139,14 +146,13 @@ class ObjectWriter(BaseWriter):
         writer.putln('static AlterableStrings saved_strings;')
 
     def has_dtor(self):
-        return self.use_alterables
+        return self.is_global()
 
     def write_dtor(self, writer):
         if self.is_global():
             writer.putln('has_saved_alterables = true;')
             writer.putln('saved_values.set(*values);')
             writer.putln('saved_strings.set(*strings);')
-        writer.putln('delete alterables;')
 
     def load_alterables(self, writer):
         if not self.use_alterables:
@@ -198,3 +204,14 @@ class ObjectWriter(BaseWriter):
     @staticmethod
     def write_application(converter):
         pass
+
+class EventCallback(object):
+    def __init__(self, base, converter):
+        self.base = base
+        self.converter = converter
+
+    def __str__(self):
+        return '%s_%s' % (self.base, self.converter.current_frame_index)
+
+    def __hash__(self):
+        return hash(self.base)

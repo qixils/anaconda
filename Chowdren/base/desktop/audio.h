@@ -1,6 +1,4 @@
 #include <string>
-#include <set>
-#include <vector>
 #include <algorithm>
 
 #ifdef CHOWDREN_IS_EMSCRIPTEN
@@ -94,7 +92,7 @@ public:
     ALCdevice * device;
     ALCcontext * context;
     ALboolean direct_channels_ext, sub_buffer_data_ext;
-    std::vector<SoundStream*> streams;
+    vector<SoundStream*> streams;
     boost::thread * streaming_thread;
     boost::recursive_mutex stream_mutex;
     volatile bool closing;
@@ -241,7 +239,7 @@ public:
 };
 
 class Sound;
-typedef std::set<Sound*> SoundList;
+typedef vector<Sound*> SoundList;
 
 class Sample
 {
@@ -827,14 +825,14 @@ void AudioDevice::stream_update()
 #ifdef CHOWDREN_IS_EMSCRIPTEN
     if (closing)
         return;
-    std::vector<SoundStream*>::const_iterator it;
+    vector<SoundStream*>::const_iterator it;
     for (it = streams.begin(); it != streams.end(); it++)
         (*it)->update();
     emscripten_async_call(_stream_update, (void*)this, 125);
 #else
     while (!closing) {
         stream_mutex.lock();
-        std::vector<SoundStream*>::const_iterator it;
+        vector<SoundStream*>::const_iterator it;
         for (it = streams.begin(); it != streams.end(); it++)
             (*it)->update();
         stream_mutex.unlock();
@@ -888,21 +886,27 @@ Sample::Sample(const std::string & filename)
 
 Sample::~Sample()
 {
-    for (SoundList::const_iterator it = sounds.begin(); it != sounds.end();
-         ++it)
+    SoundList::const_iterator it;
+    for (it = sounds.begin(); it != sounds.end(); ++it)
         (*it)->reset_buffer();
 
     delete buffer;
 }
 
-void Sample::add_sound(Sound* sound)
+void Sample::add_sound(Sound * sound)
 {
-    sounds.insert(sound);
+    sounds.push_back(sound);
 }
 
-void Sample::remove_sound(Sound* sound)
+void Sample::remove_sound(Sound * sound)
 {
-    sounds.erase(sound);
+    SoundList::iterator it;
+    for (it = sounds.begin(); it != sounds.end(); ++it) {
+        if (*it != sound)
+            continue;
+        sounds.erase(it);
+        break;
+    }
 }
 
 } // namespace ChowdrenAudio

@@ -1,7 +1,6 @@
 from chowdren.writers.objects import ObjectWriter
 
-from chowdren.common import (get_image_name, get_animation_name, to_c,
-    make_color)
+from chowdren.common import get_animation_name, to_c, make_color
 
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
@@ -128,7 +127,7 @@ class TextBlitter(ObjectWriter):
         writer.putlnc('char_offset = %s;', char_offset)
         writer.putlnc('x_off = %s;', image_offset[0])
         writer.putlnc('y_off = %s;', image_offset[1])
-        writer.putln('image = %s;' % get_image_name(image))
+        writer.putln('image = %s;' % self.converter.get_image(image))
         align_flags = []
         if horizontal_align == 0:
             align_flags.append('ALIGN_LEFT')

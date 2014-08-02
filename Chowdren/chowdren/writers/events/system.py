@@ -5,7 +5,7 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
                              parse_direction, get_flag_direction,
-                             get_list_type, get_iter_type)
+                             get_list_type, get_iter_type, TEMPORARY_GROUP_ID)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
@@ -20,6 +20,9 @@ def get_loop_running_name(name):
 
 def get_loop_index_name(name):
     return 'loop_%s_index' % get_method_name(name)
+
+def get_loop_func_name(name, converter):
+    return '%s_%s' % (get_method_name(name), converter.current_frame_index)
 
 def get_repeat_name(group):
     return 'repeat_%s' % group.unique_id
@@ -37,49 +40,38 @@ class SystemObject(ObjectWriter):
     def write_frame(self, writer):
         self.write_group_activated(writer)
         self.write_loops(writer)
-        self.write_repeats(writer)
-        self.write_restrict_for(writer)
         # self.write_collisions(writer)
 
     def write_start(self, writer):
-        for container, names in self.group_activations.iteritems():
-            for name in names:
-                writer.putln(to_c('%s = true;', name))
         for name in self.loops.keys():
             running_name = get_loop_running_name(name)
             index_name = get_loop_index_name(name)
             writer.putln('%s = false;' % running_name)
             writer.putln('%s = 0;' % index_name)
         if self.dynamic_loops:
+            writer.putln('static DynamicLoops frame_loops;')
+            writer.putln('loops = &frame_loops;')
             writer.putln('static bool loops_initialized = false;')
             writer.putln('if (!loops_initialized) {')
             writer.indent()
             for loop in self.dynamic_loops:
-                loop_method = 'loop_wrapper_' + get_method_name(loop)
+                loop_method = 'loop_wrapper_' + get_loop_func_name(
+                    loop, self.converter)
                 running_name = get_loop_running_name(loop)
                 index_name = get_loop_index_name(loop)
-                writer.putlnc('loops[%r].set(&%s, &%s, &%s);',
+                writer.putlnc('frame_loops[%r].set(&%s, &%s, &%s);',
                               loop, loop_method, running_name, index_name)
             writer.putln('loops_initialized = true;')
             writer.end_brace()
-        for name in self.repeats:
-            writer.putlnc('%s = 0;', name)
-        for name in self.restrict:
-            writer.putlnc('%s = frame_time;', name)
+        else:
+            writer.putln('loops = NULL;')
 
-    def write_restrict_for(self, writer):
-        self.restrict = []
         for group in self.converter.always_groups_dict['RestrictFor']:
             name = get_restrict_name(group)
-            writer.add_member('float ' + name)
-            self.restrict.append(name)
-
-    def write_repeats(self, writer):
-        self.repeats = []
+            group.add_member(writer, 'float %s' % name, 'frame_time')
         for group in self.converter.always_groups_dict['Repeat']:
             name = get_repeat_name(group)
-            writer.add_member('int ' + name)
-            self.repeats.append(name)
+            group.add_member(writer, 'int %s' % name, '0')
 
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
@@ -87,7 +79,7 @@ class SystemObject(ObjectWriter):
             cond = group.conditions[0]
             container = cond.container
             check_name = cond.get_group_check()
-            writer.add_member('bool %s' % check_name)
+            group.add_member(writer, 'bool %s' % check_name, 'true')
             self.group_activations[container].append(check_name)
 
     def write_collisions(self, writer):
@@ -132,6 +124,7 @@ class SystemObject(ObjectWriter):
 
     def write_loops(self, writer):
         self.loop_names = set()
+        self.loop_funcs = {}
         loops = self.loops = defaultdict(list)
         self.dynamic_loops = set()
         for loop_group in self.get_conditions('OnLoop'):
@@ -165,37 +158,45 @@ class SystemObject(ObjectWriter):
             self.dynamic_loops.update(names)
 
         self.converter.begin_events()
+
+        loop_order = []
+        defer_loops = []
         for name, groups in loops.iteritems():
-            profile = name in PROFILE_LOOPS
-            loop_name = get_method_name(name)
-            writer.putmeth('bool loop_%s' % loop_name)
+            defer = False
+            for group in groups:
+                for action in group.actions:
+                    if action.data.getName() == 'StartLoop':
+                        defer = True
+                        break
+                if defer:
+                    break
+
+            if defer:
+                defer_loops.append(name)
+            else:
+                loop_order.append(name)
+
+        loop_order += defer_loops
+
+        for name in loop_order:
+            groups = loops[name]
+            loop_name = 'loop_%s' % get_loop_func_name(name, self.converter)
             self.converter.current_loop_name = name
+            self.converter.current_loop_func = loop_name
+            loop_name = self.converter.write_generated(loop_name, writer,
+                                                       groups)
+            self.loop_funcs[name.lower()] = loop_name
 
-            if profile:
-                writer.putln('double profile_time, profile_dt;')
-
-            for index, group in enumerate(groups):
-                if profile:
-                    writer.putln('profile_time = platform_get_time();')
-                self.converter.write_event(writer, group, True)
-                if profile:
-                    writer.putln('profile_dt = platform_get_time() '
-                                              '- profile_time;')
-                    writer.putln('if (profile_dt > 0.0001)')
-                    writer.indent()
-                    writer.putln(
-                        ('std::cout << "Event %s took " << '
-                         'profile_dt << std::endl;') % group.global_id)
-                    writer.dedent()
-            writer.putln('return true;')
-            writer.end_brace()
+        self.converter.current_loop_name = None
+        self.converter.current_loop_func = None
 
         for name in self.dynamic_loops:
-            loop_name = get_method_name(name)
-            writer.putmeth('static bool loop_wrapper_%s' % loop_name,
+            loop_func = self.loop_funcs[name]
+            loop_name = get_loop_func_name(name, self.converter)
+            writer.putmeth('static void loop_wrapper_%s' % loop_name,
                            'void * frame')
-            writer.putlnc('return ((%s*)frame)->loop_%s();',
-                          self.converter.frame_class, loop_name)
+            writer.putlnc('((Frames*)frame)->%s();',
+                          self.converter.frame_class, loop_func)
             writer.end_brace()
 
 
@@ -373,7 +374,7 @@ class TimerEvery(ConditionWriter):
         time = self.parameters[0].loader
         time = getattr(time, 'delay', None) or time.timer
         seconds = time / 1000.0
-        name = 'every_%s' % get_id(self)
+        name = 'every_%s' % TEMPORARY_GROUP_ID
         name2 = '%s_frame' % name
         writer.putln('static float %s = 0.0f;' % name)
         writer.putlnc('static unsigned int %s = frame_iteration;', name2)
@@ -403,14 +404,17 @@ class NodeReached(ConditionMethodWriter):
 
 class OnGroupActivation(ConditionWriter):
     custom = True
+    check_id = None
 
     def write(self, writer):
         group_check = self.get_group_check()
-        writer.putln('if (!%s) %s' % (group_check, self.converter.event_break))
+        writer.putlnc('if (!%s) %s', group_check, self.converter.event_break)
         writer.putln('%s = false;' % group_check)
 
     def get_group_check(self):
-        return 'group_check_%s' % get_id(self)
+        if self.check_id is None:
+            self.check_id = self.container.check_ids.next()
+        return 'group_check_%s_%s' % (self.container.code_name, self.check_id)
 
 class RepeatCondition(ConditionWriter):
     custom = True
@@ -438,7 +442,7 @@ class NotAlways(ConditionWriter):
 
     def write(self, writer):
         event_break = self.converter.event_break
-        name = 'not_always_%s' % get_id(self)
+        name = 'not_always_%s' % TEMPORARY_GROUP_ID
         name2 = '%s_frame' % name
         writer.putln('static unsigned int %s = loop_count;' % name)
         writer.putln('static unsigned int %s = frame_iteration;' % name2)
@@ -458,7 +462,7 @@ class OnceCondition(ConditionWriter):
     custom = True
     def write(self, writer):
         event_break = self.converter.event_break
-        name = 'once_condition_%s' % get_id(self)
+        name = 'once_condition_%s' % TEMPORARY_GROUP_ID
         writer.putln('static unsigned int %s = (int)(-1);' % name)
         writer.putln('if (%s == frame_iteration) %s' % (name, event_break))
         writer.putln('%s = frame_iteration;' % (name))
@@ -527,7 +531,7 @@ class CompareFixedValue(ConditionWriter):
         obj = self.get_object()
         converter = self.converter
 
-        end_label = 'fixed_%s_end' % get_id(self)
+        end_label = 'fixed_%s_end' % self.get_id(self)
         value = self.convert_index(0)
         comparison = self.get_comparison()
         is_equal = comparison == '=='
@@ -539,7 +543,7 @@ class CompareFixedValue(ConditionWriter):
         else:
             instance_value = 'get_object_from_fixed(%s)' % value
 
-        fixed_name = 'fixed_test_%s' % get_id(self)
+        fixed_name = 'fixed_test_%s' % self.get_id(self)
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         if is_equal:
             event_break = converter.event_break
@@ -606,7 +610,7 @@ class CreateBase(ActionWriter):
         details = self.convert_index(0)
         if details is None:
             return
-        end_name = 'create_%s_end' % get_id(self)
+        end_name = 'create_%s_end' % self.get_id(self)
         is_shoot = self.is_shoot
         x = str(details['x'])
         y = str(details['y'])
@@ -668,7 +672,7 @@ class CreateBase(ActionWriter):
         safe_name = None
 
         if safe:
-            safe_name = 'has_create_%s' % get_id(self)
+            safe_name = 'has_create_%s' % self.get_id(self)
             writer.putlnc('bool %s; %s = false;', safe_name, safe_name)
 
         if single_parent:
@@ -755,7 +759,7 @@ class SetPosition(ActionWriter):
     def write(self, writer):
         object_info = self.get_object()
 
-        end_name = 'pos_end_%s' % get_id(self)
+        end_name = 'pos_end_%s' % self.get_id(self)
 
         details = self.convert_index(0)
         x = str(details['x'])
@@ -831,8 +835,7 @@ class StartLoop(ActionWriter):
     def get_name(self):
         parameter = self.parameters[0]
         items = parameter.loader.items
-        real_name = self.converter.convert_static_expression(items)
-        return real_name
+        return self.converter.convert_static_expression(items)
 
     def get_dynamic_name(self):
         return self.convert_index(0)
@@ -863,8 +866,12 @@ class StartLoop(ActionWriter):
                     self.converter.clear_selection()
                 print 'Could not find loop %r' % real_name
                 return
-            name = get_method_name(real_name)
-            func_call = 'loop_%s()' % name
+            loop_funcs = self.converter.system_object.loop_funcs
+            if real_name == self.converter.current_loop_name:
+                name = self.converter.current_loop_func
+            else:
+                name = loop_funcs[real_name.lower()]
+            func_call = '%s()' % name
         comparison = None
         times = None
         try:
@@ -889,7 +896,7 @@ class StartLoop(ActionWriter):
             comparison = '%s < times' % index_name
         writer.start_brace()
         if is_dynamic:
-            writer.putlnc('DynamicLoop & dyn_loop = loops[%s];',
+            writer.putlnc('DynamicLoop & dyn_loop = (*loops)[%s];',
                           self.convert_index(0))
         writer.putln('%s = true;' % running_name)
         if not is_infinite:
@@ -1276,8 +1283,8 @@ actions = make_table(ActionMethodWriter, {
     'Destroy' : Destroy,
     'BringToBack' : 'move_back',
     'BringToFront' : 'move_front',
-    'DeleteAllCreatedBackdrops' : 'layers[%s-1]->destroy_backgrounds()',
-    'DeleteCreatedBackdrops' : 'layers[%s-1]->destroy_backgrounds(%s, %s, %s)',
+    'DeleteAllCreatedBackdrops' : 'layers[%s-1].destroy_backgrounds()',
+    'DeleteCreatedBackdrops' : 'layers[%s-1].destroy_backgrounds(%s, %s, %s)',
     'SetEffectParameter' : 'set_shader_parameter',
     'SetFrameBackgroundColor' : 'set_background_color',
     'AddBackdrop' : 'paste',

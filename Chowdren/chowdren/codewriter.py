@@ -97,6 +97,10 @@ class CodeWriter(object):
     def putmeth(self, name, *arg, **kw):
         fullarg = list(arg)
         self.putln('%s(%s)' % (name, ', '.join(fullarg)))
+        init_list = kw.get('init_list', None)
+        if init_list is not None:
+            init_list = ', '.join(init_list)
+            self.putlnc(': %s', init_list)
         self.start_brace()
 
     def put_label(self, name):

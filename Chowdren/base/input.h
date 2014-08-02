@@ -1,7 +1,7 @@
 #ifndef CHOWDREN_INPUT_H
 #define CHOWDREN_INPUT_H
 
-#include <vector>
+#include "types.h"
 
 class InputState
 {
@@ -63,7 +63,7 @@ enum {
 class InputList
 {
 public:
-    std::vector<InputState> items;
+    vector<InputState> items;
 
     void add(int v);
     void remove(int v);

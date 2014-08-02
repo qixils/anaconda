@@ -1,5 +1,3 @@
-#include <vector>
-
 FSFile::FSFile()
 : handle(NULL), closed(true)
 {

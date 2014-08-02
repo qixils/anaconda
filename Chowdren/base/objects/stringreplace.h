@@ -2,7 +2,7 @@
 #define CHOWDREN_STRINGREPLACE_H
 
 #include <string>
-#include <vector>
+#include "types.h"
 #include "frameobject.h"
 
 class StringReplacement
@@ -19,7 +19,7 @@ public:
 class StringReplace : public FrameObject
 {
 public:
-    std::vector<StringReplacement> replacements;
+    vector<StringReplacement> replacements;
 
     StringReplace(int x, int y, int id);
 

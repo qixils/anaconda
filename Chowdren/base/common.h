@@ -10,7 +10,6 @@
 #include "include_gl.h"
 #include <string>
 #include <list>
-#include <vector>
 #include <map>
 #include <iostream>
 #include <sstream>
@@ -135,7 +134,7 @@ class Direction
 public:
     int index, min_speed, max_speed, back_to;
     int loop_count;
-    std::vector<Image*> frames;
+    vector<Image*> frames;
 
     Direction(int index, int min_speed, int max_speed, int loop_count,
               int back_to);
@@ -250,7 +249,7 @@ class FTSimpleLayout;
 class Text : public FrameObject
 {
 public:
-    std::vector<std::string> paragraphs;
+    vector<std::string> paragraphs;
     std::string text;
     unsigned int current_paragraph;
     bool initialized;
@@ -383,7 +382,7 @@ public:
 class StringTokenizer : public FrameObject
 {
 public:
-    std::vector<std::string> elements;
+    vector<std::string> elements;
 
     StringTokenizer(int x, int y, int type_id);
     void split(const std::string & text, const std::string & delims);
@@ -559,7 +558,7 @@ struct LineReference
 class TextBlitter : public FrameObject
 {
 public:
-    std::vector<LineReference> lines;
+    vector<LineReference> lines;
     std::string text;
     int char_width, char_height;
     int char_offset;
@@ -644,7 +643,7 @@ public:
                int src_width, int src_height, int collision_type);
 };
 
-typedef std::vector<std::string> StringList;
+typedef vector<std::string> StringList;
 
 class ListObject : public FrameObject
 {
@@ -722,7 +721,7 @@ inline FrameObject * get_single(QualifierList & list, int index)
     return list.get_wrapped_selection(index);
 }
 
-extern std::vector<int> int_temp;
+extern vector<int> int_temp;
 
 template <bool save>
 struct OverlapCallback

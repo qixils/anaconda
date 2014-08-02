@@ -1,7 +1,6 @@
 from chowdren.writers.objects import ObjectWriter
 
-from chowdren.common import (get_image_name, get_animation_name, to_c,
-    make_color)
+from chowdren.common import get_animation_name, to_c, make_color
 
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table, TrueCondition)
@@ -30,10 +29,8 @@ class PlatformObject(ObjectWriter):
     default_instance = 'default_platform_instance'
 
     def initialize(self):
-        self.overlap_obstacle_name = self.add_event_callback(
-            'call_overlaps_obstacle')
-        self.overlap_platform_name = self.add_event_callback(
-            'call_overlaps_platform')
+        self.add_event_callback('call_overlaps_obstacle')
+        self.add_event_callback('call_overlaps_platform')
 
     def write_init(self, writer):
         data = self.get_data()
@@ -51,15 +48,13 @@ class PlatformObject(ObjectWriter):
         writer.putln(to_c('jump_through = %s;', data.readByte() == 1))
 
     def write_frame(self, writer):
-        writer.putmeth('void %s' % self.overlap_obstacle_name)
-        for group in self.get_object_conditions(TEST_OVERLAP_OBSTACLE):
-            self.converter.write_event(writer, group, True)
-        writer.end_brace()
+        self.write_event_callback(
+            'call_overlaps_obstacle', writer,
+            self.get_object_conditions(TEST_OVERLAP_OBSTACLE))
 
-        writer.putmeth('void %s' % self.overlap_platform_name)
-        for group in self.get_object_conditions(TEST_OVERLAP_PLATFORM):
-            self.converter.write_event(writer, group, True)
-        writer.end_brace()
+        self.write_event_callback(
+            'call_overlaps_platform', writer,
+            self.get_object_conditions(TEST_OVERLAP_PLATFORM))
 
 
 actions = make_table(ActionMethodWriter, {

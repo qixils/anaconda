@@ -1,7 +1,6 @@
 from chowdren.writers.objects import ObjectWriter
-from chowdren.common import (get_image_name, get_animation_name, to_c,
-    make_color)
-from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter, 
+from chowdren.common import get_animation_name, to_c, make_color
+from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
 from mmfparser.bitdict import BitDict
 
@@ -27,7 +26,7 @@ class ActivePicture(ObjectWriter):
         visible = not self.flags['HideOnStart']
         transparent_color = data.readColor()
         if not self.flags['TransparentFirstPixel']:
-            writer.putln('set_transparent_color(%s);' % 
+            writer.putln('set_transparent_color(%s);' %
                          make_color(transparent_color))
         image = data.readString(260) or None
         # objects_file.putdef('filename', image)

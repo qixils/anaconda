@@ -7,6 +7,7 @@ class EventWriter(BaseWriter):
     custom = False
     has_object = True
     container = None
+    group = None
     prefix = ''
     ignore_static = False
 
@@ -22,6 +23,14 @@ class EventWriter(BaseWriter):
             return None, self.data.objectType
         return self.data.objectInfo, self.data.objectType
 
+    def get_object_writer(self, obj=None):
+        if obj is None:
+            obj = self.get_object()
+        return self.converter.all_objects[obj]
+
+    def get_id(self, obj):
+        return self.group.get_id(obj)
+
 class ACBase(EventWriter):
     def __init__(self, *arg, **kw):
         EventWriter.__init__(self, *arg, **kw)
@@ -35,6 +44,7 @@ class ActionWriter(ACBase):
 
     def write_post(self, writer):
         pass
+
 
 class ConditionWriter(ACBase):
     negate = False

@@ -2,8 +2,32 @@
 #define INCLUDE_GL_H
 
 #ifdef CHOWDREN_USE_GL
-#include <GL/glew.h>
 #include <SDL_opengl.h>
+
+extern PFNGLBLENDEQUATIONSEPARATEPROC glBlendEquationSeparate;
+extern PFNGLBLENDEQUATIONPROC glBlendEquation;
+extern PFNGLACTIVETEXTUREPROC glActiveTexture;
+extern PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
+extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
+extern PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
+extern PFNGLMULTITEXCOORD2FPROC glMultiTexCoord2f;
+extern PFNGLUNIFORM1IPROC glUniform1i;
+extern PFNGLUSEPROGRAMPROC glUseProgram;
+extern PFNGLDETACHSHADERPROC glDetachShader;
+extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
+extern PFNGLGETPROGRAMIVPROC glGetProgramiv;
+extern PFNGLLINKPROGRAMPROC glLinkProgram;
+extern PFNGLCREATEPROGRAMPROC glCreateProgram;
+extern PFNGLATTACHSHADERPROC glAttachShader;
+extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+extern PFNGLGETSHADERIVPROC glGetShaderiv;
+extern PFNGLCOMPILESHADERPROC glCompileShader;
+extern PFNGLSHADERSOURCEPROC glShaderSource;
+extern PFNGLCREATESHADERPROC glCreateShader;
+extern PFNGLUNIFORM2FPROC glUniform2f;
+extern PFNGLUNIFORM1FPROC glUniform1f;
+extern PFNGLUNIFORM4FPROC glUniform4f;
+extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 
 #elif CHOWDREN_USE_GLES1
 #include <SDL_opengles.h>

@@ -2,13 +2,13 @@
 #define CHOWDREN_STRINGPARSER_H
 
 #include <string>
-#include <vector>
+#include "types.h"
 #include "frameobject.h"
 
 class StringParser : public FrameObject
 {
 public:
-    std::vector<std::string> elements;
+    vector<std::string> elements;
     std::string delimiters;
     std::string value;
     bool has_split;

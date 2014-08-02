@@ -24,6 +24,34 @@ bool hide_cursor = false;
 bool has_closed = false;
 Uint64 start_time;
 
+#ifdef CHOWDREN_USE_GL
+// opengl function pointers
+PFNGLBLENDEQUATIONSEPARATEPROC glBlendEquationSeparate;
+PFNGLBLENDEQUATIONPROC glBlendEquation;
+PFNGLACTIVETEXTUREPROC glActiveTexture;
+PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
+PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
+PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
+PFNGLMULTITEXCOORD2FPROC glMultiTexCoord2f;
+PFNGLUNIFORM1IPROC glUniform1i;
+PFNGLUSEPROGRAMPROC glUseProgram;
+PFNGLDETACHSHADERPROC glDetachShader;
+PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
+PFNGLGETPROGRAMIVPROC glGetProgramiv;
+PFNGLLINKPROGRAMPROC glLinkProgram;
+PFNGLCREATEPROGRAMPROC glCreateProgram;
+PFNGLATTACHSHADERPROC glAttachShader;
+PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+PFNGLGETSHADERIVPROC glGetShaderiv;
+PFNGLCOMPILESHADERPROC glCompileShader;
+PFNGLSHADERSOURCEPROC glShaderSource;
+PFNGLCREATESHADERPROC glCreateShader;
+PFNGLUNIFORM2FPROC glUniform2f;
+PFNGLUNIFORM1FPROC glUniform1f;
+PFNGLUNIFORM4FPROC glUniform4f;
+PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+#endif
+
 inline bool check_opengl_extension(const char * name)
 {
     if (SDL_GL_ExtensionSupported(name) == SDL_TRUE)
@@ -235,8 +263,79 @@ void platform_create_display(bool fullscreen)
     }
 
 #ifdef CHOWDREN_USE_GL
-    // initialize OpenGL extensions
-    glewInit();
+    // initialize OpenGL function pointers
+    glBlendEquationSeparate =
+        (PFNGLBLENDEQUATIONSEPARATEPROC)
+        SDL_GL_GetProcAddress("glBlendEquationSeparate");
+    glBlendEquation =
+        (PFNGLBLENDEQUATIONPROC)
+        SDL_GL_GetProcAddress("glBlendEquation");
+    glActiveTexture =
+        (PFNGLACTIVETEXTUREPROC)
+        SDL_GL_GetProcAddress("glActiveTexture");
+    glGenFramebuffersEXT =
+        (PFNGLGENFRAMEBUFFERSEXTPROC)
+        SDL_GL_GetProcAddress("glGenFramebuffersEXT");
+    glFramebufferTexture2DEXT =
+        (PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)
+        SDL_GL_GetProcAddress("glFramebufferTexture2DEXT");
+    glBindFramebufferEXT =
+        (PFNGLBINDFRAMEBUFFEREXTPROC)
+        SDL_GL_GetProcAddress("glBindFramebufferEXT");
+    glMultiTexCoord2f =
+        (PFNGLMULTITEXCOORD2FPROC)
+        SDL_GL_GetProcAddress("glMultiTexCoord2f");
+    glUniform1i =
+        (PFNGLUNIFORM1IPROC)
+        SDL_GL_GetProcAddress("glUniform1i");
+    glUseProgram =
+        (PFNGLUSEPROGRAMPROC)
+        SDL_GL_GetProcAddress("glUseProgram");
+    glDetachShader =
+        (PFNGLDETACHSHADERPROC)
+        SDL_GL_GetProcAddress("glDetachShader");
+    glGetProgramInfoLog =
+        (PFNGLGETPROGRAMINFOLOGPROC)
+        SDL_GL_GetProcAddress("glGetProgramInfoLog");
+    glGetProgramiv =
+        (PFNGLGETPROGRAMIVPROC)
+        SDL_GL_GetProcAddress("glGetProgramiv");
+    glLinkProgram =
+        (PFNGLLINKPROGRAMPROC)
+        SDL_GL_GetProcAddress("glLinkProgram");
+    glCreateProgram =
+        (PFNGLCREATEPROGRAMPROC)
+        SDL_GL_GetProcAddress("glCreateProgram");
+    glAttachShader =
+        (PFNGLATTACHSHADERPROC)
+        SDL_GL_GetProcAddress("glAttachShader");
+    glGetShaderInfoLog =
+        (PFNGLGETSHADERINFOLOGPROC)
+        SDL_GL_GetProcAddress("glGetShaderInfoLog");
+    glGetShaderiv =
+        (PFNGLGETSHADERIVPROC)
+        SDL_GL_GetProcAddress("glGetShaderiv");
+    glCompileShader =
+        (PFNGLCOMPILESHADERPROC)
+        SDL_GL_GetProcAddress("glCompileShader");
+    glShaderSource =
+        (PFNGLSHADERSOURCEPROC)
+        SDL_GL_GetProcAddress("glShaderSource");
+    glCreateShader =
+        (PFNGLCREATESHADERPROC)
+        SDL_GL_GetProcAddress("glCreateShader");
+    glUniform2f =
+        (PFNGLUNIFORM2FPROC)
+        SDL_GL_GetProcAddress("glUniform2f");
+    glUniform1f =
+        (PFNGLUNIFORM1FPROC)
+        SDL_GL_GetProcAddress("glUniform1f");
+    glUniform4f =
+        (PFNGLUNIFORM4FPROC)
+        SDL_GL_GetProcAddress("glUniform4f");
+    glGetUniformLocation =
+        (PFNGLGETUNIFORMLOCATIONPROC)
+        SDL_GL_GetProcAddress("glGetUniformLocation");
 #endif
 
     // check extensions
@@ -401,7 +500,7 @@ const std::string & platform_get_appdata_dir()
 // joystick
 
 class JoystickData;
-static std::vector<JoystickData> joysticks;
+static vector<JoystickData> joysticks;
 static SDL_HapticEffect rumble_effect;
 
 class JoystickData
@@ -512,7 +611,7 @@ JoystickData & get_joy(int n)
 
 JoystickData * get_joy_instance(int instance)
 {
-    std::vector<JoystickData>::iterator it;
+    vector<JoystickData>::iterator it;
     for (it = joysticks.begin(); it != joysticks.end(); it++) {
         JoystickData & j = *it;
         if (j.instance != instance)
@@ -526,7 +625,7 @@ void add_joystick(int device)
 {
     if (!SDL_IsGameController(device))
         return;
-    std::vector<JoystickData>::iterator it;
+    vector<JoystickData>::iterator it;
     for (it = joysticks.begin(); it != joysticks.end(); it++) {
         JoystickData & j = *it;
         if (j.device == device)
@@ -542,7 +641,7 @@ void add_joystick(int device)
 
 void remove_joystick(int instance)
 {
-    std::vector<JoystickData>::iterator it;
+    vector<JoystickData>::iterator it;
     for (it = joysticks.begin(); it != joysticks.end(); it++) {
         JoystickData & j = *it;
         if (j.instance != instance)

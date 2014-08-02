@@ -147,15 +147,40 @@ bool Background::collide(CollisionBase * a)
 
 // Layer
 
+Layer::Layer()
+{
+    reset();
+}
+
 Layer::Layer(int index, double scroll_x, double scroll_y, bool visible,
              bool wrap_x, bool wrap_y)
-: visible(visible), scroll_x(scroll_x), scroll_y(scroll_y), back(NULL),
-  index(index), x(0), y(0), off_x(0), off_y(0), order_changed(false),
-  wrap_x(wrap_x), wrap_y(wrap_y)
 {
+    init(index, scroll_x, scroll_y, visible, wrap_x, wrap_y);
+}
+
+void Layer::reset()
+{
+    x = y = 0;
+    off_x = off_y = 0;
+    order_changed = false;
+    back = NULL;
+}
+
+void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
+                 bool wrap_x, bool wrap_y)
+{
+    reset();
+
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     remote = CHOWDREN_TV_TARGET;
 #endif
+
+    this->index = index;
+    this->scroll_x = scroll_x;
+    this->scroll_y = scroll_y;
+    this->visible = visible;
+    this->wrap_x = wrap_x;
+    this->wrap_y = wrap_y;
 
     scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
 }
@@ -485,279 +510,45 @@ void Layer::set_remote(int value)
 }
 #endif
 
+// FrameData
+
+FrameData::FrameData(Frame * frame)
+: frame(frame)
+{
+}
+
+void FrameData::event_callback(int id)
+{
+}
+
+void FrameData::on_start()
+{
+}
+
+void FrameData::on_end()
+{
+}
+
+void FrameData::handle_events()
+{
+}
+
 // Frame
 
-Frame::Frame(const std::string & name, int width, int height,
-             int virtual_width, int virtual_height,
-             Color background_color, int index, GameManager * manager)
-: name(name), width(width), height(height), virtual_width(virtual_width),
-  virtual_height(virtual_height), index(index),
-  background_color(background_color), manager(manager),
-  off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
+Frame::Frame(GameManager * manager)
+: off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
-  frame_iteration(0)
+  frame_iteration(0), index(-1), manager(manager)
 {
-}
-
-void Frame::event_callback(int id)
-{
-}
-
-void Frame::on_start()
-{
-}
-
-void Frame::on_end()
-{
-    ObjectList::iterator it;
-    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
-        ObjectList & list = GameManager::instances.items[i];
-        for (it = list.begin(); it != list.end(); it++) {
-            if (it->obj->flags & BACKGROUND)
-                continue;
-            delete it->obj;
-        }
-    }
-
-    std::vector<Layer*>::const_iterator layer_it;
-    for (layer_it = layers.begin(); layer_it != layers.end(); layer_it++) {
-        delete *layer_it;
-    }
-
-    layers.clear();
-    GameManager::instances.clear();
-    destroyed_instances.clear();
-    next_frame = -1;
-    loop_count = 0;
-    off_x = new_off_x = 0;
-    off_y = new_off_y = 0;
-    frame_time = 0.0;
-    frame_iteration++;
-}
-
-void Frame::handle_events() {}
-
-void Frame::clean_instances()
-{
-    FlatObjectList::const_iterator it;
-    for (it = destroyed_instances.begin(); it != destroyed_instances.end();
-         it++) {
-        FrameObject * instance = *it;
-        GameManager::instances.items[instance->id].remove(instance);
-        instance->layer->remove_object(instance);
-        delete instance;
-    }
-    destroyed_instances.clear();
-}
-
-bool Frame::update(float dt)
-{
-    frame_time += dt;
-
-    if (timer_base == 0) {
-        timer_mul = 1.0f;
-    } else {
-        timer_mul = dt * timer_base;
-    }
-
-    PROFILE_BEGIN(frame_update_objects);
-    update_objects(dt);
-    PROFILE_END();
-
-    PROFILE_BEGIN(clean_instances);
-    clean_instances();
-    PROFILE_END();
-
-    PROFILE_BEGIN(handle_events);
-    handle_events();
-    update_display_center();
-    PROFILE_END();
-
-    last_key = -1;
-
-    loop_count++;
-
-    return !has_quit;
 }
 
 void Frame::pause()
 {
-
 }
 
 void Frame::restart()
 {
     next_frame = -2;
-}
-
-void Frame::draw(int remote)
-{
-    PROFILE_BEGIN(frame_draw_start);
-    // first, draw the actual window contents
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
-    if (remote == CHOWDREN_REMOTE_TARGET)
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    else
-#endif
-    {
-        glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
-                     background_color.b / 255.0f, 1.0f);
-    }
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
-    if (remote != CHOWDREN_REMOTE_ONLY)
-#endif
-    {
-        glClear(GL_COLOR_BUFFER_BIT);
-    }
-
-    PROFILE_END();
-
-    std::vector<Layer*>::const_iterator it;
-    for (it = layers.begin(); it != layers.end(); it++) {
-        Layer * layer = *it;
-
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
-        if (remote == CHOWDREN_HYBRID_TARGET) {
-            if (layer->remote == CHOWDREN_REMOTE_TARGET)
-                continue;
-        } else if (remote == CHOWDREN_REMOTE_TARGET) {
-            if (layer->remote == CHOWDREN_TV_TARGET)
-                continue;
-        } else if (remote == CHOWDREN_TV_TARGET) {
-            if (layer->remote != CHOWDREN_TV_TARGET)
-                continue;
-        } else if (remote == CHOWDREN_REMOTE_ONLY) {
-            if (layer->remote != CHOWDREN_REMOTE_TARGET)
-                continue;
-        }
-#endif
-
-        glLoadIdentity();
-        glTranslatef(-floor(off_x * layer->scroll_x),
-                     -floor(off_y * layer->scroll_y), 0.0);
-        layer->draw();
-    }
-
-// #ifdef CHOWDREN_USE_BOX2D
-//     Box2D::draw_debug();
-// #endif
-}
-
-static Layer default_layer(0, 1.0, 1.0, false, false, false);
-
-void setup_default_instance(FrameObject * obj)
-{
-    obj->layer = &default_layer;
-    obj->width = obj->height = 0;
-}
-
-class DefaultActive : public Active
-{
-public:
-    DefaultActive()
-    : Active(0, 0, 0)
-    {
-        setup_default_instance(this);
-        collision = new InstanceBox(this);
-        create_alterables();
-    }
-};
-
-static DefaultActive default_active;
-FrameObject * default_active_instance = &default_active;
-
-#ifdef CHOWDREN_USE_BLITTER
-
-class DefaultBlitter : public TextBlitter
-{
-public:
-    DefaultBlitter()
-    : TextBlitter(0, 0, 0)
-    {
-        setup_default_instance(this);
-        collision = new InstanceBox(this);
-        create_alterables();
-    }
-};
-
-static DefaultBlitter default_blitter;
-FrameObject * default_blitter_instance = &default_blitter;
-
-#endif
-
-void Frame::add_layer(double scroll_x, double scroll_y, bool visible,
-                      bool wrap_x, bool wrap_y)
-{
-    Layer * layer = new Layer(layers.size(), scroll_x, scroll_y, visible,
-                              wrap_x, wrap_y);
-    layers.push_back(layer);
-}
-
-FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
-{
-    instance->frame = this;
-    instance->layer = layer;
-    GameManager::instances.items[instance->id].add(instance);
-    layer->add_object(instance);
-    if (instance->collision) {
-        instance->collision->update_aabb();
-        instance->collision->create_proxy();
-    }
-    return instance;
-}
-
-FrameObject * Frame::add_object(FrameObject * instance, int layer_index)
-{
-    layer_index = int_max(0, int_min(layer_index, layers.size() - 1));
-    Layer * layer = layers[layer_index];
-    return add_object(instance, layer);
-}
-
-void Frame::add_background_object(FrameObject * instance, int layer_index)
-{
-    instance->frame = this;
-    Layer * layer = layers[layer_index];
-    instance->layer = layer;
-    if (instance->id != BACKGROUND_TYPE) {
-        GameManager::instances.items[instance->id].add(instance);
-    }
-    layer->add_background_object(instance);
-    if (instance->collision) {
-        instance->collision->update_aabb();
-        instance->collision->create_proxy();
-    } else {
-        int bb[4] = {instance->x,
-                     instance->y,
-                     instance->x + instance->width,
-                     instance->y + instance->height};
-        layer->broadphase.add(instance, bb);
-    }
-}
-
-void Frame::set_object_layer(FrameObject * instance, int new_layer)
-{
-    new_layer = clamp(new_layer, 0, layers.size()-1);
-    instance->layer->remove_object(instance);
-    Layer * layer = layers[new_layer];
-    if (instance->collision)
-        instance->collision->remove_proxy();
-    layer->add_object(instance);
-    int x = instance->get_x();
-    int y = instance->get_y();
-    instance->layer = layer;
-    instance->set_global_position(x, y);
-    if (instance->collision)
-        instance->collision->create_proxy();
-}
-
-int Frame::get_loop_index(const std::string & name)
-{
-    return *(loops[name].index);
 }
 
 void Frame::set_timer(double value)
@@ -792,16 +583,16 @@ void Frame::update_display_center()
     if (off_x == new_off_x && off_y == new_off_y)
         return;
 
-    std::vector<Layer*>::const_iterator it;
+    vector<Layer>::iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
-        Layer * layer = *it;
-        int x1 = off_x * layer->scroll_x;
-        int y1 = off_y * layer->scroll_y;
-        int x2 = new_off_x * layer->scroll_x;
-        int y2 = new_off_y * layer->scroll_y;
+        Layer & layer = *it;
+        int x1 = off_x * layer.scroll_x;
+        int y1 = off_y * layer.scroll_y;
+        int x2 = new_off_x * layer.scroll_x;
+        int y2 = new_off_y * layer.scroll_y;
         int layer_off_x = new_off_x - x2;
         int layer_off_y = new_off_y - y2;
-        layer->scroll(layer_off_x, layer_off_y, x2 - x1, y2 - y1);
+        layer.scroll(layer_off_x, layer_off_y, x2 - x1, y2 - y1);
     }
 
     off_x = new_off_x;
@@ -857,9 +648,9 @@ bool Frame::test_background_collision(int x, int y)
 {
     if (x < 0 || y < 0 || x > width || y > height)
         return false;
-    std::vector<Layer*>::const_iterator it;
+    vector<Layer>::iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
-        if ((*it)->test_background_collision(x, y))
+        if ((*it).test_background_collision(x, y))
             return true;
     }
     return false;
@@ -900,6 +691,235 @@ int Frame::get_instance_count()
     return size;
 }
 
+void Frame::clean_instances()
+{
+    FlatObjectList::const_iterator it;
+    for (it = destroyed_instances.begin(); it != destroyed_instances.end();
+         it++) {
+        FrameObject * instance = *it;
+        GameManager::instances.items[instance->id].remove(instance);
+        instance->layer->remove_object(instance);
+        delete instance;
+    }
+    destroyed_instances.clear();
+}
+
+extern void global_object_update(float dt);
+
+bool Frame::update(float dt)
+{
+    frame_time += dt;
+
+    if (timer_base == 0) {
+        timer_mul = 1.0f;
+    } else {
+        timer_mul = dt * timer_base;
+    }
+
+    PROFILE_BEGIN(frame_update_objects);
+    global_object_update(dt);
+    PROFILE_END();
+
+    PROFILE_BEGIN(clean_instances);
+    clean_instances();
+    PROFILE_END();
+
+    PROFILE_BEGIN(handle_events);
+    data->handle_events();
+    update_display_center();
+    PROFILE_END();
+
+    last_key = -1;
+
+    loop_count++;
+
+    return !has_quit;
+}
+
+void Frame::draw(int remote)
+{
+    PROFILE_BEGIN(frame_draw_start);
+    // first, draw the actual window contents
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+    if (remote == CHOWDREN_REMOTE_TARGET)
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    else
+#endif
+    {
+        glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
+                     background_color.b / 255.0f, 1.0f);
+    }
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+    if (remote != CHOWDREN_REMOTE_ONLY)
+#endif
+    {
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    PROFILE_END();
+
+    vector<Layer>::iterator it;
+    for (it = layers.begin(); it != layers.end(); it++) {
+        Layer & layer = *it;
+
+#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+        if (remote == CHOWDREN_HYBRID_TARGET) {
+            if (layer.remote == CHOWDREN_REMOTE_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_REMOTE_TARGET) {
+            if (layer.remote == CHOWDREN_TV_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_TV_TARGET) {
+            if (layer.remote != CHOWDREN_TV_TARGET)
+                continue;
+        } else if (remote == CHOWDREN_REMOTE_ONLY) {
+            if (layer.remote != CHOWDREN_REMOTE_TARGET)
+                continue;
+        }
+#endif
+
+        glLoadIdentity();
+        glTranslatef(-floor(off_x * layer.scroll_x),
+                     -floor(off_y * layer.scroll_y), 0.0);
+        layer.draw();
+    }
+
+// #ifdef CHOWDREN_USE_BOX2D
+//     Box2D::draw_debug();
+// #endif
+}
+
+static Layer default_layer(0, 1.0, 1.0, false, false, false);
+
+void setup_default_instance(FrameObject * obj)
+{
+    obj->layer = &default_layer;
+    obj->width = obj->height = 0;
+}
+
+class DefaultActive : public Active
+{
+public:
+    DefaultActive()
+    : Active(0, 0, 0)
+    {
+        setup_default_instance(this);
+        collision = new InstanceBox(this);
+        create_alterables();
+    }
+};
+
+static DefaultActive default_active;
+FrameObject * default_active_instance = &default_active;
+
+#ifdef CHOWDREN_USE_BLITTER
+
+class DefaultBlitter : public TextBlitter
+{
+public:
+    DefaultBlitter()
+    : TextBlitter(0, 0, 0)
+    {
+        setup_default_instance(this);
+        collision = new InstanceBox(this);
+        create_alterables();
+    }
+};
+
+static DefaultBlitter default_blitter;
+FrameObject * default_blitter_instance = &default_blitter;
+
+#endif
+
+FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
+{
+    instance->frame = this;
+    instance->layer = layer;
+    GameManager::instances.items[instance->id].add(instance);
+    layer->add_object(instance);
+    if (instance->collision) {
+        instance->collision->update_aabb();
+        instance->collision->create_proxy();
+    }
+    return instance;
+}
+
+FrameObject * Frame::add_object(FrameObject * instance, int layer_index)
+{
+    layer_index = int_max(0, int_min(layer_index, layers.size() - 1));
+    return add_object(instance, &layers[layer_index]);
+}
+
+void Frame::add_background_object(FrameObject * instance, int layer_index)
+{
+    instance->frame = this;
+    Layer * layer = &layers[layer_index];
+    instance->layer = layer;
+    if (instance->id != BACKGROUND_TYPE) {
+        GameManager::instances.items[instance->id].add(instance);
+    }
+    layer->add_background_object(instance);
+    if (instance->collision) {
+        instance->collision->update_aabb();
+        instance->collision->create_proxy();
+    } else {
+        int bb[4] = {instance->x,
+                     instance->y,
+                     instance->x + instance->width,
+                     instance->y + instance->height};
+        layer->broadphase.add(instance, bb);
+    }
+}
+
+void Frame::set_object_layer(FrameObject * instance, int new_layer)
+{
+    new_layer = clamp(new_layer, 0, layers.size()-1);
+    instance->layer->remove_object(instance);
+    Layer * layer = &layers[new_layer];
+    if (instance->collision)
+        instance->collision->remove_proxy();
+    layer->add_object(instance);
+    int x = instance->get_x();
+    int y = instance->get_y();
+    instance->layer = layer;
+    instance->set_global_position(x, y);
+    if (instance->collision)
+        instance->collision->create_proxy();
+}
+
+int Frame::get_loop_index(const std::string & name)
+{
+    return *((*loops)[name].index);
+}
+
+void Frame::reset()
+{
+    ObjectList::iterator it;
+    for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
+        ObjectList & list = GameManager::instances.items[i];
+        for (it = list.begin(); it != list.end(); it++) {
+            if (it->obj->flags & BACKGROUND)
+                continue;
+            delete it->obj;
+        }
+    }
+
+    layers.clear();
+    GameManager::instances.clear();
+    destroyed_instances.clear();
+    next_frame = -1;
+    loop_count = 0;
+    off_x = new_off_x = 0;
+    off_y = new_off_y = 0;
+    frame_time = 0.0;
+    frame_iteration++;
+}
+
 // FrameObject
 
 FrameObject::FrameObject(int x, int y, int type_id)
@@ -928,7 +948,7 @@ FrameObject::~FrameObject()
         delete[] movements;
     }
     delete shader_parameters;
-
+    delete alterables;
 #ifdef CHOWDREN_USE_VALUEADD
     delete extra_alterables;
 #endif
@@ -1570,8 +1590,8 @@ void Active::restore_speed()
 }
 
 void Active::add_direction(int animation, int direction,
-                   int min_speed, int max_speed, int loop_count,
-                   int back_to)
+                           int min_speed, int max_speed, int loop_count,
+                           int back_to)
 {
     Animation * anim = animations->items[animation];
     if (anim == NULL) {
@@ -3003,34 +3023,34 @@ void LayerObject::set_layer(int value)
 
 void LayerObject::hide_layer(int index)
 {
-    frame->layers[index]->visible = false;
+    frame->layers[index].visible = false;
 }
 
 void LayerObject::show_layer(int index)
 {
-    frame->layers[index]->visible = true;
+    frame->layers[index].visible = true;
 }
 
 void LayerObject::set_position(int index, int x, int y)
 {
-    frame->layers[index]->set_position(x, y);
+    frame->layers[index].set_position(x, y);
 }
 
 void LayerObject::set_x(int index, int x)
 {
-    Layer * layer = frame->layers[index];
-    layer->set_position(x, layer->y);
+    Layer & layer = frame->layers[index];
+    layer.set_position(x, layer.y);
 }
 
 void LayerObject::set_y(int index, int y)
 {
-    Layer * layer = frame->layers[index];
-    layer->set_position(layer->x, y);
+    Layer & layer = frame->layers[index];
+    layer.set_position(layer.x, y);
 }
 
 void LayerObject::set_alpha_coefficient(int index, int alpha)
 {
-    Layer * layer = frame->layers[index];
+    Layer * layer = &frame->layers[index];
     FlatObjectList::const_iterator it;
     for (it = layer->background_instances.begin();
          it != layer->background_instances.end(); it++) {
@@ -3061,7 +3081,7 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     sort_index = index;
     sort_reverse = true;
     this->def = def;
-    Layer * layer = frame->layers[current_layer];
+    Layer * layer = &frame->layers[current_layer];
     layer->order_changed = true;
     LayerInstances & instances = layer->instances;
 #ifdef LAYER_USE_STD_SORT
@@ -3498,7 +3518,7 @@ void TextBlitter::draw()
         yy += height / 2 - lines.size() * char_height / 2
               - (lines.size() - 1) * y_spacing;
 
-    std::vector<LineReference>::const_iterator it;
+    vector<LineReference>::const_iterator it;
 
     callback_line_count = int(lines.size());
 
@@ -3881,4 +3901,4 @@ float get_joystick_y(int n)
 
 // for checking overlap
 
-std::vector<int> int_temp;
+vector<int> int_temp;

@@ -2,7 +2,7 @@
 #define CHOWDREN_MOVEMENT_H
 
 #include <string>
-#include <vector>
+#include "types.h"
 #include "frameobject.h"
 
 int get_movement_direction(int v);
@@ -73,8 +73,8 @@ public:
     std::string name;
 };
 
-typedef std::vector<PathNode> PathNodes;
-typedef std::vector<NamedNode> NamedNodes;
+typedef vector<PathNode> PathNodes;
+typedef vector<NamedNode> NamedNodes;
 
 class PathMovement : public Movement
 {

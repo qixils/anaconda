@@ -8,7 +8,7 @@ inline int div_ceil(int x, int y)
 }
 
 UniformGrid::UniformGrid()
-: query_id(0)
+: query_id(0), grid(NULL)
 {
     if (global_manager == NULL)
         // in case of DefaultLayer

@@ -1,6 +1,5 @@
 from chowdren.writers.objects import ObjectWriter
-from chowdren.common import (get_image_name, get_animation_name, to_c,
-    make_color)
+from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
 from mmfparser.data.font import LogFont
@@ -45,7 +44,7 @@ class SurfaceObject(ObjectWriter):
         writer.putlnc('display_selected = %s;', disp_target)
         writer.putlnc('use_abs_coords = %s;', use_abs)
 
-        image_names = [get_image_name(image) for image in images]
+        image_names = [self.converter.get_image(image) for image in images]
 
         if multi_imgs:
             if image_count == 0:

@@ -1,7 +1,7 @@
 #ifndef CHOWDREN_GRID_H
 #define CHOWDREN_GRID_H
 
-#include <vector>
+#include "types.h"
 #include <algorithm>
 
 struct GridItem
@@ -9,9 +9,13 @@ struct GridItem
     void * data;
     int box[4];
     int last_query_id;
+
+    GridItem()
+    {
+    }
 };
 
-typedef std::vector<int> GridItemList;
+typedef vector<int> GridItemList;
 
 #define GRID_INDEX(x, y) ((x) + (y) * width)
 #define GRID_SIZE 256
@@ -20,7 +24,7 @@ class UniformGrid
 {
 public:
     int width, height;
-    std::vector<GridItem> store;
+    vector<GridItem> store;
     GridItemList free_list;
     GridItemList * grid;
     int query_id;

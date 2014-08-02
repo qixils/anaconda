@@ -4,7 +4,6 @@
 #include "color.h"
 #include <iostream>
 #include <stdio.h>
-#include <vector>
 #include "datastream.h"
 #include "chowconfig.h"
 #include "types.h"
@@ -36,7 +35,7 @@ static stbi_io_callbacks fsfile_callbacks =
    eof_func,
 };
 
-typedef std::vector<Image*> ImageList;
+typedef vector<Image*> ImageList;
 
 static std::string image_path("./Sprites.dat");
 

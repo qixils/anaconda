@@ -24,7 +24,7 @@ std::string StringReplace::replace(const std::string & src,
 std::string StringReplace::replace(const std::string & src)
 {
     std::string ret(src);
-    std::vector<StringReplacement>::const_iterator it;
+    vector<StringReplacement>::const_iterator it;
     for (it = replacements.begin(); it != replacements.end(); it++) {
         const StringReplacement & r = *it;
         replace_substring(ret, r.from, r.to);

@@ -242,7 +242,7 @@ cdef class EventGroup(DataLoader):
         self.flags = GROUP_FLAGS.copy()
 
     cpdef read(self, ByteReader reader):
-        currentPosition = reader.tell()
+        cdef int currentPosition = reader.tell()
         cdef int size = reader.readShort()*-1
 
         cdef int numberOfConditions = reader.readByte(True)

@@ -36,4 +36,7 @@ typedef unsigned __int64 uint64_t;
 #define hash_map boost::unordered_map
 #endif
 
+#include <boost/container/vector.hpp>
+using boost::container::vector;
+
 #endif // CHOWDREN_TYPES

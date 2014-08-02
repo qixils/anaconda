@@ -27,8 +27,9 @@ from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
-    to_c, make_color, get_image_name, parse_direction, get_base_path, makedirs,
-    is_qualifier, get_qualifier, get_iter_type, get_list_type)
+    to_c, make_color, parse_direction, get_base_path, makedirs,
+    is_qualifier, get_qualifier, get_iter_type, get_list_type,
+    TEMPORARY_GROUP_ID, TEMPORARY_HASH_ID)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -204,20 +205,23 @@ DEFAULT_CHARMAP = ''.join([chr(item) for item in xrange(32, 256)])
 
 class EventContainer(object):
     is_static = False
-    def __init__(self, name, inactive, parent):
+    def __init__(self, name, inactive, parent, converter):
         self.name = name
         if parent is None:
             self.tree = [self]
         else:
             self.tree = parent.tree + [self]
         names = [item.name for item in self.tree]
-        self.code_name = 'group_%s_%s' % (get_method_name('_'.join(names)),
-                                          get_id(self))
+        names = '_'.join(names)
+        converter.container_ids[names] += 1
+        container_id = converter.container_ids[names]
+
+        self.code_name = 'group_%s_%s' % (get_method_name(names), container_id)
         self.inactive = inactive
-        self.always_groups = []
         self.parent = parent
         self.children = []
         self.end_label = '%s_end' % self.code_name
+        self.check_ids = itertools.count()
         hacks.init_container(parent, self)
 
     def add_child(self, child):
@@ -250,12 +254,18 @@ class EventGroup(object):
     global_id = None
     local_id = None
     generated = False
+    or_generated = False
     or_exit = None
     is_container_mark = False
     or_first = False
     or_save = False
     or_final = False
     or_type = None
+    event_name = None
+    ids = None
+    written = False
+    write_callbacks = None
+    data_hash = None
 
     def __init__(self, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -271,26 +281,37 @@ class EventGroup(object):
         self.or_index = or_index
         self.or_type = or_type
         self.force_multiple = set()
+        self.ids = {}
+
+    def get_id(self, obj):
+        key = hash(obj)
+        try:
+            return self.ids[key]
+        except KeyError:
+            pass
+        new_id = '%s_%s' % (TEMPORARY_GROUP_ID, len(self.ids))
+        self.ids[key] = new_id
+        return new_id
 
     def set_groups(self, converter, groups):
         is_simple = hacks.use_simple_or(converter)
         if len(groups) == 1:
-            self.name = 'event_%s' % self.global_id
-            self.unique_id = self.global_id
+            self.name = 'event_%s' % TEMPORARY_GROUP_ID
+            self.unique_id = TEMPORARY_GROUP_ID
             return
-        self.unique_id = '%s_%s' % (self.global_id, self.or_index)
+        self.unique_id = '%s_%s' % (TEMPORARY_GROUP_ID, self.or_index)
         if is_simple:
-            self.name = 'event_or_%s_%s' % (self.global_id, self.or_index)
+            self.name = 'event_or_%s' % self.unique_id
             return
         first_group = None
         last_group = None
         for group in groups:
-            if group.generated == self.generated:
+            if group.or_generated == self.or_generated:
                 if first_group is None:
                     first_group = group
                 last_group = group
         if last_group is first_group:
-            self.name = 'event_%s' % self.global_id
+            self.name = 'event_or_%s' % self.unique_id
             return
         # use first group as data store
         if first_group is self:
@@ -308,15 +329,49 @@ class EventGroup(object):
             self.actions = []
         self.name = self.get_or_name()
         # self.or_exit = 'goto %s_end;' % last_group.get_or_name()
-        self.or_result = 'or_result_%s' % self.global_id
-        self.or_temp_result = 'or_temp_result_%s_%s' % (self.global_id,
+        self.or_result = 'or_result_%s' % TEMPORARY_GROUP_ID
+        self.or_temp_result = 'or_temp_result_%s_%s' % (TEMPORARY_GROUP_ID,
                                                         self.or_index)
 
     def get_or_name(self):
-        return 'or_event_%s_%s' % (self.global_id, self.or_index)
+        return 'or_event_%s' % self.unique_id
 
     def set_generated(self, value):
         self.generated = value
+
+    def set_or_generated(self, value):
+        self.or_generated = value
+
+    def add_write_callback(self, f, *arg, **kw):
+        if self.written:
+            f(*arg, **kw)
+            return
+        if self.write_callbacks is None:
+            self.write_callbacks = []
+        self.write_callbacks.append((f, arg, kw))
+
+    def add_member(self, writer, name, default=None):
+        self.add_write_callback(self.on_add_member, writer, name, default)
+
+    def on_add_member(self, writer, name, default):
+        name = self.filter(name)
+        writer.add_member(name, default)
+
+    def filter(self, data):
+        if self.data_hash is None:
+            raise NotImplementedError()
+        data = data.replace(TEMPORARY_GROUP_ID, str(self.global_id))
+        hash_str = str(self.data_hash & 0xFFFFFFFF)
+        data = data.replace(TEMPORARY_HASH_ID, hash_str)
+        return data
+
+    def fire_write_callbacks(self):
+        self.written = True
+        if not self.write_callbacks:
+            return
+        for (f, arg, kw) in self.write_callbacks:
+            f(*arg, **kw)
+        self.write_callbacks = None
 
 class ObjectFileWriter(CodeWriter):
     index = 1
@@ -348,51 +403,50 @@ class ObjectFileWriter(CodeWriter):
             self.open_next()
 
 
-class FrameFileWriter(CodeWriter):
+class MultiFileWriter(CodeWriter):
     index = 1
     function_count = 0
 
-    def __init__(self, index, converter, max_count=100):
-        self.frame_index = index
+    def __init__(self, converter, max_count=100):
         self.max_count = max_count
         self.converter = converter
+        self.members = {}
 
-        filename = 'frame%s.h' % self.frame_index
-        self.header = converter.open_code(filename)
-        self.header.start_guard('CHOWDREN_FRAME%s_H' % self.frame_index)
-        self.header.putln('#include "common.h"')
+        self.class_name = self.get_class()
+
+        header_path = '%s.h' % self.get_filename()
+        self.header = converter.open_code(header_path)
+
+        self.header.start_guard(self.get_guard())
+        self.write_header_includes()
         self.header.putln('')
-        self.class_name = 'Frame%s' % self.frame_index
-        self.header.putclass(self.class_name, 'Frame')
+        self.header.putclass(self.class_name, self.base_class)
         self.header.put_access('public')
 
         self.open_next()
 
-        self.putlnc('Frame * create_frame_%s(GameManager * manager)',
-                    self.frame_index)
-        self.start_brace()
-        self.putlnc('return new %s(manager);', self.class_name)
-        self.end_brace()
+    def get_guard(self):
+        return 'CHOWDREN_%s_H' % self.get_filename().upper()
 
     def close(self):
         CodeWriter.close(self)
         self.header.end_brace(True)
-        self.header.close_guard('COWDREN_FRAME%s_H' % self.frame_index)
+        self.header.close_guard(self.get_guard())
         self.header.close()
 
-    def add_member(self, name):
+    def add_member(self, name, default=None):
+        if name in self.members:
+            return
+        self.members[name] = default
         self.header.putlnc('%s;', name)
 
     def open_next(self):
-        filename = 'frame%s_%s.cpp' % (self.frame_index, self.index)
+        filename = '%s_%s.cpp' % (self.get_filename(), self.index)
         filename = self.converter.get_filename(filename)
         if self.fp:
             CodeWriter.close(self)
         self.open(filename)
-        self.putlnc('#include "frame%s.h"', self.frame_index)
-        self.putln('#include "lists.h"')
-        self.putln('#include "media.h"')
-        self.putln('#include "objects.h"')
+        self.write_includes()
         self.putln('')
         self.index += 1
 
@@ -414,6 +468,44 @@ class FrameFileWriter(CodeWriter):
         name = ' '.join(name)
         CodeWriter.putmeth(self, name, *arg, **kw)
 
+class EventFileWriter(MultiFileWriter):
+    base_class = 'Frame'
+
+    def get_filename(self):
+        return 'events'
+
+    def get_class(self):
+        return 'Frames'
+
+    def write_header_includes(self):
+        self.header.putln('#include "frame.h"')
+
+    def write_includes(self):
+        self.putln('#include "events.h"')
+        self.putln('#include "framedata.h"')
+        self.putln('#include "lists.h"')
+        self.putln('#include "media.h"')
+        self.putln('#include "objects.h"')
+
+class FrameDataWriter(MultiFileWriter):
+    base_class = 'FrameData'
+
+    def __init__(self, frame_index, *arg, **kw):
+        self.frame_index = frame_index
+        MultiFileWriter.__init__(self, *arg, **kw)
+
+    def get_filename(self):
+        return 'frame%s' % self.frame_index
+
+    def get_class(self):
+        return 'Frame%s' % self.frame_index
+
+    def write_header_includes(self):
+        self.header.putln('#include "frame.h"')
+
+    def write_includes(self):
+        self.putln('#include "events.h"')
+        self.putlnc('#include "%s.h"', self.get_filename())
 
 def fix_sound(data, extension):
     data = str(data)
@@ -463,6 +555,9 @@ class Converter(object):
         self.iterated_index = self.iterated_object = self.iterated_name = None
         self.in_actions = False
         self.strings = {}
+        self.event_functions = {}
+        self.event_wrappers = {}
+        self.objs_to_qualifier = {}
 
         fp = open(filename, 'rb')
         if filename.endswith('.exe'):
@@ -539,43 +634,68 @@ class Converter(object):
         # print 'Image count:', len(game.images.items)
 
         if image_file is None:
-            self.solid_images = self.read_config('images.py')
+            config = self.read_config('images.py')
+            self.solid_images = config['solid']
+            self.image_indexes = config['indexes']
         else:
             self.solid_images = {}
+            self.image_indexes = {}
+            image_hashes = {}
+            new_entries = []
             image_fp = open(self.get_filename(image_file), 'wb')
             image_data = ByteReader()
             image_header = ByteReader(image_fp)
             if game.images:
-                max_handle = max(game.images.items,
-                                 key = lambda x: x.handle).handle + 1
-                image_header.writeInt(max_handle, True)
-                header_size = 4 * (max_handle + 1)
-                for i in xrange(max_handle):
-                    try:
-                        image = game.images.itemDict[i]
-                    except KeyError:
-                        image_header.writeInt(0, True)
-                        continue
-                    image_header.writeInt(image_data.tell() + header_size, True)
-                    image_data.writeInt(image.xHotspot)
-                    image_data.writeInt(image.yHotspot)
-                    image_data.writeInt(image.actionX)
-                    image_data.writeInt(image.actionY)
-                    handle = image.handle
+                image_index = 0
+                for image in game.images.itemDict.itervalues():
                     pil_image = Image.fromstring('RGBA', (image.width,
                         image.height), image.getImageData())
+
+                    handle = image.handle
                     colors = pil_image.getcolors(1)
                     if colors is not None:
                         color, = colors
                         self.solid_images[handle] = color[1]
+
+                    image_hash = hash(pil_image.tobytes())
+
+                    try:
+                        alias = image_hashes[image_hash]
+                        self.image_indexes[handle] = alias
+                        continue
+                    except KeyError:
+                        pass
+
+                    self.image_indexes[handle] = image_index
+                    image_hashes[image_hash] = image_index
+
                     temp = StringIO()
                     pil_image.save(temp, 'PNG')
                     temp = temp.getvalue()
-                    offset = image_data.tell()
-                    image_data.write(temp)
+                    new_entries.append(temp)
+
+                    image_index += 1
+
+                print 'image count:', len(new_entries)
+
+                image_header.writeInt(len(new_entries), True)
+                header_size = 4 * (len(new_entries) + 1)
+
+                for i, data in enumerate(new_entries):
+                    image_header.writeInt(image_data.tell() + header_size,
+                                          True)
+                    image_data.writeInt(image.xHotspot)
+                    image_data.writeInt(image.yHotspot)
+                    image_data.writeInt(image.actionX)
+                    image_data.writeInt(image.actionY)
+                    image_data.write(data)
+
             image_header.writeReader(image_data)
             image_fp.close()
-            self.write_config(self.solid_images, 'images.py')
+
+            config = {'solid': self.solid_images,
+                      'indexes': self.image_indexes}
+            self.write_config(config, 'images.py')
 
         # sounds
         if WRITE_SOUNDS:
@@ -623,6 +743,7 @@ class Converter(object):
 
         self.object_names = {}
         self.all_objects = {}
+        self.object_cache = {}
         self.instance_names = {}
         self.name_to_item = {}
         self.object_types = {}
@@ -650,6 +771,8 @@ class Converter(object):
                 print 'not implemented:', repr(frameitem.name), object_type,
                 print handle
                 continue
+            object_writer.new_class_name = class_name
+            object_writer.object_type = object_type
             for define in object_writer.defines:
                 extra.add_define(define)
             application_writers.add(object_writer.write_application)
@@ -660,150 +783,42 @@ class Converter(object):
             if (object_writer.static or extra.is_special_object(name)
                 or object_writer.class_name == 'Undefined'):
                 continue
-            common = object_writer.common
-            subclass = object_writer.class_name
-            self.object_names[handle] = class_name
-            self.instance_names[handle] = get_method_name(class_name)
-            object_writer.write_pre(objects_file)
+
             if object_writer.is_static_background():
                 object_type_id = 'BACKGROUND_TYPE'
             else:
                 object_type_id = '%s_type' % class_name
+
+            object_writer.type_id = object_type_id
+
+            object_code = self.write_object(object_writer).get_data()
+            object_hash = hash(object_code.replace(class_name, ''))
+
+            try:
+                other = self.object_cache[object_hash]
+                class_name = other.new_class_name
+                self.all_objects[handle] = other
+                self.object_types[handle[0]] = other.object_type
+                self.object_names[handle] = class_name
+                self.instance_names[handle] = get_method_name(class_name)
+                continue
+            except KeyError:
+                pass
+
+            self.object_cache[object_hash] = object_writer
+
+            for line in object_code.splitlines():
+                objects_file.putln(line)
+
+            self.object_names[handle] = class_name
+            self.instance_names[handle] = get_method_name(class_name)
+
+            if not object_writer.is_static_background():
                 objects_header.putln('#define %s %s' %
                     (object_type_id, type_id.next()))
                 list_name = self.get_object_list(handle)
                 list_ref = 'GameManager::instances.items[%s]' % object_type_id
                 lists_header.putlnc('#define %s %s', list_name, list_ref)
-            objects_file.putclass(class_name, subclass)
-            objects_file.put_access('public')
-            object_writer.write_constants(objects_file)
-            parameters = ['x', 'y', object_type_id]
-            extra_parameters = [str(item)
-                for item in object_writer.get_parameters()]
-            parameters = ', '.join(extra_parameters + parameters)
-            init_list = [to_c('%s(%s)', subclass, parameters)]
-            for name, value in object_writer.get_init_list():
-                init_list.append(to_c('%s(%r)', name, value))
-            init_list = ', '.join(init_list)
-            objects_file.putln(to_c('%s(int x, int y) : %s', class_name,
-                init_list))
-            objects_file.start_brace()
-            objects_file.putraw('#ifndef NDEBUG')
-            objects_file.putln(to_c('name = %r;', name))
-            objects_file.putraw('#endif')
-
-            if object_writer.is_background():
-                objects_file.putln('flags |= BACKGROUND;')
-
-            if not object_writer.is_visible():
-                objects_file.putln('set_visible(false);')
-
-            if not object_writer.is_scrolling():
-                objects_file.putln('flags &= ~SCROLL;')
-
-            object_writer.write_init(objects_file)
-
-            shader_name = None
-            if frameitem.shaderId is not None:
-                # raise NotImplementedError('has shader')
-                ink_effect = SHADER_EFFECT
-            else:
-                ink_effect = frameitem.inkEffect
-            if ink_effect:
-                if ink_effect & HWA_EFFECT or ink_effect == SHADER_EFFECT:
-                    parameter = frameitem.inkEffectValue
-                    b, g, r = get_color_tuple(parameter)
-                    a = (parameter & 0xFF000000) >> 24
-                    if object_writer.has_color:
-                        objects_file.putlnc('blend_color.a = %s;', a)
-                    else:
-                        objects_file.putln('blend_color = %s;' % make_color(
-                            (r, g, b, a)))
-                    ink_effect &= ~HWA_EFFECT
-                if ink_effect == NONE_EFFECT:
-                    pass
-                elif ink_effect == SHADER_EFFECT:
-                    shader_data = game.shaders.items[frameitem.shaderId]
-                    shader_name = shader_data.name
-                elif ink_effect == SEMITRANSPARENT_EFFECT:
-                    a = min(255, (128 - frameitem.inkEffectValue) * 2)
-                    if object_writer.has_color:
-                        objects_file.putlnc('blend_color.a = %s;', a)
-                    else:
-                        objects_file.putlnc('blend_color = %s;', make_color(
-                            (255, 255, 255, a)))
-                elif ink_effect in INK_EFFECTS:
-                    shader_name = INK_EFFECTS[ink_effect]
-                elif shader_name is None:
-                    raise NotImplementedError(
-                        'unknown inkeffect: %s' % ink_effect)
-            if shader_name is not None:
-                objects_file.putln('set_shader(%s);' % shader.get_name(
-                    shader_name))
-            if ink_effect == SHADER_EFFECT:
-                shader_data = game.shaders.items[frameitem.shaderId]
-                parameters = shader_data.get_parameters()
-                values = frameitem.items
-                if shader_data.parameters is not None:
-                    for index, parameter in enumerate(shader_data.parameters):
-                        reader = values[index]
-                        reader.seek(0)
-                        if parameter.type == INT:
-                            value = reader.readInt()
-                        elif parameter.type == FLOAT:
-                            value = reader.readFloat()
-                        elif parameter.type == INT_FLOAT4:
-                            value = make_color((reader.readByte(True),
-                                reader.readByte(True),
-                                reader.readByte(True),
-                                reader.readByte(True)))
-                        elif parameter.type == IMAGE:
-                            value = get_image_name(reader.readShort(), False)
-                        else:
-                            print 'shader parameter type not supported:',
-                            print parameter.type
-                            continue
-                            raise NotImplementedError
-                        parameters[parameter.name].value = value
-                for name, value in parameters.iteritems():
-                    objects_file.putln(to_c('set_shader_parameter(%r, %s);',
-                        name, value.value))
-
-            if hasattr(common, 'movements') and common.movements:
-                movements = common.movements.items
-                self.write_movements(objects_file, object_writer, movements)
-
-            object_writer.load_alterables(objects_file)
-            objects_file.end_brace()
-
-            object_writer.write_class(objects_file)
-            object_writer.write_internal_class(objects_file)
-            # write event callbacks
-            if object_writer.event_callbacks:
-                for k, v in object_writer.event_callbacks.iteritems():
-                    name, wrapper = k
-                    objects_file.putmeth('void %s' % name)
-                    objects_file.putln('frame->event_callback(%s);' % v)
-                    objects_file.end_brace()
-
-            if object_writer.has_dtor():
-                objects_file.putmeth('~%s' % class_name)
-                object_writer.write_dtor(objects_file)
-                objects_file.end_brace()
-
-            if PROFILE:
-                if object_writer.update:
-                    objects_file.putmeth('void update', 'float dt')
-                    objects_file.putlnc('PROFILE_BLOCK(%s_update);',
-                                        class_name)
-                    objects_file.putlnc('%s::update(dt);', subclass)
-                    objects_file.end_brace()
-                objects_file.putmeth('void draw')
-                objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
-                objects_file.putlnc('%s::draw();', subclass)
-                objects_file.end_brace()
-
-            objects_file.end_brace(True)
 
             object_func = 'create_%s' % get_method_name(class_name)
 
@@ -883,9 +898,17 @@ class Converter(object):
         frame_dict = dict(enumerate(game.frames))
         frame_dict = hacks.get_frames(self, frame_dict)
 
+        event_file = EventFileWriter(self)
+        event_file.putmeth('Frames', 'GameManager * manager',
+                           init_list=['Frame(manager)'])
+        event_file.end_brace()
+        events_ref = '((Frames*)frame)->'
+
         # frames
         for frame_index, frame in frame_dict.iteritems():
-            frame_file = FrameFileWriter(frame_index+1, self)
+            self.event_callbacks = {}
+            self.container_ids = Counter()
+            frame_file = FrameDataWriter(frame_index+1, self)
             frame_class_name = self.frame_class = frame_file.class_name
             frame.load()
             self.current_frame = frame
@@ -934,21 +957,27 @@ class Converter(object):
             for qualifier in events.qualifier_list:
                 qual_obj = (qualifier.objectInfo, qualifier.type)
                 object_infos = qualifier.resolve_objects(self.game.frameItems)
-                object_infos = [(info, qualifier.type)
-                                for info in object_infos]
+                object_infos = tuple([(info, qualifier.type)
+                                      for info in object_infos])
                 self.qualifiers[qual_obj] = object_infos
                 self.qualifier_types[qual_obj] = qualifier.type
-                name = 'frame_%s_qualifier_%s_%s' % (frame_index,
-                                                     qualifier.qualifier,
-                                                     qualifier.type)
+                if object_infos in self.objs_to_qualifier:
+                    name = self.objs_to_qualifier[object_infos]
+                else:
+                    name = 'qualifier_%s' % len(self.objs_to_qualifier)
+                    self.objs_to_qualifier[object_infos] = name
+                    lists_header.putlnc('extern QualifierList %s;', name)
+                    instances = []
+                    for obj in object_infos:
+                        instances.append('&' + self.get_object_list(obj))
+                    instances = ', '.join(instances)
+                    lists_file.putlnc('// qualifier %s %s',
+                                      qualifier.objectInfo,
+                                      qualifier.qualifier)
+                    lists_file.putlnc('QualifierList %s(%s, %s);', name,
+                                      len(object_infos), instances)
+
                 self.qualifier_names[qual_obj] = name
-                lists_header.putlnc('extern QualifierList %s;', name)
-                instances = []
-                for obj in object_infos:
-                    instances.append('&' + self.get_object_list(obj))
-                instances = ', '.join(instances)
-                lists_file.putlnc('QualifierList %s(%s, %s);', name,
-                                  len(object_infos), instances)
 
             generated_groups = self.generated_groups = defaultdict(list)
             always_groups = []
@@ -960,16 +989,15 @@ class Converter(object):
 
             event_items = events.items
 
-            # if frame_index == 4:
-            #     event_items = event_items[:1]
-
-            for group_index, group in enumerate(event_items):
+            group_index = 1
+            for group in event_items:
                 first_condition = group.conditions[0]
                 name = self.get_condition_name(first_condition)
                 if name == 'NewGroup':
                     group_loader = first_condition.items[0].loader
                     new_container = EventContainer(group_loader.name,
-                        group_loader.flags['Inactive'], current_container)
+                        group_loader.flags['Inactive'], current_container,
+                        self)
                     if current_container:
                         current_container.add_child(new_container)
                     current_container = new_container
@@ -1002,6 +1030,7 @@ class Converter(object):
                     else:
                         condition_writer = self.get_condition_writer(condition)
                         condition_writer.container = current_container
+                        condition_writer.group = group
                         if name == 'NotAlways':
                             # move NotAlways to end of condition list
                             not_always = condition_writer
@@ -1039,23 +1068,39 @@ class Converter(object):
                         pointer = action.items[0].loader.pointer
                         changed_containers.add(pointer)
 
+                always_group_index = None
+                generated_group_index = None
+                new_always_groups = []
                 all_groups = []
                 for or_index, conditions in enumerate(condition_groups):
+                    first_writer = conditions[0]
+                    first_condition = first_writer.data
+
+                    is_always = first_condition.flags['Always']
+                    force_always = (first_writer.is_always is not None and
+                                    first_writer.is_always)
+
+                    if is_always:
+                        if always_group_index is None:
+                            always_group_index = group_index
+                            group_index += 1
+                        new_group_index = always_group_index
+                    else:
+                        if generated_group_index is None:
+                            generated_group_index = group_index
+                            group_index += 1
+                        new_group_index = generated_group_index
+
                     new_group = EventGroup(conditions, actions,
-                        current_container, group_index+1,
+                        current_container, new_group_index,
                         or_index, not_always, or_type)
                     all_groups.append(new_group)
-                    first_writer = new_group.conditions[0]
-                    first_condition = first_writer.data
                     name = self.get_condition_name(first_condition)
-                    if first_writer.is_always is not None:
-                        is_always = first_writer.is_always
-                    else:
-                        is_always = first_condition.flags['Always']
-                    if is_always:
-                        if current_container:
-                            current_container.always_groups.append(new_group)
-                        always_groups.append(new_group)
+
+                    new_group.set_or_generated(not is_always)
+
+                    if is_always or force_always:
+                        new_always_groups.append(new_group)
                         new_group.local_id = len(always_groups_dict[name])+1
 
                         for cond in new_group.conditions:
@@ -1073,6 +1118,9 @@ class Converter(object):
                         new_group.local_id = len(generated_groups[key])+1
                         generated_groups[key].append(new_group)
 
+                new_always_groups.sort(key=lambda x: x.global_id)
+                always_groups.extend(new_always_groups)
+
                 for group in all_groups:
                     group.set_groups(self, all_groups)
 
@@ -1084,11 +1132,35 @@ class Converter(object):
                     v.is_static = True
 
             for container in containers.values():
-                frame_file.add_member('bool %s' % container.code_name)
+                if container.is_static:
+                    continue
+                event_file.add_member('bool %s' % container.code_name,
+                                      not container.inactive)
 
-            prototype = '%s(GameManager * manager)' % frame_class_name
-            frame_file.add_member(prototype)
+            # since fire_write_callbacks can be called whenever, we need to
+            # keep an initialization writer handy
+            start_name = 'on_frame_%s_start' % (frame_index + 1)
+            start_writer = self.start_writer = CodeWriter()
+            start_writer.add_member = event_file.add_member
 
+            frame_file.putmeth(frame_class_name, 'Frame * frame',
+                               init_list=['FrameData(frame)'])
+            frame_file.putlnc('name = %r;', frame.name)
+            frame_file.end_brace()
+
+            startup_images = set()
+            # object writer custom stuff
+            for object_writer in object_writers:
+                object_writer.write_frame(event_file)
+                startup_images.update(object_writer.get_images())
+
+            # print 'Startup images:', len(startup_images)
+
+            frame_file.putmeth('void on_start')
+            frame_file.putlnc('%s%s();', events_ref, start_name)
+            frame_file.end_brace()
+
+            # frame setup
             frame_width = frame.width
             frame_height = frame.height
             virtual_right = frame.right
@@ -1103,59 +1175,45 @@ class Converter(object):
                 raise NotImplementedError()
             if virtual_height not in (0x7FFFF000, frame_height):
                 raise NotImplementedError()
-
-            frame_file.putlnc(
-                '%s::%s : Frame(%r, %s, %s, %s, %s, %s, %s, manager)',
-                frame_class_name, prototype, frame.name,
-                frame_width, frame_height, virtual_width, virtual_height,
-                make_color(frame.background), frame_index
-            )
-            frame_file.start_brace()
+            start_writer.putlnc('index = %s;', frame_index)
+            start_writer.putlnc('width = %s;', frame_width)
+            start_writer.putlnc('height = %s;', frame_height)
+            start_writer.putlnc('virtual_width = %s;', virtual_width)
+            start_writer.putlnc('virtual_height = %s;', virtual_height)
+            start_writer.putlnc('background_color = %s;',
+                                make_color(frame.background))
             if frame.flags['TimedMovements']:
                 timer_base = frame.movementTimer
             else:
                 timer_base = 0
-            frame_file.putln('timer_base = %s;' % timer_base)
-            frame_file.end_brace()
-
-            startup_images = set()
-            # object writer custom stuff
-            for object_writer in object_writers:
-                object_writer.write_frame(frame_file)
-                startup_images.update(object_writer.get_images())
-
-            # print 'Startup images:', len(startup_images)
-
-            frame_file.putmeth('void on_start')
+            start_writer.putln('timer_base = %s;' % timer_base)
 
             # load images on startup
             if False:
-                frame_file.putln('static bool images_initialized = false;')
-                frame_file.putln('if (!images_initialized) {')
-                frame_file.indent()
-                frame_file.putln('images_initialized = true;')
+                start_writer.putln('static bool images_initialized = false;')
+                start_writer.putln('if (!images_initialized) {')
+                start_writer.indent()
+                start_writer.putln('images_initialized = true;')
                 for image_handle in startup_images:
                     img = game.images.itemDict[image_handle]
-                    frame_file.putln('%s->load(true);' %
-                                     get_image_name(image_handle))
-                frame_file.end_brace()
+                    start_writer.putln('%s->load(true);' %
+                                       self.get_image(image_handle))
+                start_writer.end_brace()
 
-            for container in containers.values():
-                if container.is_static:
-                    continue
-                frame_file.putln(to_c('%s = %s;', container.code_name,
-                    not container.inactive))
 
-            for layer in frame.layers.items:
+            start_writer.putlnc('layers.resize(%s);', len(frame.layers.items))
+
+            for layer_index, layer in enumerate(frame.layers.items):
                 visible = not layer.flags['ToHide']
                 wrap_horizontal = layer.flags['WrapHorizontally']
                 wrap_vertical = layer.flags['WrapVertically']
-                frame_file.putlnc('add_layer(%s, %s, %s, %s, %s);',
-                                  layer.xCoefficient, layer.yCoefficient,
-                                  visible, wrap_horizontal, wrap_vertical)
+                start_writer.putlnc('layers[%s].init(%s, %s, %s, %s, %s, %s);',
+                                    layer_index, layer_index,
+                                    layer.xCoefficient, layer.yCoefficient,
+                                    visible, wrap_horizontal, wrap_vertical)
 
-            frame_file.putraw('#if defined(CHOWDREN_IS_WIIU) || '
-                              'defined(CHOWDREN_EMULATE_WIIU)')
+            start_writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
+                                'defined(CHOWDREN_EMULATE_WIIU)')
             for layer_index, layer in enumerate(frame.layers.items):
                 if layer.name.endswith('(DRC)'):
                     remote_type = 'CHOWDREN_REMOTE_TARGET'
@@ -1163,11 +1221,9 @@ class Converter(object):
                     remote_type = 'CHOWDREN_HYBRID_TARGET'
                 else:
                     continue
-                frame_file.putln('layers[%s]->set_remote(%s);' % (layer_index,
-                    remote_type))
-            frame_file.putraw('#endif')
-
-            # frame_file.putln('FrameObject * obj_create;')
+                start_writer.putlnc('layers[%s]->set_remote(%s);', layer_index,
+                                    remote_type)
+            start_writer.putraw('#endif')
 
             startup_instances = hacks.get_startup_instances(self,
                                                             startup_instances)
@@ -1179,62 +1235,37 @@ class Converter(object):
                     method = 'add_background_object'
                     object_func = 'create_%s' % get_method_name(
                         self.object_names[obj])
-                    frame_file.putlnc('%s(%s(%s, %s), %s);',
-                                      method, object_func, instance.x,
-                                      instance.y, instance.layer)
+                    start_writer.putlnc('%s(%s(%s, %s), %s);',
+                                        method, object_func, instance.x,
+                                        instance.y, instance.layer)
                     continue
                 self.create_object(obj, instance.x, instance.y,
-                                   instance.layer, None, frame_file)
+                                   instance.layer, None, start_writer)
 
             for object_writer in object_writers:
-                object_writer.write_start(frame_file)
-
-            self.begin_events()
-            start_groups = generated_groups.pop('StartOfFrame', None)
-            if start_groups:
-                for group in start_groups:
-                    self.write_event(frame_file, group, True)
-            fade = frame.fadeIn
-            if fade:
-                if fade.duration == 0:
-                    print 'invalid fade duration:', fade.duration
-                    fade.duration = 0.00001
-                frame_file.putln(to_c('manager->set_fade(%s, %s);',
-                    make_color(fade.color), -1.0 / (fade.duration / 1000.0)))
-
-            frame_file.putln('Frame::on_start();')
-            frame_file.end_brace()
+                object_writer.write_start(start_writer)
 
             frame_end_groups = generated_groups.pop('EndOfFrame', None)
+
             if frame_end_groups:
+                end_name = 'on_frame_%s_end' % (frame_index + 1)
+                end_name = self.write_generated(end_name, event_file,
+                                                frame_end_groups)
+
                 frame_file.putmeth('void on_end')
-                self.begin_events()
-                for group in frame_end_groups:
-                    self.write_event(frame_file, group, True)
-                frame_file.putln('Frame::on_end();')
+                frame_file.putlnc('%s%s();', events_ref, end_name)
+                frame_file.putlnc('%sreset();', events_ref)
                 frame_file.end_brace()
 
-            # write object updates
-            frame_file.putmeth('void update_objects', 'float dt')
-            frame_file.putln('global_object_update(dt);')
-            frame_file.end_brace()
-
             # write event callbacks
-            event_callbacks = {}
-            for object_writer in object_writers:
-                if not object_writer.event_callbacks:
-                    continue
-                event_callbacks.update(object_writer.event_callbacks)
-
             frame_file.putmeth('void event_callback', 'int id')
-            if event_callbacks:
+            if self.event_callbacks:
                 frame_file.putln('switch (id) {')
                 frame_file.indent()
-                for k, v in event_callbacks.iteritems():
-                    name, wrapper = k
-                    frame_file.putln('case %s:' % v)
+                for event_id, name in self.event_callbacks.iteritems():
+                    frame_file.putln('case %s:' % event_id)
                     frame_file.indent()
-                    frame_file.putln('%s();' % wrapper)
+                    frame_file.putlnc('%s%s();', events_ref, name)
                     frame_file.putln('break;')
                     frame_file.dedent()
                 frame_file.end_brace()
@@ -1251,31 +1282,36 @@ class Converter(object):
                 except IndexError:
                     break
 
-                # if group.conditions and group.conditions[0].force_first:
-                #     first_groups.append(group)
-                # else:
                 call_groups.append(group)
 
                 if group.is_container_mark:
                     group_index += 1
                     continue
-                frame_file.putmeth('void event_func_%s' % group.global_id)
+
+                or_groups = []
                 while True:
                     try:
                         new_group = always_groups[group_index]
                     except IndexError:
                         break
                     if (new_group.is_container_mark or
-                    new_group.global_id != group.global_id):
+                            new_group.global_id != group.global_id):
                         break
-                    self.write_event(frame_file, new_group)
+
+                    or_groups.append(new_group)
                     group_index += 1
-                frame_file.end_brace()
+
+                self.write_event_function(event_file, or_groups)
 
             # write main 'always' handler
+            handle_name = 'handle_frame_%s_events' % (frame_index+1)
             frame_file.putmeth('void handle_events')
+            frame_file.putlnc('%s%s();', events_ref, handle_name)
+            frame_file.end_brace()
+
+            event_file.putmeth('void %s' % handle_name)
+
             end_markers = []
-            self.begin_events()
 
             call_groups = first_groups + call_groups
 
@@ -1285,20 +1321,48 @@ class Converter(object):
                     if container.is_static:
                         continue
                     if group.mark == 'NewGroup':
-                        frame_file.putln('if (!%s) goto %s;' % (
+                        event_file.putln('if (!%s) goto %s;' % (
                             container.code_name, container.end_label))
                         end_markers.insert(0, container.end_label)
                         self.container_tree.insert(0, container)
                     elif group.mark == 'GroupEnd':
                         end_markers.remove(container.end_label)
-                        frame_file.put_label(container.end_label)
+                        event_file.put_label(container.end_label)
                         self.container_tree.remove(container)
                     continue
-                frame_file.putln('event_func_%s();' % (group.global_id))
-
+                event_file.putlnc('%s();', group.event_name)
             for end_marker in end_markers:
-                frame_file.put_label(end_marker)
-            frame_file.end_brace()
+                event_file.put_label(end_marker)
+
+            event_file.end_brace()
+
+            # write any added defaults
+            for member_name, member_default in event_file.members.iteritems():
+                if member_default is None:
+                    continue
+                member_name = member_name.rsplit(' ', 1)[-1]
+                start_writer.putlnc('%s = %s;', member_name, member_default)
+
+            event_start_name = None
+            start_groups = generated_groups.pop('StartOfFrame', None)
+            if start_groups:
+                event_start_name = 'on_frame_%s_start_events'
+                event_start_name = event_start_name % (frame_index + 1)
+                event_start_name = self.write_generated(event_start_name,
+                                                        event_file,
+                                                        start_groups)
+                start_writer.putlnc('%s();', event_start_name)
+            fade = frame.fadeIn
+            if fade:
+                if fade.duration == 0:
+                    print 'invalid fade duration:', fade.duration
+                    fade.duration = 0.00001
+                start_writer.putlnc('manager->set_fade(%s, %s);',
+                    make_color(fade.color), -1.0 / (fade.duration / 1000.0))
+
+            event_file.putmeth('void %s' % start_name)
+            event_file.putcode(start_writer)
+            event_file.end_brace()
 
             frame_file.close()
             frame.close()
@@ -1315,6 +1379,28 @@ class Converter(object):
                 print 'unimplemented generated groups in %r: %r' % (
                     frame.name, missing_groups)
 
+        event_file.putmeth('void set_index', 'int index')
+        for frame_index in processed_frames:
+            event_file.putlnc('static Frame%s frame%s(this);', frame_index,
+                              frame_index)
+        event_file.putln('switch (index) {')
+        event_file.indent()
+        for frame_index in processed_frames:
+            event_file.putlnc('case %s:', frame_index - 1)
+            event_file.indent()
+            event_file.putlnc('data = &frame%s;', frame_index)
+            event_file.putln('break;')
+            event_file.dedent()
+        event_file.putln('default:')
+        event_file.indent()
+        event_file.putln('data = NULL;')
+        event_file.putln('break;')
+        event_file.dedent()
+        event_file.end_brace()
+        event_file.end_brace()
+
+        event_file.close()
+
         lists_header.close_guard('CHOWDREN_LISTS_H')
         lists_header.close()
 
@@ -1322,34 +1408,13 @@ class Converter(object):
 
         header = game.header
 
-        frames_file = self.open_code('frames.h')
-        frames_file.putln('')
+        frames_file = self.open_code('framedata.h')
         frames_file.putln('#include "common.h"')
-        frame_funcs = {}
         for frame_index in processed_frames:
-            frame_func = 'create_frame_%s' % frame_index
-            frame_funcs[frame_index-1] = frame_func
-            frames_file.putlnc('Frame * %s(GameManager * manager);',
-                               frame_func)
+            frames_file.putlnc('#include "frame%s.h"', frame_index)
         frames_file.putln('')
-        # config_file.putdef('BORDER_COLOR', header.borderColor)
-        # config_file.putdefine('START_LIVES', header.initialLives)
-        frames_file.putln('')
-        frames_file.putln('static Frame ** frames = NULL;')
-        frames_file.putmeth('Frame ** get_frames', 'GameManager * manager')
-        frames_file.putln('if (frames) return frames;')
 
-        frames_file.putln('frames = new Frame*[%s]();' % max(processed_frames))
-
-        for index in sorted(frame_funcs):
-            frame = frame_funcs[index]
-            frames_file.putlnc('frames[%s] = %s(manager);', index, frame)
-
-        frames_file.putln('return frames;')
-
-        frames_file.end_brace()
-
-        frames_file.putmeth('void setup_globals',
+        frames_file.putmeth('inline void setup_globals',
             'GlobalValues * values', 'GlobalStrings * strings')
         if game.globalValues:
             for index, value in enumerate(game.globalValues.items):
@@ -1360,7 +1425,7 @@ class Converter(object):
                     value))
         frames_file.end_brace()
 
-        frames_file.putmeth('void setup_keys', 'GameManager * manager')
+        frames_file.putmeth('inline void setup_keys', 'GameManager * manager')
         controls = self.game.header.controls.items[0]
         is_keyboard = controls.getControlType() == 'Keyboard'
 
@@ -1440,6 +1505,181 @@ class Converter(object):
         print ''
         print 'EXPRESSIONS'
         print default_writers['expressions'].checked.most_common()
+
+    def write_object(self, object_writer):
+        class_name = object_writer.new_class_name
+        object_type_id = object_writer.type_id
+        frameitem = object_writer.data
+        common = object_writer.common
+        subclass = object_writer.class_name
+        objects_file = CodeWriter()
+        object_writer.write_pre(objects_file)
+        objects_file.putclass(class_name, subclass)
+        objects_file.put_access('public')
+        object_writer.write_constants(objects_file)
+        parameters = ['x', 'y', object_type_id]
+        extra_parameters = [str(item)
+            for item in object_writer.get_parameters()]
+        parameters = ', '.join(extra_parameters + parameters)
+        init_list = [to_c('%s(%s)', subclass, parameters)]
+        for name, value in object_writer.get_init_list():
+            init_list.append(to_c('%s(%r)', name, value))
+        init_list = ', '.join(init_list)
+        objects_file.putln(to_c('%s(int x, int y) : %s', class_name,
+            init_list))
+        objects_file.start_brace()
+        objects_file.putraw('#ifndef NDEBUG')
+        objects_file.putln(to_c('name = %r;', frameitem.name))
+        objects_file.putraw('#endif')
+
+        if object_writer.is_background():
+            objects_file.putln('flags |= BACKGROUND;')
+
+        if not object_writer.is_visible():
+            objects_file.putln('set_visible(false);')
+
+        if not object_writer.is_scrolling():
+            objects_file.putln('flags &= ~SCROLL;')
+
+        object_writer.write_init(objects_file)
+
+        shader_name = None
+        if frameitem.shaderId is not None:
+            # raise NotImplementedError('has shader')
+            ink_effect = SHADER_EFFECT
+        else:
+            ink_effect = frameitem.inkEffect
+        if ink_effect:
+            if ink_effect & HWA_EFFECT or ink_effect == SHADER_EFFECT:
+                parameter = frameitem.inkEffectValue
+                b, g, r = get_color_tuple(parameter)
+                a = (parameter & 0xFF000000) >> 24
+                if object_writer.has_color:
+                    objects_file.putlnc('blend_color.a = %s;', a)
+                else:
+                    objects_file.putln('blend_color = %s;' % make_color(
+                        (r, g, b, a)))
+                ink_effect &= ~HWA_EFFECT
+            if ink_effect == NONE_EFFECT:
+                pass
+            elif ink_effect == SHADER_EFFECT:
+                shader_data = self.game.shaders.items[frameitem.shaderId]
+                shader_name = shader_data.name
+            elif ink_effect == SEMITRANSPARENT_EFFECT:
+                a = min(255, (128 - frameitem.inkEffectValue) * 2)
+                if object_writer.has_color:
+                    objects_file.putlnc('blend_color.a = %s;', a)
+                else:
+                    objects_file.putlnc('blend_color = %s;', make_color(
+                        (255, 255, 255, a)))
+            elif ink_effect in INK_EFFECTS:
+                shader_name = INK_EFFECTS[ink_effect]
+            elif shader_name is None:
+                raise NotImplementedError(
+                    'unknown inkeffect: %s' % ink_effect)
+        if shader_name is not None:
+            objects_file.putln('set_shader(%s);' % shader.get_name(
+                shader_name))
+        if ink_effect == SHADER_EFFECT:
+            shader_data = self.game.shaders.items[frameitem.shaderId]
+            parameters = shader_data.get_parameters()
+            values = frameitem.items
+            if shader_data.parameters is not None:
+                for index, parameter in enumerate(shader_data.parameters):
+                    reader = values[index]
+                    reader.seek(0)
+                    if parameter.type == INT:
+                        value = reader.readInt()
+                    elif parameter.type == FLOAT:
+                        value = reader.readFloat()
+                    elif parameter.type == INT_FLOAT4:
+                        value = make_color((reader.readByte(True),
+                            reader.readByte(True),
+                            reader.readByte(True),
+                            reader.readByte(True)))
+                    elif parameter.type == IMAGE:
+                        value = self.get_image(reader.readShort(), False)
+                    else:
+                        print 'shader parameter type not supported:',
+                        print parameter.type
+                        continue
+                        raise NotImplementedError
+                    parameters[parameter.name].value = value
+            for name, value in parameters.iteritems():
+                objects_file.putln(to_c('set_shader_parameter(%r, %s);',
+                    name, value.value))
+
+        if hasattr(common, 'movements') and common.movements:
+            movements = common.movements.items
+            self.write_movements(objects_file, object_writer, movements)
+
+        object_writer.load_alterables(objects_file)
+        objects_file.end_brace()
+
+        object_writer.write_class(objects_file)
+        object_writer.write_internal_class(objects_file)
+        # write event callbacks
+        if object_writer.event_callbacks:
+            for v in object_writer.event_callbacks.iteritems():
+                name, event_id = v
+                objects_file.putmeth('void %s' % name)
+                objects_file.putln('frame->event_callback(%s);' % event_id)
+                objects_file.end_brace()
+
+        if object_writer.has_dtor():
+            objects_file.putmeth('~%s' % class_name)
+            object_writer.write_dtor(objects_file)
+            objects_file.end_brace()
+
+        if PROFILE:
+            if object_writer.update:
+                objects_file.putmeth('void update', 'float dt')
+                objects_file.putlnc('PROFILE_BLOCK(%s_update);',
+                                    class_name)
+                objects_file.putlnc('%s::update(dt);', subclass)
+                objects_file.end_brace()
+            objects_file.putmeth('void draw')
+            objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
+            objects_file.putlnc('%s::draw();', subclass)
+            objects_file.end_brace()
+
+        objects_file.end_brace(True)
+        return objects_file
+
+    def get_image(self, value, pointer=True):
+        value = self.image_indexes[value]
+        ret = 'get_internal_image(%s)' % value
+        if not pointer:
+            ret = '(*%s)' % ret
+        return ret
+
+    def iterate_groups(self, groups):
+        index = 0
+
+        while True:
+            try:
+                group = groups[index]
+            except IndexError:
+                break
+
+            if group.is_container_mark:
+                index += 1
+                continue
+
+            or_groups = []
+            while True:
+                try:
+                    new_group = groups[index]
+                except IndexError:
+                    break
+                if (new_group.is_container_mark or
+                        new_group.global_id != group.global_id):
+                    break
+
+                or_groups.append(new_group)
+                index += 1
+
+            yield or_groups
 
     @contextlib.contextmanager
     def iterate_object(self, *arg, **kw):
@@ -1618,7 +1858,70 @@ class Converter(object):
         else:
             obj.movement_count = 0
 
-    def write_event(self, outwriter, group, triggered = False):
+    def write_event(self, writer, group, triggered=False):
+        data = self.get_event_code(group, triggered)
+        group.data_hash = hash(data)
+        group.fire_write_callbacks()
+        data = group.filter(data)
+
+        for line in data.splitlines():
+            writer.putln(line)
+
+    def write_event_function(self, writer, groups, triggered=False):
+        data = ''
+        for group in groups:
+            data += self.get_event_code(group, triggered)
+        event_hash = hash(data)
+        for group in groups:
+            group.data_hash = event_hash
+
+        try:
+            event_name = self.event_functions[event_hash]
+            groups[0].event_name = event_name
+            return event_name
+        except KeyError:
+            pass
+
+        for group in groups:
+            group.fire_write_callbacks()
+
+        data = group.filter(data)
+
+        event_name = 'event_func_%s' % (len(self.event_functions) + 1)
+        groups[0].event_name = event_name
+        self.event_functions[event_hash] = event_name
+
+        writer.putmeth('void %s' % event_name)
+        for line in data.splitlines():
+            writer.putln(line)
+        writer.end_brace()
+        return event_name
+
+    def write_events(self, name, writer, groups, triggered=False):
+        names = []
+
+        for new_groups in self.iterate_groups(groups):
+            names.append(self.write_event_function(writer, new_groups,
+                                                   triggered))
+
+        wrapper_hash = hash(tuple(names))
+        try:
+            return self.event_wrappers[wrapper_hash]
+        except KeyError:
+            pass
+
+        self.event_wrappers[wrapper_hash] = name
+
+        writer.putmeth('void %s' % name)
+        for event_name in names:
+            writer.putlnc('%s();', event_name)
+        writer.end_brace()
+        return name
+
+    def write_generated(self, name, writer, groups):
+        return self.write_events(name, writer, groups, True)
+
+    def get_event_code(self, group, triggered=False):
         self.current_group = group
         self.current_event_id = group.global_id
         self.event_settings = {}
@@ -1632,7 +1935,7 @@ class Converter(object):
         if triggered:
             conditions = conditions[1:]
         writer = CodeWriter()
-        writer.putln('// event %s' % group.global_id)
+        writer.putln('// event %s' % TEMPORARY_GROUP_ID)
         event_break = self.event_break = 'goto %s_end;' % group.name
 
         if group.or_first:
@@ -1727,26 +2030,25 @@ class Converter(object):
             new_selection = {}
 
             is_logical = group.or_type == 'OrLogical'
-            # if group.or_type == 'OrLogical':
-            if True:
-                for obj, or_bools in group.or_instance_groups.iteritems():
-                    list_name = self.get_object_list(obj)
-                    new_selection[obj] = list_name
-                    or_list = group.or_selected[obj]
-                    check = '%s' % (' || '.join(or_bools))
-                    writer.putlnc('if (%s) {', check)
-                    writer.indent()
-                    writer.putlnc('%s.restore(%s);', or_list, list_name)
-                    # blah blah copy over
-                    writer.dedent()
-                    writer.putlnc('} else {')
-                    writer.indent()
-                    instance_list = self.get_object(obj, True)
-                    if is_logical:
-                        writer.putlnc('%s.clear_selection();', list_name)
-                    else:
-                        writer.putlnc('%s.empty_selection();', list_name)
-                    writer.end_brace()
+
+            for obj, or_bools in group.or_instance_groups.iteritems():
+                list_name = self.get_object_list(obj)
+                new_selection[obj] = list_name
+                or_list = group.or_selected[obj]
+                check = '%s' % (' || '.join(or_bools))
+                writer.putlnc('if (%s) {', check)
+                writer.indent()
+                writer.putlnc('%s.restore(%s);', or_list, list_name)
+                # blah blah copy over
+                writer.dedent()
+                writer.putlnc('} else {')
+                writer.indent()
+                instance_list = self.get_object(obj, True)
+                if is_logical:
+                    writer.putlnc('%s.clear_selection();', list_name)
+                else:
+                    writer.putlnc('%s.empty_selection();', list_name)
+                writer.end_brace()
             writer.start_brace()
             self.has_selection = new_selection # group.or_selected
 
@@ -1823,13 +2125,14 @@ class Converter(object):
         if group.or_save:
             self.write_instance_save(group, writer)
 
-        outwriter.putcode(writer)
         self.has_single_selection = {}
         self.has_selection = {}
         self.collision_objects = set()
         self.current_object = None
         self.current_group = None
         self.current_event_id = None
+
+        return writer.get_data()
 
     def write_instance_save(self, group, writer):
         if not self.has_selection:
@@ -1840,7 +2143,7 @@ class Converter(object):
             new_list = group.or_selected.get(obj, None)
             if new_list is not None:
                 continue
-            new_list = 'or_%s_%s' % (list_name, group.global_id)
+            new_list = 'or_%s_%s' % (list_name, TEMPORARY_GROUP_ID)
             group.or_selected[obj] = new_list
             if is_qualifier(obj[0]):
                 class_name = 'SavedQualifierSelection'

@@ -696,7 +696,7 @@ const FTPoint& FTGlyph::Render(const FTPoint& pen)
 FTGlyphContainer::FTGlyphContainer(FTFont* f)
 : font(f)
 {
-    glyphs.push_back(NULL);
+    glyphs.push_back((FTGlyph*)NULL);
 }
 
 

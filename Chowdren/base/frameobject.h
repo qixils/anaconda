@@ -64,9 +64,19 @@ public:
         return values[key];
     }
 
+    double get_value(const std::string & key)
+    {
+        return get_value(hash_extra_key(key));
+    }
+
     const std::string & get_string(int key)
     {
         return strings[key];
+    }
+
+    const std::string & get_string(const std::string & key)
+    {
+        return get_string(hash_extra_key(key));
     }
 
     void set_value(int key, double value)
@@ -219,6 +229,9 @@ is met. The first item is then always the last item pointed to by another item.
 class ObjectList
 {
 public:
+    unsigned int saved_start;
+    vector<int> saved_items;
+
     ObjectListItems items;
     typedef ObjectListItems::iterator iterator;
 
@@ -342,6 +355,10 @@ public:
         items[0].next = obj->index;
         items[obj->index].next = LAST_SELECTED;
     }
+
+    void save_selection();
+    void restore_selection();
+    void clear_saved_selection();
 };
 
 class ObjectIterator
@@ -576,6 +593,27 @@ public:
         }
     }
 
+    void clear_saved_selection()
+    {
+        for (int i = 0; i < count; i++) {
+            items[i]->clear_saved_selection();
+        }
+    }
+
+    void save_selection()
+    {
+        for (int i = 0; i < count; i++) {
+            items[i]->save_selection();
+        }
+    }
+
+    void restore_selection()
+    {
+        for (int i = 0; i < count; i++) {
+            items[i]->restore_selection();
+        }
+    }
+
     FrameObject * get_wrapped_selection(int index);
 };
 
@@ -680,80 +718,37 @@ inline FrameObject * QualifierList::get_wrapped_selection(int index)
     }
 }
 
-class SavedSelection
+// saving selection
+
+inline void ObjectList::clear_saved_selection()
 {
-public:
-    unsigned int start;
-    vector<int> items;
+    saved_items.clear();
+}
 
-    SavedSelection()
-    {
-    }
-
-    void clear()
-    {
-        items.clear();
-    }
-
-    void add(ObjectList & list)
-    {
-        if (items.size() == 0) {
-            items.resize(list.size(), 0);
-            start = list.items[0].next;
-        } else
-            start = std::max(list.items[0].next, start);
-        for (ObjectIterator it(list); !it.end(); it++) {
-            items[it.index-1] = 1;
-        }
-    }
-
-    void restore(ObjectList & list)
-    {
-        list.items[0].next = start;
-        int last = start;
-        for (int i = start-1; i >= 1; i--) {
-            if (!items[i-1])
-                continue;
-            list.items[last].next = i;
-            last = i;
-        }
-    }
-};
-
-class SavedQualifierSelection
+inline void ObjectList::save_selection()
 {
-public:
-    vector<SavedSelection> items;
-
-    SavedQualifierSelection()
-    {
+    if (saved_items.size() == 0) {
+        saved_items.resize(items.size(), 0);
+        saved_start = items[0].next;
+    } else
+        saved_start = std::max(items[0].next, saved_start);
+    for (ObjectIterator it(*this); !it.end(); it++) {
+        saved_items[it.index-1] = 1;
     }
+}
 
-    void clear()
-    {
-        vector<SavedSelection>::iterator it;
-        for (it = items.begin(); it != items.end(); it++) {
-            it->clear();
-        }
+inline void ObjectList::restore_selection()
+{
+    items[0].next = saved_start;
+    int last = saved_start;
+    for (int i = saved_start-1; i >= 1; i--) {
+        if (!saved_items[i-1])
+            continue;
+        items[last].next = i;
+        last = i;
     }
-
-    void add(QualifierList & list)
-    {
-        if (items.size() == 0)
-            items.resize(list.count);
-
-        for (int i = 0; i < list.count; i++) {
-            items[i].add(*list.items[i]);
-        }
-    }
-
-    void restore(QualifierList & list)
-    {
-        for (int i = 0; i < list.count; i++) {
-            items[i].restore(*list.items[i]);
-        }
-    }
-};
+    items[last].next = LAST_SELECTED;
+}
 
 void setup_default_instance(FrameObject * obj);
 

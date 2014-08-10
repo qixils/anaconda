@@ -5,6 +5,11 @@ BackImages::BackImages(int x, int y, int type_id)
 {
 }
 
+int BackImages::get_width(int slot)
+{
+    return width;
+}
+
 class DefaultInstance : public BackImages
 {
 public:

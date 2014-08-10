@@ -747,6 +747,7 @@ cdef class SubApplication(DataLoader):
         object options
         int iconOffset
         bytes name
+
     cpdef initialize(self):
         self.options = SUBAPPLICATION_FLAGS.copy()
 

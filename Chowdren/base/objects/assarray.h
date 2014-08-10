@@ -4,6 +4,7 @@
 #include "frameobject.h"
 #include "objects/blowfish.h"
 #include "types.h"
+#include "datastream.h"
 
 class AssociateArrayItem
 {
@@ -64,7 +65,9 @@ public:
     ArrayAddress get_prefix(const std::string & prefix, int index,
                             ArrayAddress start);
     const std::string & get_key(ArrayAddress addr);
+    void save(BaseStream & stream, int method);
     void save(const std::string & filename, int method);
+    void save_encrypted(const std::string & filename, int method);
 };
 
 #endif // CHOWDREN_ASSARRAY_H

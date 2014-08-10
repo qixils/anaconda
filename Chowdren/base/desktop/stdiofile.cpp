@@ -8,7 +8,7 @@ public:
     {
     }
 
-    virtual size_t write(void * data, size_t size)
+    virtual size_t write(const void * data, size_t size)
     {
         return 0;
     }
@@ -55,7 +55,7 @@ public:
         this->filename = filename;
     }
 
-    size_t write(void * data, size_t size)
+    size_t write(const void * data, size_t size)
     {
         stream.write((const char*)data, size);
         return size;
@@ -190,7 +190,7 @@ public:
         return fread(data, 1, size, fp);
     }
 
-    size_t write(void * data, size_t size)
+    size_t write(const void * data, size_t size)
     {
         return fwrite(data, 1, size, fp);
     }
@@ -267,7 +267,7 @@ size_t FSFile::read(void * data, size_t size)
     return ((HANDLE_BASE*)handle)->read(data, size);
 }
 
-size_t FSFile::write(void * data, size_t size)
+size_t FSFile::write(const void * data, size_t size)
 {
     return ((HANDLE_BASE*)handle)->write(data, size);
 }

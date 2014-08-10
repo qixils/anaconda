@@ -30,7 +30,7 @@ class GetString(ExpressionWriter):
     has_object = False
     def get_string(self):
         obj = (self.data.objectInfo, self.data.objectType)
-        name = self.converter.all_objects[obj].data.name
+        name = self.converter.get_object_writer(obj).data.name
         if name in PLATFORM_STRINGS:
             return 'get_platform()'
         elif name == LANGUAGE_STRING:
@@ -42,7 +42,7 @@ class SetString(ActionWriter):
     has_object = False
     def write(self, writer):
         obj = (self.data.objectInfo, self.data.objectType)
-        name = self.converter.all_objects[obj].data.name
+        name = self.converter.get_object_writer(obj).data.name
         if name == SPRITES_STRING:
             writer.put('set_image_path(%s);' % self.convert_index(0))
         elif name == FONT_STRING:

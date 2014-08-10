@@ -38,6 +38,14 @@ class MoveAbove(ActionMethodWriter):
         parameter = self.parameters[0].loader
         return (parameter.objectInfo, parameter.objectType)
 
+class MoveBack(ActionMethodWriter):
+    def write(self, writer):
+        writer.putc('move_back();')
+
+    def get_object(self):
+        parameter = self.parameters[0].loader
+        return (parameter.objectInfo, parameter.objectType)
+
 class MoveObject(ActionMethodWriter):
     def write(self, writer):
         level = self.convert_index(1)
@@ -169,6 +177,7 @@ class GetObjectLevel(ExpressionMethodWriter):
         return 'return_if(%s->get_level(), 0, ' % obj
 
 actions = make_table(ActionMethodWriter, {
+    20 : MoveBack,
     23 : MoveAbove,
     24 : MoveBehind,
     25 : MoveObject,

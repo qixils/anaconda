@@ -110,7 +110,7 @@ public:
         data[1] = (v >> 8) & 0xFF;
         data[2] = (v >> 16) & 0xFF;
         data[3] = (v >> 24) & 0xFF;
-        write((char*)data, 4);
+        write((char*)&data[0], 4);
         return *this;
     }
 
@@ -124,9 +124,14 @@ public:
         return *this << (char)(v);
     }
 
+    void write_string(const std::string & str)
+    {
+        write(&str[0], str.size());
+    }
+
     // subclasses implements this
 
-    virtual void write(char * data, size_t len) = 0;
+    virtual void write(const char * data, size_t len) = 0;
     virtual void read(char * data, size_t len) = 0;
     virtual void read_delim(std::string & str, char delim) = 0;
     virtual void seek(size_t pos) = 0;
@@ -163,7 +168,7 @@ public:
         return fp.at_end();
     }
 
-    void write(char * data, size_t len)
+    void write(const char * data, size_t len)
     {
         fp.write(data, len);
     }
@@ -199,7 +204,7 @@ public:
         return stream.peek() == EOF;
     }
 
-    void write(char * data, size_t len)
+    void write(const char * data, size_t len)
     {
         stream.write(data, len);
     }

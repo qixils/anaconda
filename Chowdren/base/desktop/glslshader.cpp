@@ -109,11 +109,12 @@ GLuint GLSLShader::attach_source(const std::string & ext, GLenum type)
     GLuint shader = glCreateShader(type);
 
     std::string path = shader_path + "/" + name + "." + ext;
+    std::cout << "Compiling " << path << std::endl;
 
     GLchar * data;
     size_t length;
 
-    read_file(path.c_str(), &data, &length);
+    read_file(path.c_str(), &data, &length, false);
 
     GLint len = length;
 

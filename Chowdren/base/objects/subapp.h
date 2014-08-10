@@ -2,11 +2,23 @@
 #define CHOWDREN_SUBAPP_H
 
 #include "frameobject.h"
+#include "events.h"
 
 class SubApplication : public FrameObject
 {
 public:
+    static SubApplication * current;
+    Frames subapp_frame;
+    int frame_offset;
+    bool done;
+    bool starting;
+
     SubApplication(int x, int y, int id);
+    ~SubApplication();
+    void restart(int index);
+    void update(float dt);
+    void set_next_frame(int index);
+    void set_frame(int index);
 };
 
 #endif // CHOWDREN_SUBAPP_H

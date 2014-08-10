@@ -61,10 +61,6 @@ elseif (USE_GLES2)
     add_definitions(-DCHOWDREN_USE_GLES2)
 endif()
 
-FILE(GLOB FRAMESRCS "frame*.cpp")
-FILE(GLOB EVENTSRCS "events*.cpp")
-FILE(GLOB OBJECTSRCS "objects*.cpp")
-
 if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
     set(PLATFORM_SRCS
         ${CHOWDREN_BASE_DIR}/desktop/glc.cpp
@@ -199,6 +195,8 @@ if(MSVC)
     # Disable RTTI
     STRING(REGEX REPLACE "/GR" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GS-")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()
 
 if(APPLE)

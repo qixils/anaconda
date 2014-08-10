@@ -90,6 +90,7 @@ public:
     void set_display_image(int index);
     void set_edit_image(int index, bool display = false);
     void create_alpha(int index);
+    void clear_alpha(int index);
     void clear(const Color & color);
     void clear(int value);
     void apply_matrix(double div, double offset, double iterations,

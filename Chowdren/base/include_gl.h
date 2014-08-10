@@ -28,6 +28,7 @@ extern PFNGLUNIFORM2FPROC glUniform2f;
 extern PFNGLUNIFORM1FPROC glUniform1f;
 extern PFNGLUNIFORM4FPROC glUniform4f;
 extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+extern PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 
 #elif CHOWDREN_USE_GLES1
 #include <SDL_opengles.h>
@@ -59,21 +60,6 @@ void glc_multi_texcoord_2f(GLenum target, GLfloat s, GLfloat t);
 void glc_texcoord_2f(GLfloat s, GLfloat t);
 void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 
-#ifndef CHOWDREN_BUILD_GLC
-
-#if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
-#undef glGenFramebuffers
-#define glGenFramebuffers glGenFramebuffersEXT
-#undef glBindFramebuffer
-#define glBindFramebuffer glBindFramebufferEXT
-#undef glFramebufferTexture2D
-#define glFramebufferTexture2D glFramebufferTexture2DEXT
-#undef GL_FRAMEBUFFER
-#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
-#undef GL_COLOR_ATTACHMENT0
-#define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
-#endif
-
 #ifdef CHOWDREN_USE_GLES1
 #define glGenFramebuffers glGenFramebuffersOES
 #define glBindFramebuffer glGenFramebuffersOES
@@ -92,8 +78,6 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #ifdef CHOWDREN_USE_GLES2
 #define glPushMatrix glc_push_matrix
 #define glMatrixMode glc_matrix_mode
-#define glDisable glc_disable
-#define glEnable glc_enable
 #define glPopMatrix glc_pop_matrix
 #define glLoadIdentity glc_load_identity
 #define glColor4ub glc_color_4ub
@@ -116,6 +100,26 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #define glMultiTexCoord2f glc_multi_texcoord_2f
 #define glTexCoord2f glc_texcoord_2f
 #define GL_CLAMP GL_CLAMP_TO_EDGE
+#endif
+
+#ifndef CHOWDREN_BUILD_GLC
+
+#if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
+#undef glGenFramebuffers
+#define glGenFramebuffers glGenFramebuffersEXT
+#undef glBindFramebuffer
+#define glBindFramebuffer glBindFramebufferEXT
+#undef glFramebufferTexture2D
+#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#undef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#undef GL_COLOR_ATTACHMENT0
+#define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
+#endif
+
+#ifdef CHOWDREN_USE_GLES2
+#define glDisable glc_disable
+#define glEnable glc_enable
 #endif
 
 #define glPopAttrib glPopAttribUndef

@@ -9,6 +9,46 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren import hacks
 
+def get_closest_directions(direction, dir_dict):
+    try:
+        return dir_dict[direction]
+    except KeyError:
+        pass
+
+    # (directionObject, distance)
+    forward = None
+    backward = None
+
+    # get closest in back
+    position = direction
+    distance = 0
+    while 1:
+        position -= 1
+        distance += 1
+        if position < 0:
+            position = 31
+        if position in dir_dict:
+            backward = (dir_dict[position], distance)
+            break
+
+    # get closest ahead
+    position = direction
+    distance = 0
+    while 1:
+        position = (position + 1) % 32
+        distance += 1
+        if position in dir_dict:
+            forward = (dir_dict[position], distance)
+            break
+
+    # backward has priority
+    if backward[1] == forward[1]:
+        return None
+    elif backward[1] > forward[1]:
+        return forward[0]
+    else:
+        return backward[0]
+
 class Active(ObjectWriter):
     class_name = 'Active'
     use_alterables = True
@@ -19,17 +59,13 @@ class Active(ObjectWriter):
         common = self.common
         animations = common.animations.loadedAnimations
         max_anim = max(animations)+1
-        writer.putlnc('static Animation * anims[%s];', max_anim)
-        writer.putlnc('static Animations saved_animations(%s, '
-                      '&anims[0]);', max_anim)
-        writer.putln('this->animations = &saved_animations;')
-        writer.putln('static bool initialized = false;')
-        writer.putln('if (!initialized) {')
+        writer.putlnc('this->animations = &%s;', self.animations_name)
+        writer.putlnc('if (!%s) {', self.initialized_name)
         writer.indent()
-        writer.putln('initialized = true;')
-        for animation_index, animation in animations.iteritems():
-            writer.putln('init_anim_%s();' % animation_index)
-        writer.putln('initialize_animations();')
+        writer.putlnc('%s = true;', self.initialized_name)
+        for name, images in self.images:
+            for image_index, image in enumerate(images):
+                writer.putlnc('%s[%s] = %s;', name, image_index, image)
         writer.end_brace()
         flags = common.newFlags
         writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
@@ -72,27 +108,72 @@ class Active(ObjectWriter):
             return False
         return True
 
-    def write_class(self, writer):
+    def write_pre(self, writer):
+        self.animations = {}
+        self.images = []
         get_image = self.converter.get_image
         animations = self.common.animations.loadedAnimations
-        for animation_index, animation in animations.iteritems():
+        prefix = self.new_class_name.lower()
+        for animation_index in sorted(animations):
+            animation = animations[animation_index]
             single_loop = animation.getName() in ('Appearing', 'Disappearing')
-            writer.putmeth('void init_anim_%s' % animation_index)
+            # writer.putmeth('void init_anim_%s' % animation_index)
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
-            for direction_index, direction in directions.iteritems():
+            direction_map = {}
+            anim_prefix = '%s_%s' % (prefix, animation_index)
+            for direction_index in sorted(directions):
+                direction = directions[direction_index]
+                dir_prefix = '%s_%s' % (anim_prefix, direction_index)
+                image_count = len(direction.frames)
+                images = [get_image(image) for image in direction.frames]
+                images_name = 'images_%s' % dir_prefix
+                writer.putlnc('static Image* %s[%s];', images_name,
+                              image_count)
+                self.images.append((images_name, images))
                 loop_count = direction.repeat
                 if loop_count == 0:
                     loop_count = -1
                 if single_loop and loop_count == -1:
                     loop_count = 1
-                writer.putln(to_c('add_direction(%s, %s, %s, %s, %s, %s);',
-                    animation_name, direction_index, direction.minSpeed,
-                    direction.maxSpeed, loop_count, direction.backTo))
-                for image in direction.frames:
-                    writer.putln('add_image(%s, %s, %s);' % (animation_name,
-                        direction_index, get_image(image)))
-            writer.end_brace()
+
+                direction_name = 'direction_%s' % dir_prefix
+                writer.putlnc('static Direction %s = {%s, %s, %s, %s, %s, %s, '
+                              '%s};', direction_name, direction_index,
+                              direction.minSpeed, direction.maxSpeed,
+                              direction.backTo, loop_count, images_name,
+                              image_count)
+                direction_map[direction_index] = '&%s' % direction_name
+
+            directions = []
+            for i in xrange(32):
+                new_dir = get_closest_directions(i, direction_map)
+                if new_dir is None:
+                    new_dir = 'NULL'
+                directions.append(new_dir)
+
+            directions = ', '.join(directions)
+            anim_name = 'anim_%s' % anim_prefix
+            writer.putlnc('static Animation %s = {%s};',
+                          anim_name, directions)
+            self.animations[animation_index] = '&' + anim_name
+
+        self.animations_name = 'anim_%s' % prefix
+        animation_names = []
+
+        anims_array = 'anim_array_%s' % prefix
+
+        for i in xrange(max(animations)+1):
+            animation_names.append(self.animations.get(i, 'NULL'))
+
+        writer.putlnc('static Animation * %s[%s] = {%s};',
+                      anims_array, len(animation_names),
+                      ', '.join(animation_names))
+        writer.putlnc('static Animations %s = {%s, &%s[0]};',
+                      self.animations_name, len(animation_names),
+                      anims_array)
+        self.initialized_name = '%s_initialized' % self.animations_name
+        writer.putlnc('static bool %s;', self.initialized_name)
 
     def get_images(self):
         images = set()
@@ -109,7 +190,7 @@ class Backdrop(ObjectWriter):
 
     def initialize(self):
         obstacle = self.common.getObstacleType()
-        if obstacle not in ('None', 'Solid'):
+        if obstacle not in ('None', 'Solid', 'Ladder'):
             print 'obstacle type', obstacle, 'not supported'
             raise NotImplementedError
 
@@ -124,12 +205,14 @@ class Backdrop(ObjectWriter):
         writer.putln('width = image->width;')
         writer.putln('height = image->height;')
         obstacle_type = self.common.obstacleType
-        if obstacle_type in (NONE_OBSTACLE, LADDER_OBSTACLE):
+        if obstacle_type == NONE_OBSTACLE:
             return
         if self.common.collisionMode == FINE_COLLISION:
             writer.putln('collision = new BackdropCollision(this, image);')
         else:
             writer.putln('collision = new InstanceBox(this);')
+        if obstacle_type == LADDER_OBSTACLE:
+            writer.putln('collision->flags |= LADDER_OBSTACLE;')
 
     def get_images(self):
         return [self.common.image]
@@ -140,7 +223,7 @@ class QuickBackdrop(ObjectWriter):
 
     def initialize(self):
         obstacle = self.common.getObstacleType()
-        if obstacle not in ('Solid', 'None'):
+        if obstacle not in ('Solid', 'None', 'Ladder'):
             print 'obstacle type', obstacle, 'not supported'
             raise NotImplementedError
         shape = self.common.shape
@@ -167,10 +250,12 @@ class QuickBackdrop(ObjectWriter):
         color2 = shape.color2
         fill = shape.getFill()
 
-        if fill == 'Motif' and shape.image in self.converter.solid_images:
-            # HFA optimization
-            fill = 'Solid'
-            color1 = self.converter.solid_images[shape.image]
+        if fill == 'Motif':
+            try:
+                color1 = self.converter.get_solid_image(shape.image)
+                fill = 'Solid'
+            except KeyError:
+                pass
 
         writer.putln('width = %s;' % self.common.width)
         writer.putln('height = %s;' % self.common.height)
@@ -196,14 +281,12 @@ class QuickBackdrop(ObjectWriter):
             writer.putlnc('outline_color = %s;',
                           make_color(self.border_color))
 
-        if self.common.getObstacleType() == 'Solid':
-            writer.putln('collision = new InstanceBox(this);')
-
-        # objects_file.putln('const static int obstacle_type = %s;' %
-        #     common.getObstacleType())
-        # objects_file.putdef('collision_mode',
-        #     common.getCollisionMode())
-        # objects_file.putln('image = image%s' % common.image)
+        obstacle_type = self.common.obstacleType
+        if obstacle_type == NONE_OBSTACLE:
+            return
+        writer.putln('collision = new InstanceBox(this);')
+        if obstacle_type == LADDER_OBSTACLE:
+            writer.putln('collision->flags |= LADDER_OBSTACLE;')
 
 class Text(ObjectWriter):
     class_name = 'Text'
@@ -393,10 +476,50 @@ class Lives(ObjectWriter):
 
 class SubApplication(ObjectWriter):
     class_name = 'SubApplication'
+    update = True
     filename = 'subapp'
+    defines = ['CHOWDREN_USE_SUBAPP']
 
     def write_init(self, writer):
-        pass
+        data = self.common.subApplication
+
+        writer.putlnc('subapp_frame.media = global_manager->media;')
+
+        writer.putlnc('width = %s;', data.width)
+        writer.putlnc('height = %s;', data.height)
+
+        flags = data.options
+        if flags['ShareGlobals']:
+            writer.putlnc('subapp_frame.global_values = '
+                          'global_manager->values;')
+            writer.putlnc('subapp_frame.global_strings = '
+                          'global_manager->strings;')
+
+        if not flags['ShareLives']:
+            print 'Non-shared live not implemented'
+
+        if not flags['ShareScores']:
+            print 'Non-shared score not implemented'
+
+        filename = data.name.split('\\')[-1]
+        if flags['Internal']:
+            writer.putlnc('frame_offset = %s;',
+                          self.converter.game.frame_offset)
+            start_frame = data.startFrame
+        else:
+            for game in self.converter.games:
+                if game.filename.endswith(filename):
+                    filename = game.filename
+                    break
+            else:
+                raise NotImplementedError()
+
+            frame_offset = self.converter.frame_map[(filename, 0)]
+            writer.putlnc('frame_offset = %s;', frame_offset)
+            start_frame = 0
+
+        writer.putlnc('restart(%s);', start_frame)
+
 
 system_objects = {
     TEXT : Text,

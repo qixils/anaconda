@@ -7,8 +7,9 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(
         description = 'Chowdren - MMF to C++ converter')
-    parser.add_argument('filename', type = str,
-        help = 'input file to convert (should be an EXE or CCN file)')
+    parser.add_argument('filenames', type = str,
+        help = 'input files to convert (should be an EXE or CCN file)',
+        nargs = '+')
     parser.add_argument('outdir', type = str, help = 'destination directory')
     parser.add_argument('--imagefile', type = str, action = 'store',
         default = 'Sprites.dat', help = 'destination file for images')
@@ -35,7 +36,7 @@ def main():
         image_file = None
     else:
         image_file = args.imagefile
-    Converter(args.filename, args.outdir, image_file = image_file,
+    Converter(args.filenames, args.outdir, image_file = image_file,
               win_ico = args.ico, mac_icns = args.icns, version = args.version,
               company = args.company, copyright = args.copyright,
               base_only = args.base, copy_shaders= args.shaders)

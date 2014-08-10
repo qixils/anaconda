@@ -3,7 +3,11 @@
 #include "platform.h"
 #include "frameobject.h"
 
+#ifdef CHOWDREN_USE_GL
 std::string shader_path = "./shaders";
+#else
+std::string shader_path = "./glesshaders";
+#endif
 
 void set_shader_path(const std::string & path)
 {
@@ -17,22 +21,6 @@ void convert_vec4(int val, float & a, float & b, float & c, float & d)
     c = ((val >> 16) & 0xFF) / 255.0f;
     d = ((val >> 24) & 0xFF) / 255.0f;
 }
-
-class SubtractShader : public Shader
-{
-public:
-    void begin(FrameObject * instance, int width, int height)
-    {
-        glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
-        glBlendFunc(GL_DST_COLOR, GL_ONE);
-    }
-
-    void end(FrameObject * instance)
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_ADD);
-    }
-};
 
 class AdditiveShader : public Shader
 {
@@ -48,8 +36,6 @@ public:
     }
 };
 
-
-
 #include "glslshader.h"
 
 void GLSLShader::set_image(FrameObject * instance, const std::string & name)
@@ -60,6 +46,27 @@ void GLSLShader::set_image(FrameObject * instance, const std::string & name)
 }
 
 // shader implementations
+
+class SubtractShader : public GLSLShader
+{
+public:
+    SubtractShader()
+    : GLSLShader("subtract")
+    {
+    }
+
+    void begin(FrameObject * instance, int width, int height)
+    {
+        glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+        GLSLShader::begin(instance, width, height);
+    }
+
+    void end(FrameObject * instance)
+    {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GLSLShader::end(instance);
+    }
+};
 
 class MonochromeShader : public GLSLShader
 {

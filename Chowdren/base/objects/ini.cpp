@@ -254,6 +254,12 @@ void INI::set_value(const std::string & group, const std::string & item,
     set_string(group, item, number_to_string(value));
 }
 
+void INI::set_value(const std::string & group, const std::string & item,
+                    double value)
+{
+    set_string(group, item, number_to_string(value));
+}
+
 void INI::set_value(const std::string & item, int pad, double value)
 {
     set_value(current_group, item, pad, value);

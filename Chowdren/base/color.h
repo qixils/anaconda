@@ -1,6 +1,7 @@
 #ifndef CHOWDREN_COLOR_H
 #define CHOWDREN_COLOR_H
 
+#include <iostream>
 #include <algorithm>
 #include "include_gl.h"
 
@@ -19,8 +20,6 @@ inline int make_color_int(unsigned char r, unsigned char g, unsigned char b,
 {
     return r | (g << 8) | (b << 16) | (a << 24);
 }
-
-#include <iostream>
 
 class Color
 {
@@ -59,6 +58,11 @@ public:
     void set(int color)
     {
         set(color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
+    }
+
+    void set(const Color & color)
+    {
+        set(color.r, color.g, color.b, color.a);
     }
 
     void apply()

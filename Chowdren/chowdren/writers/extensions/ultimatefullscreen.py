@@ -30,6 +30,8 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : 'WindowControl::get_x',
+    1 : 'WindowControl::get_y'
 })
 
 def get_object():

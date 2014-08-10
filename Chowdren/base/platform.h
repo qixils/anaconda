@@ -69,7 +69,7 @@ public:
     void read_line(std::string & line);
     void read_delim(std::string & line, char delim);
     size_t read(void * data, size_t size);
-    size_t write(void * data, size_t size);
+    size_t write(const void * data, size_t size);
     void close();
     bool at_end();
     int getc();

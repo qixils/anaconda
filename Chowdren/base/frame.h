@@ -5,6 +5,8 @@
 #include <list>
 #include "broadphase.h"
 #include "frameobject.h"
+#include "color.h"
+#include "instancemap.h"
 
 class BackgroundItem;
 class CollisionBase;
@@ -23,9 +25,9 @@ public:
     void destroy_at(int x, int y);
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
-               int collision_type);
+               int collision_type, const Color & color);
     void draw();
-    bool collide(CollisionBase * a);
+    CollisionBase * collide(CollisionBase * a);
 };
 
 // #define LAYER_USE_STD_SORT
@@ -66,12 +68,12 @@ public:
     void create_background();
     void destroy_backgrounds();
     void destroy_backgrounds(int x, int y, bool fine);
-    bool test_background_collision(CollisionBase * a);
-    bool test_background_collision(int x, int y);
+    CollisionBase * test_background_collision(CollisionBase * a);
+    CollisionBase * test_background_collision(int x, int y);
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
-               int collision_type);
-    void draw();
+               int collision_type, const Color & color);
+    void draw(int off_x, int off_y);
 
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     int remote;
@@ -113,7 +115,7 @@ public:
     std::string name;
     Frame * frame;
 
-    FrameData(Frame * frame);
+    FrameData();
     virtual void event_callback(int id);
     virtual void on_start();
     virtual void on_end();
@@ -129,7 +131,7 @@ public:
     Color background_color;
     DynamicLoops * loops;
     FrameData * data;
-
+    InstanceMap instances;
     GameManager * manager;
     FlatObjectList destroyed_instances;
     vector<Layer> layers;
@@ -144,11 +146,11 @@ public:
     double frame_time;
     int timer_base;
     float timer_mul;
-    unsigned int frame_iteration;
 
     Frame(GameManager * manager);
     void reset();
     bool update(float dt);
+    virtual void update_objects(float dt);
     void pause();
     void restart();
     void draw(int remote);
@@ -166,11 +168,13 @@ public:
     int frame_right();
     int frame_top();
     int frame_bottom();
-    void set_background_color(int color);
+    void set_background_color(const Color & color);
     void get_mouse_pos(int * x, int * y);
     int get_mouse_x();
     int get_mouse_y();
-    bool test_background_collision(int x, int y);
+    CollisionBase * test_background_collision(int x, int y);
+    int get_background_mask(int x, int y);
+    bool test_obstacle(int x, int y);
     bool compare_joystick_direction(int n, int test_dir);
     bool is_joystick_direction_changed(int n);
     void clean_instances();

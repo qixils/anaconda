@@ -11,9 +11,9 @@ class KcArray(ObjectWriter):
 
     def write_init(self, writer):
         data = self.get_data()
-        x_size = data.readInt()
-        y_size = data.readInt()
-        z_size = data.readInt()
+        x_size = max(1, data.readInt())
+        y_size = max(1, data.readInt())
+        z_size = max(1, data.readInt())
         flags = BitDict('Numeric', 'Text', 'Base1', 'Global')
         flags.setFlags(data.readInt())
         is_numeric = flags['Numeric']
@@ -24,6 +24,11 @@ class KcArray(ObjectWriter):
         #     raise NotImplementedError()
 
 actions = make_table(ActionMethodWriter, {
+    0 : '.x_pos = %s',
+    1 : '.y_pos = %s',
+    2 : '.z_pos = %s',
+    3 : '.x_pos++',
+    7 : 'set_string',
     14 : 'set_value',
     16 : 'set_string',
     8 : 'clear',

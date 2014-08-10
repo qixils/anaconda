@@ -21,3 +21,13 @@ void CharacterImageObject::set_text(const std::string & text)
 {
     this->text = text;
 }
+
+std::string CharacterImageObject::get_char(int index)
+{
+    return empty_string;
+}
+
+int CharacterImageObject::get_char_width(int alias, const std::string & c)
+{
+    return 0;
+}

@@ -345,8 +345,7 @@ void Blowfish::decrypt(std::string* dst, const std::string& src) const
 
 void Blowfish::encrypt(char* dst, const char* src, size_t byte_length) const
 {
-    if (dst != src)
-    {
+    if (dst != src) {
         memcpy(dst, src, byte_length);
     }
 

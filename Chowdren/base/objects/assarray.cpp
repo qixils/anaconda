@@ -196,9 +196,50 @@ const std::string & AssociateArray::get_key(ArrayAddress addr)
     return addr.it->first;
 }
 
+void AssociateArray::save(BaseStream & stream, int method)
+{
+    stream.write(ARRAY_MAGIC, sizeof(ARRAY_MAGIC)-1);
+
+    ArrayMap::iterator it;
+    for (it = map->begin(); it != map->end(); it++) {
+        AssociateArrayItem & item = it->second;
+        std::string key = it->first;
+        decode_method(key, method);
+        std::string string = item.string;
+        decode_method(string, method);
+        std::string value = number_to_string(item.value);
+
+        int len = key.size() + string.size() + value.size();
+        stream.write_string(number_to_string(len));
+        stream << ' ';
+        stream.write_string(key);
+        stream << '\x00';
+        stream.write_string(string);
+        stream << '\x00';
+        stream.write_string(value);
+    }
+}
+
 void AssociateArray::save(const std::string & path, int method)
 {
-    std::cout << "Associate array save not implemented" << std::endl;
+    FSFile fp(path.c_str(), "w");
+    FileStream stream(fp);
+    save(stream, method);
+    fp.close();
+}
+
+void AssociateArray::save_encrypted(const std::string & path, int method)
+{
+    std::stringstream ss;
+    DataStream stream(ss);
+    save(stream, method);
+    std::string src = ss.str();
+    std::string dst;
+    cipher.encrypt(&dst, src);
+
+    FSFile fp(path.c_str(), "w");
+    fp.write(&dst[0], dst.size());
+    fp.close();
 }
 
 ArrayMap AssociateArray::global_map;

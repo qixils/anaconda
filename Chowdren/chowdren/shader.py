@@ -1,8 +1,11 @@
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from mmfparser.data.chunkloaders.objectinfo import (NONE_EFFECT,
     INVERTED_EFFECT, XOR_EFFECT, AND_EFFECT,
     OR_EFFECT, MONOCHROME_EFFECT, ADD_EFFECT, SUBTRACT_EFFECT)
 from chowdren.common import get_base_path, makedirs
-import os
 
 INK_EFFECTS = {
     NONE_EFFECT : None,
@@ -55,6 +58,7 @@ NATIVE_SHADERS = {
     # missing effects
     'CRT.fx' : 'dummy_shader',
     'FlipY.fx' : 'dummy_shader',
+    'ChannelBlurAdd.fx' : 'dummy_shader',
 
     # unsupported in HWA
     'XOR' : 'dummy_shader',

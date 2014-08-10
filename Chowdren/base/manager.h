@@ -7,7 +7,6 @@
 #include "fpslimit.h"
 #include "include_gl.h"
 #include "input.h"
-#include "instancemap.h"
 
 class Frame;
 class Media;
@@ -32,7 +31,6 @@ public:
     int score;
     int lives;
     float timer_mul;
-    static InstanceMap instances;
 #if CHOWDREN_IS_DEMO
     bool idle_timer_started;
     double idle_timer;

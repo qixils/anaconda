@@ -21,6 +21,7 @@ class BackImages(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     6 : 'set_x',
     7 : 'set_y',
+    8 : '.width = %s',
     9 : '.height = %s',
     16 : '.pattern = true',
     35 : 'set_visible(false)',
@@ -34,7 +35,11 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    9 : '.start_width',
+    2 : 'get_width',
+    3 : 'get_x()',
+    4 : 'get_y()',
+    5 : '.width',
+    6 : '.height',
     14 : '.x_off',
     15 : '.y_off'
 })

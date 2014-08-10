@@ -56,6 +56,16 @@ void open_image_file()
         std::cout << "Could not open image file " << image_path << std::endl;
 }
 
+Image::Image()
+:
+#ifndef CHOWDREN_IS_WIIU
+  alpha(NULL),
+#endif
+  handle(0), tex(0), image(NULL), width(0), height(0),
+  hotspot_x(0), hotspot_y(0), action_x(0), action_y(0)
+{
+}
+
 Image::Image(int handle)
 :
 #ifndef CHOWDREN_IS_WIIU
@@ -333,29 +343,18 @@ bool Image::is_valid()
     return image != NULL || tex != 0;
 }
 
-static Image ** internal_images = NULL;
+static Image * internal_images[IMAGE_COUNT];
+
+typedef hash_map<std::string, Image*> ImageCache;
+static ImageCache image_cache;
 
 Image * get_internal_image(unsigned int i)
 {
-    if (internal_images == NULL) {
-        open_image_file();
-        unsigned int image_count;
-        FileStream stream(image_file);
-        stream.seek(0);
-        stream >> image_count;
-        internal_images = new Image*[image_count];
-        for (unsigned int i2 = 0; i2 < image_count; i2++)
-            internal_images[i2] = NULL;
-    }
-
     if (internal_images[i] == NULL)
         internal_images[i] = new Image(i);
 
     return internal_images[i];
 }
-
-typedef hash_map<std::string, Image*> ImageCache;
-static ImageCache image_cache;
 
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
                         int act_x, int act_y, Color * color)
@@ -374,3 +373,5 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
     }
     return image;
 }
+
+Image dummy_image;

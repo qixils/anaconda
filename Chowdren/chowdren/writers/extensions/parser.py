@@ -21,8 +21,11 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : '.value',
+    9 : 'remove',
     10 : 'replace',
-    29 : '.get_element(-1 + '
+    29 : '.get_element(-1 + ',
+    30 : 'get_element(0)',
+    31 : 'get_last_element'
 })
 
 def get_object():

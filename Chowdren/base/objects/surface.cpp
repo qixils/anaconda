@@ -10,7 +10,7 @@
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
-  stretch_mode(0), effect(0), selected_image(NULL)
+  stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL)
 {
     collision = new InstanceBox(this);
 }
@@ -230,10 +230,13 @@ void SurfaceObject::add_image(int w, int h)
 {
     int index = images.size();
     images.resize(index + 1);
+    images[index].reset();
     images[index].width = w;
     images[index].height = h;
     if (selected_index != -1)
         selected_image = &images[selected_index];
+    if (displayed_index != -1)
+        displayed_image = &images[displayed_index];
 }
 
 void SurfaceObject::set_transparent_color(const Color & color, bool replace)
@@ -257,6 +260,10 @@ int SurfaceObject::get_image_width(int index)
     if (selected_image == NULL)
         return 0;
     return selected_image->width;
+}
+
+void SurfaceObject::clear_alpha(int index)
+{
 }
 
 // SurfaceImage

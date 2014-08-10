@@ -48,6 +48,11 @@ inline double cos_deg(double x)
     return cos(rad(x));
 }
 
+inline double atand(double v)
+{
+    return deg(atan(v));
+}
+
 inline double atan2d(double a, double b)
 {
     return deg(atan2(a, b));

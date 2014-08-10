@@ -26,6 +26,10 @@ typedef GLfloat Mat4x4[16];
 struct MatContainer
 {
     Mat4x4 m;
+
+    MatContainer()
+    {
+    }
 };
 
 typedef Vec3 Quad[4];
@@ -122,6 +126,7 @@ public:
 #endif
 
     Vec4 current_color;
+    Vec4 colors[4];
     int vert_index;
     Quad vertices;
     int tc_index[2];
@@ -172,7 +177,9 @@ void glc_vertex_3f(GLfloat x, GLfloat y, GLfloat z)
     Vec3 v1 = {x, y, z};
     Vec3 v2;
     mult_matrix(mvp, v1, v2);
-    gl_state.vertices[gl_state.vert_index++] = v2;
+    gl_state.vertices[gl_state.vert_index] = v2;
+    gl_state.colors[gl_state.vert_index] = gl_state.current_color;
+    gl_state.vert_index++;   
 }
 
 void glc_texcoord_2f(GLfloat s, GLfloat t)
@@ -205,12 +212,16 @@ void glc_end()
         } else {
             shader = (GLSLShader*)basic_shader;
         }
-        shader->begin(NULL, NULL); // we don't actually need these parameters
+        shader->begin(NULL, 0, 0); // we don't actually need these parameters
     }
 
     glEnableVertexAttribArray(POSITION_ATTRIB_IDX);
     glVertexAttribPointer(POSITION_ATTRIB_IDX, 3, GL_FLOAT, GL_FALSE, 0,
                           (void*)gl_state.vertices);
+
+    glEnableVertexAttribArray(COLOR_ATTRIB_IDX);
+    glVertexAttribPointer(COLOR_ATTRIB_IDX, 4, GL_FLOAT, GL_FALSE, 0,
+                          (void*)&gl_state.colors[0]);
 
     if (shader != basic_shader) {
         glEnableVertexAttribArray(TEXCOORD1_ATTRIB_IDX);
@@ -218,15 +229,10 @@ void glc_end()
                               (void*)&gl_state.texcoords[0]);
     }
 
-    if (shader->has_background) {
+    if (shader->flags & SHADER_HAS_BACK) {
         glEnableVertexAttribArray(TEXCOORD2_ATTRIB_IDX);
         glVertexAttribPointer(TEXCOORD1_ATTRIB_IDX, 2, GL_FLOAT, GL_FALSE, 0,
                               (void*)&gl_state.texcoords[1]);
-    }
-
-    if (shader->blend_color != -1) {
-        glUniform4fv((GLint)shader->blend_color, 1,
-                     (const GLfloat*)&gl_state.current_color);
     }
 
 
@@ -234,9 +240,10 @@ void glc_end()
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
     glDisableVertexAttribArray(POSITION_ATTRIB_IDX);
+    glDisableVertexAttribArray(COLOR_ATTRIB_IDX);
     if (shader != basic_shader)
         glDisableVertexAttribArray(TEXCOORD1_ATTRIB_IDX);
-    if (shader->has_background)
+    if (shader->flags & SHADER_HAS_BACK)
         glDisableVertexAttribArray(TEXCOORD2_ATTRIB_IDX);
 
     if (is_platform)

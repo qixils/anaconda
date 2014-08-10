@@ -62,6 +62,8 @@ public:
     double get_value_index(unsigned int index);
     void set_value(const std::string & group, const std::string & item,
                    int pad, double value);
+    void set_value(const std::string & group, const std::string & item,
+                   double value);
     void set_value(const std::string & item, int pad, double value);
     void set_value(const std::string & item, double value);
     void set_string(const std::string & group, const std::string & item,

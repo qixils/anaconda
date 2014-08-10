@@ -51,22 +51,22 @@ class DeletePattern(ActionMethodWriter):
 class MergeObject(ActionMethodWriter):
     def write(self, writer):
         name = self.parameters[0].loader.data.readString()
-        item = self.converter.name_to_item[name]
-        handle = (item.handle, item.objectType)
+        handle = self.converter.get_handle_from_name(name)
         overwrite = self.convert_index(1)
-        writer.put('merge_object(%s, %s);' % (self.converter.get_object(handle),
-                   overwrite))
+        writer.putc('merge_object(%s, %s);',
+                    self.converter.get_object(handle),
+                    overwrite)
 
 class MergeGroupObject(ActionMethodWriter):
     def write(self, writer):
         name = self.parameters[0].loader.data.readString()
-        item = self.converter.name_to_item[name]
-        handle = (item.handle, item.objectType)
+        handle = self.converter.get_handle_from_name(name)
         src_group = self.convert_index(1)
         dst_group = self.convert_index(2)
         overwrite = self.convert_index(3)
-        writer.put('merge_group(%s, %s, %s, %s);' % (
-            self.converter.get_object(handle), src_group, dst_group, overwrite))
+        writer.putc('merge_group(%s, %s, %s, %s);',
+                     self.converter.get_object(handle), src_group, dst_group,
+                     overwrite)
 
 LOAD_FILE = 0
 NO_LOAD = 1

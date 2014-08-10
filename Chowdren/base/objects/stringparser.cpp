@@ -44,10 +44,17 @@ void StringParser::set(const std::string & v)
 const std::string & StringParser::get_element(int i)
 {
     split();
-    static std::string empty_string("");
     if (i < 0 || i >= int(elements.size()))
         return empty_string;
     return elements[i];
+}
+
+const std::string & StringParser::get_last_element()
+{
+    split();
+    if (elements.empty())
+        return empty_string;
+    return elements[elements.size()-1];
 }
 
 std::string StringParser::replace(const std::string & from,
@@ -55,5 +62,12 @@ std::string StringParser::replace(const std::string & from,
 {
     std::string ret = value;
     replace_substring(ret, from, to);
+    return ret;
+}
+
+std::string StringParser::remove(const std::string & sub)
+{
+    std::string ret = value;
+    replace_substring(ret, sub, empty_string);
     return ret;
 }

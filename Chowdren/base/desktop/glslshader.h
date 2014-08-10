@@ -5,9 +5,6 @@ class GLSLShader : public Shader
 public:
 
     static GLSLShader * current;
-#ifndef CHOWDREN_USE_GL
-    GLint blend_color;
-#endif
     GLuint program;
     GLint size_uniform;
     bool initialized;

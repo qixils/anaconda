@@ -105,7 +105,7 @@ void Background::destroy_at(int x, int y)
 
 void Background::paste(Image * img, int dest_x, int dest_y,
                        int src_x, int src_y, int src_width, int src_height,
-                       int collision_type)
+                       int collision_type, const Color & color)
 {
     src_width = std::min(img->width, src_x + src_width) - src_x;
     src_height = std::min(img->height, src_y + src_height) - src_y;
@@ -117,11 +117,31 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                src_x, src_y,
                                                src_width, src_height,
                                                collision_type);
-    if (collision_type == 1) {
+    if (collision_type == 1)
         col_items.push_back(item);
-    } else {
-        items.push_back(item);
+#ifndef CHOWDREN_OBSTACLE_IMAGE
+    else
+        return;
+#endif
+
+    if (color.a == 0 || color.a == 1)
+        return;
+
+    if (color.a != 255 && color.a != 254) {
+        std::cout << "Paste with transparency not supported: " << int(color.a)
+            << std::endl;
     }
+
+#ifdef CHOWDREN_OBSTACLE_IMAGE
+    if (collision_type == 1) {
+        item = new BackgroundItem(img, dest_x, dest_y,
+                                  src_x, src_y,
+                                  src_width, src_height,
+                                  collision_type);
+    }
+#endif
+
+    items.push_back(item);
 }
 
 void Background::draw()
@@ -134,15 +154,15 @@ void Background::draw()
     }
 }
 
-bool Background::collide(CollisionBase * a)
+CollisionBase * Background::collide(CollisionBase * a)
 {
     BackgroundItems::iterator it;
     for (it = col_items.begin(); it != col_items.end(); it++) {
         BackgroundItem * item = *it;
         if (::collide(a, item))
-            return true;
+            return item;
     }
-    return false;
+    return NULL;
 }
 
 // Layer
@@ -354,6 +374,7 @@ void Layer::destroy_backgrounds(int x, int y, bool fine)
 struct BackgroundCallback
 {
     CollisionBase * col;
+    CollisionBase * other;
 
     BackgroundCallback(CollisionBase * col)
     : col(col)
@@ -367,21 +388,25 @@ struct BackgroundCallback
             return true;
         if (obj->collision == NULL)
             return true;
-        return !collide(col, obj->collision);
+        other = obj->collision;
+        return !collide(col, other);
     }
 };
 
-bool Layer::test_background_collision(CollisionBase * a)
+CollisionBase * Layer::test_background_collision(CollisionBase * a)
 {
-    if (back != NULL && back->collide(a))
-        return true;
+    if (back != NULL) {
+        CollisionBase * ret = back->collide(a);
+        if (ret)
+            return ret;
+    }
     BackgroundCallback callback(a);
     if (!broadphase.query(a->aabb, callback))
-        return true;
-    return false;
+        return callback.other;
+    return NULL;
 }
 
-bool Layer::test_background_collision(int x, int y)
+CollisionBase * Layer::test_background_collision(int x, int y)
 {
     x -= off_x;
     y -= off_y;
@@ -391,11 +416,15 @@ bool Layer::test_background_collision(int x, int y)
 
 void Layer::paste(Image * img, int dest_x, int dest_y,
                   int src_x, int src_y, int src_width, int src_height,
-                  int collision_type)
+                  int collision_type, const Color & color)
 {
+    if (collision_type != 0 && collision_type != 1) {
+        std::cout << "Collision type " << collision_type << " not supported"
+            << std::endl;
+    }
     create_background();
     back->paste(img, dest_x, dest_y, src_x, src_y,
-        src_width, src_height, collision_type);
+                src_width, src_height, collision_type, color);
 }
 
 struct DrawCallback
@@ -434,23 +463,14 @@ inline void sort_depth(FlatObjectList & list)
     std::sort(list.begin(), list.end(), sort_depth_comp);
 }
 
-inline void draw_sorted_list(FlatObjectList & list)
-{
-    sort_depth(list);
-    FlatObjectList::const_iterator it;
-    for (it = list.begin(); it != list.end(); it++) {
-        (*it)->draw();
-    }
-}
-
-void Layer::draw()
+void Layer::draw(int off_x, int off_y)
 {
     if (!visible)
         return;
 
     // draw backgrounds
-    int x1 = global_manager->frame->off_x * scroll_x;
-    int y1 = global_manager->frame->off_y * scroll_y;
+    int x1 = off_x * scroll_x;
+    int y1 = off_y * scroll_y;
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
@@ -487,18 +507,28 @@ void Layer::draw()
 #endif
     DrawCallback callback(draw_list, v);
     broadphase.query(v, callback);
-    draw_sorted_list(draw_list);
 
-    PROFILE_END();
+    sort_depth(draw_list);
+
+    FlatObjectList::const_iterator it;
+    for (it = draw_list.begin(); it != draw_list.end(); it++) {
+        FrameObject * obj = *it;
+        if (!(obj->flags & BACKGROUND))
+            break;
+        obj->draw();
+    }
 
     PROFILE_BEGIN(Layer_draw_pasted);
 
-    // draw pasted items.
-    // this is bending the rules a bit -- we're supposed to draw this *after*
-    // background instances and *before* dynamic instances, but we'd have to
-    // insert the pasted items in the broadphase as FrameObjects then
+    // draw pasted items
     if (back != NULL)
         back->draw();
+
+    PROFILE_END();
+
+    for (; it != draw_list.end(); it++) {
+        (*it)->draw();
+    }
 
     PROFILE_END();
 }
@@ -512,8 +542,7 @@ void Layer::set_remote(int value)
 
 // FrameData
 
-FrameData::FrameData(Frame * frame)
-: frame(frame)
+FrameData::FrameData()
 {
 }
 
@@ -538,7 +567,7 @@ void FrameData::handle_events()
 Frame::Frame(GameManager * manager)
 : off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
-  frame_iteration(0), index(-1), manager(manager)
+  index(-1), manager(manager)
 {
 }
 
@@ -568,13 +597,20 @@ void Frame::set_score(int value)
 
 void Frame::set_display_center(int x, int y)
 {
+    /* note: there is a bug in MMF where you can only set the center if it
+       is not equivalent to the old one, even if a new position was set.
+       we need to emulate that bug here. */
     if (x != -1) {
-        new_off_x = int_max(0, x - WINDOW_WIDTH / 2);
-        new_off_x = int_min(new_off_x, virtual_width - WINDOW_WIDTH);
+        x = int_max(0, x - WINDOW_WIDTH / 2);
+        x = int_min(x, virtual_width - WINDOW_WIDTH);
+        if (x != off_x)
+            new_off_x = x;
     }
     if (y != -1) {
-        new_off_y = int_max(0, y - WINDOW_HEIGHT / 2);
-        new_off_y = int_min(new_off_y, virtual_height - WINDOW_HEIGHT);
+        y = int_max(0, y - WINDOW_HEIGHT / 2);
+        y = int_min(y, virtual_height - WINDOW_HEIGHT);
+        if (y != off_y)
+            new_off_y = y;
     }
 }
 
@@ -619,9 +655,9 @@ int Frame::frame_bottom()
     return new_off_y + WINDOW_HEIGHT;
 }
 
-void Frame::set_background_color(int color)
+void Frame::set_background_color(const Color & color)
 {
-    background_color = Color(color);
+    background_color = color;
 }
 
 void Frame::get_mouse_pos(int * x, int * y)
@@ -644,16 +680,34 @@ int Frame::get_mouse_y()
     return y;
 }
 
-bool Frame::test_background_collision(int x, int y)
+CollisionBase * Frame::test_background_collision(int x, int y)
 {
     if (x < 0 || y < 0 || x > width || y > height)
-        return false;
+        return NULL;
     vector<Layer>::iterator it;
     for (it = layers.begin(); it != layers.end(); it++) {
-        if ((*it).test_background_collision(x, y))
-            return true;
+        CollisionBase * ret = (*it).test_background_collision(x, y);
+        if (ret == NULL)
+            continue;
+        return ret;
     }
-    return false;
+    return NULL;
+}
+
+int Frame::get_background_mask(int x, int y)
+{
+    CollisionBase * other = test_background_collision(x, y);
+    if (other == NULL)
+        return 0;
+    if (other->flags & LADDER_OBSTACLE)
+        return 2;
+    else
+        return 1;
+}
+
+bool Frame::test_obstacle(int x, int y)
+{
+    return get_background_mask(x, y) == 1;
 }
 
 bool Frame::compare_joystick_direction(int n, int test_dir)
@@ -680,12 +734,14 @@ void Frame::set_vsync(bool value)
     platform_set_vsync(value);
 }
 
+#define INSTANCE_MAP instances
+
 int Frame::get_instance_count()
 {
     int size = 0;
     ObjectList::iterator it;
     for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
-        ObjectList & list = GameManager::instances.items[i];
+        ObjectList & list = INSTANCE_MAP.items[i];
         size += list.size();
     }
     return size;
@@ -697,14 +753,16 @@ void Frame::clean_instances()
     for (it = destroyed_instances.begin(); it != destroyed_instances.end();
          it++) {
         FrameObject * instance = *it;
-        GameManager::instances.items[instance->id].remove(instance);
+        INSTANCE_MAP.items[instance->id].remove(instance);
         instance->layer->remove_object(instance);
         delete instance;
     }
     destroyed_instances.clear();
 }
 
-extern void global_object_update(float dt);
+void Frame::update_objects(float dt)
+{
+}
 
 bool Frame::update(float dt)
 {
@@ -717,7 +775,7 @@ bool Frame::update(float dt)
     }
 
     PROFILE_BEGIN(frame_update_objects);
-    global_object_update(dt);
+    update_objects(dt);
     PROFILE_END();
 
     PROFILE_BEGIN(clean_instances);
@@ -786,7 +844,7 @@ void Frame::draw(int remote)
         glLoadIdentity();
         glTranslatef(-floor(off_x * layer.scroll_x),
                      -floor(off_y * layer.scroll_y), 0.0);
-        layer.draw();
+        layer.draw(off_x, off_y);
     }
 
 // #ifdef CHOWDREN_USE_BOX2D
@@ -828,6 +886,7 @@ public:
         setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
+        this->image = &dummy_image;
     }
 };
 
@@ -840,7 +899,7 @@ FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
 {
     instance->frame = this;
     instance->layer = layer;
-    GameManager::instances.items[instance->id].add(instance);
+    INSTANCE_MAP.items[instance->id].add(instance);
     layer->add_object(instance);
     if (instance->collision) {
         instance->collision->update_aabb();
@@ -861,7 +920,7 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     Layer * layer = &layers[layer_index];
     instance->layer = layer;
     if (instance->id != BACKGROUND_TYPE) {
-        GameManager::instances.items[instance->id].add(instance);
+        INSTANCE_MAP.items[instance->id].add(instance);
     }
     layer->add_background_object(instance);
     if (instance->collision) {
@@ -879,8 +938,10 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
 void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
     new_layer = clamp(new_layer, 0, layers.size()-1);
-    instance->layer->remove_object(instance);
     Layer * layer = &layers[new_layer];
+    if (layer == instance->layer)
+        return;
+    instance->layer->remove_object(instance);
     if (instance->collision)
         instance->collision->remove_proxy();
     layer->add_object(instance);
@@ -901,7 +962,7 @@ void Frame::reset()
 {
     ObjectList::iterator it;
     for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
-        ObjectList & list = GameManager::instances.items[i];
+        ObjectList & list = INSTANCE_MAP.items[i];
         for (it = list.begin(); it != list.end(); it++) {
             if (it->obj->flags & BACKGROUND)
                 continue;
@@ -910,14 +971,13 @@ void Frame::reset()
     }
 
     layers.clear();
-    GameManager::instances.clear();
+    INSTANCE_MAP.clear();
     destroyed_instances.clear();
     next_frame = -1;
     loop_count = 0;
     off_x = new_off_x = 0;
     off_y = new_off_y = 0;
     frame_time = 0.0;
-    frame_iteration++;
 }
 
 // FrameObject
@@ -1271,8 +1331,10 @@ void FrameObject::set_movement(int i)
 
 Movement * FrameObject::get_movement()
 {
-    if (movement == NULL)
+    if (movement == NULL) {
         movement = new StaticMovement(this);
+        movement->index = 0;
+    }
     return movement;
 }
 
@@ -1412,63 +1474,14 @@ FixedValue::operator FrameObject*() const
 
 // XXX move everything to 'objects' directory
 
-// Direction
-
-Direction::Direction(int index, int min_speed, int max_speed, int loop_count,
-                     int back_to)
-: index(index), min_speed(min_speed), max_speed(max_speed),
-  loop_count(loop_count), back_to(back_to)
-{
-
-}
-
-Direction::Direction()
-{
-
-}
-
-// Animation
-
-Animation::Animation()
-: dirs()
-{
-}
-
-// Animations
-
-Animations::Animations(int count, Animation ** items)
-: count(count), items(items)
-{
-}
-
 // Active
-
-inline int direction_diff(int dir1, int dir2)
-{
-    return (((dir1 - dir2 + 540) % 360) - 180);
-}
-
-inline Direction * find_nearest_direction(int dir, Direction ** dirs)
-{
-    int i = 0;
-    Direction * check_dir;
-    while (true) {
-        i++;
-        check_dir = dirs[(dir + i) & 31];
-        if (check_dir != NULL)
-            return check_dir;
-        check_dir = dirs[(dir - i) & 31];
-        if (check_dir != NULL)
-            return check_dir;
-    }
-}
 
 Active::Active(int x, int y, int type_id)
 : FrameObject(x, y, type_id), forced_animation(-1),
   animation_frame(0), counter(0), angle(0.0f), forced_frame(-1),
   forced_speed(-1), forced_direction(-1), x_scale(1.0f), y_scale(1.0f),
   animation_direction(0), stopped(false), flash_interval(0.0f),
-  animation_finished(-1), transparent(false), image(NULL)
+  animation_finished(-1), transparent(false), image(NULL), direction_data(NULL)
 {
     active_col.instance = this;
     collision = &active_col;
@@ -1476,26 +1489,13 @@ Active::Active(int x, int y, int type_id)
 
 void Active::initialize_active()
 {
-    active_col.is_box = collision_box;
+    if (collision_box)
+        active_col.flags |= BOX_COLLISION;
     update_direction();
 }
 
 Active::~Active()
 {
-}
-
-void Active::initialize_animations()
-{
-    for (int i = 0; i < animations->count; i++) {
-        Animation * anim = animations->items[i];
-        if (anim == NULL)
-            continue;
-        Animation check_anim = *anim;
-        for (int i = 0; i < 32; i++) {
-            if (anim->dirs[i] == NULL)
-                anim->dirs[i] = find_nearest_direction(i, check_anim.dirs);
-        }
-    }
 }
 
 void Active::set_animation(int value)
@@ -1508,8 +1508,9 @@ void Active::set_animation(int value)
     animation = value;
     if (forced_animation != -1)
         return;
-    if (forced_frame == -1)
+    if (forced_frame == -1) {
         animation_frame = 0;
+    }
     update_direction();
 }
 
@@ -1524,8 +1525,9 @@ void Active::force_animation(int value)
     forced_animation = value;
     if (old_anim == forced_animation)
         return;
-    if (forced_frame == -1)
+    if (forced_frame == -1) {
         animation_frame = 0;
+    }
     update_direction();
 }
 
@@ -1541,11 +1543,10 @@ void Active::force_speed(int value)
 {
     if (flags & FADEOUT)
         return;
-    Direction * dir = get_direction_data();
-    int delta = dir->max_speed - dir->min_speed;
+    int delta = direction_data->max_speed - direction_data->min_speed;
     if (delta != 0) {
-        value = (value * delta) / 100 + dir->min_speed;
-        value = std::min(dir->max_speed, value);
+        value = (value * delta) / 100 + direction_data->min_speed;
+        value = std::min(direction_data->max_speed, value);
     }
     forced_speed = value;
 }
@@ -1577,7 +1578,7 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
-    if (flags & FADEOUT)
+    if (flags & FADEOUT || forced_frame == -1)
         return;
     animation_frame = forced_frame;
     forced_frame = -1;
@@ -1589,28 +1590,9 @@ void Active::restore_speed()
     forced_speed = -1;
 }
 
-void Active::add_direction(int animation, int direction,
-                           int min_speed, int max_speed, int loop_count,
-                           int back_to)
-{
-    Animation * anim = animations->items[animation];
-    if (anim == NULL) {
-        anim = new Animation;
-        animations->items[animation] = anim;
-    }
-    anim->dirs[direction] = new Direction(direction, min_speed, max_speed,
-                                          loop_count, back_to);
-}
-
-void Active::add_image(int animation, int direction, Image * image)
-{
-    Animation * anim = animations->items[animation];
-    anim->dirs[direction]->frames.push_back(image);
-}
-
 void Active::update_frame()
 {
-    int frame_count = get_direction_data()->frames.size();
+    int frame_count = direction_data->frame_count;
     int & current_frame = get_frame();
     current_frame = int_max(0, int_min(current_frame, frame_count - 1));
 
@@ -1622,9 +1604,12 @@ void Active::update_frame()
     update_action_point();
 }
 
-void Active::update_direction()
+void Active::update_direction(Direction * dir)
 {
-    loop_count = get_direction_data()->loop_count;
+    if (dir == NULL)
+        dir = get_direction_data();
+    direction_data = dir;
+    loop_count = direction_data->loop_count;
     update_frame();
 }
 
@@ -1653,19 +1638,18 @@ void Active::update(float dt)
     if (loop_count == 0)
         return;
 
-    Direction * dir = get_direction_data();
     counter += int(get_speed() * frame->timer_mul);
     int old_frame = animation_frame;
 
     while (counter > 100) {
         counter -= 100;
         animation_frame++;
-        if (animation_frame < (int)dir->frames.size())
+        if (animation_frame < direction_data->frame_count)
             continue;
         if (loop_count > 0)
             loop_count--;
         if (loop_count != 0) {
-            animation_frame = dir->back_to;
+            animation_frame = direction_data->back_to;
             continue;
         }
         animation_finished = get_animation();
@@ -1723,7 +1707,7 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
     // update the frame for all actives of this type
     // this may break in the future, maybe
     ObjectList::iterator it;
-    ObjectList & list = GameManager::instances.items[id];
+    ObjectList & list = this->frame->instances.items[id];
     for (it = list.begin(); it != list.end(); it++) {
         Active * obj = (Active*)it->obj;
         obj->update_frame();
@@ -1747,19 +1731,14 @@ void Active::draw()
 
 inline Image * Active::get_image()
 {
-    Animation * anim = animations->items[get_animation()];
-    if (anim == NULL) {
-        std::cout << "Invalid animation: " << get_animation() << std::endl;
-        return NULL;
-    }
-    Direction * dir = anim->dirs[get_animation_direction()];
-    if (get_frame() >= (int)dir->frames.size()) {
-        std::cout << "Invalid frame: " << get_frame() << " " <<
-            dir->frames.size() << " " <<
+    int frame = get_frame();
+    if (frame >= direction_data->frame_count) {
+        std::cout << "Invalid frame: " << frame << " " <<
+            direction_data->frame_count << " " <<
             "(" << get_name() << ")" << std::endl;
         return NULL;
     }
-    return dir->frames[get_frame()];
+    return direction_data->frames[frame];
 }
 
 int Active::get_action_x()
@@ -1796,18 +1775,34 @@ int Active::get_speed()
 {
     if (forced_speed != -1)
         return forced_speed;
-    return get_direction_data()->max_speed;
-}
-
-Direction * Active::get_direction_data(int & dir)
-{
-    Animation * anim = animations->items[get_animation()];
-    return anim->dirs[dir];
+    return direction_data->max_speed;
 }
 
 Direction * Active::get_direction_data()
 {
-    return get_direction_data(get_animation_direction());
+    Animation * anim = animations->items[get_animation()];
+
+    if (anim == NULL) {
+        std::cout << "Invalid animation: " << get_animation() << std::endl;
+        return NULL;
+    }
+
+    int dir = get_animation_direction();
+    Direction * data = anim->dirs[dir];
+    if (data != NULL)
+        return data;
+
+    int search_dir = 1;
+    if (direction_data != NULL && ((dir - direction_data->index) & 31) <= 15)
+        search_dir = -1;
+
+    while (true) {
+        dir = (dir + search_dir) & 31;
+        Direction * new_data = anim->dirs[dir];
+        if (new_data)
+            return new_data;
+    }
+    return NULL;
 }
 
 int Active::get_animation()
@@ -1832,19 +1827,23 @@ void Active::set_direction(int value, bool set_movement)
 {
     if (flags & FADEOUT)
         return;
+    value &= 31;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
         set_angle(float(value) * 11.25f);
         value = 0;
     }
-    Direction * old_dir = get_direction_data();
-    animation_direction = direction;
-    if (old_dir == get_direction_data())
+    if (value == animation_direction)
         return;
-    update_direction();
+    animation_direction = value;
+    Direction * old_dir = direction_data;
+    Direction * new_dir = get_direction_data();
+    if (old_dir == new_dir)
+        return;
+    update_direction(new_dir);
 }
 
-int & Active::get_animation_direction()
+int Active::get_animation_direction()
 {
     if (forced_direction != -1)
         return forced_direction;
@@ -1876,7 +1875,7 @@ void Active::set_y_scale(float value)
 void Active::paste(int collision_type)
 {
     layer->paste(image, x-image->hotspot_x, y-image->hotspot_y, 0, 0,
-                 image->width, image->height, collision_type);
+                 image->width, image->height, collision_type, blend_color);
 }
 
 bool Active::test_animation(int value)
@@ -2721,6 +2720,17 @@ int WindowControl::get_screen_height()
     return h;
 }
 
+void WindowControl::set_visible(bool value)
+{
+#ifdef CHOWDREN_USE_SUBAPP
+    if (SubApplication::current != NULL) {
+        std::cout << "Set subapp visible" << std::endl;
+        SubApplication::current->set_visible(value);
+    }
+#endif
+    std::cout << "Set window visible: " << value << std::endl;
+}
+
 // Workspace
 
 Workspace::Workspace(BaseStream & stream)
@@ -2888,6 +2898,7 @@ void ArrayObject::initialize(bool numeric, int offset, int x, int y, int z)
     x_size = x;
     y_size = y;
     z_size = z;
+    x_pos = y_pos = z_pos = offset;
     clear();
 }
 
@@ -2962,17 +2973,32 @@ void ArrayObject::load(const std::string & filename)
     fp.close();
 }
 
-double & ArrayObject::get_value(int x, int y)
+double & ArrayObject::get_value(int x, int y, int z)
 {
+    if (x == -1)
+        x = x_pos;
+    if (y == -1)
+        y = y_pos;
+    if (z == -1)
+        z = z_pos;
     x -= offset;
     y -= offset;
-    return array[x + y * x_size];
+    z -= offset;
+    return array[x + y * x_size + z * x_size * y_size];
 }
 
-std::string & ArrayObject::get_string(int x)
+std::string & ArrayObject::get_string(int x, int y, int z)
 {
+    if (x == -1)
+        x = x_pos;
+    if (y == -1)
+        y = y_pos;
+    if (z == -1)
+        z = z_pos;
     x -= offset;
-    return strings[x];
+    y -= offset;
+    z -= offset;
+    return strings[x + y * x_size + z * x_size * y_size];
 }
 
 void ArrayObject::set_value(double value, int x, int y)
@@ -2983,6 +3009,11 @@ void ArrayObject::set_value(double value, int x, int y)
 void ArrayObject::set_string(const std::string & value, int x)
 {
     get_string(x) = value;
+}
+
+void ArrayObject::set_string(const std::string & value)
+{
+    get_string() = value;
 }
 
 ArrayObject::~ArrayObject()
@@ -3382,9 +3413,14 @@ void TextBlitter::update_lines()
         while (true) {
             if (i >= text.size())
                 break;
-            if (text_c[i] == '\n')
+            unsigned char c = (unsigned char)text_c[i];
+            if (c == '\n')
                 break;
-            if (wrap && size * x_add > width) {
+            if (c == '\r') {
+                i++;
+                continue;
+            }
+            if (wrap && ((size + 1) * x_add - x_spacing) > width) {
                 if (last_space != -1) {
                     size = last_space - start;
                     i = last_space;
@@ -3392,14 +3428,13 @@ void TextBlitter::update_lines()
                 i--;
                 break;
             }
-            unsigned char c = (unsigned char)text_c[i];
             i++;
             if (c == ' ')
                 last_space = i;
             if (c == '\r')
                 continue;
             // remove leading spaces
-            if (i-1 == start && c == ' ') {
+            if (wrap && i-1 == start && c == ' ') {
                 start++;
                 continue;
             }
@@ -3414,6 +3449,7 @@ const std::string & TextBlitter::get_text()
 {
     return text;
 }
+
 
 int TextBlitter::get_line_count()
 {
@@ -3522,6 +3558,9 @@ void TextBlitter::draw()
 
     callback_line_count = int(lines.size());
 
+    glEnable(GL_SCISSOR_TEST);
+    glc_scissor_world(x, y, width, height);
+
     for (it = lines.begin(); it != lines.end(); it++) {
         const LineReference & line = *it;
 
@@ -3574,6 +3613,7 @@ void TextBlitter::draw()
     }
 
     glDisable(GL_TEXTURE_2D);
+    glDisable(GL_SCISSOR_TEST);
 
     end_draw();
 }
@@ -3708,7 +3748,7 @@ void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,
     image->hotspot_x = 0;
     image->hotspot_y = 0;
     layer->paste(image, dest_x, dest_y, src_x, src_y,
-                 src_width, src_height, collision_type);
+                 src_width, src_height, collision_type, blend_color);
 }
 
 // ListObject

@@ -77,7 +77,7 @@ GameManager::GameManager()
     fps_limit.set(FRAMERATE);
 
 #ifdef CHOWDREN_IS_HFA
-    set_frame(0);
+    set_frame(60);
 #else
     set_frame(0);
 #endif
@@ -269,29 +269,39 @@ void GameManager::draw()
     glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+#ifdef CHOWDREN_USE_SUBAPP
+    Frame * render_frame;
+    if (SubApplication::current != NULL &&
+        SubApplication::current->flags & VISIBLE) {
+        render_frame = &SubApplication::current->subapp_frame;
+    } else
+        render_frame = frame;
+#else
+    Frame * render_frame = frame;
+#endif
 
     PROFILE_BEGIN(frame_draw);
 #ifdef CHOWDREN_IS_WIIU
     int remote_setting = platform_get_remote_value();
     if (remote_setting == CHOWDREN_HYBRID_TARGET) {
         platform_set_display_target(CHOWDREN_REMOTE_TARGET);
-        frame->draw(CHOWDREN_REMOTE_TARGET);
+        render_frame->draw(CHOWDREN_REMOTE_TARGET);
         draw_fade();
         platform_set_display_target(CHOWDREN_TV_TARGET);
-        frame->draw(CHOWDREN_TV_TARGET);
+        render_frame->draw(CHOWDREN_TV_TARGET);
         draw_fade();
     } else {
         platform_set_display_target(CHOWDREN_TV_TARGET);
-        frame->draw(CHOWDREN_HYBRID_TARGET);
+        render_frame->draw(CHOWDREN_HYBRID_TARGET);
         draw_fade();
         if (remote_setting == CHOWDREN_REMOTE_TARGET) {
             platform_clone_buffers();
             platform_set_display_target(CHOWDREN_REMOTE_TARGET);
-            frame->draw(CHOWDREN_REMOTE_ONLY);
+            render_frame->draw(CHOWDREN_REMOTE_ONLY);
         }
     }
 #else
-    frame->draw(CHOWDREN_HYBRID_TARGET);
+    render_frame->draw(CHOWDREN_HYBRID_TARGET);
     draw_fade();
 #endif
     PROFILE_END();
@@ -500,7 +510,7 @@ bool GameManager::update()
             << std::endl;
         int count = 0;
         for (int i = 0; i < MAX_OBJECT_ID; i++) {
-            count += GameManager::instances.items[i].size();
+            count += frame->instances.items[i].size();
         }
         std::cout << "Instance count: " << count << std::endl;
         platform_print_stats();
@@ -541,8 +551,6 @@ void GameManager::run()
     platform_exit();
 #endif
 }
-
-InstanceMap GameManager::instances;
 
 // InputList
 

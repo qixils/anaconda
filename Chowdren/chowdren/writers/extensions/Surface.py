@@ -83,6 +83,7 @@ actions = make_table(ActionMethodWriter, {
     1 : 'set_display_image',
     3 : 'clear',
     4 : 'create_alpha',
+    6 : 'clear_alpha',
     13 : 'resize',
     15 : 'load',
     14 : 'save',

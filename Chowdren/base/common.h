@@ -129,33 +129,23 @@ enum AnimationIndex {
     USER_DEFINED_4 = 15
 };
 
-class Direction
+struct Direction
 {
-public:
     int index, min_speed, max_speed, back_to;
     int loop_count;
-    vector<Image*> frames;
-
-    Direction(int index, int min_speed, int max_speed, int loop_count,
-              int back_to);
-    Direction();
+    Image ** frames;
+    int frame_count;
 };
 
-class Animation
+struct Animation
 {
-public:
     Direction * dirs[32];
-
-    Animation();
 };
 
-class Animations
+struct Animations
 {
-public:
     int count;
     Animation ** items;
-
-    Animations(int count, Animation ** items);
 };
 
 class Active : public FrameObject
@@ -178,12 +168,12 @@ public:
     bool transparent;
     int loop_count;
     SpriteCollision active_col;
+    Direction * direction_data;
     Image * image;
 
     Active(int x, int y, int type_id);
     void initialize_active();
     ~Active();
-    void initialize_animations();
     void force_animation(int value);
     void force_frame(int value);
     void force_speed(int value);
@@ -192,12 +182,8 @@ public:
     void restore_animation();
     void restore_frame();
     void restore_speed();
-    void add_direction(int animation, int direction,
-                       int min_speed, int max_speed, int loop_count,
-                       int back_to);
-    void add_image(int animation, int direction, Image * image);
     void update_frame();
-    void update_direction();
+    void update_direction(Direction * dir = NULL);
     void update_action_point();
     void update(float dt);
     void draw();
@@ -208,13 +194,12 @@ public:
     float get_angle();
     int & get_frame();
     int get_speed();
-    Direction * get_direction_data(int & dir);
     Direction * get_direction_data();
     int get_animation();
     int get_animation(int anim);
     void set_animation(int value);
     void set_direction(int value, bool set_movement = true);
-    int & get_animation_direction();
+    int get_animation_direction();
     void set_scale(float scale);
     void set_x_scale(float value);
     void set_y_scale(float value);
@@ -421,6 +406,7 @@ public:
     static int get_height();
     static int get_screen_width();
     static int get_screen_height();
+    static void set_visible(bool value);
 };
 
 class Workspace
@@ -477,15 +463,17 @@ public:
     double * array;
     std::string * strings;
     int x_size, y_size, z_size;
+    int x_pos, y_pos, z_pos;
 
     ArrayObject(int x, int y, int type_id);
     ~ArrayObject();
     void initialize(bool is_numeric, int offset, int x, int y, int z);
     void clear();
-    double & get_value(int x, int y);
-    std::string & get_string(int x);
+    double & get_value(int x=-1, int y=-1, int z=-1);
+    std::string & get_string(int x=-1, int y=-1, int z=-1);
     void set_value(double value, int x, int y);
     void set_string(const std::string & value, int x);
+    void set_string(const std::string & value);
     void load(const std::string & filename);
 };
 
@@ -706,19 +694,53 @@ inline FrameObject * get_single(const ObjectList & list)
     return list.back_selection();
 }
 
-inline FrameObject * get_single(const QualifierList & list)
-{
-    return list.back_selection();
-}
-
 inline FrameObject * get_single(ObjectList & list, int index)
 {
     return list.get_wrapped_selection(index);
 }
 
+inline FrameObject * get_single(const ObjectList & list, FrameObject * def)
+{
+    FrameObject * ret = list.back_selection();
+    if (ret == NULL)
+        return def;
+    return ret;
+}
+
+inline FrameObject * get_single(ObjectList & list, int index,
+                                FrameObject * def)
+{
+    FrameObject * ret = list.get_wrapped_selection(index);
+    if (ret == NULL)
+        return def;
+    return ret;
+}
+
+inline FrameObject * get_single(const QualifierList & list)
+{
+    return list.back_selection();
+}
+
 inline FrameObject * get_single(QualifierList & list, int index)
 {
     return list.get_wrapped_selection(index);
+}
+
+inline FrameObject * get_single(const QualifierList & list, FrameObject * def)
+{
+    FrameObject * ret = list.back_selection();
+    if (ret == NULL)
+        return def;
+    return ret;
+}
+
+inline FrameObject * get_single(QualifierList & list, int index,
+                                FrameObject * def)
+{
+    FrameObject * ret = list.get_wrapped_selection(index);
+    if (ret == NULL)
+        return def;
+    return ret;
 }
 
 extern vector<int> int_temp;
@@ -1171,6 +1193,21 @@ inline int objects_in_zone(ObjectList & instances,
     int v[4] = {x1, y1, x2, y2};
     int count = 0;
     for (ObjectIterator it(instances); !it.end(); it++) {
+        // XXX objects need to be fully contained in zone,
+        // but here we only check for collision
+        if (!collide_box(*it, v))
+            continue;
+        count++;
+    }
+    return count;
+}
+
+inline int objects_in_zone(QualifierList & instances,
+                           int x1, int y1, int x2, int y2)
+{
+    int v[4] = {x1, y1, x2, y2};
+    int count = 0;
+    for (QualifierIterator it(instances); !it.end(); it++) {
         // XXX objects need to be fully contained in zone,
         // but here we only check for collision
         if (!collide_box(*it, v))

@@ -2,6 +2,7 @@
 #define CHOWDREN_SYSTEMBOX_H
 
 #include "frameobject.h"
+#include "color.h"
 #include <string>
 
 #define PATTERN_IMAGE 0
@@ -23,6 +24,8 @@ public:
     void hide_border_1();
     void hide_border_2();
     void hide_fill();
+    void set_border_1(const Color & color);
+    void set_border_2(const Color & color);
 };
 
 #endif // CHOWDREN_SYSTEMBOX_H

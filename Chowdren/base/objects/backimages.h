@@ -15,6 +15,7 @@ public:
     bool pattern;
 
     BackImages(int x, int y, int type_id);
+    int get_width(int slot);
 };
 
 extern FrameObject * default_backimages_instance;

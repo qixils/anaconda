@@ -35,7 +35,9 @@ object_checks = {
 }
 
 def init_container(converter, container):
-    if container.name != 'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE':
+    if container.name not in ('BETA TESTER SHIT -- TURN OFF WITH FINAL'
+                              'RELEASE',
+                              'DEBUG -- turn off!'):
         return
     container.inactive = True
 
@@ -84,7 +86,7 @@ def get_startup_instances(converter, instances):
     for item in instances:
         frameitem = item[1]
         obj = (frameitem.handle, frameitem.objectType)
-        writer = converter.all_objects[obj]
+        writer = converter.get_object_writer(obj)
         if writer.class_name == 'TextBlitter':
             text_blitters.append(item)
         else:
@@ -130,16 +132,24 @@ def write_defines(converter, writer):
     if is_hfa:
         writer.putln('#define CHOWDREN_FORCE_TRANSPARENT')
         writer.putln('#define CHOWDREN_VSYNC')
+        writer.putln('#define CHOWDREN_IS_HFA')
+        writer.putln('#define CHOWDREN_OBSTACLE_IMAGE')
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
-    if is_hfa:
-        writer.putln('#define CHOWDREN_IS_HFA')
 
-def get_frames(converter, frames):
+def get_frames(converter, game, frames):
     if not is_hfa:
         return frames
+    DEBUG = True
     new_frames = {}
-    for index in (0, 4, 21, 22, 23, 24, 25, 26, 27, 28, 29):
+    if game.index == 0:
+        if DEBUG:
+            indexes = (60,)
+        else:
+            indexes = (0, 4, 21, 22, 23, 24, 25, 26, 27, 28, 29, 60, 65)
+    else:
+        indexes = (0, 1, 3, 5)
+    for index in indexes:
         new_frames[index] = frames[index]
     return new_frames

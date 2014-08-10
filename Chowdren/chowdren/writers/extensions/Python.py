@@ -70,10 +70,6 @@ class AddReturn(ActionMethodWriter):
 class CallGlobal(ActionMethodWriter):
     method = 'call_global'
 
-    def write_post(self, writer):
-        pass
-        # self.converter.write_container_check(self.group, writer)
-
 actions = make_table(ActionMethodWriter, {
     0 : 'run_string({0})',
     3 : AddReturn,

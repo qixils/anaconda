@@ -19,21 +19,26 @@ enum CollisionType
     BACKGROUND_ITEM
 };
 
+enum CollisionFlags
+{
+    BOX_COLLISION = 1 << 0,
+    LADDER_OBSTACLE = 1 << 1
+};
+
 class CollisionBase
 {
 public:
     CollisionType type;
-    bool is_box;
+    int flags;
     int aabb[4];
 
-    CollisionBase(CollisionType type, bool is_box)
-    : is_box(is_box), type(type)
+    CollisionBase(CollisionType type, unsigned char flags)
+    : flags(flags), type(type)
     {
     }
 
     virtual ~CollisionBase()
     {
-
     }
 };
 
@@ -106,8 +111,9 @@ public:
     FrameObject * instance;
     int proxy;
 
-    InstanceCollision(FrameObject * instance, CollisionType type, bool is_box)
-    : instance(instance), CollisionBase(type, is_box), proxy(-1)
+    InstanceCollision(FrameObject * instance, CollisionType type,
+                      unsigned char flags)
+    : instance(instance), CollisionBase(type, flags), proxy(-1)
     {
     }
 
@@ -151,7 +157,7 @@ class InstanceBox : public InstanceCollision
 {
 public:
     InstanceBox(FrameObject * instance)
-    : InstanceCollision(instance, INSTANCE_BOX, true)
+    : InstanceCollision(instance, INSTANCE_BOX, BOX_COLLISION)
     {
     }
 
@@ -171,7 +177,7 @@ public:
     int off_x, off_y;
 
     OffsetInstanceBox(FrameObject * instance)
-    : InstanceCollision(instance, INSTANCE_BOX, true),
+    : InstanceCollision(instance, INSTANCE_BOX, BOX_COLLISION),
       off_x(0), off_y(0)
     {
     }
@@ -244,7 +250,7 @@ public:
     int new_hotspot_x, new_hotspot_y;
 
     SpriteCollision(FrameObject * instance = NULL, Image * image = NULL)
-    : InstanceCollision(instance, SPRITE_COLLISION, false), image(image),
+    : InstanceCollision(instance, SPRITE_COLLISION, 0), image(image),
       transform(false), angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
       si(0.0f)
     {
@@ -364,7 +370,7 @@ public:
             if (x < 0 || x >= image->width || y < 0 || y >= image->height)
                 return false;
         }
-        if (is_box)
+        if (flags & BOX_COLLISION)
             return true;
         return image->get_alpha(x, y);
     }
@@ -385,7 +391,7 @@ public:
     Image * image;
 
     BackdropCollision(FrameObject * instance, Image * image)
-    : InstanceCollision(instance, BACKDROP_COLLISION, false), image(image)
+    : InstanceCollision(instance, BACKDROP_COLLISION, 0), image(image)
     {
         this->image = image;
     }
@@ -409,7 +415,7 @@ class PointCollision : public CollisionBase
 {
 public:
     PointCollision(int x, int y)
-    : CollisionBase(BOUNDING_BOX, true)
+    : CollisionBase(BOUNDING_BOX, BOX_COLLISION)
     {
         aabb[0] = x;
         aabb[1] = y;
@@ -422,7 +428,7 @@ class BoundingBox : public CollisionBase
 {
 public:
     BoundingBox(int x1, int y1, int x2, int y2)
-    : CollisionBase(BOUNDING_BOX, true)
+    : CollisionBase(BOUNDING_BOX, BOX_COLLISION)
     {
         aabb[0] = x1;
         aabb[1] = y1;
@@ -444,7 +450,7 @@ public:
                    int src_width, int src_height, int type)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), collision_type(type),
-      image(img), CollisionBase(BACKGROUND_ITEM, false)
+      image(img), CollisionBase(BACKGROUND_ITEM, 0)
     {
         aabb[0] = dest_x;
         aabb[1] = dest_y;
@@ -551,7 +557,7 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     if (!collides(a->aabb, b->aabb))
         return false;
 
-    if (a->is_box && b->is_box)
+    if ((a->flags & BOX_COLLISION) && (b->flags & BOX_COLLISION))
         return true;
 
     // calculate the overlapping area

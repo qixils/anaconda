@@ -5,7 +5,8 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
                              parse_direction, get_flag_direction,
-                             get_list_type, get_iter_type, TEMPORARY_GROUP_ID)
+                             get_list_type, get_iter_type, TEMPORARY_GROUP_ID,
+                             is_qualifier)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
@@ -66,20 +67,13 @@ class SystemObject(ObjectWriter):
         else:
             writer.putln('loops = NULL;')
 
-        for group in self.converter.always_groups_dict['RestrictFor']:
-            name = get_restrict_name(group)
-            group.add_member(writer, 'float %s' % name, 'frame_time')
-        for group in self.converter.always_groups_dict['Repeat']:
-            name = get_repeat_name(group)
-            group.add_member(writer, 'int %s' % name, '0')
-
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
         for group in self.converter.always_groups_dict['OnGroupActivation']:
             cond = group.conditions[0]
             container = cond.container
             check_name = cond.get_group_check()
-            group.add_member(writer, 'bool %s' % check_name, 'true')
+            group.add_member('bool %s' % check_name, 'true')
             self.group_activations[container].append(check_name)
 
     def write_collisions(self, writer):
@@ -160,23 +154,48 @@ class SystemObject(ObjectWriter):
         self.converter.begin_events()
 
         loop_order = []
-        defer_loops = []
+        has_call = set()
+        defer_loops = defaultdict(set)
+
         for name, groups in loops.iteritems():
             defer = False
             for group in groups:
                 for action in group.actions:
-                    if action.data.getName() == 'StartLoop':
-                        defer = True
-                        break
+                    if action.data.getName() != 'StartLoop':
+                        continue
+                    call_name = action.get_name()
+                    if call_name == name or call_name not in loops:
+                        continue
+                    has_call.add(call_name)
+                    defer_loops[name].add(call_name)
+                    defer = True
+                    break
                 if defer:
                     break
 
-            if defer:
-                defer_loops.append(name)
-            else:
+            if not defer:
                 loop_order.append(name)
 
-        loop_order += defer_loops
+        for call_name in has_call:
+            try:
+                loop_order.remove(call_name)
+            except ValueError:
+                pass
+
+        def process_name(name):
+            if name not in defer_loops:
+                if name not in loop_order:
+                    loop_order.append(name)
+                return
+            if name in loop_order:
+                return
+            call_names = defer_loops[name]
+            for call_name in call_names:
+                process_name(call_name)
+            loop_order.append(name)
+
+        for name in defer_loops.iterkeys():
+            process_name(name)
 
         for name in loop_order:
             groups = loops[name]
@@ -232,13 +251,12 @@ class IsOverlapping(CollisionCondition):
         other_info = (data.items[0].loader.objectInfo,
                       data.items[0].loader.objectType)
         converter = self.converter
+        selected_name = converter.create_list(object_info, writer)
+        other_selected = converter.create_list(other_info, writer)
         if negated:
-            condition = to_c('check_not_overlap(%s, %s)',
-                             converter.get_object(object_info, True),
-                             converter.get_object(other_info, True))
+            condition = to_c('check_not_overlap(%s, %s)', selected_name,
+                             other_selected)
         else:
-            selected_name = converter.create_list(object_info, writer)
-            other_selected = converter.create_list(other_info, writer)
             if self.has_collisions():
                 func_name = 'check_overlap<true>'
                 self.add_collision_objects(object_info, other_info)
@@ -375,14 +393,7 @@ class TimerEvery(ConditionWriter):
         time = getattr(time, 'delay', None) or time.timer
         seconds = time / 1000.0
         name = 'every_%s' % TEMPORARY_GROUP_ID
-        name2 = '%s_frame' % name
-        writer.putln('static float %s = 0.0f;' % name)
-        writer.putlnc('static unsigned int %s = frame_iteration;', name2)
-        writer.putlnc('if (%s != frame_iteration) {', name2)
-        writer.indent()
-        writer.putlnc('%s = frame_iteration;', name2)
-        writer.putlnc('%s = 0.0f;', name)
-        writer.end_brace()
+        self.group.add_member('float %s' % name, '0.0f')
         event_break = self.converter.event_break
         writer.putln('%s += float(manager->fps_limit.dt);' % name)
         writer.putln('if (%s < %s) %s' % (name, seconds, event_break))
@@ -421,10 +432,11 @@ class RepeatCondition(ConditionWriter):
 
     def write(self, writer):
         count = self.convert_index(0)
-        name = get_repeat_name(self.converter.current_group)
+        name = get_repeat_name(self.group)
         writer.putlnc('if (%s >= %s) %s', name, count,
                       self.converter.event_break)
         writer.putlnc('%s++;', name)
+        self.group.add_member('int %s' % name, '0')
 
 class RestrictFor(ConditionWriter):
     custom = True
@@ -432,25 +444,19 @@ class RestrictFor(ConditionWriter):
     def write(self, writer):
         # XXX reset on frame start
         seconds = self.parameters[0].loader.timer / 1000.0
-        name = get_restrict_name(self.converter.current_group)
+        name = get_restrict_name(self.group)
         writer.putlnc('if (frame_time - %s < %s) %s', name, seconds,
                       self.converter.event_break)
         writer.putlnc('%s = frame_time;', name)
+        self.group.add_member('float %s' % name, 'frame_time')
 
 class NotAlways(ConditionWriter):
     custom = True
 
     def write(self, writer):
-        event_break = self.converter.event_break
         name = 'not_always_%s' % TEMPORARY_GROUP_ID
-        name2 = '%s_frame' % name
-        writer.putln('static unsigned int %s = loop_count;' % name)
-        writer.putln('static unsigned int %s = frame_iteration;' % name2)
-        writer.putln('if (%s != frame_iteration) {' % name2)
-        writer.indent()
-        writer.putln('%s = frame_iteration;' % name2)
-        writer.putln('%s = loop_count;' % name)
-        writer.end_brace()
+        self.group.add_member('unsigned int %s' % name, 'loop_count')
+        event_break = self.converter.event_break
         writer.putln('if (%s > loop_count) {' % (name))
         writer.indent()
         writer.putln('%s = loop_count + 2;' % name)
@@ -463,9 +469,9 @@ class OnceCondition(ConditionWriter):
     def write(self, writer):
         event_break = self.converter.event_break
         name = 'once_condition_%s' % TEMPORARY_GROUP_ID
-        writer.putln('static unsigned int %s = (int)(-1);' % name)
-        writer.putln('if (%s == frame_iteration) %s' % (name, event_break))
-        writer.putln('%s = frame_iteration;' % (name))
+        self.group.add_member('bool %s' % name, 'false')
+        writer.putlnc('if (%s) %s', name, event_break)
+        writer.putlnc('%s = true;', name)
 
 class GroupActivated(ConditionWriter):
     def write(self, writer):
@@ -497,11 +503,13 @@ class CompareObjectsInZone(ComparisonWriter):
     def get_parameters(self):
         return self.parameters[1:]
 
+    def write_pre(self, writer):
+        obj = (self.data.objectInfo, self.data.objectType)
+        self.obj_list = self.converter.create_list(obj, writer)
+
     def get_comparison_value(self):
         zone = self.parameters[0].loader
-        obj = (self.data.objectInfo, self.data.objectType)
-        obj_list = self.converter.get_object(obj, True)
-        return 'objects_in_zone(%s, %s, %s, %s, %s)' % (obj_list, zone.x1,
+        return 'objects_in_zone(%s, %s, %s, %s, %s)' % (self.obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
 
 class PickObjectsInZone(ConditionWriter):
@@ -587,6 +595,18 @@ class InsidePlayfield(ConditionMethodWriter):
 
 # actions
 
+class SetSemiTransparency(ActionWriter):
+    custom = True
+
+    def write(self, writer):
+        with self.converter.iterate_object(self.get_object(), writer,
+                                           copy=False):
+            obj = self.converter.get_object(self.get_object())
+            value = self.convert_index(0)
+            writer.putlnc('%s->blend_color.set_semi_transparency(%s);',
+                          obj, value)
+            writer.putlnc('%s->set_shader(NULL);', obj)
+
 class CollisionAction(ActionWriter):
     def write(self, writer):
         obj = self.get_object()
@@ -604,7 +624,7 @@ class CreateBase(ActionWriter):
 
     def get_create_info(self):
         object_info = self.parameters[0].loader.objectInfo
-        return (object_info, self.converter.object_types[object_info])
+        return self.converter.filter_object_type((object_info, None))
 
     def write(self, writer):
         details = self.convert_index(0)
@@ -774,6 +794,14 @@ class SetPosition(ActionWriter):
                                                   copy=False)
             obj = '(*it)'
 
+        if parent is not None and not is_qualifier(parent[0]):
+            parent_writer = self.converter.get_object_writer(parent)
+            if parent_writer.static:
+                data = self.converter.static_instances[parent_writer]
+                x = '%s+%s' % (x, data.x)
+                y = '%s+%s' % (y, data.y)
+                parent = None
+
         if parent is not None:
             parent = self.converter.get_object(parent)
             writer.putln('FrameObject * parent = %s;' % parent)
@@ -870,7 +898,12 @@ class StartLoop(ActionWriter):
             if real_name == self.converter.current_loop_name:
                 name = self.converter.current_loop_func
             else:
-                name = loop_funcs[real_name.lower()]
+                try:
+                    name = loop_funcs[real_name.lower()]
+                except KeyError, e:
+                    print self.converter.current_loop_name
+                    print loop_funcs
+                    raise e
             func_call = '%s()' % name
         comparison = None
         times = None
@@ -928,14 +961,6 @@ class DeactivateGroup(ActionWriter):
             self.deactivated_container = self.converter.containers[
                 self.parameters[0].loader.pointer]
         return self.deactivated_container
-
-    def write_post(self, writer):
-        pass
-        # container = self.get_deactivated_container()
-        # if container in self.converter.container_tree:
-        #     writer.putln('goto %s;' % container.end_label)
-        # elif self.container and container in self.container.tree:
-        #     pass
 
 class StopLoop(ActionWriter):
     def write(self, writer):
@@ -1019,7 +1044,8 @@ class EndApplication(ActionWriter):
 
 class SetFrameAction(ActionWriter):
     def set_frame(self, writer, value):
-        writer.put('next_frame = %s;' % value)
+        writer.putc('next_frame = %s + %s;', value,
+                    self.converter.frame_index_offset)
         writer.putln('')
         fade = self.converter.current_frame.fadeOut
         if not fade:
@@ -1053,19 +1079,25 @@ class PreviousFrame(SetFrameAction):
         self.set_frame(writer, 'index - 1')
 
 class SetInkEffect(ActionWriter):
+    custom = True
+
     def write(self, writer):
         ink_effect = self.parameters[0].loader.value1
         ink_value = self.parameters[0].loader.value2
 
-        if ink_effect in INK_EFFECTS:
-            name = NATIVE_SHADERS[INK_EFFECTS[ink_effect]]
-            if name is not None:
-                writer.put('set_shader(%s);' % name)
-        elif ink_effect == SEMITRANSPARENT_EFFECT:
-            # XXX maybe also set shader
-            writer.put('blend_color.set_semi_transparency(%s);' % ink_value)
-        else:
-            print 'unknown set ink effect:', ink_effect
+        with self.converter.iterate_object(self.get_object(), writer,
+                                           copy=False):
+            obj = self.converter.get_object(self.get_object())
+            if ink_effect in INK_EFFECTS:
+                name = NATIVE_SHADERS[INK_EFFECTS[ink_effect]]
+                if name is not None:
+                    writer.putlnc('%s->set_shader(%s);', obj, name)
+            elif ink_effect == SEMITRANSPARENT_EFFECT:
+                writer.putlnc('%s->blend_color.set_semi_transparency(%s);',
+                              obj, ink_value)
+                writer.putlnc('%s->set_shader(NULL);', obj)
+            else:
+                print 'unknown set ink effect:', ink_effect
 
 class SetEffect(ActionWriter):
     def write(self, writer):
@@ -1082,7 +1114,7 @@ class SpreadValue(ActionWriter):
         alt = self.convert_index(0)
         start = self.convert_index(1)
         obj = self.get_object()
-        object_list = self.converter.get_object(obj, True)
+        object_list = self.converter.create_list(obj, writer)
         writer.putln('spread_value(%s, %s, %s);' % (object_list, alt, start))
 
 class Destroy(ActionMethodWriter):
@@ -1172,9 +1204,11 @@ class ObjectCount(ExpressionWriter):
 
     def get_string(self):
         obj = (self.data.objectInfo, self.data.objectType)
-        if (obj in self.converter.all_objects and
-            self.converter.all_objects[obj].static):
-            return str(1)
+        try:
+            if self.converter.get_object_writer(obj).static:
+                return str(1)
+        except KeyError:
+            pass
         instances = self.converter.get_object_list(obj, allow_single=True)
         return '%s.size()' % instances
 
@@ -1267,7 +1301,7 @@ actions = make_table(ActionMethodWriter, {
     'JumpToFrame' : JumpToFrame,
     'RestartFrame' : RestartFrame,
     'SetAlphaCoefficient' : 'blend_color.set_alpha_coefficient(%s)',
-    'SetSemiTransparency' : 'blend_color.set_semi_transparency(%s)',
+    'SetSemiTransparency' : SetSemiTransparency,
     'SetXScale' : 'set_x_scale({0})',
     'SetYScale' : 'set_y_scale({0})',
     'SetScale' : 'set_scale({0})',
@@ -1339,8 +1373,8 @@ actions = make_table(ActionMethodWriter, {
     'SetFrameEffect' : EmptyAction, # XXX fix
     'SetFrameEffectParameter' : EmptyAction, # XXX fix
     'SetFrameAlphaCoefficient' : EmptyAction, # XXX fix
-    # XXX implement this
-    'JumpSubApplicationFrame' : EmptyAction,
+    'JumpSubApplicationFrame' : 'set_next_frame',
+    'SetTextColor' : 'blend_color.set(%s)'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -1372,7 +1406,7 @@ conditions = make_table(ConditionMethodWriter, {
     'CompareFixedValue' : CompareFixedValue,
     'InsidePlayfield' : InsidePlayfield,
     'OutsidePlayfield' : 'outside_playfield',
-    'IsObstacle' : 'test_background_collision',
+    'IsObstacle' : 'test_obstacle',
     'IsOverlappingBackground' : 'overlaps_background',
     'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
@@ -1406,7 +1440,7 @@ conditions = make_table(ConditionMethodWriter, {
     'Repeat' : RepeatCondition,
     'RestrictFor' : RestrictFor,
     # XXX implement this
-    'SubApplicationFinished' : FalseCondition,
+    'SubApplicationFinished' : '.done',
     'OnLoop' : FalseCondition # if not a generated group, this is always false
 })
 
@@ -1480,6 +1514,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Power' : '.*math_helper*',
     'SquareRoot' : 'sqrt',
     'Atan2' : 'atan2d',
+    'Atan' : 'atand',
     'AlphaCoefficient' : 'blend_color.get_alpha_coefficient()',
     'SemiTransparency' : 'blend_color.get_semi_transparency()',
     'EffectParameter' : 'get_shader_parameter',
@@ -1515,4 +1550,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'TotalObjectCount' : 'get_instance_count()',
     'FrameRate' : '.manager->fps_limit.framerate',
     'TemporaryPath' : 'get_temp_path()',
+    'GetCollisionMask' : 'get_background_mask',
+    'FontColor' : 'blend_color.get_int()',
+    'MovementNumber' : 'get_movement()->index'
 })

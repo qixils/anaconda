@@ -44,7 +44,7 @@ class SpreadValue(ActionMethodWriter):
         start = self.convert_index(2)
         step = self.convert_index(3)
         obj = self.get_object()
-        object_list = self.converter.get_object(obj, True)
+        object_list = self.converter.create_list(obj, writer)
         writer.putlnc('spread_value(%s, %s, %s, %s);', object_list, key, start,
                       step)
 
@@ -99,16 +99,17 @@ class GetExpression(ExpressionMethodWriter):
             raise NotImplementedError()
         next_exp = items[converter.item_index + 1]
         obj = (next_exp.objectInfo, next_exp.objectType)
+        obj = self.converter.get_object(obj)
         converter.item_index += 2
 
         last_exp = items[converter.item_index + 2]
         if last_exp.getName() != 'EndParenthesis':
-            raise NotImplementedError()
+            # dynamic hash
+            return '%s->get_extra_alterables().%s(' % (obj, self.func)
         next_exp = items[converter.item_index + 1]
         name = hash_key(next_exp.loader.value)
         converter.item_index += 2
 
-        obj = self.converter.get_object(obj)
         return '%s->get_extra_alterables().%s(%s)' % (obj, self.func, name)
 
 class GetValue(GetExpression):

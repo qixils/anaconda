@@ -11,6 +11,7 @@ int get_movement_direction(bool up, bool down, bool left, bool right);
 class Movement
 {
 public:
+    int index;
     int speed, max_speed;
     int old_x, old_y;
     double add_x, add_y;

@@ -26,7 +26,7 @@ class EventWriter(BaseWriter):
     def get_object_writer(self, obj=None):
         if obj is None:
             obj = self.get_object()
-        return self.converter.all_objects[obj]
+        return self.converter.get_object_writer(obj)
 
     def get_id(self, obj):
         return self.group.get_id(obj)
@@ -38,13 +38,19 @@ class ACBase(EventWriter):
 
     iterate_objects = None
 
+    def get_objects(self):
+        return ()
+
+    def write_pre(self, writer):
+        for obj in self.get_objects():
+            self.converter.create_list(obj, writer)
+
 class ActionWriter(ACBase):
     def write(self, writer):
         raise NotImplementedError()
 
     def write_post(self, writer):
         pass
-
 
 class ConditionWriter(ACBase):
     negate = False

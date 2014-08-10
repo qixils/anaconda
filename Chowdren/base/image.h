@@ -7,6 +7,7 @@
 #include "color.h"
 #include "types.h"
 #include "platform.h"
+#include "chowconfig.h"
 
 const std::string & get_image_path();
 void set_image_path(const std::string & path);
@@ -26,6 +27,7 @@ public:
 #endif
     int width, height;
 
+    Image();
     Image(int handle);
     Image(const std::string & filename, int hot_x, int hot_y,
           int act_x, int act_y, Color * color = NULL);
@@ -62,5 +64,7 @@ public:
 Image * get_internal_image(unsigned int i);
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
                         int act_x, int act_y, Color * color = NULL);
+
+extern Image dummy_image;
 
 #endif // CHOWDREN_IMAGE_H

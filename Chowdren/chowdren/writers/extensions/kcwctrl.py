@@ -22,6 +22,8 @@ actions = make_table(StaticActionWriter, {
     1 : 'set_y',
     3 : 'set_width',
     4 : 'set_height',
+    9 : 'set_visible(true)',
+    10 : 'set_visible(false)',
     17 : 'set_position',
     12 : 'maximize',
     13 : 'restore',

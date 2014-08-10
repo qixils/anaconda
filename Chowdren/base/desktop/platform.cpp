@@ -50,6 +50,7 @@ PFNGLUNIFORM2FPROC glUniform2f;
 PFNGLUNIFORM1FPROC glUniform1f;
 PFNGLUNIFORM4FPROC glUniform4f;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 #endif
 
 inline bool check_opengl_extension(const char * name)
@@ -262,6 +263,12 @@ void platform_create_display(bool fullscreen)
         return;
     }
 
+    const GLubyte * renderer = glGetString(GL_RENDERER);
+    const GLubyte * vendor = glGetString(GL_VENDOR);
+
+    std::cout << "Renderer: " << renderer << " - " << vendor << " - "
+        << std::endl;
+
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL function pointers
     glBlendEquationSeparate =
@@ -336,6 +343,9 @@ void platform_create_display(bool fullscreen)
     glGetUniformLocation =
         (PFNGLGETUNIFORMLOCATIONPROC)
         SDL_GL_GetProcAddress("glGetUniformLocation");
+    glBlendFuncSeparate =
+        (PFNGLBLENDFUNCSEPARATEPROC)
+        SDL_GL_GetProcAddress("glBlendFuncSeparate");
 #endif
 
     // check extensions

@@ -78,14 +78,21 @@ class CharImage(ObjectWriter):
 
 
 actions = make_table(ActionMethodWriter, {
-    0 : 'set_text'
+    0 : 'set_text',
+    12 : '.x_off = %s'
 })
 
 conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    1 : '.height'
+    1 : '.height',
+    2 : '.text', # formatted text
+    3 : '.text', # unformatted text
+    5 : '.text.size()',
+    11 : '.x_off',
+    14 : 'get_char', # unformatted
+    32 : 'get_char_width'
 })
 
 def get_object():

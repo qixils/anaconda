@@ -1244,6 +1244,10 @@ class GetLoopIndex(ExpressionWriter):
         index_name = get_loop_index_name(name)
         return index_name
 
+class CurrentFrame(ExpressionWriter):
+    def get_string(self):
+        return '(index+1-%s)' % self.converter.frame_index_offset
+
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
     'Shoot' : ShootObject,
@@ -1546,7 +1550,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'TimerValue' : '.(frame_time * 1000.0)',
     'TimerHundreds' : '.(int(frame_time * 100) % 100)',
     'CounterValue': '.value',
-    'CurrentFrame' : '.(index+1)',
+    'CurrentFrame' : CurrentFrame,
     'GetFlag' : 'alterables->flags.get',
     'GetCommandItem' : 'get_command_arg',
     # 1 (standard), 2 (DirectDraw), 4 (Direct3D8) 8 (Direct3D9)

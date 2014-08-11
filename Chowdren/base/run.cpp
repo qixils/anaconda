@@ -162,8 +162,8 @@ void GameManager::on_key(int key, bool state)
         if (alt) {
             fullscreen = !fullscreen;
             platform_set_fullscreen(fullscreen);
+            return;
         }
-        return;
     }
 #endif
 
@@ -273,7 +273,6 @@ void GameManager::draw()
     Frame * render_frame;
     if (SubApplication::current != NULL &&
         SubApplication::current->flags & VISIBLE) {
-        std::cout << "Use subapp frame" << std::endl;
         render_frame = &SubApplication::current->subapp_frame;
     } else
         render_frame = frame;

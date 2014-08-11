@@ -150,7 +150,7 @@ def get_frames(converter, game, frames):
         else:
             indexes = (0, 4, 21, 22, 23, 24, 25, 26, 27, 28, 29, 60, 65)
     else:
-        indexes = (0, 1, 3, 5)
+        indexes = (0, 1, 2, 3, 4, 5)
     for index in indexes:
         new_frames[index] = frames[index]
     return new_frames

@@ -59,13 +59,14 @@ alterable_int_objects = [
 ]
 
 def use_global_int(expression):
-    if not is_avgn:
-        return False
     index = expression.data.loader.value
-    return index in (0, 1)
+    if is_avgn:
+        return index in (0, 1)
+    elif is_hfa:
+        return index in (428,)
 
 def use_alterable_int(expression):
-    if not is_anne and not is_avgn:
+    if not is_anne and not is_avgn and not is_hfa:
         return False
     obj = expression.get_object()
     name = expression.converter.get_object_name(obj)

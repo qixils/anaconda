@@ -492,7 +492,12 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
 
 void INI::sort_group_by_name(const std::string & group)
 {
+    std::cout << "Sort by name not implemented" << std::endl;
+}
 
+void INI::sort_group_by_value(const std::string & group)
+{
+    std::cout << "Sort by value not implemented" << std::endl;
 }
 
 void INI::close()

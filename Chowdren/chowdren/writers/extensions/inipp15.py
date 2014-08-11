@@ -122,9 +122,13 @@ class SortGroup(ActionMethodWriter):
         option = reader.readByte(True)
         parameter = reader.readByte(True)
         group = self.convert_index(1)
-        if option != SORT_BY_NAME or parameter != ALPHANUM_SORT:
+        if option == SORT_BY_NAME and parameter == ALPHANUM_SORT:
+            writer.putc('sort_group_by_name(%s);', group)
+        elif option == SORT_BY_VALUE and parameter == CASE_INSENSITIVE_SORT:
+            writer.putc('sort_group_by_value(%s);', group)
+        else:
+            print option, parameter
             raise NotImplementedError
-        writer.put('sort_group_by_name(%s);' % group)
 
 class SearchSuccess(ConditionMethodWriter):
     is_always = True

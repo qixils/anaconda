@@ -407,6 +407,7 @@ public:
     static int get_screen_width();
     static int get_screen_height();
     static void set_visible(bool value);
+    static void minimize();
 };
 
 class Workspace
@@ -1170,6 +1171,11 @@ inline void spread_value(ObjectList & instances, int key, int start, int step)
 }
 
 #endif
+
+inline void spread_value(FrameObject * obj, int alt, int start)
+{
+    obj->alterables->values.set(alt, start);
+}
 
 inline void spread_value(ObjectList & instances, int alt, int start)
 {

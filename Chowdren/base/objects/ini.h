@@ -92,6 +92,7 @@ public:
     void delete_pattern(const std::string & group, const std::string & item,
                         const std::string & value);
     void sort_group_by_name(const std::string & group);
+    void sort_group_by_value(const std::string & group);
     void reset(bool save = true);
     void delete_group(const std::string & group);
     void delete_group();

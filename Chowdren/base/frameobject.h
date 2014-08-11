@@ -180,6 +180,7 @@ public:
     virtual void flash(float value);
     virtual void set_animation(int value);
     virtual void set_backdrop_offset(int dx, int dy);
+    void get_screen_aabb(int box[4]);
 
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables & get_extra_alterables()

@@ -105,6 +105,8 @@ public:
     int get_image_width(int index);
     void scroll(int x, int y, int wrap);
     void resize_source(int w, int h);
+    void draw_rect(int x, int y, int w, int h, Color color,
+                   int outline_size, Color outline);
 };
 
 #endif // CHOWDREN_SURFACE_H

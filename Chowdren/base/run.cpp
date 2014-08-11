@@ -273,6 +273,7 @@ void GameManager::draw()
     Frame * render_frame;
     if (SubApplication::current != NULL &&
         SubApplication::current->flags & VISIBLE) {
+        std::cout << "Use subapp frame" << std::endl;
         render_frame = &SubApplication::current->subapp_frame;
     } else
         render_frame = frame;

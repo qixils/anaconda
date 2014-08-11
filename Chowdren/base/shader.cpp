@@ -747,8 +747,10 @@ Shader * gradient_shader;
 Shader * overlayalpha_shader;
 Shader * lens_shader;
 Shader * coldirblur_shader;
-// Extension shaders
+
+// extension shaders
 Shader * perspective_shader;
+
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;

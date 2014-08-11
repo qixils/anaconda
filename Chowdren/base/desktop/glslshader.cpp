@@ -144,7 +144,8 @@ void GLSLShader::begin(FrameObject * instance, int width, int height)
         initialize();
 
     if (flags & SHADER_HAS_BACK) {
-        int * box = instance->collision->aabb;
+        int box[4];
+        instance->get_screen_aabb(box);
         glc_copy_color_buffer_rect(background_texture, box[0], box[1],
                                    box[2], box[3]);
     }

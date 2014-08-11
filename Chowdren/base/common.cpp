@@ -1441,6 +1441,17 @@ void FrameObject::set_backdrop_offset(int dx, int dy)
 {
 }
 
+void FrameObject::get_screen_aabb(int box[4])
+{
+    int off_x = layer->off_x - frame->off_x;
+    int off_y = layer->off_y - frame->off_y;
+    int * aabb = collision->aabb;
+    box[0] = aabb[0] + off_x;
+    box[1] = aabb[1] + off_y;
+    box[2] = aabb[2] + off_x;
+    box[3] = aabb[3] + off_y;
+}
+
 // FixedValue
 
 FixedValue::FixedValue(FrameObject * object)
@@ -2729,6 +2740,11 @@ void WindowControl::set_visible(bool value)
     }
 #endif
     std::cout << "Set window visible: " << value << std::endl;
+}
+
+void WindowControl::minimize()
+{
+    std::cout << "Minimize window" << std::endl;
 }
 
 // Workspace

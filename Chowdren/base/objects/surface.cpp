@@ -266,6 +266,12 @@ void SurfaceObject::clear_alpha(int index)
 {
 }
 
+void SurfaceObject::draw_rect(int x, int y, int w, int h, Color color,
+                              int outline_size, Color outline)
+{
+    std::cout << "Surface draw rect not implemented" << std::endl;
+}
+
 // SurfaceImage
 
 void SurfaceImage::reset(int w, int h)

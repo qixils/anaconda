@@ -365,10 +365,13 @@ class PlayerKeyPressed(PlayerKeyCondition):
 
 class TimerEquals(ConditionWriter):
     is_always = True
+    custom = True
 
     def write(self, writer):
         seconds = self.parameters[0].loader.timer / 1000.0
-        writer.put('frame_time >= %s' % seconds)
+        writer.putlnc('if (frame_time < %s) %s', seconds,
+                      self.converter.event_break)
+        write_not_always(writer, self)
 
 class TimerGreater(ConditionWriter):
     is_always = True
@@ -442,7 +445,6 @@ class RestrictFor(ConditionWriter):
     custom = True
 
     def write(self, writer):
-        # XXX reset on frame start
         seconds = self.parameters[0].loader.timer / 1000.0
         name = get_restrict_name(self.group)
         writer.putlnc('if (frame_time - %s < %s) %s', name, seconds,
@@ -450,19 +452,22 @@ class RestrictFor(ConditionWriter):
         writer.putlnc('%s = frame_time;', name)
         self.group.add_member('float %s' % name, 'frame_time')
 
+def write_not_always(writer, ace):
+    name = 'not_always_%s' % TEMPORARY_GROUP_ID
+    ace.group.add_member('unsigned int %s' % name, 'loop_count')
+    event_break = ace.converter.event_break
+    writer.putln('if (%s > loop_count) {' % (name))
+    writer.indent()
+    writer.putln('%s = loop_count + 2;' % name)
+    writer.putln(event_break)
+    writer.end_brace()
+    writer.putln('%s = loop_count + 2;' % name)
+
 class NotAlways(ConditionWriter):
     custom = True
 
     def write(self, writer):
-        name = 'not_always_%s' % TEMPORARY_GROUP_ID
-        self.group.add_member('unsigned int %s' % name, 'loop_count')
-        event_break = self.converter.event_break
-        writer.putln('if (%s > loop_count) {' % (name))
-        writer.indent()
-        writer.putln('%s = loop_count + 2;' % name)
-        writer.putln(event_break)
-        writer.end_brace()
-        writer.putln('%s = loop_count + 2;' % name)
+        write_not_always(writer, self)
 
 class OnceCondition(ConditionWriter):
     custom = True

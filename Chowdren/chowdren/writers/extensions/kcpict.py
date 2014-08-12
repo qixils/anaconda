@@ -7,12 +7,14 @@ class BackgroundPicture(ActivePicture):
         return False
 
 actions = make_table(ActionMethodWriter, {
+    0 : 'load'
 })
 
 conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : '.filename'
 })
 
 def get_object():

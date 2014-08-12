@@ -186,6 +186,7 @@ actions = make_table(ActionMethodWriter, {
     43 : 'set_y_scroll',
     44 : 'set_x_spacing',
     45 : 'set_y_spacing',
+    49 : 'append_text',
     51 : 'set_animation_type',
     52 : 'set_animation_parameter',
     56 : 'set_transparent_color',

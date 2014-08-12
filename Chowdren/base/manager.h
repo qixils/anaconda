@@ -23,8 +23,6 @@ public:
     bool fullscreen;
     int off_x, off_y, x_size, y_size;
     int mouse_x, mouse_y;
-    GLuint screen_texture;
-    GLuint screen_fbo;
     Color fade_color;
     float fade_dir;
     float fade_value;
@@ -131,6 +129,7 @@ inline FrameObject * get_qualifier(QualifierList & list, int index,
 }
 
 extern FrameObject * default_active_instance;
+extern FrameObject * default_picture_instance;
 #ifdef CHOWDREN_USE_BLITTER
 extern FrameObject * default_blitter_instance;
 #endif

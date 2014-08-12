@@ -665,7 +665,6 @@ public:
     }
 };
 
-
 class PerspectiveShader : public GLSLShader
 {
 public:
@@ -697,6 +696,33 @@ public:
         set_float(instance, "zoom", zoom);
         set_float(instance, "offset", offset);
         set_int(instance, "sine_waves", sine_waves);
+    }
+};
+
+class ReplaceShader : public GLSLShader
+{
+public:
+    GLuint lut_tex;
+
+    ReplaceShader()
+    : GLSLShader("replace", 0, "lut")
+    {
+    }
+
+    void initialize_parameters()
+    {
+        Image * new_image = new Image("lut.png", 0, 0, 0, 0);
+        new_image->load(true);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        lut_tex = new_image->tex;
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, lut_tex);
+        glActiveTexture(GL_TEXTURE0);
     }
 };
 
@@ -751,6 +777,8 @@ Shader * coldirblur_shader;
 // extension shaders
 Shader * perspective_shader;
 
+// system shaders
+Shader * replace_shader;
 #ifndef CHOWDREN_USE_GL
 Shader * basic_shader;
 Shader * texture_shader;
@@ -786,6 +814,7 @@ void init_shaders()
     lens_shader = new LensShader;
     coldirblur_shader = new ColDirBlurShader;
     perspective_shader = new PerspectiveShader;
+    replace_shader = new ReplaceShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

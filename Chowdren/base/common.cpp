@@ -809,8 +809,7 @@ void Frame::draw(int remote)
     else
 #endif
     {
-        glClearColor(background_color.r / 255.0f, background_color.g / 255.0f,
-                     background_color.b / 255.0f, 1.0f);
+        background_color.apply_clear_color();
     }
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
     if (remote != CHOWDREN_REMOTE_ONLY)
@@ -874,6 +873,21 @@ public:
 
 static DefaultActive default_active;
 FrameObject * default_active_instance = &default_active;
+
+class DefaultPicture : public ActivePicture
+{
+public:
+    DefaultPicture()
+    : ActivePicture(0, 0, 0)
+    {
+        setup_default_instance(this);
+        collision = new InstanceBox(this);
+        create_alterables();
+    }
+};
+
+static DefaultPicture default_picture;
+FrameObject * default_picture_instance = &default_picture;
 
 #ifdef CHOWDREN_USE_BLITTER
 
@@ -2989,47 +3003,84 @@ void ArrayObject::load(const std::string & filename)
     fp.close();
 }
 
-double & ArrayObject::get_value(int x, int y, int z)
+double ArrayObject::get_value(int x, int y, int z)
 {
-    if (x == -1)
-        x = x_pos;
-    if (y == -1)
-        y = y_pos;
-    if (z == -1)
-        z = z_pos;
-    x -= offset;
-    y -= offset;
-    z -= offset;
-    return array[x + y * x_size + z * x_size * y_size];
+    adjust_pos(x, y, z);
+    if (!is_valid(x, y, z))
+        return 0;
+    return array[get_index(x, y, z)];
 }
 
-std::string & ArrayObject::get_string(int x, int y, int z)
+const std::string & ArrayObject::get_string(int x, int y, int z)
 {
-    if (x == -1)
-        x = x_pos;
-    if (y == -1)
-        y = y_pos;
-    if (z == -1)
-        z = z_pos;
-    x -= offset;
-    y -= offset;
-    z -= offset;
-    return strings[x + y * x_size + z * x_size * y_size];
+    adjust_pos(x, y, z);
+    if (!is_valid(x, y, z))
+        return empty_string;
+    return strings[get_index(x, y, z)];
 }
 
-void ArrayObject::set_value(double value, int x, int y)
+void ArrayObject::set_value(double value, int x, int y, int z)
 {
-    get_value(x, y) = value;
+    adjust_pos(x, y, z);
+    expand(x, y, z);
+    array[get_index(x, y, z)] = value;
 }
 
-void ArrayObject::set_string(const std::string & value, int x)
+void ArrayObject::set_string(const std::string & value, int x, int y, int z)
 {
-    get_string(x) = value;
+    adjust_pos(x, y, z);
+    expand(x, y, z);
+    strings[get_index(x, y, z)] = value;
 }
 
-void ArrayObject::set_string(const std::string & value)
+void ArrayObject::expand(int x, int y, int z)
 {
-    get_string() = value;
+    x = std::max(x+1, x_size);
+    y = std::max(y+1, y_size);
+    z = std::max(z+1, z_size);
+    if (x == x_size && y == y_size && z == z_size)
+        return;
+
+#ifndef NDEBUG
+    // probably good to signify that something should be preallocated
+    std::cout << "Expanding " << get_name() << "from " <<
+        "(" << x_size << ", " << y_size << ", " << z_size << ")" <<
+        " to" <<
+        "(" << x << ", " << y << ", " << z << ")" << std::endl;
+#endif
+
+    int old_x = x_size;
+    int old_y = y_size;
+    int old_z = z_size;
+
+    x_size = x;
+    y_size = y;
+    z_size = z;
+
+    if (is_numeric) {
+        double * old_array = array;
+        array = NULL;
+        clear();
+        for (int x = 0; x < old_x; x++)
+        for (int y = 0; y < old_y; y++)
+        for (int z = 0; z < old_z; z++) {
+            double value = old_array[x + y * old_x + z * old_x * old_y];
+            array[get_index(x, y, z)] = value;
+        }
+        delete[] old_array;
+    } else {
+        std::string * old_array = strings;
+        strings = NULL;
+        clear();
+        for (int x = 0; x < old_x; x++)
+        for (int y = 0; y < old_y; y++)
+        for (int z = 0; z < old_z; z++) {
+            const std::string & value = old_array[x + y * old_x +
+                                                  z * old_x * old_y];
+            strings[get_index(x, y, z)] = value;
+        }
+        delete[] old_array;
+    }
 }
 
 ArrayObject::~ArrayObject()
@@ -3406,6 +3457,12 @@ void TextBlitter::set_text(const std::string & value)
     update_lines();
 }
 
+void TextBlitter::append_text(const std::string & value)
+{
+    text += value;
+    update_lines();
+}
+
 void TextBlitter::update_lines()
 {
     lines.clear();
@@ -3488,11 +3545,11 @@ void TextBlitter::replace_color(int from, int to)
 {
     Color color1(from);
     Color color2(to);
-    // std::cout << "Replace color not implemented: " <<
-    //     int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
-    //     << " -> " <<
-    //     int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
-    //     << std::endl;
+    std::cout << "Replace color not implemented: " <<
+        int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
+        << " -> " <<
+        int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
+        << std::endl;
 }
 
 void TextBlitter::set_transparent_color(int v)

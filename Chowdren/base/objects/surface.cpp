@@ -4,14 +4,26 @@
 #include <iostream>
 #include "shader.h"
 #include "mathcommon.h"
+#include "common.h"
 
 // SurfaceObject
+
+#define SURFACE_FBO_WIDTH 400
+#define SURFACE_FBO_HEIGHT 240
+
+static Framebuffer surface_fbo;
+static bool has_fbo = false;
 
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
-  stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL)
+  stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL),
+  use_blit(false)
 {
+    if (!has_fbo) {
+        has_fbo = true;
+        surface_fbo.init(SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+    }
     collision = new InstanceBox(this);
 }
 
@@ -22,15 +34,79 @@ SurfaceObject::~SurfaceObject()
 
 void SurfaceObject::draw()
 {
-    // need to get light system working first
-    if (shader == coldirblur_shader)
-        return;
-
     if (display_selected)
         displayed_image = selected_image;
 
     if (displayed_image == NULL)
         return;
+
+    if (use_blit) {
+        surface_fbo.bind();
+
+        glViewport(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glOrtho(0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT, 0, -1, 1);
+
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+
+        clear_color.apply_clear_color();
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        vector<SurfaceBlit>::const_iterator it;
+        for (it = blit_images.begin(); it != blit_images.end(); it++) {
+            const SurfaceBlit & img = *it;
+            glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+            glBlendFunc(GL_ONE, GL_ONE);
+            double scale_x = double(img.w) / img.image->width;
+            double scale_y = double(img.h) / img.image->height;
+            int draw_x = img.x + img.image->hotspot_x * scale_x;
+            int draw_y = img.y + img.image->hotspot_y * scale_y;
+            img.image->draw(draw_x, draw_y, 0.0, scale_x, scale_y);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glBlendEquation(GL_FUNC_ADD);
+        }
+        blit_images.clear();
+        use_blit = false;
+
+        glPopMatrix(); // restore MODELVIEW
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix(); // restore PROJECTION
+        glMatrixMode(GL_MODELVIEW);
+        glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        surface_fbo.unbind();
+
+        blend_color.apply();
+        subtract_shader->begin(NULL, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+
+        int x1 = x;
+        int y1 = y;
+        int x2 = x1 + SURFACE_FBO_WIDTH;
+        int y2 = y1 + SURFACE_FBO_HEIGHT;
+
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, surface_fbo.get_tex());
+        glBegin(GL_QUADS);
+        glTexCoord2f(back_texcoords[0], back_texcoords[1]);
+        glVertex2d(x1, y1);
+        glTexCoord2f(back_texcoords[2], back_texcoords[3]);
+        glVertex2d(x2, y1);
+        glTexCoord2f(back_texcoords[4], back_texcoords[5]);
+        glVertex2d(x2, y2);
+        glTexCoord2f(back_texcoords[6], back_texcoords[7]);
+        glVertex2d(x1, y2);
+        glEnd();
+        glDisable(GL_TEXTURE_2D);
+
+        subtract_shader->end(NULL);
+        return;
+    }
+
     blend_color.apply();
     displayed_image->draw(this, x, y);
 }
@@ -133,7 +209,25 @@ void SurfaceObject::scroll(int x, int y, int wrap)
 
 void SurfaceObject::blit(Active * obj)
 {
-    // std::cout << "Blit onto surface" << std::endl;
+    use_blit = true;
+    if (!collides(0, 0, selected_image->width, selected_image->height,
+                  dest_x, dest_y, dest_x+dest_width, dest_y+dest_height))
+        return;
+    int scale_x = SURFACE_FBO_WIDTH / selected_image->width;
+    int scale_y = SURFACE_FBO_HEIGHT / selected_image->height;
+    int index = blit_images.size();
+    blit_images.resize(index+1);
+    blit_images[index].x = dest_x * scale_x;
+    blit_images[index].y = dest_y * scale_y;
+    blit_images[index].w = dest_width * scale_x;
+    blit_images[index].h = dest_height * scale_y;
+
+    if (effect != 11) {
+        std::cout << "Unsupported blit effect: " << effect << std::endl;
+    }
+
+    blit_images[index].shader = subtract_shader;
+    blit_images[index].image = obj->image;
 }
 
 void SurfaceObject::set_effect(int index)
@@ -181,8 +275,7 @@ void SurfaceObject::create_alpha(int index)
 
 void SurfaceObject::clear(const Color & color)
 {
-    // std::cout << "Clear Surface: "
-    //     << color.r << " " << color.g << " " << color.b << std::endl;
+    clear_color = color;
 }
 
 void SurfaceObject::clear(int value)

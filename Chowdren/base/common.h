@@ -41,7 +41,7 @@ extern std::string newline_character;
 // string helpers
 
 inline int string_find(const std::string & a, const std::string & b,
-                       size_t pos)
+                       int pos)
 {
     size_t ret = a.find(b, pos);
     if (ret == std::string::npos)
@@ -50,7 +50,7 @@ inline int string_find(const std::string & a, const std::string & b,
 }
 
 inline int string_rfind(const std::string & a, const std::string & b,
-                        size_t pos)
+                        int pos)
 {
     size_t ret = a.rfind(b, pos);
     if (ret == std::string::npos)
@@ -470,12 +470,36 @@ public:
     ~ArrayObject();
     void initialize(bool is_numeric, int offset, int x, int y, int z);
     void clear();
-    double & get_value(int x=-1, int y=-1, int z=-1);
-    std::string & get_string(int x=-1, int y=-1, int z=-1);
-    void set_value(double value, int x, int y);
-    void set_string(const std::string & value, int x);
-    void set_string(const std::string & value);
+    double get_value(int x=-1, int y=-1, int z=-1);
+    const std::string & get_string(int x=-1, int y=-1, int z=-1);
+    void set_value(double value, int x=-1, int y=-1, int z=-1);
+    void set_string(const std::string & value, int x=-1, int y=-1, int z=-1);
     void load(const std::string & filename);
+    void expand(int x, int y, int z);
+
+    inline void adjust_pos(int & x, int & y, int & z)
+    {
+        if (x == -1)
+            x = x_pos;
+        if (y == -1)
+            y = y_pos;
+        if (z == -1)
+            z = z_pos;
+        x -= offset;
+        y -= offset;
+        z -= offset;
+    }
+
+    inline int get_index(int x, int y, int z)
+    {
+        return x + y * x_size + z * x_size * y_size;
+    }
+
+    inline bool is_valid(int x, int y, int z)
+    {
+        return x >= 0 && y >= 0 && z >= 0 &&
+               x < x_size && y < y_size && z < z_size;
+    }
 };
 
 class LayerObject : public FrameObject
@@ -577,6 +601,7 @@ public:
     void initialize(const std::string & charmap);
     void load(const std::string & filename);
     void set_text(const std::string & text);
+    void append_text(const std::string & text);
     void update_lines();
     void set_x_spacing(int spacing);
     void set_y_spacing(int spacing);

@@ -79,7 +79,7 @@ public:
 
 std::string convert_path(const std::string & value);
 
-// shaders
+// glc
 
 void glc_init_shaders();
 void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,

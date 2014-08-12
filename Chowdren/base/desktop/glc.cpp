@@ -179,7 +179,7 @@ void glc_vertex_3f(GLfloat x, GLfloat y, GLfloat z)
     mult_matrix(mvp, v1, v2);
     gl_state.vertices[gl_state.vert_index] = v2;
     gl_state.colors[gl_state.vert_index] = gl_state.current_color;
-    gl_state.vert_index++;   
+    gl_state.vert_index++;
 }
 
 void glc_texcoord_2f(GLfloat s, GLfloat t)

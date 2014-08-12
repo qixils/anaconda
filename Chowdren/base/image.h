@@ -13,6 +13,7 @@ const std::string & get_image_path();
 void set_image_path(const std::string & path);
 void initialize_images();
 
+extern const float normal_texcoords[8];
 extern const float back_texcoords[8];
 
 class Image

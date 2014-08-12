@@ -8,21 +8,25 @@
 
 #include <SDL.h>
 #include "chowconfig.h"
-#include "../platform.h"
-#include "../include_gl.h"
-#include "../manager.h"
-#include "../mathcommon.h"
+#include "platform.h"
+#include "include_gl.h"
+#include "manager.h"
+#include "mathcommon.h"
+#include "fbo.h"
 #include <iostream>
 
-GLuint screen_texture;
-GLuint screen_fbo;
+static Framebuffer screen_fbo;
+static SDL_Window * global_window = NULL;
+static SDL_GLContext global_context = NULL;
+static bool is_fullscreen = false;
+static bool hide_cursor = false;
+static bool has_closed = false;
+static Uint64 start_time;
 
-SDL_Window * global_window = NULL;
-SDL_GLContext global_context = NULL;
-bool is_fullscreen = false;
-bool hide_cursor = false;
-bool has_closed = false;
-Uint64 start_time;
+static int draw_x_size = 0;
+static int draw_y_size = 0;
+static int draw_x_off = 0;
+static int draw_y_off = 0;
 
 #ifdef CHOWDREN_USE_GL
 // opengl function pointers
@@ -223,6 +227,8 @@ bool platform_display_closed()
 void platform_get_mouse_pos(int * x, int * y)
 {
     SDL_GetMouseState(x, y);
+    *x = (*x - draw_x_off) * (float(WINDOW_WIDTH) / draw_x_size);
+    *y = (*y - draw_y_off) * (float(WINDOW_HEIGHT) / draw_y_size);
 }
 
 void platform_create_display(bool fullscreen)
@@ -359,6 +365,8 @@ void platform_create_display(bool fullscreen)
     // if the cursor was hidden before the window was created, hide it now
     if (hide_cursor)
         platform_hide_mouse();
+
+    screen_fbo.init(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 void platform_set_vsync(bool value)
@@ -391,10 +399,70 @@ void platform_set_fullscreen(bool value)
 
 void platform_begin_draw()
 {
+    screen_fbo.bind();
 }
 
 void platform_swap_buffers()
 {
+    int window_width, window_height;
+    platform_get_size(&window_width, &window_height);
+    bool resize = window_width != WINDOW_WIDTH ||
+                  window_height != WINDOW_HEIGHT;
+
+    if (resize) {
+        // aspect-aware resize
+        float aspect_width = window_width / float(WINDOW_WIDTH);
+        float aspect_height = window_height / float(WINDOW_HEIGHT);
+
+        float aspect = std::min(aspect_width, aspect_height);
+
+#ifdef CHOWDREN_QUICK_SCALE
+        aspect = std::max(std::min(1.0f, aspect), float(floor(aspect)));
+#endif
+        draw_x_size = aspect * WINDOW_WIDTH;
+        draw_y_size = aspect * WINDOW_HEIGHT;
+
+        draw_x_off = (window_width - draw_x_size) / 2;
+        draw_y_off = (window_height - draw_y_size) / 2;
+    } else {
+        draw_x_off = draw_y_off = 0;
+        draw_x_size = WINDOW_WIDTH;
+        draw_y_size = WINDOW_HEIGHT;
+    }
+
+    screen_fbo.unbind();
+
+    // resize the window contents if necessary (fullscreen mode)
+
+    glViewport(0, 0, window_width, window_height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_width, window_height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
+
+    int x2 = draw_x_off + draw_x_size;
+    int y2 = draw_y_off + draw_y_size;
+
+    glColor4f(1.0, 1.0, 1.0, 1.0);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, screen_fbo.get_tex());
+    glDisable(GL_BLEND);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0, 1.0);
+    glVertex2i(draw_x_off, draw_y_off);
+    glTexCoord2f(1.0, 1.0);
+    glVertex2i(x2, draw_y_off);
+    glTexCoord2f(1.0, 0.0);
+    glVertex2i(x2, y2);
+    glTexCoord2f(0.0, 0.0);
+    glVertex2i(draw_x_off, y2);
+    glEnd();
+    glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+
     SDL_GL_SwapWindow(global_window);
 }
 

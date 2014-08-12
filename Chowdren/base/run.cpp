@@ -109,28 +109,6 @@ void GameManager::set_window(bool fullscreen)
 
     init_shaders();
 
-    // for fullscreen or window resize
-#ifdef CHOWDREN_IS_DESKTOP
-    glGenTextures(1, &screen_texture);
-    glBindTexture(GL_TEXTURE_2D, screen_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-#ifdef CHOWDREN_QUICK_SCALE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-#else
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-#endif
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenFramebuffers(1, &screen_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER,
-        GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
-
 #ifdef CHOWDREN_VSYNC
     platform_set_vsync(true);
 #else
@@ -266,9 +244,6 @@ void GameManager::draw()
     platform_begin_draw();
     PROFILE_END();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, screen_fbo);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 #ifdef CHOWDREN_USE_SUBAPP
     Frame * render_frame;
     if (SubApplication::current != NULL &&
@@ -322,65 +297,6 @@ void GameManager::draw()
         glPopMatrix();
     }
 #endif
-
-#ifdef CHOWDREN_IS_DESKTOP
-    bool resize = window_width != WINDOW_WIDTH || window_height != WINDOW_HEIGHT;
-
-    if (resize) {
-        // aspect-aware resize
-        float aspect_width = window_width / float(WINDOW_WIDTH);
-        float aspect_height = window_height / float(WINDOW_HEIGHT);
-
-        float aspect = std::min(aspect_width, aspect_height);
-
-#ifdef CHOWDREN_QUICK_SCALE
-        aspect = std::max(std::min(1.0f, aspect), float(floor(aspect)));
-#endif
-        x_size = aspect * WINDOW_WIDTH;
-        y_size = aspect * WINDOW_HEIGHT;
-
-        off_x = (window_width - x_size) / 2;
-        off_y = (window_height - y_size) / 2;
-    } else {
-        off_x = off_y = 0;
-        x_size = WINDOW_WIDTH;
-        y_size = WINDOW_HEIGHT;
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // resize the window contents if necessary (fullscreen mode)
-
-    glViewport(0, 0, window_width, window_height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_width, window_height, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLoadIdentity();
-
-    int x2 = off_x + x_size;
-    int y2 = off_y + y_size;
-
-    glColor4f(1.0, 1.0, 1.0, 1.0);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, screen_texture);
-    glDisable(GL_BLEND);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 1.0);
-    glVertex2i(off_x, off_y);
-    glTexCoord2f(1.0, 1.0);
-    glVertex2i(x2, off_y);
-    glTexCoord2f(1.0, 0.0);
-    glVertex2i(x2, y2);
-    glTexCoord2f(0.0, 0.0);
-    glVertex2i(off_x, y2);
-    glEnd();
-    glEnable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
-
-#endif // CHOWDREN_IS_DESKTOP
 
     PROFILE_BEGIN(platform_swap_buffers);
     platform_swap_buffers();
@@ -473,8 +389,6 @@ bool GameManager::update()
 
     // update mouse position
     platform_get_mouse_pos(&mouse_x, &mouse_y);
-    mouse_x = (mouse_x - off_x) * (float(WINDOW_WIDTH) / x_size);
-    mouse_y = (mouse_y - off_y) * (float(WINDOW_HEIGHT) / y_size);
 
     if (show_stats)
         std::cout << "Framerate: " << fps_limit.current_framerate

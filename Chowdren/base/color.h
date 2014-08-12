@@ -65,9 +65,14 @@ public:
         set(color.r, color.g, color.b, color.a);
     }
 
-    void apply()
+    void apply() const
     {
         glColor4ub(r, g, b, a);
+    }
+
+    void apply_clear_color() const
+    {
+        glClearColor(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
     }
 
     void set_alpha_coefficient(int a)

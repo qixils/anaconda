@@ -27,31 +27,37 @@ void main()
     Gx = texture_coordinate.x;
     Gy = texture_coordinate.y;
     if(iF) {
-    Gx = 1-Gx;
-    Gy = 1-Gy;
+        Gx = 1-Gx;
+        Gy = 1-Gy;
     }
     if(iR) {
-    Temp = Gy;
-    Gy = Gx;
-    Gx = Temp;
+        Temp = Gy;
+        Gy = Gx;
+        Gx = Temp;
     }
     Out = texture2D(texture, texture_coordinate);
+
     //GRADIENT TYPES
     if(iT==0) {
-    Gcol = fArgb+(fBrgb-fArgb)*(Gx+fOffset)*fCoeff;
-    Ga = fAa+(fBa-fAa)*(Gx+fOffset)*fCoeff;
+        Gcol = fArgb+(fBrgb-fArgb)*(Gx+fOffset)*fCoeff;
+        Ga = fAa+(fBa-fAa)*(Gx+fOffset)*fCoeff;
     }
     if(iT==1) {
-    if(iR) Temp = 1-Gx; else Temp = Gx;
-    Gcol = fArgb+(fBrgb-fArgb)*(Gy*Temp+fOffset)*fCoeff;
-    Ga = fAa+(fBa-fAa)*(Gy*Temp+fOffset)*fCoeff;
-    }  
+        if(iR)
+            Temp = 1-Gx;
+        else
+            Temp = Gx;
+        Gcol = fArgb+(fBrgb-fArgb)*(Gy*Temp+fOffset)*fCoeff;
+        Ga = fAa+(fBa-fAa)*(Gy*Temp+fOffset)*fCoeff;
+    }
     if(iT==2) {
-    Gcol = fArgb+(fBrgb-fArgb)*abs(sin(Gx*fCoeff+fOffset));
-    Ga = fAa+(fBa-fAa)*abs(sin(Gx*fCoeff+fOffset));
-    } 
-    if(iMask) Out.a *= Ga;
-    else Out.a = Ga;
+        Gcol = fArgb+(fBrgb-fArgb)*abs(sin(Gx*fCoeff+fOffset));
+        Ga = fAa+(fBa-fAa)*abs(sin(Gx*fCoeff+fOffset));
+    }
+    if(iMask)
+        Out.a *= Ga;
+    else
+        Out.a = Ga;
     Out.rgb += (Gcol.rgb-Out.rgb)*fFade;
     gl_FragColor = Out;
 }

@@ -5,6 +5,7 @@
 #include "image.h"
 #include <string>
 #include "color.h"
+#include "fbo.h"
 
 class Active;
 
@@ -45,6 +46,18 @@ public:
     }
 };
 
+struct SurfaceBlit
+{
+    int x, y;
+    int w, h;
+    Image * image;
+    Shader * shader;
+
+    SurfaceBlit()
+    {
+    }
+};
+
 class SurfaceObject : public FrameObject
 {
 public:
@@ -53,6 +66,9 @@ public:
     bool use_abs_coords;
 
     // Runtime stuff
+    bool use_blit;
+    Color clear_color;
+    vector<SurfaceBlit> blit_images;
     int dest_width, dest_height;
     int dest_x, dest_y;
     int stretch_mode;

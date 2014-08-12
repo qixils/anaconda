@@ -28,9 +28,11 @@ actions = make_table(ActionMethodWriter, {
     1 : '.y_pos = %s',
     2 : '.z_pos = %s',
     3 : '.x_pos++',
+    4 : '.y_pos++',
     7 : 'set_string',
     14 : 'set_value',
     16 : 'set_string',
+    18 : 'set_string', # with xyz
     8 : 'clear',
     9 : 'load'
 })
@@ -39,8 +41,12 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : '.x_pos',
+    1 : '.y_pos',
+    4 : 'get_string', # current pos
     6 : 'get_value',
-    8 : 'get_string'
+    8 : 'get_string',
+    10 : 'get_string' # with xyz
 })
 
 def get_object():

@@ -11,6 +11,9 @@ for name in os.listdir(os.path.dirname(__file__)):
     name, ext = os.path.splitext(name)
     names[filter_name(name)] = name
 
+# some aliases
+names['stringparser'] = 'parser'
+
 def load_extension_module(ext):
     try:
         return loaded_extensions[ext]

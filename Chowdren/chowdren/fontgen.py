@@ -85,12 +85,16 @@ RESOLUTION = 96
 
 
 class Font(object):
-    def __init__(self, name, size, charset):
+    def __init__(self, name, charset, size=None, pixel_size=None):
         self.size = size
-        size = int(size * 64)
         font = self.font = freetype.Face(name)
 
-        font.set_char_size(size, size, RESOLUTION, RESOLUTION)
+        if pixel_size is not None:
+            font.set_pixel_sizes(pixel_size, pixel_size)
+        else:
+            size = int(size * 64)
+            font.set_char_size(size, size, RESOLUTION, RESOLUTION)
+
         self.width = self.get_width()
         self.height = self.get_height()
         metrics = self.font.size
@@ -105,8 +109,6 @@ class Font(object):
             charcode, agindex = font.get_next_char(charcode, agindex)
         for c in charset:
             self.load_char(c)
-
-        # FT_HAS_KERNING((*ftFace)) != 0
 
     def get_width(self):
         size = self.font.size

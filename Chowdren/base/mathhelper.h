@@ -1,6 +1,9 @@
 #ifndef CHOWDREN_MATHHELPER_H
 #define CHOWDREN_MATHHELPER_H
 
+#include <boost/type_traits/common_type.hpp>
+#include "dynnum.h"
+
 struct MathHelper
 {
     double lhs;
@@ -11,9 +14,9 @@ template <class T>
 class DivideHelper
 {
 public:
-    const T & lhs;
+    T lhs;
 
-    DivideHelper(const T & lhs)
+    DivideHelper(T lhs)
     : lhs(lhs)
     {
     }
@@ -21,69 +24,60 @@ public:
 
 // Divide Helper
 
-// double arg
+template <class T, class U>
+inline typename boost::common_type<T, U>::type
+operator/(const DivideHelper<T> & lhs, U rhs)
+{
+    if (rhs == 0)
+        return 0;
+    return lhs.lhs / rhs;
+}
+
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
 
 template <class T>
-inline double operator/(const DivideHelper<T> & lhs, double rhs)
+inline DynamicNumber operator/(const DivideHelper<T> & lhs, DynamicNumber rhs)
+{
+    if (rhs == 0)
+        return 0;
+    return DynamicNumber(lhs.lhs) / rhs;
+}
+
+template <class T>
+inline DynamicNumber operator/(const DivideHelper<DynamicNumber> & lhs, T rhs)
+{
+    if (rhs == 0)
+        return 0;
+    return lhs.lhs / DynamicNumber(rhs);
+}
+
+inline DynamicNumber operator/(const DivideHelper<DynamicNumber> & lhs,
+                               DynamicNumber rhs)
 {
     if (rhs == 0)
         return 0;
     return lhs.lhs / rhs;
 }
 
-// int arg
-
-inline int operator/(const DivideHelper<int> & lhs, int rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-inline double operator/(const DivideHelper<double> & lhs, int rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-inline float operator/(const DivideHelper<float> & lhs, int rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-// float arg
-
-inline float operator/(const DivideHelper<int> & lhs, float rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-inline double operator/(const DivideHelper<double> & lhs, float rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-inline float operator/(const DivideHelper<float> & lhs, float rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
+#endif
 
 // safe divide
 
 template <class T>
-inline DivideHelper<T> operator/(const T & lhs, MathHelper& rhs)
+inline DivideHelper<T> operator/(T lhs, MathHelper& rhs)
 {
     return DivideHelper<T>(lhs);
 }
+
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+
+inline DivideHelper<DynamicNumber> operator/(DynamicNumber lhs,
+                                             MathHelper& rhs)
+{
+    return DivideHelper<DynamicNumber>(lhs);
+}
+
+#endif
 
 // power
 

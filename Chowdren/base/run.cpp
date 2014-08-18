@@ -77,7 +77,7 @@ GameManager::GameManager()
     fps_limit.set(FRAMERATE);
 
 #ifdef CHOWDREN_IS_HFA
-    set_frame(60);
+    set_frame(0);
 #else
     set_frame(0);
 #endif
@@ -472,8 +472,15 @@ void GameManager::run()
 #define INPUT_STATE_HOLD 1
 #define INPUT_STATE_RELEASED 2
 
+InputList::InputList()
+: last(-1)
+{
+}
+
 void InputList::add(int v)
 {
+    last = v;
+
     vector<InputState>::iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         InputState & s = *it;
@@ -624,6 +631,11 @@ bool is_key_pressed_once(int key)
     if (key < 0)
         return false;
     return global_manager->keyboard.is_pressed_once(key);
+}
+
+int get_last_key_pressed()
+{
+    return global_manager->keyboard.last;
 }
 
 enum {

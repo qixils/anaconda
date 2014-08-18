@@ -8,6 +8,7 @@
 #include "types.h"
 #include "platform.h"
 #include "chowconfig.h"
+#include <boost/dynamic_bitset.hpp>
 
 const std::string & get_image_path();
 void set_image_path(const std::string & path);
@@ -24,15 +25,16 @@ public:
     GLuint tex;
     unsigned char * image;
 #ifndef CHOWDREN_IS_WIIU
-    bool * alpha;
+    boost::dynamic_bitset<> alpha;
 #endif
     int width, height;
 
     Image();
+    Image(int hot_x, int hot_y, int act_x, int act_y);
     Image(int handle);
-    Image(const std::string & filename, int hot_x, int hot_y,
-          int act_x, int act_y, Color * color = NULL);
     ~Image();
+    Image * copy();
+    void replace(const Color & from, const Color & to);
     void load(bool upload = false);
     void upload_texture();
     void draw(double x, double y, double angle = 0.0,
@@ -53,8 +55,8 @@ public:
             return c != 0;
         }
     #else
-        if (alpha != NULL)
-            return alpha[y * width + x];
+        if (!alpha.empty())
+            return alpha.test(y * width + x);
     #endif
         unsigned int * v = (unsigned int*)image + y * width + x;
         unsigned char c = ((unsigned char*)v)[3];
@@ -62,10 +64,95 @@ public:
     }
 };
 
+class FileImage : public Image
+{
+public:
+    std::string filename;
+    TransparentColor transparent;
+
+    FileImage(const std::string & filename, int hot_x, int hot_y,
+              int act_x, int act_y, TransparentColor transparent);
+};
+
 Image * get_internal_image(unsigned int i);
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                        int act_x, int act_y, Color * color = NULL);
+                        int act_x, int act_y, TransparentColor color);
 
 extern Image dummy_image;
+
+// image replacer
+
+struct ReplacedImage
+{
+    Image * src_image;
+    Image * image;
+    int hash;
+
+    ReplacedImage(Image * src_image, Image * image, int hash)
+    : src_image(src_image), image(image), hash(hash)
+    {
+    }
+};
+
+typedef std::pair<Color, Color> Replacement;
+typedef vector<Replacement> Replacements;
+
+class ReplacedImages
+{
+public:
+    Replacements replacements;
+    static vector<ReplacedImage> images;
+
+    ReplacedImages()
+    {
+    }
+
+    void replace(const Color & from, const Color & to);
+
+    Image * apply(Image * image)
+    {
+        int hash = 0;
+        vector<Replacement>::const_iterator it;
+        int hash_index = 1;
+        for (it = replacements.begin(); it != replacements.end(); it++) {
+            hash += it->first.r * hash_index;
+            hash += it->first.g * hash_index;
+            hash += it->first.b * hash_index;
+            hash += it->second.r * hash_index;
+            hash += it->second.g * hash_index;
+            hash += it->second.b * hash_index;
+            hash_index++;
+        }
+
+        vector<ReplacedImage>::const_iterator it2;
+        for (it2 = images.begin(); it2 != images.end(); it2++) {
+            const ReplacedImage & img = *it2;
+            if (img.hash == hash && img.src_image == image) {
+                return img.image;
+            }
+        }
+
+        std::cout << "Replacement with hash: " << hash << " "
+            << replacements.size() << std::endl;
+
+        Image * new_image = image->copy();
+        for (it = replacements.begin(); it != replacements.end(); it++) {
+            std::cout << "Replace: " <<
+                int(it->first.r) << " " << int(it->first.g) << " " << int(it->first.b)
+                << " -> " <<
+                int(it->second.r) << " " << int(it->second.g) << " " << int(it->second.b)
+                << std::endl;
+            new_image->replace(it->first, it->second);
+        }
+
+        images.push_back(ReplacedImage(image, new_image, hash));
+        return new_image;
+    }
+
+    bool empty()
+    {
+        return replacements.empty();
+    }
+};
 
 #endif // CHOWDREN_IMAGE_H

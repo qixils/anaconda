@@ -155,9 +155,7 @@ class TextBlitter(ObjectWriter):
         writer.putln('initialize(charmap_str);')
         writer.end_brace()
         # other data
-        # data.openEditor()
         if flags & FLAGS_TRANSPARENT:
-            writer.putln('has_transparent = true;')
             writer.putlnc('transparent_color = %s;', make_color(trans_color))
         writer.putlnc('wrap = %s;', bool(flags & FLAGS_WORDWRAPPING))
         writer.putlnc('set_text(%r);', text)

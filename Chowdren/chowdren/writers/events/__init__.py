@@ -57,7 +57,7 @@ class ConditionWriter(ACBase):
     is_always = None
     limit_once = False
     dereference = True
-    force_first = False
+    in_place = False
 
     def write(self, writer):
         raise NotImplementedError()

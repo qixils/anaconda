@@ -31,6 +31,15 @@ def init(converter):
         for i in xrange(71, 82):
             values[i] = convert_key(values[i])
 
+    if is_hfa:
+        # hack to turn on high-resolution lighting system images
+        values = converter.game.globalValues.items
+        values[191] = 1 # lights max resolution
+        values[194] = 1 # turn off adaptive lights
+        values[195] = 1 # lights min resolution
+        values[196] = 1 # force small images off
+
+
 object_checks = {
 }
 
@@ -55,7 +64,10 @@ alterable_int_objects = [
     'MiniMapObject_',
     'MenuMainController',
     'FireShark',
-    'Cog'
+    'Cog',
+    'MapMainObject',
+    'CellFG',
+    'CellBG'
 ]
 
 def use_global_int(expression):
@@ -97,7 +109,7 @@ def get_startup_instances(converter, instances):
     return new_instances
 
 def use_safe_create(converter):
-    return is_avgn
+    return is_avgn or is_hfa
 
 def use_global_instances(converter):
     return True
@@ -138,19 +150,18 @@ def write_defines(converter, writer):
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
+    # if is_hfa or is_test:
+        # writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
 
 def get_frames(converter, game, frames):
     if not is_hfa:
         return frames
-    DEBUG = True
     new_frames = {}
     if game.index == 0:
-        if DEBUG:
-            indexes = (60,)
-        else:
-            indexes = (0, 4, 21, 22, 23, 24, 25, 26, 27, 28, 29, 60, 65)
+        indexes = (0, 1, 3, 4, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 32,
+                   33, 60, 65)
     else:
-        indexes = (0, 1, 2, 3, 4, 5)
+        indexes = (0, 1, 2, 3, 4, 5, 6)
     for index in indexes:
         new_frames[index] = frames[index]
     return new_frames

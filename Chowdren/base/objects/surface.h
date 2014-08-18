@@ -9,12 +9,10 @@
 
 class Active;
 
-class SurfaceImage
+struct SurfaceImage
 {
-public:
     Image * handle;
-    Color transparent;
-    bool has_transparent;
+    TransparentColor transparent;
 
     // Simulated - actually modifies bitmap
     int width, height; // Resize
@@ -35,13 +33,13 @@ public:
     int get_display_width()
     {
         if (handle == NULL)
-            return 0;
+            return width;
         return canvas_width * width / double(handle->width);
     }
     int get_display_height()
     {
         if (handle == NULL)
-            return 0;
+            return height;
         return canvas_height * height / double(handle->height);
     }
 };
@@ -49,13 +47,24 @@ public:
 struct SurfaceBlit
 {
     int x, y;
-    int w, h;
+    double scale_x, scale_y;
     Image * image;
-    Shader * shader;
+    int effect;
 
     SurfaceBlit()
     {
     }
+};
+
+struct SurfacePoint
+{
+    int x, y;
+};
+
+struct SurfaceQuad
+{
+    SurfacePoint points[4];
+    Color color;
 };
 
 class SurfaceObject : public FrameObject
@@ -87,6 +96,11 @@ public:
     std::string filename;
     bool load_failed;
 
+    // Polygon draw
+    int vert_index;
+    SurfaceQuad quad;
+    vector<SurfaceQuad> quads;
+
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();
     void update(float dt);
@@ -98,6 +112,7 @@ public:
     void set_dest_pos(int x, int y);
     void set_dest_size(int w, int h);
     void blit(Active * obj);
+    void blit(SurfaceObject * obj, int image);
     void blit_background();
     void blit_alpha(int image);
     void blit_image(int image);
@@ -121,8 +136,11 @@ public:
     int get_image_width(int index);
     void scroll(int x, int y, int wrap);
     void resize_source(int w, int h);
+    void draw_polygon(int x, int y, Color color, int outline_size,
+                      Color outline);
     void draw_rect(int x, int y, int w, int h, Color color,
                    int outline_size, Color outline);
+    void insert_point(int index, int x, int y);
 };
 
 #endif // CHOWDREN_SURFACE_H

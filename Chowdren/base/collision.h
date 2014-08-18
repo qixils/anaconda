@@ -441,16 +441,18 @@ class BackgroundItem : public CollisionBase
 {
 public:
     int dest_x, dest_y, src_x, src_y, src_width, src_height;
+    Color color;
     Image * image;
     int collision_type;
 
     unsigned int col;
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
-                   int src_width, int src_height, int type)
+                   int src_width, int src_height, int type,
+                   const Color & color)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), collision_type(type),
-      image(img), CollisionBase(BACKGROUND_ITEM, 0)
+      image(img), color(color), CollisionBase(BACKGROUND_ITEM, 0)
     {
         aabb[0] = dest_x;
         aabb[1] = dest_y;
@@ -467,6 +469,7 @@ public:
 
     void draw()
     {
+        color.apply();
         image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height);
     }
 };

@@ -58,7 +58,7 @@ inline int string_rfind(const std::string & a, const std::string & b,
     return ret;
 }
 
-inline size_t string_size(const std::string & a)
+inline int string_size(const std::string & a)
 {
     return a.size();
 }
@@ -221,6 +221,7 @@ public:
     void load(const std::string & filename, int anim, int dir, int frame,
               int hot_x, int hot_y, int action_x, int action_y,
               int transparent_color);
+    void replace_color(const Color & from, const Color & to);
 };
 
 class FTTextureFont;
@@ -381,6 +382,7 @@ public:
     static void create_directory(const std::string & path);
     static bool file_exists(const std::string & path);
     static bool name_exists(const std::string & path);
+    static bool directory_exists(const std::string & path);
     static void delete_file(const std::string & path);
     static bool file_readable(const std::string & path);
 };
@@ -591,10 +593,12 @@ public:
     int anim_frame;
     int wave_freq, wave_height;
 
-    bool has_transparent;
-    Color transparent_color;
+    TransparentColor transparent_color;
 
     int callback_line_count;
+
+    Image * draw_image;
+    ReplacedImages replacer;
 
     TextBlitter(int x, int y, int type_id);
     ~TextBlitter();
@@ -634,8 +638,7 @@ public:
     Image * image;
     bool horizontal_flip;
     std::string filename;
-    Color transparent_color;
-    bool has_transparent_color;
+    TransparentColor transparent_color;
     float scale_x, scale_y;
     float angle;
 

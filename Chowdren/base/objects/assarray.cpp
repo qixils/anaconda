@@ -27,10 +27,13 @@ void AssociateArray::load_encrypted(const std::string & filename,
 {
     clear();
 
-    std::string dst;
     std::string src;
 
-    read_file(filename.c_str(), src);
+    if (!read_file(filename.c_str(), src))
+        return;
+
+    std::string dst;
+
     cipher.decrypt(&dst, src);
 
     if (dst.compare(0, sizeof(ARRAY_MAGIC)-1, ARRAY_MAGIC) != 0) {
@@ -45,6 +48,12 @@ inline void decode_method(std::string & str, int method)
 {
     for (std::string::iterator i = str.begin(); i != str.end(); ++i)
         *i = char(*i - method);
+}
+
+inline void encode_method(std::string & str, int method)
+{
+    for (std::string::iterator i = str.begin(); i != str.end(); ++i)
+        *i = char(*i + method);
 }
 
 void AssociateArray::load_data(const std::string & data, int method)
@@ -204,10 +213,11 @@ void AssociateArray::save(BaseStream & stream, int method)
     for (it = map->begin(); it != map->end(); it++) {
         AssociateArrayItem & item = it->second;
         std::string key = it->first;
-        decode_method(key, method);
+        encode_method(key, method);
         std::string string = item.string;
-        decode_method(string, method);
+        encode_method(string, method);
         std::string value = number_to_string(item.value);
+        encode_method(value, method);
 
         int len = key.size() + string.size() + value.size();
         stream.write_string(number_to_string(len));

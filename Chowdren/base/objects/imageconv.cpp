@@ -1,4 +1,5 @@
 #include "objects/imageconv.h"
+#include <iostream>
 
 void ImageManipulator::load(const std::string & filename)
 {

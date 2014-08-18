@@ -20,14 +20,14 @@ public:
     static hash_map<std::string, SectionMap> global_data;
     std::string current_group;
     std::string current_item;
-    SectionMap data;
+    bool is_global;
+    SectionMap * data;
     vector<std::pair<std::string, std::string> > search_results;
     bool overwrite;
     bool read_only;
     bool auto_save;
     bool use_compression;
     std::string filename;
-    std::string global_key;
     std::string encrypt_key;
     unsigned int search_time;
 

@@ -1,4 +1,5 @@
 #include "objects/capture.h"
+#include <iostream>
 
 void CaptureObject::set_filename(const std::string & value)
 {

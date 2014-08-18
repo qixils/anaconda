@@ -16,6 +16,8 @@ class INI(ObjectWriter):
         flags = data.readShort(True)
         filename = data.readString()
         writer.putln('auto_save = true;')
+        writer.putln('is_global = false;')
+        writer.putln('data = new SectionMap();')
         if filename:
             if flags & APP_DATA:
                 filename = to_c('platform_get_appdata_dir() + %r',

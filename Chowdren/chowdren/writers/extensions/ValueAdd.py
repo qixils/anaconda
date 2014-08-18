@@ -99,7 +99,7 @@ class GetExpression(ExpressionMethodWriter):
             raise NotImplementedError()
         next_exp = items[converter.item_index + 1]
         obj = (next_exp.objectInfo, next_exp.objectType)
-        obj = self.converter.get_object(obj)
+        obj = self.converter.get_object(obj, use_default=True)
         converter.item_index += 2
 
         last_exp = items[converter.item_index + 2]

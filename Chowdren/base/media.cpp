@@ -241,7 +241,7 @@ void Media::play(SoundData * data, int channel, int loop)
 
 void Media::play(const std::string & filename, int channel, int loop)
 {
-    if (get_file_size(filename.c_str()) <= 0) {
+    if (platform_get_file_size(filename.c_str()) <= 0) {
         std::cout << "Audio file does not exist: " << filename << std::endl;
         return;
     }
@@ -452,10 +452,12 @@ void Media::add_cache(const std::string & name, const std::string & fn)
 }
 
 #ifdef CHOWDREN_IS_DESKTOP
-#define STREAM_THRESHOLD 0.5
+#define STREAM_THRESHOLD_MB 0.5
 #else
-#define STREAM_THRESHOLD 0.75
+#define STREAM_THRESHOLD_MB 0.75
 #endif
+
+#define STREAM_THRESHOLD (STREAM_THRESHOLD_MB * 1024 * 1024)
 
 void Media::add_file(const std::string & name, const std::string & fn)
 {
@@ -467,7 +469,7 @@ void Media::add_file(const std::string & name, const std::string & fn)
     SoundData * data;
     if (get_path_ext(filename) == "wav")
         data = new SoundMemory(name, filename);
-    else if (get_file_size(filename.c_str()) > STREAM_THRESHOLD * 1024 * 1024)
+    else if (platform_get_file_size(filename.c_str()) > STREAM_THRESHOLD)
         data = new SoundFile(name, filename);
     else
         data = new SoundMemory(name, filename);

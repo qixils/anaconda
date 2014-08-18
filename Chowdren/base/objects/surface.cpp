@@ -18,7 +18,7 @@ SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
   stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL),
-  use_blit(false)
+  use_blit(false), vert_index(0)
 {
     if (!has_fbo) {
         has_fbo = true;
@@ -34,6 +34,25 @@ SurfaceObject::~SurfaceObject()
 
 void SurfaceObject::draw()
 {
+    if (!quads.empty()) {
+        begin_draw();
+
+        vector<SurfaceQuad>::const_iterator it;
+        for (it = quads.begin(); it != quads.end(); it++) {
+            const SurfaceQuad & quad = *it;
+            quad.color.apply();
+
+            glBegin(GL_QUADS);
+            for (int i = 0; i < 4; i++) {
+                glVertex2f(quad.points[i].x + x, quad.points[i].y + y);
+            }
+            glEnd();
+        }
+
+        end_draw();
+        return;
+    }
+
     if (display_selected)
         displayed_image = selected_image;
 
@@ -61,15 +80,17 @@ void SurfaceObject::draw()
         vector<SurfaceBlit>::const_iterator it;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
-            glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
-            glBlendFunc(GL_ONE, GL_ONE);
-            double scale_x = double(img.w) / img.image->width;
-            double scale_y = double(img.h) / img.image->height;
-            int draw_x = img.x + img.image->hotspot_x * scale_x;
-            int draw_y = img.y + img.image->hotspot_y * scale_y;
-            img.image->draw(draw_x, draw_y, 0.0, scale_x, scale_y);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glBlendEquation(GL_FUNC_ADD);
+            if (img.effect == 11) {
+                glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+                glBlendFunc(GL_ONE, GL_ONE);
+            }
+            int draw_x = img.x + img.image->hotspot_x * img.scale_x;
+            int draw_y = img.y + img.image->hotspot_y * img.scale_y;
+            img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
+            if (img.effect == 11) {
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glBlendEquation(GL_FUNC_ADD);
+            }
         }
         blit_images.clear();
         use_blit = false;
@@ -162,12 +183,8 @@ void SurfaceObject::load(const std::string & filename,
     selected_image->transparent = Color(255, 0, 255); // old_trans;
 
     std::string path = convert_path(filename);
-
-    Color * trans = NULL;
-    if (selected_image->has_transparent)
-        trans = &selected_image->transparent;
-
-    Image * image = get_image_cache(path, 0, 0, 0, 0, trans);
+    Image * image = get_image_cache(path, 0, 0, 0, 0,
+                                    selected_image->transparent);
     selected_image->set_image(image);
 
     if (image == NULL)
@@ -213,21 +230,31 @@ void SurfaceObject::blit(Active * obj)
     if (!collides(0, 0, selected_image->width, selected_image->height,
                   dest_x, dest_y, dest_x+dest_width, dest_y+dest_height))
         return;
+
+    Image * img = obj->image;
     int scale_x = SURFACE_FBO_WIDTH / selected_image->width;
     int scale_y = SURFACE_FBO_HEIGHT / selected_image->height;
     int index = blit_images.size();
     blit_images.resize(index+1);
     blit_images[index].x = dest_x * scale_x;
     blit_images[index].y = dest_y * scale_y;
-    blit_images[index].w = dest_width * scale_x;
-    blit_images[index].h = dest_height * scale_y;
+    dest_width *= scale_x;
+    dest_height *= scale_y;
+    blit_images[index].scale_x = dest_width / double(img->width);
+    blit_images[index].scale_y = dest_height / double(img->height);
 
-    if (effect != 11) {
+    if (effect != 1 && effect != 11) {
         std::cout << "Unsupported blit effect: " << effect << std::endl;
-    }
+        blit_images[index].effect = 1;
+    } else
+        blit_images[index].effect = effect;
 
-    blit_images[index].shader = subtract_shader;
-    blit_images[index].image = obj->image;
+    blit_images[index].image = img;
+}
+
+void SurfaceObject::blit(SurfaceObject * obj, int image)
+{
+    quads = obj->quads;
 }
 
 void SurfaceObject::set_effect(int index)
@@ -275,6 +302,7 @@ void SurfaceObject::create_alpha(int index)
 
 void SurfaceObject::clear(const Color & color)
 {
+    quads.clear();
     clear_color = color;
 }
 
@@ -336,9 +364,7 @@ void SurfaceObject::set_transparent_color(const Color & color, bool replace)
 {
     if (selected_image == NULL)
         return;
-    // selected_image->has_transparent = true;
-    // selected_image->transparent = color;
-    // printf("newest color %x\n", color.get_int());
+    selected_image->transparent = color;
 }
 
 int SurfaceObject::get_edit_width()
@@ -362,7 +388,46 @@ void SurfaceObject::clear_alpha(int index)
 void SurfaceObject::draw_rect(int x, int y, int w, int h, Color color,
                               int outline_size, Color outline)
 {
-    std::cout << "Surface draw rect not implemented" << std::endl;
+    SurfaceQuad quad;
+    quad.points[0].x = x;
+    quad.points[0].y = y;
+    quad.points[1].x = x+w;
+    quad.points[1].y = y;
+    quad.points[2].x = x+w;
+    quad.points[2].y = y+h;
+    quad.points[3].x = x;
+    quad.points[3].y = y+h;
+    quad.color = color;
+    quads.push_back(quad);
+}
+
+void SurfaceObject::draw_polygon(int x, int y, Color color,
+                                 int outline_size, Color outline)
+{
+    vert_index = 0;
+    color.set_alpha(255);
+    quad.color = color;
+    for (int i = 0; i < 4; i++) {
+        quad.points[i].x += x;
+        quad.points[i].y += y;
+    }
+    quads.push_back(quad);
+}
+
+void SurfaceObject::insert_point(int index, int x, int y)
+{
+    if (index == -1) {
+        index = vert_index;
+        vert_index++;
+    }
+
+    if (use_abs_coords) {
+        x -= this->x + layer->off_x;
+        y -= this->y + layer->off_y;
+    }
+
+    quad.points[index].x = x;
+    quad.points[index].y = y;
 }
 
 // SurfaceImage
@@ -370,8 +435,6 @@ void SurfaceObject::draw_rect(int x, int y, int w, int h, Color color,
 void SurfaceImage::reset(int w, int h)
 {
     handle = NULL;
-    has_transparent = true; //?
-    transparent = Color(0, 0, 0);
     width = w;
     height = h;
     canvas_width = w;

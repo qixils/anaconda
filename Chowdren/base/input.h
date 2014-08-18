@@ -63,8 +63,10 @@ enum {
 class InputList
 {
 public:
+    int last;
     vector<InputState> items;
 
+    InputList();
     void add(int v);
     void remove(int v);
     bool is_pressed_once(int v);
@@ -72,6 +74,7 @@ public:
     bool is_released_once(int v);
     bool is_any_pressed();
     bool is_any_pressed_once();
+    int get_last();
     void clear();
     void update();
 };
@@ -84,6 +87,7 @@ bool is_any_key_pressed_once();
 bool is_mouse_pressed_once(int key);
 bool is_key_released_once(int key);
 bool is_key_pressed_once(int key);
+int get_last_key_pressed();
 
 int get_joystick_direction(int n);
 int get_joystick_direction_flags(int n);

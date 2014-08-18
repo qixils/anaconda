@@ -32,6 +32,10 @@ public:
     operator double() const;
     operator std::string() const;
     operator FrameObject*() const;
+
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+    operator DynamicNumber() const;
+#endif
 };
 
 #define BACKGROUND_TYPE 1
@@ -154,6 +158,8 @@ public:
     void set_shader_parameter(const std::string & name, double value);
     void set_shader_parameter(const std::string & name, Image & image);
     void set_shader_parameter(const std::string & name, const Color & color);
+    void set_shader_parameter(const std::string & name,
+                              const std::string & path);
     double get_shader_parameter(const std::string & name);
     int get_level();
     void set_level(int index);
@@ -169,6 +175,7 @@ public:
     bool overlaps_background_save();
     void clear_movements();
     void set_movement(int i);
+    void set_next_movement();
     Movement * get_movement();
     void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();

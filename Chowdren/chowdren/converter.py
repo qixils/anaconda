@@ -265,6 +265,7 @@ class EventGroup(object):
     written = False
     write_callbacks = None
     data_hash = None
+    in_place = False
 
     def __init__(self, converter, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -361,7 +362,8 @@ class EventGroup(object):
     def filter(self, data):
         if self.data_hash is None:
             raise NotImplementedError()
-        data = data.replace(TEMPORARY_GROUP_ID, str(self.global_id))
+        new_id = '%s_%s' % (self.global_id, self.converter.current_frame_index)
+        data = data.replace(TEMPORARY_GROUP_ID, new_id)
         hash_str = str(self.data_hash & 0xFFFFFFFF)
         data = data.replace(TEMPORARY_HASH_ID, hash_str)
         return data
@@ -815,12 +817,6 @@ class Converter(object):
         extensions_header.close_guard('CHOWDREN_EXTENSIONS_H')
         extensions_header.close()
 
-        extensions_file = self.open_code('extensions.cpp')
-        extensions_file.putln('#include "extensions.h"')
-        for include in self.extension_sources:
-            extensions_file.putln('#include "%s"' % include)
-        extensions_file.close()
-
         event_file = EventFileWriter(self)
 
         # write object updates
@@ -1019,13 +1015,19 @@ class Converter(object):
             return data
 
         self.format_file('resource.rc')
+
+        ext_srcs = ['${CHOWDREN_BASE_DIR}/%s' % item
+                   for item in self.extension_sources]
+        ext_srcs.sort()
+
         self.format_file('Application.cmake', 'CMakeLists.txt',
                          event_srcs=get_cmake_list('EVENTSRCS',
                                                    event_file.sources),
                          frame_srcs=get_cmake_list('FRAMESRCS',
                                                    self.frame_srcs),
                          object_srcs=get_cmake_list('OBJECTSRCS',
-                                                    objects_file.sources))
+                                                    objects_file.sources),
+                         extension_srcs=get_cmake_list('EXTSRCS', ext_srcs))
         self.copy_file('icon.icns', overwrite=False)
         self.info_dict['event_srcs'] = event_file.sources
         self.info_dict['frame_srcs'] = self.frame_srcs
@@ -1111,7 +1113,6 @@ class Converter(object):
             instances = set()
             for obj in object_infos:
                 instances.add('&' + self.get_object_list(obj))
-            obj_count = len(instances)
             instances = list(instances)
             instances.sort()
             instances = tuple(instances)
@@ -1249,6 +1250,7 @@ class Converter(object):
                 name = self.get_condition_name(first_condition)
 
                 new_group.set_or_generated(not is_always)
+                new_group.in_place = first_writer.in_place
 
                 if is_always or force_always:
                     new_always_groups.append(new_group)
@@ -1432,7 +1434,8 @@ class Converter(object):
             except IndexError:
                 break
 
-            if not group.is_container_mark and group.or_generated:
+            if (not group.is_container_mark and group.or_generated and not
+                    group.in_place):
                 first_groups.append(group)
             else:
                 call_groups.append(group)
@@ -1641,6 +1644,17 @@ class Converter(object):
         objects_file.putln(to_c('%s(int x, int y) : %s', class_name,
             init_list))
         objects_file.start_brace()
+
+        # write qualifiers in comments so the object aliases properly
+        try:
+            qualifiers = common.qualifiers[:]
+            qualifiers.sort()
+            qualifiers = [str(item) for item in qualifiers]
+            qualifiers = ', '.join(qualifiers)
+            objects_file.putlnc('// qualifiers: %s', qualifiers)
+        except AttributeError:
+            pass
+
         objects_file.putraw('#ifndef NDEBUG')
         objects_file.putln(to_c('name = %r;', frameitem.name))
         objects_file.putraw('#endif')

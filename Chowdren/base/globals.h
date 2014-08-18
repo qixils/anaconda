@@ -4,20 +4,21 @@
 #include "types.h"
 #include "stringcommon.h"
 #include <string>
+#include "dynnum.h"
 
 class GlobalValues
 {
 public:
-    vector<double> values;
+    vector<DynamicNumber> values;
 
     GlobalValues()
     {
     }
 
-    double get(size_t index)
+    DynamicNumber get(size_t index)
     {
         if (index >= values.size())
-            return 0.0;
+            return 0;
         return values[index];
     }
 
@@ -28,7 +29,7 @@ public:
         return int(values[index]);
     }
 
-    void set(size_t index, double value)
+    void set(size_t index, DynamicNumber value)
     {
         if (index >= values.size()) {
             values.resize(index + 1);
@@ -36,12 +37,12 @@ public:
         values[index] = value;
     }
 
-    void add(size_t index, double value)
+    void add(size_t index, DynamicNumber value)
     {
         set(index, get(index) + value);
     }
 
-    void sub(size_t index, double value)
+    void sub(size_t index, DynamicNumber value)
     {
         set(index, get(index) - value);
     }

@@ -1,3 +1,6 @@
+#include "objects/platformext.h"
+#include "mathcommon.h"
+
 // PlatformObject
 
 // XXX hack

@@ -12,4 +12,6 @@ set(APP_COPYRIGHT "%(copyright)s")
 
 %(object_srcs)s
 
+%(extension_srcs)s
+
 include(${CHOWDREN_BASE_DIR}/CMakeLists.txt)

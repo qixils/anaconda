@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "types.h"
 #include <algorithm>
+#include "dynnum.h"
 
 extern std::string empty_string;
 
@@ -18,13 +19,26 @@ inline double string_to_double(const std::string & in, double def = 0.0)
     return value;
 }
 
-inline int string_to_int(const std::string & in, int def = 0.0)
+inline int string_to_int(const std::string & in, int def = 0)
 {
     std::istringstream input(in);
     int value;
     if (!(input >> value))
         return def;
     return value;
+}
+
+inline DynamicNumber string_to_number(const std::string & in, double def = 0.0)
+{
+    double ret = string_to_double(in, def);
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+    int int_ret = int(ret);
+    if (int_ret == ret)
+        return DynamicNumber(int_ret);
+    return DynamicNumber(ret);
+#else
+    return ret;
+#endif
 }
 
 inline const std::string & number_to_string(const std::string & value)

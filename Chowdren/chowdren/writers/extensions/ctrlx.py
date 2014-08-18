@@ -34,6 +34,7 @@ conditions = make_table(ConditionMethodWriter, {
 })
 
 expressions = make_table(ExpressionMethodWriter, {
+    0 : 'translate_key_to_string(get_last_key_pressed())'
 })
 
 def get_object():

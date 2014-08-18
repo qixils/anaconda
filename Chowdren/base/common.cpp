@@ -82,7 +82,7 @@ void Background::destroy_at(int x, int y)
         if (collides(item->dest_x, item->dest_y,
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
-                     x, y, x, y)) {
+                     x, y, x+1, y+1)) {
             delete item;
             it = items.erase(it);
         } else {
@@ -95,7 +95,7 @@ void Background::destroy_at(int x, int y)
         if (collides(item->dest_x, item->dest_y,
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
-                     x, y, x, y)) {
+                     x, y, x+1, y+1)) {
             delete item;
             it = col_items.erase(it);
         } else
@@ -116,7 +116,7 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
                                                src_x, src_y,
                                                src_width, src_height,
-                                               collision_type);
+                                               collision_type, color);
     if (collision_type == 1)
         col_items.push_back(item);
 #ifndef CHOWDREN_OBSTACLE_IMAGE
@@ -127,17 +127,12 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     if (color.a == 0 || color.a == 1)
         return;
 
-    if (color.a != 255 && color.a != 254) {
-        std::cout << "Paste with transparency not supported: " << int(color.a)
-            << std::endl;
-    }
-
 #ifdef CHOWDREN_OBSTACLE_IMAGE
     if (collision_type == 1) {
         item = new BackgroundItem(img, dest_x, dest_y,
                                   src_x, src_y,
                                   src_width, src_height,
-                                  collision_type);
+                                  collision_type, color);
     }
 #endif
 
@@ -146,7 +141,6 @@ void Background::paste(Image * img, int dest_x, int dest_y,
 
 void Background::draw()
 {
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     BackgroundItems::const_iterator it;
     for (it = items.begin(); it != items.end(); it++) {
         BackgroundItem * item = *it;
@@ -1244,6 +1238,13 @@ void FrameObject::set_shader_parameter(const std::string & name, Image & img)
 }
 
 void FrameObject::set_shader_parameter(const std::string & name,
+                                       const std::string & path)
+{
+    Image * img = get_image_cache(path, 0, 0, 0, 0, TransparentColor());
+    set_shader_parameter(name, *img);
+}
+
+void FrameObject::set_shader_parameter(const std::string & name,
                                        const Color & color)
 {
     set_shader_parameter(name, (double)color.get_int());
@@ -1333,6 +1334,11 @@ void FrameObject::clear_movements()
     }
     delete movement;
     movement = NULL;
+}
+
+void FrameObject::set_next_movement()
+{
+    set_movement(movement->index+1);
 }
 
 void FrameObject::set_movement(int i)
@@ -1496,6 +1502,14 @@ FixedValue::operator FrameObject*() const
 {
     return object;
 }
+
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+FixedValue::operator DynamicNumber() const
+{
+    double v = double(*this);
+    return DynamicNumber(v);
+}
+#endif
 
 // XXX move everything to 'objects' directory
 
@@ -1706,11 +1720,11 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
                   int hot_x, int hot_y, int action_x, int action_y,
                   int transparent_color)
 {
-    Image * new_image = new Image(convert_path(filename), 0, 0, 0, 0);
+    Image * new_image = get_image_cache(convert_path(filename), 0, 0, 0, 0,
+                                        TransparentColor(transparent_color));
 
-    if (!new_image->is_valid()) {
+    if (new_image == NULL) {
         std::cout << "Could not load image " << filename << std::endl;
-        delete new_image;
         return;
     }
 
@@ -1973,6 +1987,10 @@ bool Active::has_animation(int anim)
     return true;
 }
 
+void Active::replace_color(const Color & from, const Color & to)
+{
+}
+
 // Text
 
 FontList fonts;
@@ -2063,7 +2081,7 @@ void Text::draw()
     if (layout != NULL) {
         FTBBox bb = layout->BBox(draw_text.c_str(), -1);
         double off_x = x;
-        double off_y = y;
+        double off_y = y + font->Ascender();
         glTranslated((int)off_x, (int)off_y, 0.0);
         glScalef(1, -1, 1);
         layout->Render(draw_text.c_str(), -1, FTPoint());
@@ -2172,6 +2190,13 @@ void Text::update_draw_text()
         }
     }
 #endif
+    if (layout != NULL)
+        return;
+    if (draw_text.find('\n') == std::string::npos)
+        return;
+    layout = new FTSimpleLayout;
+    layout->SetFont(font);
+    layout->SetLineLength(width);
 }
 
 void Text::set_width(int w)
@@ -2318,20 +2343,21 @@ static void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
 
 static int align_pos(int a, int b)
 {
+    if (a <= 0)
+        return 0;
     return (a / b) * b;
 }
 
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
-#ifdef CHOWDREN_LAYER_WRAP
         int x, y;
         int width, height;
+#ifdef CHOWDREN_LAYER_WRAP
 
         // this is a cheap implementation of the wrap feature.
         // we expect objects to extend on either the X or Y axis.
         if (layer->wrap_x) {
-
             x = frame->off_y * layer->scroll_y + x_offset - image->width;
             width = WINDOW_WIDTH + image->width * 2;
         } else if (layer->wrap_y) {
@@ -2345,6 +2371,20 @@ void QuickBackdrop::draw()
             width = this->width;
             height = this->height;
         }
+
+        int screen_x1 = x + layer->off_x - frame->off_x;
+        int screen_y1 = y + layer->off_y - frame->off_y;
+        int screen_x2 = screen_x1 + width;
+        int screen_y2 = screen_y1 + height;
+
+        int add_x = align_pos(0 - screen_x1, image->width);
+        int add_y = align_pos(0 - screen_y1, image->height);
+        x += add_x;
+        width -= add_x;
+        y += add_y;
+        height -= add_y;
+        width -= align_pos(screen_x2 - WINDOW_WIDTH, image->width);
+        height -= align_pos(screen_y2 - WINDOW_HEIGHT, image->height);
 
         glEnable(GL_SCISSOR_TEST);
         glc_scissor_world(x, y, width, height);
@@ -2618,13 +2658,12 @@ const std::string & File::get_appdata_directory()
 
 void File::create_directory(const std::string & path)
 {
-    create_directories(path);
+    platform_create_directories(path);
 }
 
 bool File::file_exists(const std::string & path)
 {
-    FSFile fp(convert_path(path).c_str(), "r");
-    return fp.is_open();
+    return platform_is_file(path);
 }
 
 bool File::file_readable(const std::string & path)
@@ -2635,16 +2674,18 @@ bool File::file_readable(const std::string & path)
 
 bool File::name_exists(const std::string & path)
 {
-    // XXX also test directories
-    FSFile fp(convert_path(path).c_str(), "r");
-    return fp.is_open();
+    return platform_path_exists(path);
+}
+
+bool File::directory_exists(const std::string & path)
+{
+    return platform_is_directory(path);
 }
 
 void File::delete_file(const std::string & path)
 {
     if (platform_remove_file(path))
         return;
-    // std::cout << "Could not remove " << path << std::endl;
 }
 
 // WindowControl
@@ -3314,27 +3355,20 @@ float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 TextBlitter::TextBlitter(int x, int y, int type_id)
 : FrameObject(x, y, type_id), flash_interval(0.0f), x_spacing(0), y_spacing(0),
   x_scroll(0), y_scroll(0), anim_type(BLITTER_ANIMATION_NONE),
-  charmap_ref(true), has_transparent(false), callback_line_count(0)
+  charmap_ref(true), callback_line_count(0), draw_image(NULL)
 {
     collision = new InstanceBox(this);
 }
 
 void TextBlitter::load(const std::string & filename)
 {
-    Color * color = NULL;
-    if (has_transparent)
-        color = &transparent_color;
-
-    Image * new_image = new Image(filename, 0, 0, 0, 0, color);
-    if (!new_image->is_valid()) {
+    Image * new_image = get_image_cache(filename, 0, 0, 0, 0,
+                                        transparent_color);
+    if (new_image == NULL) {
         std::cout << "Could not load Text Blitter image " << filename
             << std::endl;
-        delete new_image;
         return;
     }
-
-    if (image->handle == -1)
-        delete image;
 
     image = new_image;
     image->upload_texture();
@@ -3342,8 +3376,6 @@ void TextBlitter::load(const std::string & filename)
 
 TextBlitter::~TextBlitter()
 {
-    if (image != NULL && image->handle == -1)
-        delete image;
     if (!charmap_ref) {
         delete[] charmap;
         delete charmap_str;
@@ -3441,8 +3473,11 @@ void TextBlitter::set_y_scroll(int value)
 
 void TextBlitter::set_width(int w)
 {
+    if (w == width)
+        return;
     width = w;
     collision->update_aabb();
+    update_lines();
 }
 
 void TextBlitter::set_height(int h)
@@ -3453,6 +3488,8 @@ void TextBlitter::set_height(int h)
 
 void TextBlitter::set_text(const std::string & value)
 {
+    if (value == text && !lines.empty())
+        return;
     text = value;
     update_lines();
 }
@@ -3477,6 +3514,8 @@ void TextBlitter::update_lines()
 
     char * text_c = &text[0];
 
+    bool force_char = false;
+
     for (unsigned int i = 0; i < text.size(); i++) {
         int start = i;
         int size = 0;
@@ -3493,7 +3532,14 @@ void TextBlitter::update_lines()
                 i++;
                 continue;
             }
-            if (wrap && ((size + 1) * x_add - x_spacing) > width) {
+            if (wrap && ((size + 1) * x_add) > width &&
+                    !force_char) {
+                if (size == 0)
+                    force_char = true;
+                if (c == ' ') {
+                    size = i - start;
+                    break;
+                }
                 if (last_space != -1) {
                     size = last_space - start;
                     i = last_space;
@@ -3501,13 +3547,14 @@ void TextBlitter::update_lines()
                 i--;
                 break;
             }
+            force_char = false;
             i++;
             if (c == ' ')
                 last_space = i;
             if (c == '\r')
                 continue;
-            // remove leading spaces
-            if (wrap && i-1 == start && c == ' ') {
+            // // remove leading spaces
+            if (wrap && i-1 == start && c == ' ' && lines.size() > 0) {
                 start++;
                 continue;
             }
@@ -3545,17 +3592,12 @@ void TextBlitter::replace_color(int from, int to)
 {
     Color color1(from);
     Color color2(to);
-    std::cout << "Replace color not implemented: " <<
-        int(color1.r) << " " << int(color1.g) << " " << int(color1.b)
-        << " -> " <<
-        int(color2.r) << " " << int(color2.g) << " " << int(color2.b)
-        << std::endl;
+    replacer.replace(from, to);
 }
 
 void TextBlitter::set_transparent_color(int v)
 {
-    has_transparent = true;
-    transparent_color = Color(v);
+    transparent_color = v;
 }
 
 void TextBlitter::update(float dt)
@@ -3613,6 +3655,18 @@ void TextBlitter::set_charmap(const std::string & charmap)
 
 void TextBlitter::draw()
 {
+    callback_line_count = int(lines.size());
+    if (!replacer.empty()) {
+        draw_image = replacer.apply(this->image);
+        draw_image->upload_texture();
+    }
+
+    Image * image;
+    if (draw_image == NULL)
+        image = this->image;
+    else
+        image = draw_image;
+
     begin_draw();
 
     blend_color.apply();
@@ -3629,8 +3683,6 @@ void TextBlitter::draw()
 
     vector<LineReference>::const_iterator it;
 
-    callback_line_count = int(lines.size());
-
     glEnable(GL_SCISSOR_TEST);
     glc_scissor_world(x, y, width, height);
 
@@ -3639,12 +3691,11 @@ void TextBlitter::draw()
 
         int xx = x + x_scroll;
 
-        if (alignment & ALIGN_HCENTER)
-            xx += (width - line.size * char_width -
-                   (line.size - 1) * x_spacing) / 2;
-        else if (alignment & ALIGN_RIGHT)
-            xx += width - line.size * char_width
-                  - (line.size - 1) * x_spacing;
+        if (alignment & ALIGN_HCENTER) {
+            xx += (width - line.size * x_add) / 2;
+        } else if (alignment & ALIGN_RIGHT) {
+            xx += width - line.size * x_add;
+        }
 
         // draw line
         for (int i = 0; i < line.size; i++) {
@@ -3695,7 +3746,7 @@ void TextBlitter::draw()
 
 ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
-  scale_x(1.0f), scale_y(1.0f), angle(0.0f), has_transparent_color(false)
+  scale_x(1.0f), scale_y(1.0f), angle(0.0f)
 {
     collision = new SpriteCollision(this);
 }
@@ -3723,11 +3774,7 @@ void ActivePicture::load(const std::string & fn)
 #else
     filename = convert_path(fn);
 #endif
-    Color * transparent = NULL;
-    if (has_transparent_color)
-        transparent = &transparent_color;
-
-    image = get_image_cache(filename, 0, 0, 0, 0, transparent);
+    image = get_image_cache(filename, 0, 0, 0, 0, transparent_color);
 
     if (image == NULL)
         return;
@@ -3739,7 +3786,6 @@ void ActivePicture::load(const std::string & fn)
 void ActivePicture::set_transparent_color(const Color & color)
 {
     transparent_color = color;
-    has_transparent_color = true;
 }
 
 void ActivePicture::set_hotspot(int x, int y)

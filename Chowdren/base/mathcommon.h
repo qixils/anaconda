@@ -6,6 +6,8 @@
 #include "crossrand.h"
 #include <iostream>
 #include <stdarg.h>
+#include <boost/type_traits/common_type.hpp>
+#include "dynnum.h"
 
 #define CHOW_PI 3.14159265358979323846264338327950288
 
@@ -104,6 +106,18 @@ inline int int_max(int value1, int value2)
     return std::max<int>(value1, value2);
 }
 
+template <class T, class U>
+inline typename boost::common_type<T, U>::type get_min(T a, U b)
+{
+    return std::min<typename boost::common_type<T, U>::type>(a, b);
+}
+
+template <class T, class U>
+inline typename boost::common_type<T, U>::type get_max(T a, U b)
+{
+    return std::max<typename boost::common_type<T, U>::type>(a, b);
+}
+
 template <class T>
 inline T clamp(T value, T min, T max)
 {
@@ -129,6 +143,21 @@ inline float get_abs(float v)
 inline double get_abs(double v)
 {
     return fabs(v);
+}
+
+inline int get_ceil(int v)
+{
+    return v;
+}
+
+inline float get_ceil(float v)
+{
+    return ceil(v);
+}
+
+inline double get_ceil(double v)
+{
+    return ceil(v);
 }
 
 template <class T>

@@ -57,7 +57,7 @@ PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 #endif
 
-inline bool check_opengl_extension(const char * name)
+static bool check_opengl_extension(const char * name)
 {
     if (SDL_GL_ExtensionSupported(name) == SDL_TRUE)
         return true;
@@ -80,7 +80,7 @@ const char * extensions[] = {
     NULL
 };
 
-inline bool check_opengl_extensions()
+static bool check_opengl_extensions()
 {
     for (int i = 0; extensions[i] != NULL; i++)
         if (!check_opengl_extension(extensions[i]))
@@ -88,14 +88,14 @@ inline bool check_opengl_extensions()
     return true;
 }
 
-void on_key(SDL_KeyboardEvent & e)
+static void on_key(SDL_KeyboardEvent & e)
 {
     if (e.repeat != 0)
         return;
     global_manager->on_key(e.keysym.sym, e.state == SDL_PRESSED);
 }
 
-void on_mouse(SDL_MouseButtonEvent & e)
+static void on_mouse(SDL_MouseButtonEvent & e)
 {
     global_manager->on_mouse(e.button, e.state == SDL_PRESSED);
 }
@@ -235,7 +235,11 @@ void platform_create_display(bool fullscreen)
 {
     is_fullscreen = fullscreen;
 
-#ifdef CHOWDREN_USE_GLES1
+#ifdef CHOWDREN_USE_GL
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#elif CHOWDREN_USE_GLES1
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
                         SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
@@ -520,23 +524,43 @@ const std::string & platform_get_language()
 // filesystem stuff
 
 #include <sys/stat.h>
-
-size_t get_file_size(const char * filename)
-{
-    struct stat st;
-    if (stat(filename, &st) != 0)
-        return 0;
-    return st.st_size;
-}
-
 #include <boost/filesystem.hpp>
 
-void create_directories(const std::string & value)
+size_t platform_get_file_size(const char * filename)
+{
+    boost::system::error_code err;
+    uintmax_t ret = boost::filesystem::file_size(filename, err);
+    if (ret == uintmax_t(-1))
+        return 0;
+    return ret;
+}
+
+bool platform_path_exists(const std::string & value)
+{
+    boost::system::error_code err;
+    return boost::filesystem::exists(value, err);
+}
+
+bool platform_is_directory(const std::string & value)
+{
+    boost::system::error_code err;
+    return boost::filesystem::is_directory(value, err);
+}
+
+bool platform_is_file(const std::string & value)
+{
+    boost::system::error_code err;
+    return boost::filesystem::is_regular_file(value, err);
+}
+
+void platform_create_directories(const std::string & value)
 {
     boost::filesystem::path path(value);
     if (path.has_filename())
         path.remove_filename();
-    boost::filesystem::create_directories(path);
+
+    boost::system::error_code err;
+    boost::filesystem::create_directories(path, err);
 }
 
 #ifdef _WIN32

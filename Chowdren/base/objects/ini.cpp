@@ -6,6 +6,7 @@
 #include "huffman.h"
 #include "filecommon.h"
 #include "frame.h"
+#include <boost/algorithm/string.hpp>
 
 inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
@@ -101,11 +102,11 @@ void INI::parse_handler(const std::string & section, const std::string & name,
         return;
 #ifdef CHOWDREN_INI_FILTER_QUOTES
     if (value[0] == '"' && *value.rbegin() == '"') {
-        data[section][name] = value.substr(1, value.size() - 2);
+        (*data)[section][name] = value.substr(1, value.size() - 2);
         return;
     }
 #endif
-    data[section][name] = value;
+    (*data)[section][name] = value;
 }
 
 void INI::set_group(const std::string & name)
@@ -123,14 +124,20 @@ void INI::set_item(const std::string & name)
     current_item = name;
 }
 
+inline std::string trim_spaces(const std::string & value)
+{
+    return boost::algorithm::trim_copy_if(value,
+                                          boost::algorithm::is_any_of(" "));
+}
+
 const std::string & INI::get_string_default(const std::string & group,
                                             const std::string & item,
                                             const std::string & def)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(trim_spaces(group));
+    if (it == data->end())
         return def;
-    OptionMap::const_iterator new_it = (*it).second.find(item);
+    OptionMap::const_iterator new_it = (*it).second.find(trim_spaces(item));
     if (new_it == (*it).second.end())
         return def;
     return (*new_it).second;
@@ -156,8 +163,8 @@ const std::string & INI::get_string(const std::string & group,
 const std::string & INI::get_string_index(const std::string & group,
                                           unsigned int index)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return empty_string;
     OptionMap::const_iterator new_it = (*it).second.begin();
     int current_index = 0;
@@ -178,8 +185,8 @@ const std::string & INI::get_string_index(unsigned int index)
 const std::string & INI::get_item_name(const std::string & group,
                                        unsigned int index)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return empty_string;
     OptionMap::const_iterator new_it = (*it).second.begin();
     int current_index = 0;
@@ -199,9 +206,9 @@ const std::string & INI::get_item_name(unsigned int index)
 
 const std::string & INI::get_group_name(unsigned int index)
 {
-    SectionMap::const_iterator it = data.begin();
+    SectionMap::const_iterator it = data->begin();
     int current_index = 0;
-    while (it != data.end()) {
+    while (it != data->end()) {
         if (current_index == index)
             return (*it).first;
         it++;
@@ -213,8 +220,8 @@ const std::string & INI::get_group_name(unsigned int index)
 double INI::get_value(const std::string & group, const std::string & item,
                       double def)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return def;
     OptionMap::const_iterator new_it = (*it).second.find(item);
     if (new_it == (*it).second.end())
@@ -229,8 +236,8 @@ double INI::get_value(const std::string & item, double def)
 
 double INI::get_value_index(const std::string & group, unsigned int index)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return 0.0;
     OptionMap::const_iterator new_it = (*it).second.begin();
     int current_index = 0;
@@ -273,7 +280,7 @@ void INI::set_value(const std::string & item, double value)
 void INI::set_string(const std::string & group, const std::string & item,
                      const std::string & value)
 {
-    data[group][item] = value;
+    (*data)[group][item] = value;
     save_auto();
 }
 
@@ -291,7 +298,7 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         reset(false);
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
-    create_directories(filename);
+    platform_create_directories(filename);
 
     if (!encrypt_key.empty() || use_compression) {
         std::string new_data;
@@ -342,7 +349,7 @@ void INI::get_data(std::stringstream & out)
 {
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
-    for (it1 = data.begin(); it1 != data.end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); it1++) {
         out << "[" << (*it1).first << "]" << std::endl;
         for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
              it2++) {
@@ -367,7 +374,7 @@ void INI::save_file(const std::string & fn, bool force)
     if (fn.empty() || (read_only && !force))
         return;
     filename = convert_path(fn);
-    create_directories(filename);
+    platform_create_directories(filename);
     std::stringstream out;
     get_data(out);
     std::string outs = out.str();
@@ -406,7 +413,7 @@ void INI::save_auto()
 
 int INI::get_item_count(const std::string & section)
 {
-    return data[section].size();
+    return (*data)[section].size();
 }
 
 int INI::get_item_count()
@@ -416,21 +423,21 @@ int INI::get_item_count()
 
 int INI::get_group_count()
 {
-    return data.size();
+    return data->size();
 }
 
 bool INI::has_group(const std::string & group)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return false;
     return true;
 }
 
 bool INI::has_item(const std::string & group, const std::string & option)
 {
-    SectionMap::const_iterator it = data.find(group);
-    if (it == data.end())
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
         return false;
     OptionMap::const_iterator new_it = (*it).second.find(option);
     if (new_it == (*it).second.end())
@@ -450,7 +457,7 @@ void INI::search(const std::string & group, const std::string & item,
     search_time = frame->loop_count;
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
-    for (it1 = data.begin(); it1 != data.end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); it1++) {
         if (!match_wildcard(group, (*it1).first))
             continue;
         for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
@@ -473,7 +480,7 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
 {
     SectionMap::iterator it1;
     OptionMap::iterator it2;
-    for (it1 = data.begin(); it1 != data.end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); it1++) {
         if (!match_wildcard(group, (*it1).first))
             continue;
         OptionMap & option_map = (*it1).second;
@@ -502,20 +509,20 @@ void INI::sort_group_by_value(const std::string & group)
 
 void INI::close()
 {
-    data.clear();
+    data->clear();
     filename.clear();
 }
 
 void INI::reset(bool save)
 {
-    data.clear();
+    data->clear();
     if (save)
         save_auto();
 }
 
 void INI::delete_group(const std::string & group)
 {
-    data.erase(group);
+    data->erase(group);
     save_auto();
 }
 
@@ -526,7 +533,7 @@ void INI::delete_group()
 
 void INI::delete_item(const std::string & group, const std::string & item)
 {
-    data[group].erase(item);
+    (*data)[group].erase(item);
     save_auto();
 }
 
@@ -535,21 +542,15 @@ void INI::delete_item(const std::string & item)
     delete_item(current_group, item);
 }
 
-void INI::set_global_data(const std::string & key)
-{
-    data = global_data[key];
-    global_key = key;
-}
-
 void INI::merge_object(INI * other, bool overwrite)
 {
-    merge_map(other->data, overwrite);
+    merge_map(*other->data, overwrite);
 }
 
 void INI::merge_group(INI * other, const std::string & src_group,
                      const std::string & dst_group, bool overwrite)
 {
-    merge_map(other->data, src_group, dst_group, overwrite);
+    merge_map(*other->data, src_group, dst_group, overwrite);
 }
 
 void INI::merge_map(const SectionMap & data2, bool overwrite)
@@ -561,7 +562,7 @@ void INI::merge_map(const SectionMap & data2, bool overwrite)
              it2++) {
             if (!overwrite && has_item((*it1).first, (*it2).first))
                 continue;
-            data[(*it1).first][(*it2).first] = (*it2).second;
+            (*data)[(*it1).first][(*it2).first] = (*it2).second;
         }
     }
     save_auto();
@@ -575,7 +576,7 @@ void INI::merge_map(SectionMap & data2, const std::string & src_group,
     for (it = items.begin(); it != items.end(); it++) {
         if (!overwrite && has_item(dst_group, (*it).first))
             continue;
-        data[dst_group][(*it).first] = (*it).second;
+        (*data)[dst_group][(*it).first] = (*it).second;
     }
     save_auto();
 }
@@ -627,9 +628,8 @@ void INI::set_auto(bool save, bool load)
 
 INI::~INI()
 {
-    if (global_key.empty())
-        return;
-    global_data[global_key] = data;
+    if (!is_global)
+        delete data;
 }
 
 hash_map<std::string, SectionMap> INI::global_data;

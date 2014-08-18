@@ -6,6 +6,7 @@
 #include <string.h>
 #include <string>
 #include <iostream>
+#include "dynnum.h"
 
 #define ALT_VALUES 26
 #define ALT_STRINGS 10
@@ -13,19 +14,19 @@
 class AlterableValues
 {
 public:
-    double values[ALT_VALUES];
+    DynamicNumber values[ALT_VALUES];
 
     AlterableValues()
     {
         for (int i = 0; i < ALT_VALUES; i++) {
-            values[i] = 0.0;
+            values[i] = 0;
         }
     }
 
-    double get(size_t index)
+    DynamicNumber get(size_t index)
     {
         if (index >= ALT_VALUES)
-            return 0.0;
+            return 0;
         return values[index];
     }
 
@@ -34,26 +35,26 @@ public:
         return int(get(index));
     }
 
-    void set(size_t index, double value)
+    void set(size_t index, DynamicNumber value)
     {
         if (index >= ALT_VALUES)
             return;
         values[index] = value;
     }
 
-    void add(size_t index, double value)
+    void add(size_t index, DynamicNumber value)
     {
         set(index, get(index) + value);
     }
 
-    void sub(size_t index, double value)
+    void sub(size_t index, DynamicNumber value)
     {
         set(index, get(index) - value);
     }
 
     void set(const AlterableValues & v)
     {
-        memcpy(values, v.values, ALT_VALUES*sizeof(double));
+        memcpy(values, v.values, ALT_VALUES*sizeof(DynamicNumber));
     }
 };
 

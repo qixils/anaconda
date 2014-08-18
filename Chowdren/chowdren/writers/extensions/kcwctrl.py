@@ -17,6 +17,10 @@ class WindowHeight(ExpressionMethodWriter):
     has_object = False
     method = '.WINDOW_HEIGHT'
 
+class WindowName(ExpressionMethodWriter):
+    has_object = False
+    method = '.NAME'
+
 actions = make_table(StaticActionWriter, {
     0 : 'set_x',
     1 : 'set_y',
@@ -45,6 +49,7 @@ expressions = make_table(StaticExpressionWriter, {
     5 : 'get_screen_height()',
     7 : 'get_width()', # client area
     8 : 'get_height()', # client area
+    9 : WindowName,
     11 : 'get_x()',
     12 : 'get_y()',
     13 : WindowWidth,

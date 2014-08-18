@@ -74,15 +74,12 @@ set(SRCS
     ${OBJECTSRCS}
     fonts.cpp
     lists.cpp
-    extensions.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${PLATFORM_CPP}
     ${CHOWDREN_BASE_DIR}/shader.cpp
     ${CHOWDREN_BASE_DIR}/font.cpp
-    ${FRAMESRCS}
-    ${EVENTSRCS}
     ${CHOWDREN_BASE_DIR}/movement.cpp
     ${CHOWDREN_BASE_DIR}/common.cpp
     ${CHOWDREN_BASE_DIR}/media.cpp
@@ -90,6 +87,9 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/broadphase.cpp
     ${CHOWDREN_BASE_DIR}/profiler.cpp
     ${PLATFORM_SRCS}
+    ${FRAMESRCS}
+    ${EVENTSRCS}
+    ${EXTSRCS}
 )
 
 if (USE_STEAM)
@@ -187,7 +187,7 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
     # silence some stupid warnings
-    add_definitions("/wd4244 /wd4102 /wd4305")
+    add_definitions("/wd4244 /wd4102 /wd4305 /wd4351")
     add_definitions("-D_CRT_SECURE_NO_WARNINGS")
     add_definitions("-D_SCL_SECURE_NO_WARNINGS")
     # multicore compile

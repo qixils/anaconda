@@ -19,8 +19,6 @@ void platform_get_size(int * width, int * height);
 void platform_get_screen_size(int * width, int * height);
 double platform_get_time();
 void platform_sleep(double v);
-size_t get_file_size(const char * filename);
-void create_directories(const std::string & v);
 int translate_vk_to_key(int vk);
 int translate_key_to_vk(int key);
 int translate_string_to_key(const std::string & name);
@@ -36,6 +34,14 @@ const std::string & platform_get_appdata_dir();
 const std::string & platform_get_language();
 void platform_set_vsync(bool value);
 void platform_set_fullscreen(bool value);
+
+// fs
+
+size_t platform_get_file_size(const char * filename);
+void platform_create_directories(const std::string & v);
+bool platform_is_file(const std::string & path);
+bool platform_is_directory(const std::string & path);
+bool platform_path_exists(const std::string & path);
 
 // debug
 void platform_print_stats();

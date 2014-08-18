@@ -21,22 +21,39 @@ inline int make_color_int(unsigned char r, unsigned char g, unsigned char b,
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
-class Color
+template <int def_r, int def_g, int def_b, int def_a>
+struct BaseColor
 {
-public:
     unsigned char r, g, b, a;
 
-    Color()
+    BaseColor()
     {
-        set(255, 255, 255, 255);
+        set(def_r, def_g, def_b, def_a);
     }
 
-    Color(int r, int g, int b, int a = 255)
+    BaseColor(int r, int g, int b, int a = 255)
     {
         set(r, g, b, a);
     }
 
-    Color(int color)
+    BaseColor(int color)
+    {
+        set(color);
+    }
+
+    BaseColor(double color)
+    {
+        set(int(color));
+    }
+
+    template <int a, int b, int c, int d>
+    BaseColor(const BaseColor<a, b, c, d> & color)
+    {
+        set(color);
+    }
+
+    template <int a, int b, int c, int d>
+    void operator=(const BaseColor<a, b, c, d> & color)
     {
         set(color);
     }
@@ -47,6 +64,11 @@ public:
         this->g = clamp_color_component(g);
         this->b = clamp_color_component(b);
         set_alpha(a);
+    }
+
+    void set_rgb(int r, int g, int b)
+    {
+        set(r, g, b, a);
     }
 
     void set_alpha(int a)
@@ -60,7 +82,8 @@ public:
         set(color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
     }
 
-    void set(const Color & color)
+    template <int a, int b, int c, int d>
+    void set(const BaseColor<a, b, c, d> & color)
     {
         set(color.r, color.g, color.b, color.a);
     }
@@ -101,6 +124,26 @@ public:
     {
         return make_color_int(r, g, b, a);
     }
+
+    // for TransparentColor
+
+    void enable()
+    {
+        set_alpha(255);
+    }
+
+    void disable()
+    {
+        set_alpha(0);
+    }
+
+    bool is_enabled()
+    {
+        return a == 255;
+    }
 };
+
+typedef BaseColor<255, 255, 255, 255> Color;
+typedef BaseColor<0, 0, 0, 0> TransparentColor;
 
 #endif // CHOWDREN_COLOR_H

@@ -517,12 +517,11 @@ class CompareObjectsInZone(ComparisonWriter):
         return 'objects_in_zone(%s, %s, %s, %s, %s)' % (self.obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
 
-class PickObjectsInZone(ConditionWriter):
+class PickCondition(ConditionWriter):
     custom = True
 
     def write(self, writer):
         objs = set()
-        zone = self.parameters[0].loader
         for action in self.converter.current_group.actions:
             obj = action.get_object()
             if obj in objs:
@@ -533,10 +532,32 @@ class PickObjectsInZone(ConditionWriter):
                 self.converter.current_group.force_multiple.add(obj)
             objs.add(obj)
 
+        self.write_pick(writer, objs)
+
+class PickObjectsInZone(PickCondition):
+    def write_pick(self, writer, objs):
+        zone = self.parameters[0].loader
         for obj in objs:
             obj_list = self.converter.create_list(obj, writer)
             writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',
                           obj_list, zone.x1, zone.y1, zone.x2, zone.y2)
+
+class PickAlterableValue(PickCondition):
+    def write_pick(self, writer, objs):
+        comparison = self.get_comparison()
+        index = self.convert_index(0)
+
+        writer.start_brace()
+        writer.putlnc('double check_value = %s;', self.convert_index(1))
+
+        for obj in objs:
+            with self.converter.iterate_object(obj, writer, copy=False):
+                obj = self.converter.get_object(obj)
+                writer.putlnc('if (!((*it)->alterables->values.get(%s) %s %s))'
+                              ' it.deselect();',
+                              index, comparison, 'check_value')
+        writer.end_brace()
+
 
 class CompareFixedValue(ConditionWriter):
     custom = True
@@ -599,18 +620,6 @@ class InsidePlayfield(ConditionMethodWriter):
         return not ConditionMethodWriter.is_negated(self)
 
 # actions
-
-class SetSemiTransparency(ActionWriter):
-    custom = True
-
-    def write(self, writer):
-        with self.converter.iterate_object(self.get_object(), writer,
-                                           copy=False):
-            obj = self.converter.get_object(self.get_object())
-            value = self.convert_index(0)
-            writer.putlnc('%s->blend_color.set_semi_transparency(%s);',
-                          obj, value)
-            writer.putlnc('%s->set_shader(NULL);', obj)
 
 class CollisionAction(ActionWriter):
     def write(self, writer):
@@ -1103,15 +1112,33 @@ class SetInkEffect(ActionWriter):
                 writer.putlnc('%s->set_shader(NULL);', obj)
             else:
                 print 'unknown set ink effect:', ink_effect
+            writer.putlnc('%s->blend_color.set_rgb(255, 255, 255);',
+                          obj)
+
+class SetSemiTransparency(ActionWriter):
+    custom = True
+
+    def write(self, writer):
+        with self.converter.iterate_object(self.get_object(), writer,
+                                           copy=False):
+            obj = self.converter.get_object(self.get_object())
+            value = self.convert_index(0)
+            writer.putlnc('%s->blend_color.set_semi_transparency(%s);',
+                          obj, value)
 
 class SetEffect(ActionWriter):
+    custom = True
+
     def write(self, writer):
-        name = self.parameters[0].loader.value
-        if name == '':
-            shader_name = 'NULL'
-        else:
-            shader_name = shader.get_name(name)
-        writer.put('set_shader(%s);' % shader_name)
+        with self.converter.iterate_object(self.get_object(), writer,
+                                           copy=False):
+            obj = self.converter.get_object(self.get_object())
+            name = self.parameters[0].loader.value
+            if name == '':
+                shader_name = 'NULL'
+            else:
+                shader_name = shader.get_name(name)
+            writer.putlnc('%s->set_shader(%s);', obj, shader_name)
 
 class SpreadValue(ActionWriter):
     custom = True
@@ -1329,6 +1356,7 @@ actions = make_table(ActionMethodWriter, {
     'DeleteAllCreatedBackdrops' : 'layers[%s-1].destroy_backgrounds()',
     'DeleteCreatedBackdrops' : 'layers[%s-1].destroy_backgrounds(%s, %s, %s)',
     'SetEffectParameter' : 'set_shader_parameter',
+    'SetEffectImage' : 'set_shader_parameter',
     'SetFrameBackgroundColor' : 'set_background_color',
     'AddBackdrop' : 'paste',
     'PasteActive' : 'paste',
@@ -1365,11 +1393,12 @@ actions = make_table(ActionMethodWriter, {
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
     'SelectMovement' : 'set_movement(%s)',
+    'NextMovement' : 'set_next_movement()',
     'EnableFlag' : 'alterables->flags.enable',
     'DisableFlag' : 'alterables->flags.disable',
     'ToggleFlag' : 'alterables->flags.toggle',
     'Reverse' : 'get_movement()->reverse()',
-    'ReplaceColor' : EmptyAction, # XXX fix,
+    'ReplaceColor' : 'replace_color',
     'SetLives' : 'set_lives',
     'SetScore' : 'set_score',
     'SubtractLives' : 'set_lives(manager->lives - (%s))',
@@ -1421,6 +1450,7 @@ conditions = make_table(ConditionMethodWriter, {
     'PickRandom' : PickRandom,
     'ObjectsInZone' : CompareObjectsInZone,
     'PickObjectsInZone' : PickObjectsInZone,
+    'PickAlterableValue' : PickAlterableValue,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
     'NotAlways' : NotAlways,
@@ -1456,7 +1486,7 @@ conditions = make_table(ConditionMethodWriter, {
 expressions = make_table(ExpressionMethodWriter, {
     'Speed' : 'get_movement()->get_speed()',
     'String' : StringExpression,
-    'ToNumber' : 'string_to_double',
+    'ToNumber' : 'string_to_number',
     'ToInt' : 'int',
     'Abs' : 'get_abs',
     'ToString' : ToString,
@@ -1494,8 +1524,8 @@ expressions = make_table(ExpressionMethodWriter, {
     'CurrentText' : '.text',
     'XMouse' : 'get_mouse_x()',
     'YMouse' : 'get_mouse_y()',
-    'Min' : 'std::min<double>',
-    'Max' : 'std::max<double>',
+    'Min' : 'get_min',
+    'Max' : 'get_max',
     'Sin' : 'sin_deg',
     'Cos' : 'cos_deg',
     'Exp' : 'get_exp',
@@ -1530,7 +1560,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Floor' : 'get_floor',
     'Round' : 'int_round',
     'AnimationNumber' : 'get_animation()',
-    'Ceil' : 'ceil',
+    'Ceil' : 'get_ceil',
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
     'GetSamplePosition' : 'media->get_sample_position',

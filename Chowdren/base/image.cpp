@@ -57,21 +57,20 @@ void open_image_file()
 }
 
 Image::Image()
-:
-#ifndef CHOWDREN_IS_WIIU
-  alpha(NULL),
-#endif
-  handle(0), tex(0), image(NULL), width(0), height(0),
+// handle needs to be 0 so it is considered cached
+: handle(0), tex(0), image(NULL), width(0), height(0),
   hotspot_x(0), hotspot_y(0), action_x(0), action_y(0)
 {
 }
 
+Image::Image(int hot_x, int hot_y, int act_x, int act_y)
+: handle(-1), tex(0), image(NULL), width(0), height(0),
+  hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y)
+{
+}
+
 Image::Image(int handle)
-:
-#ifndef CHOWDREN_IS_WIIU
-  alpha(NULL),
-#endif
-  handle(handle), tex(0), image(NULL)
+: handle(handle), tex(0), image(NULL)
 {
     load();
 }
@@ -80,57 +79,33 @@ Image::~Image()
 {
     if (image != NULL)
         stbi_image_free(image);
-#ifndef CHOWDREN_IS_WIIU
-    if (alpha != NULL)
-        delete[] alpha;
-#endif
     if (tex != 0)
         glDeleteTextures(1, &tex);
     image = NULL;
     tex = 0;
 }
 
-Image::Image(const std::string & filename, int hot_x, int hot_y,
-             int act_x, int act_y, Color * color)
-:
-#ifndef CHOWDREN_IS_WIIU
-  alpha(NULL),
-#endif
-  hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y),
-  tex(0), image(NULL), handle(-1)
+Image * Image::copy()
 {
-    int channels;
-    FSFile fp(filename.c_str(), "r");
-
-    if (!fp.is_open()) {
-        printf("Could not open image \"%s\"\n", filename.c_str());
-        return;
-    }
-
-    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp,
-        &width, &height, &channels, 4);
-
-    fp.close();
-
     if (image == NULL) {
-        printf("Could not load image \"%s\"\n", filename.c_str());
-        return;
+        if (handle != -1) {
+            return new Image(handle);
+        } else {
+            FileImage * image = (FileImage*)this;
+            return new FileImage(image->filename,
+                                 image->hotspot_x, image->hotspot_y,
+                                 image->action_x, image->action_y,
+                                 image->transparent);
+        }
     }
-
-    if (color == NULL)
-        return;
-
-#ifndef CHOWDREN_FORCE_TRANSPARENT
-    if (channels != 1 && channels != 3)
-        return;
-#endif
-
-    for (int i = 0; i < width * height; i++) {
-        unsigned char * c = &image[i*4];
-        if (c[0] != color->r || c[1] != color->g || c[2] != color->b)
-            continue;
-        c[3] = 0;
-    }
+    Image * new_image = new Image();
+    new_image->width = width;
+    new_image->height = height;
+    new_image->handle = handle;
+    int size = width*height*4;
+    new_image->image = (unsigned char*)malloc(size);
+    memcpy(new_image->image, image, size);
+    return new_image;
 }
 
 void Image::load(bool upload)
@@ -164,6 +139,22 @@ void Image::load(bool upload)
         upload_texture();
 }
 
+void Image::replace(const Color & from, const Color & to)
+{
+    if (image == NULL) {
+        std::cout << "Could not replace color in unloaded image" << std::endl;
+        return;
+    }
+    for (int i = 0; i < width * height; i++) {
+        unsigned char * c = &image[i*4];
+        if (c[0] != from.r || c[1] != from.g || c[2] != from.b)
+            continue;
+        c[0] = to.r;
+        c[1] = to.g;
+        c[2] = to.b;
+    }
+}
+
 void Image::upload_texture()
 {
     if (tex != 0 || image == NULL)
@@ -185,10 +176,10 @@ void Image::upload_texture()
 
 #ifndef CHOWDREN_IS_WIIU
     // create alpha mask
-    alpha = new bool[width * height];
+    alpha.resize(width * height);
     for (int i = 0; i < width * height; i++) {
         unsigned char c = ((unsigned char*)(((unsigned int*)image) + i))[3];
-        alpha[i] = c != 0;
+        alpha.set(i, c != 0);
     }
 #endif
     // for memory reasons, we delete the image and access the alpha or
@@ -343,9 +334,49 @@ bool Image::is_valid()
     return image != NULL || tex != 0;
 }
 
+// FileImage
+
+FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
+                     int act_x, int act_y, TransparentColor color)
+: filename(filename), transparent(color), Image(hot_x, hot_y, act_x, act_y)
+{
+    int channels;
+    FSFile fp(filename.c_str(), "r");
+
+    if (!fp.is_open()) {
+        printf("Could not open image \"%s\"\n", filename.c_str());
+        return;
+    }
+
+    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp,
+        &width, &height, &channels, 4);
+
+    fp.close();
+
+    if (image == NULL) {
+        printf("Could not load image \"%s\"\n", filename.c_str());
+        return;
+    }
+
+    if (!color.is_enabled())
+        return;
+
+#ifndef CHOWDREN_FORCE_TRANSPARENT
+    if (channels != 1 && channels != 3)
+        return;
+#endif
+
+    for (int i = 0; i < width * height; i++) {
+        unsigned char * c = &image[i*4];
+        if (c[0] != color.r || c[1] != color.g || c[2] != color.b)
+            continue;
+        c[3] = 0;
+    }
+}
+
 static Image * internal_images[IMAGE_COUNT];
 
-typedef hash_map<std::string, Image*> ImageCache;
+typedef hash_map<std::string, FileImage*> ImageCache;
 static ImageCache image_cache;
 
 Image * get_internal_image(unsigned int i)
@@ -357,12 +388,12 @@ Image * get_internal_image(unsigned int i)
 }
 
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                        int act_x, int act_y, Color * color)
+                        int act_x, int act_y, TransparentColor color)
 {
-    Image * image;
+    FileImage * image;
     ImageCache::const_iterator it = image_cache.find(filename);
     if (it == image_cache.end()) {
-        image = new Image(filename, 0, 0, 0, 0, color);
+        image = new FileImage(filename, 0, 0, 0, 0, color);
         if (!image->is_valid()) {
             delete image;
             image = NULL;
@@ -375,3 +406,35 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
 }
 
 Image dummy_image;
+
+void ReplacedImages::replace(const Color & from, const Color & to)
+{
+    Replacements::iterator it = replacements.begin();
+
+    while (it != replacements.end()) {
+        if (it->first.r == from.r &&
+            it->first.g == from.g &&
+            it->first.b == from.b &&
+            it->second.r == to.r &&
+            it->second.g == to.g &&
+            it->second.b == to.b)
+        {
+            it = replacements.erase(it);
+            continue;
+        }
+        if (it->second.r == from.r &&
+            it->second.g == from.g &&
+            it->second.b == from.b &&
+            it->first.r == to.r &&
+            it->first.g == to.g &&
+            it->first.b == to.b)
+        {
+            it = replacements.erase(it);
+            return;
+        }
+        it++;
+    }
+    replacements.push_back(Replacement(from, to));
+}
+
+vector<ReplacedImage> ReplacedImages::images;

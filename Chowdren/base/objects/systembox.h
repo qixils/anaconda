@@ -24,8 +24,8 @@ public:
     void hide_border_1();
     void hide_border_2();
     void hide_fill();
-    void set_border_1(const Color & color);
-    void set_border_2(const Color & color);
+    void set_border_1(Color color);
+    void set_border_2(Color color);
 };
 
 #endif // CHOWDREN_SYSTEMBOX_H

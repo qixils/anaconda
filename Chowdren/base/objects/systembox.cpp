@@ -62,12 +62,12 @@ void SystemBox::set_text(const std::string & text)
     this->text = text;
 }
 
-void SystemBox::set_border_1(const Color & color)
+void SystemBox::set_border_1(Color color)
 {
 
 }
 
-void SystemBox::set_border_2(const Color & color)
+void SystemBox::set_border_2(Color color)
 {
 
 }

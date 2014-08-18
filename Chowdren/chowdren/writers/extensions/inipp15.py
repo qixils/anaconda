@@ -25,9 +25,12 @@ class INI(ObjectWriter):
         key = data.readString()
         if auto_save:
             writer.putln('auto_save = true;')
+        writer.putlnc('is_global = %s;', is_global)
         if is_global:
-            writer.putln(to_c('set_global_data(%r);', global_key))
-        elif filename:
+            writer.putlnc('data = &global_data[%r];', global_key)
+        else:
+            writer.putln('data = new SectionMap();')
+        if not is_global and filename:
             writer.putlnc('load_file(%r);', filename)
         if use_compression:
             writer.putlnc('use_compression = true;')

@@ -23,6 +23,7 @@ conditions = make_table(StaticConditionWriter, {
     1 : 'name_exists',
     2 : 'file_readable',
     4 : 'file_exists',
+    5 : 'directory_exists'
 })
 
 expressions = make_table(StaticExpressionWriter, {

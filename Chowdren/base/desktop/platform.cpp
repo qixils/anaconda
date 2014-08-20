@@ -30,32 +30,32 @@ static int draw_y_off = 0;
 
 #ifdef CHOWDREN_USE_GL
 // opengl function pointers
-PFNGLBLENDEQUATIONSEPARATEEXTPROC glBlendEquationSeparateEXT;
-PFNGLBLENDEQUATIONEXTPROC glBlendEquationEXT;
-PFNGLBLENDFUNCSEPARATEEXTPROC glBlendFuncSeparateEXT;
-PFNGLACTIVETEXTUREARBPROC glActiveTextureARB;
-PFNGLMULTITEXCOORD2FARBPROC glMultiTexCoord2fARB;
-PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
-PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
-PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
+PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
+PFNGLBLENDEQUATIONEXTPROC __glBlendEquationEXT;
+PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
+PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
+PFNGLMULTITEXCOORD2FARBPROC __glMultiTexCoord2fARB;
+PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
+PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
+PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
 
-PFNGLUSEPROGRAMPROC glUseProgram;
-PFNGLDETACHSHADERPROC glDetachShader;
-PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-PFNGLGETPROGRAMIVPROC glGetProgramiv;
-PFNGLLINKPROGRAMPROC glLinkProgram;
-PFNGLCREATEPROGRAMPROC glCreateProgram;
-PFNGLATTACHSHADERPROC glAttachShader;
-PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-PFNGLGETSHADERIVPROC glGetShaderiv;
-PFNGLCOMPILESHADERPROC glCompileShader;
-PFNGLSHADERSOURCEPROC glShaderSource;
-PFNGLCREATESHADERPROC glCreateShader;
-PFNGLUNIFORM1IPROC glUniform1i;
-PFNGLUNIFORM2FPROC glUniform2f;
-PFNGLUNIFORM1FPROC glUniform1f;
-PFNGLUNIFORM4FPROC glUniform4f;
-PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+PFNGLUSEPROGRAMPROC __glUseProgram;
+PFNGLDETACHSHADERPROC __glDetachShader;
+PFNGLGETPROGRAMINFOLOGPROC __glGetProgramInfoLog;
+PFNGLGETPROGRAMIVPROC __glGetProgramiv;
+PFNGLLINKPROGRAMPROC __glLinkProgram;
+PFNGLCREATEPROGRAMPROC __glCreateProgram;
+PFNGLATTACHSHADERPROC __glAttachShader;
+PFNGLGETSHADERINFOLOGPROC __glGetShaderInfoLog;
+PFNGLGETSHADERIVPROC __glGetShaderiv;
+PFNGLCOMPILESHADERPROC __glCompileShader;
+PFNGLSHADERSOURCEPROC __glShaderSource;
+PFNGLCREATESHADERPROC __glCreateShader;
+PFNGLUNIFORM1IPROC __glUniform1i;
+PFNGLUNIFORM2FPROC __glUniform2f;
+PFNGLUNIFORM1FPROC __glUniform1f;
+PFNGLUNIFORM4FPROC __glUniform4f;
+PFNGLGETUNIFORMLOCATIONPROC __glGetUniformLocation;
 #endif
 
 static bool check_opengl_extension(const char * name)
@@ -282,83 +282,83 @@ void platform_create_display(bool fullscreen)
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL function pointers
-    glBlendEquationSeparateEXT =
+    __glBlendEquationSeparateEXT =
         (PFNGLBLENDEQUATIONSEPARATEEXTPROC)
         SDL_GL_GetProcAddress("glBlendEquationSeparateEXT");
-    glBlendEquationEXT =
+    __glBlendEquationEXT =
         (PFNGLBLENDEQUATIONEXTPROC)
         SDL_GL_GetProcAddress("glBlendEquationEXT");
-    glBlendFuncSeparateEXT =
+    __glBlendFuncSeparateEXT =
         (PFNGLBLENDFUNCSEPARATEEXTPROC)
         SDL_GL_GetProcAddress("glBlendFuncSeparateEXT");
 
-    glActiveTextureARB =
+    __glActiveTextureARB =
         (PFNGLACTIVETEXTUREARBPROC)
         SDL_GL_GetProcAddress("glActiveTextureARB");
-    glMultiTexCoord2fARB =
+    __glMultiTexCoord2fARB =
         (PFNGLMULTITEXCOORD2FARBPROC)
         SDL_GL_GetProcAddress("glMultiTexCoord2fARB");
 
-    glGenFramebuffersEXT =
+    __glGenFramebuffersEXT =
         (PFNGLGENFRAMEBUFFERSEXTPROC)
         SDL_GL_GetProcAddress("glGenFramebuffersEXT");
-    glFramebufferTexture2DEXT =
+    __glFramebufferTexture2DEXT =
         (PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)
         SDL_GL_GetProcAddress("glFramebufferTexture2DEXT");
-    glBindFramebufferEXT =
+    __glBindFramebufferEXT =
         (PFNGLBINDFRAMEBUFFEREXTPROC)
         SDL_GL_GetProcAddress("glBindFramebufferEXT");
 
     // shaders
-    glUniform1i =
+    __glUniform1i =
         (PFNGLUNIFORM1IPROC)
         SDL_GL_GetProcAddress("glUniform1i");
-    glUseProgram =
+    __glUseProgram =
         (PFNGLUSEPROGRAMPROC)
         SDL_GL_GetProcAddress("glUseProgram");
-    glDetachShader =
+    __glDetachShader =
         (PFNGLDETACHSHADERPROC)
         SDL_GL_GetProcAddress("glDetachShader");
-    glGetProgramInfoLog =
+    __glGetProgramInfoLog =
         (PFNGLGETPROGRAMINFOLOGPROC)
         SDL_GL_GetProcAddress("glGetProgramInfoLog");
-    glGetProgramiv =
+    __glGetProgramiv =
         (PFNGLGETPROGRAMIVPROC)
         SDL_GL_GetProcAddress("glGetProgramiv");
-    glLinkProgram =
+    __glLinkProgram =
         (PFNGLLINKPROGRAMPROC)
         SDL_GL_GetProcAddress("glLinkProgram");
-    glCreateProgram =
+    __glCreateProgram =
         (PFNGLCREATEPROGRAMPROC)
         SDL_GL_GetProcAddress("glCreateProgram");
-    glAttachShader =
+    __glAttachShader =
         (PFNGLATTACHSHADERPROC)
         SDL_GL_GetProcAddress("glAttachShader");
-    glGetShaderInfoLog =
+    __glGetShaderInfoLog =
         (PFNGLGETSHADERINFOLOGPROC)
         SDL_GL_GetProcAddress("glGetShaderInfoLog");
-    glGetShaderiv =
+    __glGetShaderiv =
         (PFNGLGETSHADERIVPROC)
         SDL_GL_GetProcAddress("glGetShaderiv");
-    glCompileShader =
+    __glCompileShader =
         (PFNGLCOMPILESHADERPROC)
         SDL_GL_GetProcAddress("glCompileShader");
-    glShaderSource =
+    __glShaderSource =
         (PFNGLSHADERSOURCEPROC)
         SDL_GL_GetProcAddress("glShaderSource");
-    glCreateShader =
+    __glCreateShader =
         (PFNGLCREATESHADERPROC)
         SDL_GL_GetProcAddress("glCreateShader");
-    glUniform2f =
+    __glUniform2f =
         (PFNGLUNIFORM2FPROC)
         SDL_GL_GetProcAddress("glUniform2f");
-    glUniform1f =
+    __glUniform1f =
         (PFNGLUNIFORM1FPROC)
         SDL_GL_GetProcAddress("glUniform1f");
-    glUniform4f =
+    __glUniform4f =
         (PFNGLUNIFORM4FPROC)
         SDL_GL_GetProcAddress("glUniform4f");
-    glGetUniformLocation =
+    __glGetUniformLocation =
         (PFNGLGETUNIFORMLOCATIONPROC)
         SDL_GL_GetProcAddress("glGetUniformLocation");
 #endif

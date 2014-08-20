@@ -4,31 +4,31 @@
 #ifdef CHOWDREN_USE_GL
 #include <SDL_opengl.h>
 
-extern PFNGLBLENDEQUATIONSEPARATEEXTPROC glBlendEquationSeparateEXT;
-extern PFNGLBLENDEQUATIONEXTPROC glBlendEquationEXT;
-extern PFNGLBLENDFUNCSEPARATEEXTPROC glBlendFuncSeparateEXT;
-extern PFNGLACTIVETEXTUREARBPROC glActiveTextureARB;
-extern PFNGLMULTITEXCOORD2FARBPROC glMultiTexCoord2fARB;
-extern PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
-extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
-extern PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
-extern PFNGLUSEPROGRAMPROC glUseProgram;
-extern PFNGLDETACHSHADERPROC glDetachShader;
-extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-extern PFNGLGETPROGRAMIVPROC glGetProgramiv;
-extern PFNGLLINKPROGRAMPROC glLinkProgram;
-extern PFNGLCREATEPROGRAMPROC glCreateProgram;
-extern PFNGLATTACHSHADERPROC glAttachShader;
-extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-extern PFNGLGETSHADERIVPROC glGetShaderiv;
-extern PFNGLCOMPILESHADERPROC glCompileShader;
-extern PFNGLSHADERSOURCEPROC glShaderSource;
-extern PFNGLCREATESHADERPROC glCreateShader;
-extern PFNGLUNIFORM1IPROC glUniform1i;
-extern PFNGLUNIFORM2FPROC glUniform2f;
-extern PFNGLUNIFORM1FPROC glUniform1f;
-extern PFNGLUNIFORM4FPROC glUniform4f;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+extern PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
+extern PFNGLBLENDEQUATIONEXTPROC __glBlendEquationEXT;
+extern PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
+extern PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
+extern PFNGLMULTITEXCOORD2FARBPROC __glMultiTexCoord2fARB;
+extern PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
+extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
+extern PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
+extern PFNGLUSEPROGRAMPROC __glUseProgram;
+extern PFNGLDETACHSHADERPROC __glDetachShader;
+extern PFNGLGETPROGRAMINFOLOGPROC __glGetProgramInfoLog;
+extern PFNGLGETPROGRAMIVPROC __glGetProgramiv;
+extern PFNGLLINKPROGRAMPROC __glLinkProgram;
+extern PFNGLCREATEPROGRAMPROC __glCreateProgram;
+extern PFNGLATTACHSHADERPROC __glAttachShader;
+extern PFNGLGETSHADERINFOLOGPROC __glGetShaderInfoLog;
+extern PFNGLGETSHADERIVPROC __glGetShaderiv;
+extern PFNGLCOMPILESHADERPROC __glCompileShader;
+extern PFNGLSHADERSOURCEPROC __glShaderSource;
+extern PFNGLCREATESHADERPROC __glCreateShader;
+extern PFNGLUNIFORM1IPROC __glUniform1i;
+extern PFNGLUNIFORM2FPROC __glUniform2f;
+extern PFNGLUNIFORM1FPROC __glUniform1f;
+extern PFNGLUNIFORM4FPROC __glUniform4f;
+extern PFNGLGETUNIFORMLOCATIONPROC __glGetUniformLocation;
 
 #elif CHOWDREN_USE_GLES1
 #include <SDL_opengles.h>
@@ -105,14 +105,32 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #ifndef CHOWDREN_BUILD_GLC
 
 #if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
-#define glBlendEquation glBlendEquationEXT
-#define glBlendEquationSeparate glBlendEquationSeparateEXT
-#define glBlendFuncSeparate glBlendFuncSeparateEXT
-#define glActiveTexture glActiveTextureARB
-#define glMultiTexCoord2f glMultiTexCoord2fARB
-#define glGenFramebuffers glGenFramebuffersEXT
-#define glBindFramebuffer glBindFramebufferEXT
-#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#define glBlendEquation __glBlendEquationEXT
+#define glBlendEquationSeparate __glBlendEquationSeparateEXT
+#define glBlendFuncSeparate __glBlendFuncSeparateEXT
+#define glActiveTexture __glActiveTextureARB
+#define glMultiTexCoord2f __glMultiTexCoord2fARB
+#define glGenFramebuffers __glGenFramebuffersEXT
+#define glBindFramebuffer __glBindFramebufferEXT
+#define glFramebufferTexture2D __glFramebufferTexture2DEXT
+#define glUseProgram __glUseProgram
+#define glDetachShader __glDetachShader
+#define glGetProgramInfoLog __glGetProgramInfoLog
+#define glGetProgramiv __glGetProgramiv
+#define glLinkProgram __glLinkProgram
+#define glCreateProgram __glCreateProgram
+#define glAttachShader __glAttachShader
+#define glGetShaderInfoLog __glGetShaderInfoLog
+#define glGetShaderiv __glGetShaderiv
+#define glCompileShader __glCompileShader
+#define glShaderSource __glShaderSource
+#define glCreateShader __glCreateShader
+#define glUniform1i __glUniform1i
+#define glUniform2f __glUniform2f
+#define glUniform1f __glUniform1f
+#define glUniform4f __glUniform4f
+#define glGetUniformLocation __glGetUniformLocation
+
 #undef GL_FRAMEBUFFER
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
 #undef GL_COLOR_ATTACHMENT0

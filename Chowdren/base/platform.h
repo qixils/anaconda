@@ -2,7 +2,6 @@
 #define CHOWDREN_PLATFORM_H
 
 #include <string>
-#include <stdio.h>
 #include "fileio.h"
 
 #ifdef CHOWDREN_IS_WIIU

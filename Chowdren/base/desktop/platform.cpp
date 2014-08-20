@@ -14,6 +14,7 @@
 #include "mathcommon.h"
 #include "fbo.h"
 #include <iostream>
+#include "platform.h"
 
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;

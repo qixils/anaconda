@@ -131,11 +131,6 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #define glUniform4f __glUniform4f
 #define glGetUniformLocation __glGetUniformLocation
 
-#undef GL_FRAMEBUFFER
-#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
-#undef GL_COLOR_ATTACHMENT0
-#define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
-
 #endif
 
 #ifdef CHOWDREN_USE_GLES2

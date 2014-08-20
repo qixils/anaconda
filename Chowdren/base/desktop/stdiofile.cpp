@@ -1,6 +1,8 @@
 #ifdef CHOWDREN_ENABLE_STEAM
 #define HANDLE_BASE FileHandle
 
+#include <stdio.h>
+
 class FileHandle
 {
 public:

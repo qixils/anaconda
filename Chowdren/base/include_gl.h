@@ -4,14 +4,14 @@
 #ifdef CHOWDREN_USE_GL
 #include <SDL_opengl.h>
 
-extern PFNGLBLENDEQUATIONSEPARATEPROC glBlendEquationSeparate;
-extern PFNGLBLENDEQUATIONPROC glBlendEquation;
-extern PFNGLACTIVETEXTUREPROC glActiveTexture;
+extern PFNGLBLENDEQUATIONSEPARATEEXTPROC glBlendEquationSeparateEXT;
+extern PFNGLBLENDEQUATIONEXTPROC glBlendEquationEXT;
+extern PFNGLBLENDFUNCSEPARATEEXTPROC glBlendFuncSeparateEXT;
+extern PFNGLACTIVETEXTUREARBPROC glActiveTextureARB;
+extern PFNGLMULTITEXCOORD2FARBPROC glMultiTexCoord2fARB;
 extern PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
 extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
 extern PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
-extern PFNGLMULTITEXCOORD2FPROC glMultiTexCoord2f;
-extern PFNGLUNIFORM1IPROC glUniform1i;
 extern PFNGLUSEPROGRAMPROC glUseProgram;
 extern PFNGLDETACHSHADERPROC glDetachShader;
 extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
@@ -24,11 +24,11 @@ extern PFNGLGETSHADERIVPROC glGetShaderiv;
 extern PFNGLCOMPILESHADERPROC glCompileShader;
 extern PFNGLSHADERSOURCEPROC glShaderSource;
 extern PFNGLCREATESHADERPROC glCreateShader;
+extern PFNGLUNIFORM1IPROC glUniform1i;
 extern PFNGLUNIFORM2FPROC glUniform2f;
 extern PFNGLUNIFORM1FPROC glUniform1f;
 extern PFNGLUNIFORM4FPROC glUniform4f;
 extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-extern PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 
 #elif CHOWDREN_USE_GLES1
 #include <SDL_opengles.h>
@@ -105,16 +105,19 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #ifndef CHOWDREN_BUILD_GLC
 
 #if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
-#undef glGenFramebuffers
+#define glBlendEquation glBlendEquationEXT
+#define glBlendEquationSeparate glBlendEquationSeparateEXT
+#define glBlendFuncSeparate glBlendFuncSeparateEXT
+#define glActiveTexture glActiveTextureARB
+#define glMultiTexCoord2f glMultiTexCoord2fARB
 #define glGenFramebuffers glGenFramebuffersEXT
-#undef glBindFramebuffer
 #define glBindFramebuffer glBindFramebufferEXT
-#undef glFramebufferTexture2D
 #define glFramebufferTexture2D glFramebufferTexture2DEXT
 #undef GL_FRAMEBUFFER
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
 #undef GL_COLOR_ATTACHMENT0
 #define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
+
 #endif
 
 #ifdef CHOWDREN_USE_GLES2

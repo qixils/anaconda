@@ -30,14 +30,15 @@ static int draw_y_off = 0;
 
 #ifdef CHOWDREN_USE_GL
 // opengl function pointers
-PFNGLBLENDEQUATIONSEPARATEPROC glBlendEquationSeparate;
-PFNGLBLENDEQUATIONPROC glBlendEquation;
-PFNGLACTIVETEXTUREPROC glActiveTexture;
+PFNGLBLENDEQUATIONSEPARATEEXTPROC glBlendEquationSeparateEXT;
+PFNGLBLENDEQUATIONEXTPROC glBlendEquationEXT;
+PFNGLBLENDFUNCSEPARATEEXTPROC glBlendFuncSeparateEXT;
+PFNGLACTIVETEXTUREARBPROC glActiveTextureARB;
+PFNGLMULTITEXCOORD2FARBPROC glMultiTexCoord2fARB;
 PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
 PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
 PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
-PFNGLMULTITEXCOORD2FPROC glMultiTexCoord2f;
-PFNGLUNIFORM1IPROC glUniform1i;
+
 PFNGLUSEPROGRAMPROC glUseProgram;
 PFNGLDETACHSHADERPROC glDetachShader;
 PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
@@ -50,11 +51,11 @@ PFNGLGETSHADERIVPROC glGetShaderiv;
 PFNGLCOMPILESHADERPROC glCompileShader;
 PFNGLSHADERSOURCEPROC glShaderSource;
 PFNGLCREATESHADERPROC glCreateShader;
+PFNGLUNIFORM1IPROC glUniform1i;
 PFNGLUNIFORM2FPROC glUniform2f;
 PFNGLUNIFORM1FPROC glUniform1f;
 PFNGLUNIFORM4FPROC glUniform4f;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 #endif
 
 static bool check_opengl_extension(const char * name)
@@ -281,15 +282,23 @@ void platform_create_display(bool fullscreen)
 
 #ifdef CHOWDREN_USE_GL
     // initialize OpenGL function pointers
-    glBlendEquationSeparate =
-        (PFNGLBLENDEQUATIONSEPARATEPROC)
-        SDL_GL_GetProcAddress("glBlendEquationSeparate");
-    glBlendEquation =
-        (PFNGLBLENDEQUATIONPROC)
-        SDL_GL_GetProcAddress("glBlendEquation");
-    glActiveTexture =
-        (PFNGLACTIVETEXTUREPROC)
-        SDL_GL_GetProcAddress("glActiveTexture");
+    glBlendEquationSeparateEXT =
+        (PFNGLBLENDEQUATIONSEPARATEEXTPROC)
+        SDL_GL_GetProcAddress("glBlendEquationSeparateEXT");
+    glBlendEquationEXT =
+        (PFNGLBLENDEQUATIONEXTPROC)
+        SDL_GL_GetProcAddress("glBlendEquationEXT");
+    glBlendFuncSeparateEXT =
+        (PFNGLBLENDFUNCSEPARATEEXTPROC)
+        SDL_GL_GetProcAddress("glBlendFuncSeparateEXT");
+
+    glActiveTextureARB =
+        (PFNGLACTIVETEXTUREARBPROC)
+        SDL_GL_GetProcAddress("glActiveTextureARB");
+    glMultiTexCoord2fARB =
+        (PFNGLMULTITEXCOORD2FARBPROC)
+        SDL_GL_GetProcAddress("glMultiTexCoord2fARB");
+
     glGenFramebuffersEXT =
         (PFNGLGENFRAMEBUFFERSEXTPROC)
         SDL_GL_GetProcAddress("glGenFramebuffersEXT");
@@ -299,9 +308,8 @@ void platform_create_display(bool fullscreen)
     glBindFramebufferEXT =
         (PFNGLBINDFRAMEBUFFEREXTPROC)
         SDL_GL_GetProcAddress("glBindFramebufferEXT");
-    glMultiTexCoord2f =
-        (PFNGLMULTITEXCOORD2FPROC)
-        SDL_GL_GetProcAddress("glMultiTexCoord2f");
+
+    // shaders
     glUniform1i =
         (PFNGLUNIFORM1IPROC)
         SDL_GL_GetProcAddress("glUniform1i");
@@ -353,9 +361,6 @@ void platform_create_display(bool fullscreen)
     glGetUniformLocation =
         (PFNGLGETUNIFORMLOCATIONPROC)
         SDL_GL_GetProcAddress("glGetUniformLocation");
-    glBlendFuncSeparate =
-        (PFNGLBLENDFUNCSEPARATEPROC)
-        SDL_GL_GetProcAddress("glBlendFuncSeparate");
 #endif
 
     // check extensions

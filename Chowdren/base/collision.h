@@ -83,7 +83,6 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
 
 struct TypeOverlapCallback
 {
-public:
     CollisionBase * collision;
     int type;
 
@@ -97,9 +96,12 @@ public:
         FrameObject * obj = (FrameObject*)data;
         if (obj->id != type)
             return true;
-        if (obj->collision == NULL)
+        CollisionBase * other = (CollisionBase*)obj->collision;
+        if (other == NULL)
             return true;
-        if (!collide(collision, (CollisionBase*)obj->collision))
+        if (other->flags & LADDER_OBSTACLE)
+            return true;
+        if (!collide(collision, other))
             return true;
         return false;
     }

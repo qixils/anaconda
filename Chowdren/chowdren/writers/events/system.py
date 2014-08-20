@@ -619,6 +619,15 @@ class InsidePlayfield(ConditionMethodWriter):
     def is_negated(self):
         return not ConditionMethodWriter.is_negated(self)
 
+class LeavingPlayfield(ConditionMethodWriter):
+    is_always = True
+
+    def write(self, writer):
+        value = self.parameters[0].loader.value
+        if value != 15:
+            raise NotImplementedError()
+        writer.put('outside_playfield()')
+
 # actions
 
 class CollisionAction(ActionWriter):
@@ -1412,7 +1421,8 @@ actions = make_table(ActionMethodWriter, {
     'SetFrameEffectParameter' : EmptyAction, # XXX fix
     'SetFrameAlphaCoefficient' : EmptyAction, # XXX fix
     'JumpSubApplicationFrame' : 'set_next_frame',
-    'SetTextColor' : 'blend_color.set(%s)'
+    'SetTextColor' : 'blend_color.set(%s)',
+    'SetFrameHeight' : 'set_height(%s, true)'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -1480,6 +1490,7 @@ conditions = make_table(ConditionMethodWriter, {
     'RestrictFor' : RestrictFor,
     # XXX implement this
     'SubApplicationFinished' : '.done',
+    'LeavingPlayfield' : LeavingPlayfield,
     'OnLoop' : FalseCondition # if not a generated group, this is always false
 })
 
@@ -1552,8 +1563,9 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetYScale' : '.y_scale',
     'Power' : '.*math_helper*',
     'SquareRoot' : 'sqrt',
-    'Atan2' : 'atan2d',
-    'Atan' : 'atand',
+    'Asin' : 'asin_deg',
+    'Atan2' : 'atan2_deg',
+    'Atan' : 'atan_deg',
     'AlphaCoefficient' : 'blend_color.get_alpha_coefficient()',
     'SemiTransparency' : 'blend_color.get_semi_transparency()',
     'EffectParameter' : 'get_shader_parameter',
@@ -1567,6 +1579,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetSampleDuration' : 'media->get_sample_duration',
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
     'GetChannelDuration' : '.media->get_channel_duration(-1 + ',
+    'GetChannelFrequency' : '.media->get_channel_frequency(-1 + ',
     'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',
@@ -1591,5 +1604,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'TemporaryPath' : 'get_temp_path()',
     'GetCollisionMask' : 'get_background_mask',
     'FontColor' : 'blend_color.get_int()',
-    'MovementNumber' : 'get_movement()->index'
+    'RGBCoefficient' : 'blend_color.get_int()',
+    'MovementNumber' : 'get_movement()->index',
+    'FrameBackgroundColor' : 'background_color.get_int()'
 })

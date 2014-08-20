@@ -19,8 +19,11 @@
 #define SIZE_UNIFORM_NAME "texture_size"
 
 // shader flags
-#define SHADER_HAS_BACK 1
-#define SHADER_HAS_TEX_SIZE 2
+enum ShaderFlags
+{
+    SHADER_HAS_BACK = (1 << 0),
+    SHADER_HAS_TEX_SIZE = (1 << 1)
+};
 
 class FrameObject;
 

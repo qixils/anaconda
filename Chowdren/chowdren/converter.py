@@ -29,7 +29,7 @@ from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color, parse_direction, get_base_path, makedirs,
     is_qualifier, get_qualifier, get_iter_type, get_list_type,
-    TEMPORARY_GROUP_ID, TEMPORARY_HASH_ID)
+    TEMPORARY_GROUP_ID)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -43,6 +43,7 @@ import math
 import wave
 import audioop
 import struct
+import hashlib
 
 WRITE_SOUNDS = True
 PROFILE = False
@@ -71,6 +72,9 @@ LICENSE = ("""\
 // You should have received a copy of the GNU General Public License
 // along with Chowdren.  If not, see <http://www.gnu.org/licenses/>.\
 """)
+
+def get_hash(data):
+    return hashlib.md5(data).digest()
 
 def is_file_changed(src, dst):
     return True
@@ -364,8 +368,6 @@ class EventGroup(object):
             raise NotImplementedError()
         new_id = '%s_%s' % (self.global_id, self.converter.current_frame_index)
         data = data.replace(TEMPORARY_GROUP_ID, new_id)
-        hash_str = str(self.data_hash & 0xFFFFFFFF)
-        data = data.replace(TEMPORARY_HASH_ID, hash_str)
         return data
 
     def fire_write_callbacks(self):
@@ -692,8 +694,8 @@ class Converter(object):
                     extra_hash = [image.xHotspot, image.yHotspot,
                                   image.actionX, image.actionY]
                     extra_hash = [str(item) for item in extra_hash]
-                    image_hash = hash(pil_image.tobytes() +
-                                      '&'.join(extra_hash))
+                    image_hash = get_hash(pil_image.tobytes() +
+                                          '&'.join(extra_hash))
 
                     try:
                         alias = image_hashes[image_hash]
@@ -1584,7 +1586,7 @@ class Converter(object):
 
             object_hash_data = object_code.replace(class_name, '')
             object_hash_data = object_hash_data.replace(class_name.lower(), '')
-            object_hash = hash(object_hash_data)
+            object_hash = get_hash(object_hash_data)
 
             try:
                 other = self.object_cache[object_hash]
@@ -2006,7 +2008,7 @@ class Converter(object):
 
     def write_event(self, writer, group, triggered=False):
         data = self.get_event_code(group, triggered)
-        group.data_hash = hash(data)
+        group.data_hash = get_hash(data)
         group.fire_write_callbacks()
         data = group.filter(data)
 
@@ -2017,7 +2019,7 @@ class Converter(object):
         data = ''
         for group in groups:
             data += self.get_event_code(group, triggered)
-        event_hash = hash(data)
+        event_hash = get_hash(data)
         for group in groups:
             group.data_hash = event_hash
 
@@ -2053,7 +2055,7 @@ class Converter(object):
             names.append(self.write_event_function(writer, new_groups,
                                                    triggered))
 
-        wrapper_hash = hash(tuple(names))
+        wrapper_hash = get_hash(''.join(names))
         try:
             return self.event_wrappers[wrapper_hash]
         except KeyError:

@@ -43,6 +43,8 @@ extern std::string newline_character;
 inline int string_find(const std::string & a, const std::string & b,
                        int pos)
 {
+    if (pos == -1)
+        pos = 0;
     size_t ret = a.find(b, pos);
     if (ret == std::string::npos)
         return -1;
@@ -52,6 +54,8 @@ inline int string_find(const std::string & a, const std::string & b,
 inline int string_rfind(const std::string & a, const std::string & b,
                         int pos)
 {
+    if (pos == -1)
+        pos = 0;
     size_t ret = a.rfind(b, pos);
     if (ret == std::string::npos)
         return -1;
@@ -587,6 +591,7 @@ public:
     int x_off, y_off;
     bool charmap_ref;
     bool wrap;
+    bool transparent;
 
     int anim_type;
     int anim_speed;

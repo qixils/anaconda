@@ -178,6 +178,7 @@ actions = make_table(ActionMethodWriter, {
     13 : 'load',
     17 : '.x_off = %s',
     18 : '.y_off = %s',
+    19 : '.transparent = true;',
     36 : 'set_x_align',
     37 : 'set_y_align',
     42 : 'set_x_scroll',

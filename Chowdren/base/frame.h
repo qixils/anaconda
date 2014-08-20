@@ -59,6 +59,7 @@ public:
     void scroll(int off_x, int off_y, int dx, int dy);
     void set_position(int x, int y);
     void add_background_object(FrameObject * instance);
+    void remove_background_object(FrameObject * instance);
     void add_object(FrameObject * instance);
     void insert_object(FrameObject * instance, int index);
     void remove_object(FrameObject * instance);
@@ -180,6 +181,8 @@ public:
     void clean_instances();
     void set_vsync(bool value);
     int get_instance_count();
+    void set_width(int width, bool adjust);
+    void set_height(int height, bool adjust);
 
     virtual void set_index(int index) = 0;
 

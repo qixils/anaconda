@@ -58,14 +58,18 @@ public:
     void begin(FrameObject * instance, int width, int height)
     {
         // MMF2 default
-        glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+        // glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+        glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+        glBlendFunc(GL_DST_COLOR, GL_ONE);
         GLSLShader::begin(instance, width, height);
     }
 
     void end(FrameObject * instance)
     {
         // MMF2 default
+        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquation(GL_FUNC_ADD);
         GLSLShader::end(instance);
     }
 };

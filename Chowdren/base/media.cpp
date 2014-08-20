@@ -65,15 +65,17 @@ class SoundMemory : public SoundData
 {
 public:
     ChowdrenAudio::Sample * buffer;
+    std::string filename;
 
     SoundMemory(const std::string & name, const std::string & filename)
-    : SoundData(name)
+    : SoundData(name), buffer(NULL), filename(filename)
     {
-        buffer = new ChowdrenAudio::Sample(filename);
     }
 
     void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
     {
+        if (buffer == NULL)
+            buffer = new ChowdrenAudio::Sample(filename);
         // std::cout << "Playing: " << name << std::endl;
         *source = new ChowdrenAudio::Sound(*buffer);
         *is_music = false;
@@ -402,6 +404,13 @@ double Media::get_channel_position(unsigned int channel)
     return channels[channel].get_position();
 }
 
+double Media::get_channel_frequency(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return 0.0;
+    return channels[channel].frequency;
+}
+
 void Media::set_channel_position(unsigned int channel, double pos)
 {
     if (!is_channel_valid(channel))
@@ -452,12 +461,15 @@ void Media::add_cache(const std::string & name, const std::string & fn)
 }
 
 #ifdef CHOWDREN_IS_DESKTOP
-#define STREAM_THRESHOLD_MB 0.5
+#define OGG_STREAM_THRESHOLD_MB 0.5
 #else
-#define STREAM_THRESHOLD_MB 0.75
+#define OGG_STREAM_THRESHOLD_MB 0.75
 #endif
 
-#define STREAM_THRESHOLD (STREAM_THRESHOLD_MB * 1024 * 1024)
+#define WAV_STREAM_THRESHOLD_MB 0.1
+
+#define OGG_STREAM_THRESHOLD (OGG_STREAM_THRESHOLD_MB * 1024 * 1024)
+#define WAV_STREAM_THRESHOLD (WAV_STREAM_THRESHOLD_MB * 1024 * 1024)
 
 void Media::add_file(const std::string & name, const std::string & fn)
 {
@@ -467,12 +479,14 @@ void Media::add_file(const std::string & name, const std::string & fn)
         delete it->second;
     }
     SoundData * data;
-    if (get_path_ext(filename) == "wav")
+    bool is_wav = get_path_ext(filename) == "wav";
+    int size = platform_get_file_size(filename.c_str());
+    if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
+        (!is_wav && size <= OGG_STREAM_THRESHOLD))
+    {
         data = new SoundMemory(name, filename);
-    else if (platform_get_file_size(filename.c_str()) > STREAM_THRESHOLD)
+    } else
         data = new SoundFile(name, filename);
-    else
-        data = new SoundMemory(name, filename);
     sounds[name] = data;
 }
 

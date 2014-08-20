@@ -70,6 +70,14 @@ class SurfaceObject(ObjectWriter):
         # load_first always true -> there will always be an image 0
         writer.putln('set_edit_image(0, true);')
 
+class RGBOperation(ActionMethodWriter):
+    custom = True
+
+    def write(self, writer):
+        exp = self.data.items[0].loader.items
+        op = self.converter.convert_static_expression(exp)
+        if op != '':
+            raise NotImplementedError()
 
 class ReverseColor(ExpressionMethodWriter):
     has_object = False
@@ -91,6 +99,7 @@ actions = make_table(ActionMethodWriter, {
     19 : 'blit_alpha',
     21 : 'reverse_x',
     24 : 'set_transparent_color',
+    26 : RGBOperation,
     29 : 'set_edit_image',
     30 : 'draw_polygon',
     31 : 'insert_point',

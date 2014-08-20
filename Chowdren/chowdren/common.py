@@ -207,4 +207,3 @@ def get_animation_name(index):
         return str(index)
 
 TEMPORARY_GROUP_ID = 'thisisthetempid'
-TEMPORARY_HASH_ID = 'thisisthehashid'

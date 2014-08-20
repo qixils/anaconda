@@ -8,8 +8,8 @@
 
 // SurfaceObject
 
-#define SURFACE_FBO_WIDTH 400
-#define SURFACE_FBO_HEIGHT 240
+#define SURFACE_FBO_WIDTH WINDOW_WIDTH
+#define SURFACE_FBO_HEIGHT WINDOW_HEIGHT
 
 static Framebuffer surface_fbo;
 static bool has_fbo = false;
@@ -103,7 +103,8 @@ void SurfaceObject::draw()
         surface_fbo.unbind();
 
         blend_color.apply();
-        subtract_shader->begin(NULL, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+
+        subtract_shader->begin(this, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
 
         int x1 = x;
         int y1 = y;
@@ -122,14 +123,18 @@ void SurfaceObject::draw()
         glTexCoord2f(back_texcoords[6], back_texcoords[7]);
         glVertex2d(x1, y2);
         glEnd();
+
         glDisable(GL_TEXTURE_2D);
 
-        subtract_shader->end(NULL);
+        subtract_shader->end(this);
         return;
     }
 
     blend_color.apply();
+
+    begin_draw();
     displayed_image->draw(this, x, y);
+    end_draw();
 }
 
 void SurfaceObject::update(float dt)

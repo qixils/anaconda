@@ -50,14 +50,19 @@ inline double cos_deg(double x)
     return cos(rad(x));
 }
 
-inline double atand(double v)
+inline double atan_deg(double v)
 {
     return deg(atan(v));
 }
 
-inline double atan2d(double a, double b)
+inline double atan2_deg(double a, double b)
 {
     return deg(atan2(a, b));
+}
+
+inline double asin_deg(double v)
+{
+    return deg(asin(v));
 }
 
 inline float get_length(float x, float y)
@@ -74,7 +79,7 @@ inline float get_distance(float x1, float y1, float x2, float y2)
 
 inline double get_angle(int x1, int y1, int x2, int y2)
 {
-    return atan2d(y2 - y1, x2 - x1);
+    return atan2_deg(y2 - y1, x2 - x1);
 }
 
 inline double get_direction(int x1, int y1, int x2, int y2)

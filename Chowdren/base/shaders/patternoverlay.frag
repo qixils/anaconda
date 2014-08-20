@@ -10,18 +10,14 @@ uniform float x, y, alpha, width, height;
 
 void main()
 {
-  vec2 In = texture_coordinate0;
-  vec4 o = texture2D(texture, In);
-  vec4 B = texture2D(background_texture, texture_coordinate1);
+    vec2 In = texture_coordinate0;
+    vec4 o = texture2D(texture, In);
+    vec4 B = texture2D(background_texture, texture_coordinate1);
 
-  In /= texture_size;
-  In += vec2(x,y);
-  In /= vec2(width,height);
-  vec4 p = texture2D(pattern, mod(In, 1)); //* alpha;
-  p.a = alpha;
+    In /= texture_size;
+    In += vec2(x, y);
+    In /= vec2(width, height);
+    vec4 p = texture2D(pattern, mod(In, 1)) * alpha;
 
-  // What the hell was this for
-  //o.rgb = o.rgb + (p.rgb - o.rgb) *alpha*p.a;
-
-  gl_FragColor = p/B;
+    gl_FragColor = p/B;
 }

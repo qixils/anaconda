@@ -281,6 +281,19 @@ void Layer::add_background_object(FrameObject * instance)
     background_instances.push_back(instance);
 }
 
+void Layer::remove_background_object(FrameObject * instance)
+{
+    order_changed = true;
+    FlatObjectList::iterator it;
+    for (it = background_instances.begin(); it != background_instances.end();
+         it++) {
+        if (*it != instance)
+            continue;
+        background_instances.erase(it);
+        break;
+    }
+}
+
 void Layer::add_object(FrameObject * instance)
 {
     instance->depth = instances.size();
@@ -649,6 +662,16 @@ int Frame::frame_bottom()
     return new_off_y + WINDOW_HEIGHT;
 }
 
+void Frame::set_width(int width, bool adjust)
+{
+    std::cout << "Set frame width: " << width << " " << adjust << std::endl;
+}
+
+void Frame::set_height(int height, bool adjust)
+{
+    std::cout << "Set frame height: " << height << " " << adjust << std::endl;
+}
+
 void Frame::set_background_color(const Color & color)
 {
     background_color = color;
@@ -748,7 +771,10 @@ void Frame::clean_instances()
          it++) {
         FrameObject * instance = *it;
         INSTANCE_MAP.items[instance->id].remove(instance);
-        instance->layer->remove_object(instance);
+        if (instance->flags & BACKGROUND)
+            instance->layer->remove_background_object(instance);
+        else
+            instance->layer->remove_object(instance);
         delete instance;
     }
     destroyed_instances.clear();

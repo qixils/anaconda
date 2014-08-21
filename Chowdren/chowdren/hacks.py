@@ -44,7 +44,7 @@ object_checks = {
 }
 
 def init_container(converter, container):
-    if container.name not in ('BETA TESTER SHIT -- TURN OFF WITH FINAL'
+    if container.name not in ('BETA TESTER SHIT -- TURN OFF WITH FINAL '
                               'RELEASE',
                               'DEBUG -- turn off!'):
         return

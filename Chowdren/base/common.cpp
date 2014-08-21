@@ -3611,6 +3611,9 @@ std::string TextBlitter::get_line(int index)
 
 std::string TextBlitter::get_map_char(int i)
 {
+    if (charmap_str->empty())
+        return empty_string;
+    i = clamp(i, 0, int(charmap_str->size())-1);
     return charmap_str->substr(i, 1);
 }
 

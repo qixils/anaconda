@@ -2,6 +2,8 @@
 #define HANDLE_BASE FileHandle
 
 #include <stdio.h>
+// stdio.h garbage
+#undef getc
 
 class FileHandle
 {

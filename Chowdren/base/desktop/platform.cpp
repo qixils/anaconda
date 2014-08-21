@@ -6,7 +6,6 @@
 #include <sys/time.h>
 #endif
 
-#include <SDL.h>
 #include "chowconfig.h"
 #include "platform.h"
 #include "include_gl.h"
@@ -15,6 +14,7 @@
 #include "fbo.h"
 #include <iostream>
 #include "platform.h"
+#include <SDL.h>
 
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;

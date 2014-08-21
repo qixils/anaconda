@@ -113,7 +113,7 @@ void platform_create_display(bool fullscreen)
 
     // check extensions
     if (!check_opengl_extensions()) {
-        std::cout << "Not all OpenGL extensions supported. Quitting..." 
+        std::cout << "Not all OpenGL extensions supported. Quitting..."
             << std::endl;
         exit(EXIT_FAILURE);
         return;
@@ -126,7 +126,7 @@ void platform_create_display(bool fullscreen)
 
 void platform_begin_draw()
 {
-    
+
 }
 
 void platform_swap_buffers()
@@ -247,7 +247,7 @@ bool platform_remove_file(const std::string & file)
     return remove(convert_path(file).c_str()) == 0;
 }
 
-#include "../filecommon.cpp"
+#include "fileio.cpp"
 
 #define HANDLE_BASE StandardFile
 
@@ -380,7 +380,7 @@ void platform_print_stats()
 // wiiu dummies
 
 void platform_set_remote_setting(const std::string & v)
-{   
+{
 
 }
 

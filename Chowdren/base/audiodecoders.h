@@ -1,7 +1,7 @@
 #include <vorbis/vorbisfile.h>
 #include <string>
 #include "stringcommon.h"
-#include "filecommon.h"
+#include "fileio.h"
 #include "platform.h"
 #include "path.h"
 #include <string.h>

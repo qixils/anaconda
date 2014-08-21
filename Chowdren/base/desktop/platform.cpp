@@ -897,7 +897,7 @@ bool platform_remove_file(const std::string & file)
     return remove(convert_path(file).c_str()) == 0;
 }
 
-#include "../filecommon.cpp"
+#include "fileio.cpp"
 #include "stdiofile.cpp"
 
 // path

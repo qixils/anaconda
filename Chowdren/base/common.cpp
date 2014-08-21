@@ -1,5 +1,5 @@
 #include "common.h"
-#include "filecommon.h"
+#include "fileio.h"
 #include <string>
 #include "chowconfig.h"
 #include "font.h"

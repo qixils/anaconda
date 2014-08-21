@@ -1,6 +1,6 @@
 #include "objects/stringparser.h"
 #include "stringcommon.h"
-#include "filecommon.h"
+#include "fileio.h"
 
 StringParser::StringParser(int x, int y, int id)
 : FrameObject(x, y, id), has_split(false)

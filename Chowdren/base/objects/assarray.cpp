@@ -1,6 +1,6 @@
 #include "objects/assarray.h"
 #include "objects/blowfish.cpp"
-#include "filecommon.h"
+#include "fileio.h"
 #include <iostream>
 #include "stringcommon.h"
 

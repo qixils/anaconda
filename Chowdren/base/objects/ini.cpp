@@ -4,7 +4,7 @@
 #include "objects/iniparser.cpp"
 #include "stringcommon.h"
 #include "huffman.h"
-#include "filecommon.h"
+#include "fileio.h"
 #include "frame.h"
 #include <boost/algorithm/string.hpp>
 

@@ -56,30 +56,6 @@ void joystick_vibrate(int n, int l, int r, int d);
 float get_joystick_axis(int n, int axis);
 int get_joystick_last_press(int n);
 
-// file
-
-class FSFile
-{
-public:
-    void * handle;
-    bool closed;
-
-    FSFile();
-    FSFile(const char * filename, const char * mode);
-    ~FSFile();
-    void open(const char * filename, const char * mode);
-    bool seek(size_t v, int origin = SEEK_SET);
-    size_t tell();
-    bool is_open();
-    void read_line(std::string & line);
-    void read_delim(std::string & line, char delim);
-    size_t read(void * data, size_t size);
-    size_t write(const void * data, size_t size);
-    void close();
-    bool at_end();
-    int getc();
-};
-
 // path
 
 std::string convert_path(const std::string & value);

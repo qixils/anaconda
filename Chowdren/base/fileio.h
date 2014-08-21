@@ -2,7 +2,7 @@
 #define CHOWDREN_FILEIO_H
 
 #include <string>
-
+#include <stdio.h>
 // stdio.h garbage
 #undef getc
 

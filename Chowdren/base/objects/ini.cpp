@@ -171,7 +171,7 @@ const std::string & INI::get_string_index(const std::string & group,
     while (new_it != (*it).second.end()) {
         if (current_index == index)
             return (*new_it).second;
-        new_it++;
+        ++new_it;
         current_index++;
     }
     return empty_string;
@@ -193,7 +193,7 @@ const std::string & INI::get_item_name(const std::string & group,
     while (new_it != (*it).second.end()) {
         if (current_index == index)
             return (*new_it).first;
-        new_it++;
+        ++new_it;
         current_index++;
     }
     return empty_string;
@@ -211,7 +211,7 @@ const std::string & INI::get_group_name(unsigned int index)
     while (it != data->end()) {
         if (current_index == index)
             return (*it).first;
-        it++;
+        ++it;
         current_index++;
     }
     return empty_string;
@@ -244,7 +244,7 @@ double INI::get_value_index(const std::string & group, unsigned int index)
     while (new_it != (*it).second.end()) {
         if (current_index == index)
             return string_to_double((*new_it).second, 0.0);
-        new_it++;
+        ++new_it;
         current_index++;
     }
     return 0.0;
@@ -349,10 +349,10 @@ void INI::get_data(std::stringstream & out)
 {
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
-    for (it1 = data->begin(); it1 != data->end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); ++it1) {
         out << "[" << (*it1).first << "]" << std::endl;
         for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
-             it2++) {
+             ++it2) {
             out << (*it2).first << "=" << (*it2).second << std::endl;
         }
         out << std::endl;
@@ -457,11 +457,11 @@ void INI::search(const std::string & group, const std::string & item,
     search_time = frame->loop_count;
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
-    for (it1 = data->begin(); it1 != data->end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); ++it1) {
         if (!match_wildcard(group, (*it1).first))
             continue;
         for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
-             it2++) {
+             ++it2) {
             if (!match_wildcard(item, (*it2).first))
                 continue;
             if (!match_wildcard(value, (*it2).second))
@@ -480,7 +480,7 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
 {
     SectionMap::iterator it1;
     OptionMap::iterator it2;
-    for (it1 = data->begin(); it1 != data->end(); it1++) {
+    for (it1 = data->begin(); it1 != data->end(); ++it1) {
         if (!match_wildcard(group, (*it1).first))
             continue;
         OptionMap & option_map = (*it1).second;
@@ -488,7 +488,7 @@ void INI::delete_pattern(const std::string & group, const std::string & item,
         while (it2 != option_map.end()) {
             if (!match_wildcard(item, (*it2).first) ||
                 !match_wildcard(value, (*it2).second)) {
-                it2++;
+                ++it2;
                 continue;
             }
             option_map.erase(it2++);
@@ -557,9 +557,9 @@ void INI::merge_map(const SectionMap & data2, bool overwrite)
 {
     SectionMap::const_iterator it1;
     OptionMap::const_iterator it2;
-    for (it1 = data2.begin(); it1 != data2.end(); it1++) {
+    for (it1 = data2.begin(); it1 != data2.end(); ++it1) {
         for (it2 = (*it1).second.begin(); it2 != (*it1).second.end();
-             it2++) {
+             ++it2) {
             if (!overwrite && has_item((*it1).first, (*it2).first))
                 continue;
             (*data)[(*it1).first][(*it2).first] = (*it2).second;
@@ -573,7 +573,7 @@ void INI::merge_map(SectionMap & data2, const std::string & src_group,
 {
     OptionMap & items = data2[src_group];
     OptionMap::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         if (!overwrite && has_item(dst_group, (*it).first))
             continue;
         (*data)[dst_group][(*it).first] = (*it).second;

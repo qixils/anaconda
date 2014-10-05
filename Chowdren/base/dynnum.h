@@ -150,7 +150,7 @@ namespace boost
 
 #else
 
-typedef double DynamicNumber;
+#define DynamicNumber double
 
 #endif
 

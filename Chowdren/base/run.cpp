@@ -72,12 +72,12 @@ GameManager::GameManager()
     media = frame->media = new Media;
 
     // setup random generator from start
-    cross_srand((unsigned int)time(NULL));
+    cross_srand((unsigned int)platform_get_global_time());
 
     fps_limit.set(FRAMERATE);
 
 #ifdef CHOWDREN_IS_HFA
-    set_frame(0);
+    set_frame(50);
 #else
     set_frame(0);
 #endif
@@ -85,10 +85,8 @@ GameManager::GameManager()
 
 void GameManager::reset_globals()
 {
-    if (values != NULL)
-        delete values;
-    if (strings != NULL)
-        delete strings;
+    delete values;
+    delete strings;
     values = frame->global_values = new GlobalValues;
     strings = frame->global_strings = new GlobalStrings;
     setup_globals(values, strings);
@@ -103,10 +101,10 @@ void GameManager::set_window(bool fullscreen)
 
     platform_create_display(fullscreen);
 
-    // OpenGL settings
+    // OpenGL init
+    glc_init();
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     init_shaders();
 
 #ifdef CHOWDREN_VSYNC
@@ -349,8 +347,18 @@ void GameManager::set_frame(int index)
     }
 
     std::cout << "Setting frame: " << index << std::endl;
+
+    bool flush_images = index != frame->index;
+
+    if (flush_images)
+        reset_image_cache();
+
     frame->set_index(index);
     frame->on_start();
+
+    if (flush_images)
+        flush_image_cache();
+
     std::cout << "Frame set" << std::endl;
 }
 
@@ -482,7 +490,7 @@ void InputList::add(int v)
     last = v;
 
     vector<InputState>::iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         InputState & s = *it;
         if (s.key != v)
             continue;
@@ -498,7 +506,7 @@ void InputList::add(int v)
 void InputList::remove(int v)
 {
     vector<InputState>::iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         InputState & s = *it;
         if (s.key != v)
             continue;
@@ -510,7 +518,7 @@ void InputList::remove(int v)
 bool InputList::is_pressed(int v)
 {
     vector<InputState>::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         const InputState & s = *it;
         if (s.key != v)
             continue;
@@ -522,7 +530,7 @@ bool InputList::is_pressed(int v)
 bool InputList::is_pressed_once(int v)
 {
     vector<InputState>::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         const InputState & s = *it;
         if (s.key != v)
             continue;
@@ -534,7 +542,7 @@ bool InputList::is_pressed_once(int v)
 bool InputList::is_any_pressed()
 {
     vector<InputState>::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         const InputState & s = *it;
         if (s.state == INPUT_STATE_RELEASED)
             continue;
@@ -546,7 +554,7 @@ bool InputList::is_any_pressed()
 bool InputList::is_any_pressed_once()
 {
     vector<InputState>::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         const InputState & s = *it;
         if (s.state != INPUT_STATE_PRESSED)
             continue;
@@ -558,7 +566,7 @@ bool InputList::is_any_pressed_once()
 bool InputList::is_released_once(int v)
 {
     vector<InputState>::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         const InputState & s = *it;
         if (s.key != v)
             continue;
@@ -579,7 +587,7 @@ void InputList::update()
         InputState & s = *it;
         if (s.state != INPUT_STATE_RELEASED) {
             s.state = INPUT_STATE_HOLD;
-            it++;
+            ++it;
             continue;
         }
         it = items.erase(it);

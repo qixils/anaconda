@@ -57,7 +57,7 @@ int UniformGrid::add(void * data, int v[4])
 inline void remove_proxy(GridItemList & list, int proxy)
 {
     GridItemList::reverse_iterator it;
-    for (it = list.rbegin(); it != list.rend(); it++) {
+    for (it = list.rbegin(); it != list.rend(); ++it) {
         if (*it != proxy)
             continue;
         list.erase(--(it.base()));

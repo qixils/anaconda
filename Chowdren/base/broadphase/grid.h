@@ -1,7 +1,7 @@
 #ifndef CHOWDREN_GRID_H
 #define CHOWDREN_GRID_H
 
-#include "types.h"
+#include "../types.h"
 #include <algorithm>
 
 struct GridItem
@@ -73,7 +73,7 @@ inline bool UniformGrid::query(int proxy, T & callback)
     for (int y = item.box[1]; y < item.box[3]; y++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
 
-        for (it = list.begin(); it != list.end(); it++) {
+        for (it = list.begin(); it != list.end(); ++it) {
             int index = *it;
             if (index == proxy)
                 continue;
@@ -101,7 +101,7 @@ inline bool UniformGrid::query(int v[4], T & callback)
     for (int y = vv[1]; y < vv[3]; y++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
 
-        for (it = list.begin(); it != list.end(); it++) {
+        for (it = list.begin(); it != list.end(); ++it) {
             GridItem & vv = store[*it];
             if (vv.last_query_id == query_id)
                 continue;

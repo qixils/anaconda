@@ -39,7 +39,7 @@ public:
     FTUnicodeStringItr(const T* string)
     : cur(string), next(string)
     {
-        (*this)++;
+        ++(*this);
     }
 
     /**

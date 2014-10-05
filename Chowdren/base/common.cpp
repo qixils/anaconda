@@ -53,7 +53,7 @@ Background::Background()
 void clear_back_vec(BackgroundItems & items)
 {
     BackgroundItems::iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         BackgroundItem * item = *it;
         delete item;
     }
@@ -99,7 +99,7 @@ void Background::destroy_at(int x, int y)
             delete item;
             it = col_items.erase(it);
         } else
-            it++;
+            ++it;
     }
 }
 
@@ -107,18 +107,18 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                        int src_x, int src_y, int src_width, int src_height,
                        int collision_type, const Color & color)
 {
-    src_width = std::min(img->width, src_x + src_width) - src_x;
-    src_height = std::min(img->height, src_y + src_height) - src_y;
+    src_width = std::min<int>(img->width, src_x + src_width) - src_x;
+    src_height = std::min<int>(img->height, src_y + src_height) - src_y;
 
     if (src_width <= 0 || src_height <= 0)
         return;
 
-    BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
+    if (collision_type == 1) {
+        col_items.push_back(new BackgroundItem(img, dest_x, dest_y,
                                                src_x, src_y,
                                                src_width, src_height,
-                                               collision_type, color);
-    if (collision_type == 1)
-        col_items.push_back(item);
+                                               collision_type, color));
+    }
 #ifndef CHOWDREN_OBSTACLE_IMAGE
     else
         return;
@@ -127,22 +127,16 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     if (color.a == 0 || color.a == 1)
         return;
 
-#ifdef CHOWDREN_OBSTACLE_IMAGE
-    if (collision_type == 1) {
-        item = new BackgroundItem(img, dest_x, dest_y,
-                                  src_x, src_y,
-                                  src_width, src_height,
-                                  collision_type, color);
-    }
-#endif
-
-    items.push_back(item);
+    items.push_back(new BackgroundItem(img, dest_x, dest_y,
+                                       src_x, src_y,
+                                       src_width, src_height,
+                                       collision_type, color));
 }
 
 void Background::draw()
 {
     BackgroundItems::const_iterator it;
-    for (it = items.begin(); it != items.end(); it++) {
+    for (it = items.begin(); it != items.end(); ++it) {
         BackgroundItem * item = *it;
         item->draw();
     }
@@ -151,7 +145,7 @@ void Background::draw()
 CollisionBase * Background::collide(CollisionBase * a)
 {
     BackgroundItems::iterator it;
-    for (it = col_items.begin(); it != col_items.end(); it++) {
+    for (it = col_items.begin(); it != col_items.end(); ++it) {
         BackgroundItem * item = *it;
         if (::collide(a, item))
             return item;
@@ -206,7 +200,7 @@ Layer::~Layer()
     // layers are in charge of deleting background instances
     FlatObjectList::const_iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
-         it++) {
+         ++it) {
         FrameObject * obj = *it;
         delete obj;
     }
@@ -218,7 +212,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     this->off_y = off_y;
 
     LayerInstances::const_iterator it;
-    for (it = instances.begin(); it != instances.end(); it++) {
+    for (it = instances.begin(); it != instances.end(); ++it) {
         FrameObject * object = *it;
         if (object->flags & SCROLL)
             continue;
@@ -234,7 +228,7 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
         return;
     FlatObjectList::const_iterator it2;
     for (it2 = background_instances.begin(); it2 != background_instances.end();
-         it2++) {
+         ++it2) {
         FrameObject * object = *it2;
         object->set_position(object->x + dx, object->y + dy);
         object->set_backdrop_offset(-dx, -dy);
@@ -251,7 +245,7 @@ void Layer::set_position(int x, int y)
     this->y = y;
     LayerInstances::const_iterator it;
 
-    for (it = instances.begin(); it != instances.end(); it++) {
+    for (it = instances.begin(); it != instances.end(); ++it) {
         FrameObject * object = *it;
         if (object->flags & SCROLL)
             continue;
@@ -260,13 +254,14 @@ void Layer::set_position(int x, int y)
 
     FlatObjectList::const_iterator it2;
     for (it2 = background_instances.begin(); it2 != background_instances.end();
-         it2++) {
+         ++it2) {
         FrameObject * item = *it2;
 #ifdef CHOWDREN_LAYER_WRAP
         if (wrap_x) {
             item->set_backdrop_offset(dx, 0);
             continue;
-        } if (wrap_y) {
+        }
+        if (wrap_y) {
             item->set_backdrop_offset(0, dy);
             continue;
         }
@@ -286,7 +281,7 @@ void Layer::remove_background_object(FrameObject * instance)
     order_changed = true;
     FlatObjectList::iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
-         it++) {
+         ++it) {
         if (*it != instance)
             continue;
         background_instances.erase(it);
@@ -316,7 +311,7 @@ void Layer::remove_object(FrameObject * instance)
 {
     order_changed = true;
     LayerInstances::iterator it;
-    for (it = instances.begin(); it != instances.end(); it++) {
+    for (it = instances.begin(); it != instances.end(); ++it) {
         if (*it != instance)
             continue;
         instances.erase(it);
@@ -349,7 +344,7 @@ int Layer::get_level(FrameObject * instance)
 {
     LayerInstances::const_iterator it;
     int i = 0;
-    for (it = instances.begin(); it != instances.end(); it++) {
+    for (it = instances.begin(); it != instances.end(); ++it) {
         if (*it == instance)
             return i;
         i++;
@@ -425,7 +420,7 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
                   int src_x, int src_y, int src_width, int src_height,
                   int collision_type, const Color & color)
 {
-    if (collision_type != 0 && collision_type != 1) {
+    if (collision_type != 0 && collision_type != 1 && collision_type != 4) {
         std::cout << "Collision type " << collision_type << " not supported"
             << std::endl;
     }
@@ -486,7 +481,7 @@ void Layer::draw(int off_x, int off_y)
     if (order_changed) {
         LayerInstances::iterator it;
         int i = 0;
-        for (it = instances.begin(); it != instances.end(); it++) {
+        for (it = instances.begin(); it != instances.end(); ++it) {
             (*it)->depth = i;
             i++;
         }
@@ -518,7 +513,7 @@ void Layer::draw(int off_x, int off_y)
     sort_depth(draw_list);
 
     FlatObjectList::const_iterator it;
-    for (it = draw_list.begin(); it != draw_list.end(); it++) {
+    for (it = draw_list.begin(); it != draw_list.end(); ++it) {
         FrameObject * obj = *it;
         if (!(obj->flags & BACKGROUND))
             break;
@@ -533,7 +528,7 @@ void Layer::draw(int off_x, int off_y)
 
     PROFILE_END();
 
-    for (; it != draw_list.end(); it++) {
+    for (; it != draw_list.end(); ++it) {
         (*it)->draw();
     }
 
@@ -566,6 +561,10 @@ void FrameData::on_end()
 }
 
 void FrameData::handle_events()
+{
+}
+
+void FrameData::handle_pre_events()
 {
 }
 
@@ -627,7 +626,7 @@ void Frame::update_display_center()
         return;
 
     vector<Layer>::iterator it;
-    for (it = layers.begin(); it != layers.end(); it++) {
+    for (it = layers.begin(); it != layers.end(); ++it) {
         Layer & layer = *it;
         int x1 = off_x * layer.scroll_x;
         int y1 = off_y * layer.scroll_y;
@@ -702,7 +701,7 @@ CollisionBase * Frame::test_background_collision(int x, int y)
     if (x < 0 || y < 0 || x > width || y > height)
         return NULL;
     vector<Layer>::iterator it;
-    for (it = layers.begin(); it != layers.end(); it++) {
+    for (it = layers.begin(); it != layers.end(); ++it) {
         CollisionBase * ret = (*it).test_background_collision(x, y);
         if (ret == NULL)
             continue;
@@ -768,7 +767,7 @@ void Frame::clean_instances()
 {
     FlatObjectList::const_iterator it;
     for (it = destroyed_instances.begin(); it != destroyed_instances.end();
-         it++) {
+         ++it) {
         FrameObject * instance = *it;
         INSTANCE_MAP.items[instance->id].remove(instance);
         if (instance->flags & BACKGROUND)
@@ -793,6 +792,10 @@ bool Frame::update(float dt)
     } else {
         timer_mul = dt * timer_base;
     }
+
+    PROFILE_BEGIN(handle_pre_events);
+    data->handle_pre_events();
+    PROFILE_END();
 
     PROFILE_BEGIN(frame_update_objects);
     update_objects(dt);
@@ -841,7 +844,7 @@ void Frame::draw(int remote)
     PROFILE_END();
 
     vector<Layer>::iterator it;
-    for (it = layers.begin(); it != layers.end(); it++) {
+    for (it = layers.begin(); it != layers.end(); ++it) {
         Layer & layer = *it;
 
 #if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
@@ -997,7 +1000,7 @@ void Frame::reset()
     ObjectList::iterator it;
     for (unsigned int i = 0; i < MAX_OBJECT_ID; i++) {
         ObjectList & list = INSTANCE_MAP.items[i];
-        for (it = list.begin(); it != list.end(); it++) {
+        for (it = list.begin(); it != list.end(); ++it) {
             if (it->obj->flags & BACKGROUND)
                 continue;
             delete it->obj;
@@ -1042,7 +1045,8 @@ FrameObject::~FrameObject()
         delete[] movements;
     }
     delete shader_parameters;
-    delete alterables;
+    if (!(flags & GLOBAL))
+        delete alterables;
 #ifdef CHOWDREN_USE_VALUEADD
     delete extra_alterables;
 #endif
@@ -1054,6 +1058,7 @@ void FrameObject::draw_image(Image * img, int x, int y, double angle,
 {
     GLuint back_tex = 0;
     bool has_tex_param = false;
+
     if (shader != NULL) {
         shader->begin(this, img);
         back_tex = shader->get_background_texture();
@@ -1755,16 +1760,14 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
     }
 
     new_image->hotspot_x = get_active_load_point(hot_x, new_image->width);
-    new_image->hotspot_y = get_active_load_point(hot_x, new_image->height);
+    new_image->hotspot_y = get_active_load_point(hot_y, new_image->height);
     new_image->action_x = get_active_load_point(action_x, new_image->width);
     new_image->action_y = get_active_load_point(action_y, new_image->height);
 
     Animation * animation = animations->items[anim];
     Direction * direction = animation->dirs[dir];
 
-    Image * old_image = direction->frames[frame];
-    if (old_image->handle == -1)
-        delete old_image;
+    direction->frames[frame]->destroy();
 
     new_image->upload_texture();
     direction->frames[frame] = new_image;
@@ -1773,7 +1776,7 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
     // this may break in the future, maybe
     ObjectList::iterator it;
     ObjectList & list = this->frame->instances.items[id];
-    for (it = list.begin(); it != list.end(); it++) {
+    for (it = list.begin(); it != list.end(); ++it) {
         Active * obj = (Active*)it->obj;
         obj->update_frame();
     }
@@ -1786,9 +1789,11 @@ void Active::draw()
         return;
     }
     blend_color.apply();
-    bool blend = transparent || blend_color.a < 255;
+    bool blend = transparent || blend_color.a < 255 || shader != NULL;
     if (!blend)
         glDisable(GL_BLEND);
+    if (!blend)
+        glEnable(GL_BLEND);
     draw_image(image, x, y, angle, x_scale, y_scale, false, false);
     if (!blend)
         glEnable(GL_BLEND);
@@ -1803,7 +1808,9 @@ inline Image * Active::get_image()
             "(" << get_name() << ")" << std::endl;
         return NULL;
     }
-    return direction_data->frames[frame];
+    Image * image = direction_data->frames[frame];
+    image->load();
+    return image;
 }
 
 int Active::get_action_x()
@@ -2036,11 +2043,13 @@ void init_font()
     static bool initialized = false;
     if (initialized)
         return;
-    set_font_path(std::string("Font.dat")); // default font, could be set already
+
+    // default font, could be set already
+    set_font_path(std::string("Font.dat"));
     has_fonts = load_fonts(font_path, fonts);
 
     FontList::const_iterator it;
-    for (it = fonts.begin(); it != fonts.end(); it++) {
+    for (it = fonts.begin(); it != fonts.end(); ++it) {
         FTTextureFont * font = *it;
         if (big_font != NULL && big_font->size > font->size)
             continue;
@@ -2058,7 +2067,7 @@ FTTextureFont * get_font(int size)
     int diff = 0;
     FontList::const_iterator it;
 
-    for (it = fonts.begin(); it != fonts.end(); it++) {
+    for (it = fonts.begin(); it != fonts.end(); ++it) {
         FTTextureFont * font = *it;
         int new_diff = get_abs(font->size - size);
 
@@ -2084,7 +2093,7 @@ Text::~Text()
     delete layout;
 }
 
-void Text::add_line(std::string text)
+void Text::add_line(const std::string & text)
 {
     paragraphs.push_back(text);
     if (!initialized) {
@@ -2142,7 +2151,7 @@ void Text::draw()
     }
 }
 
-void Text::set_string(std::string value)
+void Text::set_string(const std::string & value)
 {
     text = value;
     draw_text_set = false;
@@ -2184,7 +2193,7 @@ void Text::set_bold(bool value)
     bold = value;
 }
 
-std::string Text::get_paragraph(int index)
+const std::string & Text::get_paragraph(int index)
 {
     if (index < 0)
         index = 0;
@@ -2205,7 +2214,7 @@ void Text::update_draw_text()
     // convert from windows-1252 to utf-8
     std::string::const_iterator it;
     draw_text.clear();
-    for (it = text.begin(); it != text.end(); it++) {
+    for (it = text.begin(); it != text.end(); ++it) {
         char c = *it;
         unsigned char cc = (unsigned char)c;
         if (cc < 128) {
@@ -2377,27 +2386,22 @@ static int align_pos(int a, int b)
 void QuickBackdrop::draw()
 {
     if (image != NULL) {
-        int x, y;
-        int width, height;
-#ifdef CHOWDREN_LAYER_WRAP
+        int x = this->x;
+		int y = this->y;
+        int width = this->width;
+		int height = this->height;
 
+#ifdef CHOWDREN_LAYER_WRAP
         // this is a cheap implementation of the wrap feature.
         // we expect objects to extend on either the X or Y axis.
         if (layer->wrap_x) {
-            x = frame->off_y * layer->scroll_y + x_offset - image->width;
+            x = frame->off_x * layer->scroll_x + x_offset - image->width;
             width = WINDOW_WIDTH + image->width * 2;
         } else if (layer->wrap_y) {
             y = frame->off_y * layer->scroll_y + y_offset - image->height;
             height = WINDOW_HEIGHT + image->height * 2;
-        } else
-#endif
-        {
-            x = this->x;
-            y = this->y;
-            width = this->width;
-            height = this->height;
         }
-
+#endif
         int screen_x1 = x + layer->off_x - frame->off_x;
         int screen_y1 = y + layer->off_y - frame->off_y;
         int screen_x2 = screen_x1 + width;
@@ -2466,10 +2470,10 @@ void Counter::calculate_box()
         width = 0;
         height = 0;
         for (std::string::const_iterator it = cached_string.begin();
-             it != cached_string.end(); it++) {
+             it != cached_string.end(); ++it) {
             Image * image = get_image(it[0]);
             width += image->width;
-            height = std::max(image->height, height);
+            height = std::max<int>(image->height, height);
         }
         ((OffsetInstanceBox*)collision)->set_offset(-width, -height);
     } else if (type == ANIMATION_COUNTER) {
@@ -2486,11 +2490,14 @@ Image * Counter::get_image()
         return images[0];
     int max_index = image_count - 1;
     int i = (((value - minimum) * max_index) / (maximum - minimum));
-    return images[i];
+    Image * image = images[i];
+    image->load();
+    return image;
 }
 
 Image * Counter::get_image(char c)
 {
+    Image * image;
     switch (c) {
         case '0':
         case '1':
@@ -2502,18 +2509,25 @@ Image * Counter::get_image(char c)
         case '7':
         case '8':
         case '9':
-            return images[c - '0'];
+            image = images[c - '0'];
+            break;
         case '-':
-            return images[10];
+            image = images[10];
+            break;
         case '+':
-            return images[11];
+            image = images[11];
+            break;
         case '.':
-            return images[12];
+            image = images[12];
+            break;
         case 'e':
-            return images[13];
+            image = images[13];
+            break;
         default:
             return NULL;
     }
+    image->load();
+    return image;
 }
 
 void Counter::add(double value)
@@ -2582,7 +2596,7 @@ void Counter::draw()
         blend_color.apply();
         double current_x = x;
         for (std::string::reverse_iterator it = cached_string.rbegin();
-             it != cached_string.rend(); it++) {
+             it != cached_string.rend(); ++it) {
             Image * image = get_image(it[0]);
             if (image == NULL)
                 continue;
@@ -2867,7 +2881,7 @@ void BinaryArray::load_workspaces(const std::string & filename)
 BinaryArray::~BinaryArray()
 {
     WorkspaceMap::const_iterator it;
-    for (it = workspaces.begin(); it != workspaces.end(); it++)
+    for (it = workspaces.begin(); it != workspaces.end(); ++it)
         delete it->second;
 }
 
@@ -2935,15 +2949,12 @@ BinaryObject::BinaryObject(int x, int y, int type_id)
 
 BinaryObject::~BinaryObject()
 {
-    if (data == NULL)
-        return;
     free(data);
 }
 
 void BinaryObject::load_file(const std::string & filename)
 {
-    if (data != NULL)
-        free(data);
+    free(data);
     std::cout << "Load binary array: " << filename << std::endl;
     read_file_c(convert_path(filename).c_str(), &data, &size);
 }
@@ -2964,7 +2975,8 @@ void BinaryObject::set_byte(unsigned char byte, size_t addr)
 void BinaryObject::resize(size_t v)
 {
     size = v;
-    data = (char*)realloc(data, v);
+	char * new_data = (char*)realloc(data, v);
+    data = new_data;
 }
 
 int BinaryObject::get_byte(size_t addr)
@@ -3218,7 +3230,7 @@ void LayerObject::set_alpha_coefficient(int index, int alpha)
     Layer * layer = &frame->layers[index];
     FlatObjectList::const_iterator it;
     for (it = layer->background_instances.begin();
-         it != layer->background_instances.end(); it++) {
+         it != layer->background_instances.end(); ++it) {
         FrameObject * obj = *it;
         obj->blend_color.set_alpha_coefficient(alpha);
     }
@@ -3342,7 +3354,7 @@ void AdvancedDirection::find_closest(ObjectList & instances, int x, int y)
 {
     float lowest_dist;
     closest = NULL;
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         FrameObject * instance = *it;
         float dist = get_distance(x, y, instance->x, instance->y);
         if (closest != NULL && dist > lowest_dist)
@@ -3356,7 +3368,7 @@ void AdvancedDirection::find_closest(QualifierList & instances, int x, int y)
 {
     float lowest_dist;
     closest = NULL;
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         FrameObject * instance = *it;
         float dist = get_distance(x, y, instance->x, instance->y);
         if (closest != NULL && dist > lowest_dist)
@@ -3536,7 +3548,6 @@ void TextBlitter::update_lines()
     }
 
     int x_add = char_width + x_spacing;
-    int y_add = char_height + y_spacing;
 
     char * text_c = &text[0];
 
@@ -3546,6 +3557,7 @@ void TextBlitter::update_lines()
         int start = i;
         int size = 0;
         int last_space = -1;
+        bool removed_space = false;
 
         // find start + end of line
         while (true) {
@@ -3579,9 +3591,11 @@ void TextBlitter::update_lines()
                 last_space = i;
             if (c == '\r')
                 continue;
-            // // remove leading spaces
-            if (wrap && i-1 == start && c == ' ' && lines.size() > 0) {
+            // remove one leading space
+            if (wrap && i-1 == start && c == ' ' && lines.size() > 0 &&
+                    !removed_space) {
                 start++;
+                removed_space = true;
                 continue;
             }
             size++;
@@ -3715,7 +3729,7 @@ void TextBlitter::draw()
     glEnable(GL_SCISSOR_TEST);
     glc_scissor_world(x, y, width, height);
 
-    for (it = lines.begin(); it != lines.end(); it++) {
+    for (it = lines.begin(); it != lines.end(); ++it) {
         const LineReference & line = *it;
 
         int xx = x + x_scroll;
@@ -4000,7 +4014,7 @@ int get_joystick_direction(int n)
     if (get_length(x, y) < threshold)
         return 8; // center
     else {
-        return int_round(atan2d(y, x) / 45.0f) & 7;
+        return int_round(atan2_deg(y, x) / 45.0f) & 7;
     }
     return 8;
 #endif

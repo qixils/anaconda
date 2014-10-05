@@ -1,6 +1,7 @@
 from chowdren.writers import BaseWriter
 from mmfparser.bytereader import ByteReader
 from chowdren.idpool import get_id
+from chowdren import hacks
 
 class ObjectWriter(BaseWriter):
     common = None
@@ -119,8 +120,16 @@ class ObjectWriter(BaseWriter):
         return self.is_background()
 
     def is_global(self):
-        return False
-        return self.data.flags['Global']
+        if not self.data.flags['Global']:
+            return False
+        if not hacks.use_global_alterables(self.converter, self):
+            return False
+        return True
+
+    def has_single_global(self):
+        if not self.is_global():
+            return False
+        return hacks.use_single_global_alterables(self.converter, self)
 
     def get_images(self):
         return []
@@ -141,33 +150,55 @@ class ObjectWriter(BaseWriter):
     def write_internal_class(self, writer):
         if not self.is_global():
             return
-        writer.putln('static bool has_saved_alterables = false;')
-        writer.putln('static AlterableValues saved_values;')
-        writer.putln('static AlterableStrings saved_strings;')
+        writer.putln('static bool has_saved_alterables;')
+        writer.putln('static Alterables global_alterables;')
+
+    def write_internal_post(self, writer):
+        if not self.is_global():
+            return
+        writer.putlnc('bool %s::has_saved_alterables = false;',
+                      self.new_class_name)
+        writer.putlnc('Alterables %s::global_alterables;',
+                      self.new_class_name)
 
     def has_dtor(self):
-        return self.is_global()
+        if not self.is_global():
+            return False
+        if self.has_single_global():
+            return False
+        return True
 
     def write_dtor(self, writer):
-        if self.is_global():
-            writer.putln('has_saved_alterables = true;')
-            writer.putln('saved_values.set(*values);')
-            writer.putln('saved_strings.set(*strings);')
+        if not self.is_global():
+            return
+        if self.has_single_global():
+            return
+        writer.putln('has_saved_alterables = true;')
+        writer.putln('global_alterables.set(*alterables);')
 
     def load_alterables(self, writer):
         if not self.use_alterables:
             return
 
         is_global = self.is_global()
-        writer.putln('create_alterables();')
+        single = self.has_single_global()
+
+        if not single:
+            writer.putln('create_alterables();')
 
         if is_global:
-            writer.putln('if (has_saved_alterables) {')
-            writer.indent()
-            writer.putln('values->set(saved_values);')
-            writer.putln('strings->set(saved_strings);')
-            writer.dedent()
-            writer.putln('} else {')
+            if single:
+                writer.putlnc('flags |= GLOBAL;')
+                writer.putln('alterables = &global_alterables;')
+                writer.putln('has_saved_alterables = true;')
+                writer.putln('if (!has_saved_alterables) {')
+            else:
+                writer.putln('if (has_saved_alterables) {')
+                writer.indent()
+                writer.putln('alterables->set(global_alterables);')
+                writer.dedent()
+                writer.putln('} else {')
+
             writer.indent()
 
         common = self.common

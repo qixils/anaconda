@@ -75,7 +75,7 @@ public:
     bool use_abs_coords;
 
     // Runtime stuff
-    bool use_blit;
+    bool use_fbo_blit, use_image_blit;
     Color clear_color;
     vector<SurfaceBlit> blit_images;
     int dest_width, dest_height;
@@ -100,6 +100,9 @@ public:
     int vert_index;
     SurfaceQuad quad;
     vector<SurfaceQuad> quads;
+
+    // Image blit
+
 
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();

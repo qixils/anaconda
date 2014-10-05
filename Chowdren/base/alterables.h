@@ -136,6 +136,11 @@ public:
         index &= 31;
         return int(is_on(index));
     }
+
+    void set(const AlterableFlags & other)
+    {
+        flags = other.flags;
+    }
 };
 
 class Alterables
@@ -144,6 +149,13 @@ public:
     AlterableStrings strings;
     AlterableValues values;
     AlterableFlags flags;
+
+    void set(const Alterables & other)
+    {
+        strings.set(other.strings);
+        values.set(other.values);
+        flags.set(other.flags);
+    }
 };
 
 #endif // ALTERABLES_H

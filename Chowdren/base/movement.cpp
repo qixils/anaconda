@@ -207,7 +207,7 @@ bool Movement::test_position(int x, int y)
         ret = instance->overlaps_background();
     if (!ret) {
         FlatObjectList::const_iterator it;
-        for (it = collisions.begin(); it != collisions.end(); it++) {
+        for (it = collisions.begin(); it != collisions.end(); ++it) {
             FrameObject * obj = *it;
             if (!instance->overlaps(obj))
                 continue;
@@ -683,8 +683,9 @@ int rounded_sign(T x)
 void EightDirections::stop(bool collision)
 {
     // set_speed(0);
-    if (!collision)
+    if (!collision) {
         return;
+    }
 
     // float angle = rad(instance->direction * 11.25);
 

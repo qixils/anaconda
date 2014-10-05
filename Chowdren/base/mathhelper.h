@@ -92,6 +92,21 @@ inline double operator*(const MathHelper& lhs, double rhs)
     return pow(lhs.lhs, rhs);
 }
 
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+
+inline MathHelper & operator*(DynamicNumber lhs, MathHelper& rhs)
+{
+    rhs.lhs = double(lhs);
+    return rhs;
+}
+
+inline double operator*(const MathHelper& lhs, DynamicNumber rhs)
+{
+    return pow(lhs.lhs, double(rhs));
+}
+
+#endif
+
 // float modulus
 
 inline MathHelper & operator%(double lhs, MathHelper& rhs)

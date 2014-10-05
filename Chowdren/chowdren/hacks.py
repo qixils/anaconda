@@ -43,12 +43,26 @@ def init(converter):
 object_checks = {
 }
 
+# turn off debug stuff in HFA
+deactivate_containers = [
+    'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE',
+    'DEBUG -- turn off!'
+]
+
+# for better aliasing
+dynamic_containers = [
+]
+
 def init_container(converter, container):
-    if container.name not in ('BETA TESTER SHIT -- TURN OFF WITH FINAL '
-                              'RELEASE',
-                              'DEBUG -- turn off!'):
-        return
-    container.inactive = True
+    for name in deactivate_containers:
+        if container.name == name:
+            container.inactive = True
+            return
+
+    for name in dynamic_containers:
+        if container.name == name:
+            container.is_static = False
+            return
 
 def write_pre(converter, writer, group):
     pass
@@ -58,6 +72,21 @@ def use_simple_or(converter):
 
 def use_iteration_index(converter):
     return is_avgn or is_test or is_hfa
+
+global_objects = [
+    'Scrolling'
+]
+
+def use_global_alterables(converter, obj):
+    if not is_hfa:
+        return
+    for name in global_objects:
+        if obj.data.name.startswith(name):
+            return True
+    return False
+
+def use_single_global_alterables(converter, obj):
+    return True
 
 alterable_int_objects = [
     'MenuMainMapObject_',
@@ -109,7 +138,7 @@ def get_startup_instances(converter, instances):
     return new_instances
 
 def use_safe_create(converter):
-    return is_avgn or is_hfa
+    return is_avgn or is_hfa or is_anne
 
 def use_global_instances(converter):
     return True
@@ -150,18 +179,18 @@ def write_defines(converter, writer):
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
-    # if is_hfa or is_test:
-        # writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
+    if is_hfa:
+        writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
 
 def get_frames(converter, game, frames):
     if not is_hfa:
         return frames
     new_frames = {}
     if game.index == 0:
-        indexes = (0, 1, 3, 4, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31,
-                   32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-                   49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-                   64, 65, 66, 67, 68, 69, 70, 71, 72)
+        indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                   31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+                   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+                   63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6)
     for index in indexes:

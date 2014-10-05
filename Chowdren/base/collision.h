@@ -251,15 +251,11 @@ public:
     int width, height;
     int new_hotspot_x, new_hotspot_y;
 
-    SpriteCollision(FrameObject * instance = NULL, Image * image = NULL)
-    : InstanceCollision(instance, SPRITE_COLLISION, 0), image(image),
+    SpriteCollision(FrameObject * instance = NULL)
+    : InstanceCollision(instance, SPRITE_COLLISION, 0), image(NULL),
       transform(false), angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
-      si(0.0f)
+      si(0.0f), hotspot_x(0), hotspot_y(0), width(0), height(0)
     {
-        if (image == NULL)
-            return;
-        width = image->width;
-        height = image->height;
     }
 
     void set_hotspot(int x, int y)
@@ -349,7 +345,7 @@ public:
         update_aabb();
     }
 
-    void get_transform(int & x, int & y, int & r_x, int & r_y)
+    void get_transform(int x, int y, int & r_x, int & r_y)
     {
         if (!transform) {
             r_x = x;

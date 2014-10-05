@@ -81,7 +81,7 @@ class ObjectAction(ActionMethodWriter):
 
         with self.converter.iterate_object(object_info, writer, 'selected',
                                            False):
-            parameters = ['*selected']
+            parameters = [self.converter.get_object(object_info)]
             for i in xrange(1, len(self.parameters)):
                 parameters.append(self.convert_index(i))
             parameters = ', '.join(parameters)

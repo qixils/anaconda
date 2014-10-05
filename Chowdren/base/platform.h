@@ -17,6 +17,7 @@ void platform_create_display(bool fullscreen);
 void platform_get_size(int * width, int * height);
 void platform_get_screen_size(int * width, int * height);
 double platform_get_time();
+unsigned int platform_get_global_time();
 void platform_sleep(double v);
 int translate_vk_to_key(int vk);
 int translate_key_to_vk(int key);
@@ -62,7 +63,7 @@ std::string convert_path(const std::string & value);
 
 // glc
 
-void glc_init_shaders();
+void glc_init();
 void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
                                      int y2);
 void glc_scissor_world(int x, int y, int w, int h);

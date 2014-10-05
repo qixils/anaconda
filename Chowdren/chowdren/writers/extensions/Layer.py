@@ -118,17 +118,17 @@ class GetXByName(GetByName):
     has_object = False
 
     def get_string_layer(self, index, layer):
-        return 'layers[%s]->x' % index
+        return 'layers[%s].x' % index
 
 class GetYByName(GetByName):
     has_object = False
 
     def get_string_layer(self, index, layer):
-        return 'layers[%s]->y' % index
+        return 'layers[%s].y' % index
 
 class IsVisible(ConditionMethodWriter):
     has_object = False
-    method = 'layers[%s+1]->visible'
+    method = 'layers[%s+1].visible'
 
 class GetObjectLevel(ExpressionMethodWriter):
     has_object = False

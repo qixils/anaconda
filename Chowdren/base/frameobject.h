@@ -46,7 +46,8 @@ enum ObjectFlags
     DESTROYING = (1 << 1),
     SCROLL = (1 << 2),
     FADEOUT = (1 << 3),
-    BACKGROUND = (1 << 4)
+    BACKGROUND = (1 << 4),
+    GLOBAL = (1 << 5)
 };
 
 #ifdef CHOWDREN_USE_VALUEADD
@@ -254,7 +255,7 @@ public:
     iterator begin()
     {
         iterator it = items.begin();
-        it++;
+        ++it;
         return it;
     }
 
@@ -344,7 +345,6 @@ public:
     void copy(ObjectList & other)
     {
         items = other.items;
-        assert(items.size() >= 1);
     }
 
     void remove(FrameObject * obj)
@@ -355,7 +355,6 @@ public:
         }
 
         items.resize(items.size()-1);
-        assert(items.size() >= 1);
     }
 
     void select_single(FrameObject * obj)
@@ -433,7 +432,7 @@ inline FrameObject * ObjectList::get_wrapped_selection(int index)
     if (!has_selection())
         return NULL;
     while (true) {
-        for (ObjectIterator it(*this); !it.end(); it++) {
+        for (ObjectIterator it(*this); !it.end(); ++it) {
             if (index == 0)
                 return *it;
             index--;
@@ -444,7 +443,7 @@ inline FrameObject * ObjectList::get_wrapped_selection(int index)
 inline int ObjectList::get_selection_size()
 {
     int size = 0;
-    for (ObjectIterator it(*this); !it.end(); it++) {
+    for (ObjectIterator it(*this); !it.end(); ++it) {
         size++;
     }
     return size;
@@ -640,7 +639,7 @@ public:
 #endif
 
     QualifierIterator(QualifierList & in_list)
-    : lists(in_list.items), last(0), selected(true), list_index(0)
+    : list_index(0), lists(in_list.items), last(0), selected(true)
     {
 #ifdef CHOWDREN_ITER_INDEX
         current_index = 0;
@@ -718,7 +717,7 @@ inline FrameObject * QualifierList::get_wrapped_selection(int index)
     if (!has_selection())
         return NULL;
     while (true) {
-        for (QualifierIterator it(*this); !it.end(); it++) {
+        for (QualifierIterator it(*this); !it.end(); ++it) {
             if (index == 0)
                 return *it;
             index--;
@@ -740,7 +739,7 @@ inline void ObjectList::save_selection()
         saved_start = items[0].next;
     } else
         saved_start = std::max(items[0].next, saved_start);
-    for (ObjectIterator it(*this); !it.end(); it++) {
+    for (ObjectIterator it(*this); !it.end(); ++it) {
         saved_items[it.index-1] = 1;
     }
 }

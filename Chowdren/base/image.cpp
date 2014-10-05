@@ -7,6 +7,7 @@
 #include "datastream.h"
 #include "chowconfig.h"
 #include "types.h"
+#include "mathcommon.h"
 
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
@@ -56,49 +57,53 @@ void open_image_file()
         std::cout << "Could not open image file " << image_path << std::endl;
 }
 
+// dummy constructor
 Image::Image()
-// handle needs to be 0 so it is considered cached
-: handle(0), tex(0), image(NULL), width(0), height(0),
+: handle(0), flags(0), tex(0), image(NULL), width(0), height(0),
   hotspot_x(0), hotspot_y(0), action_x(0), action_y(0)
 {
 }
 
 Image::Image(int hot_x, int hot_y, int act_x, int act_y)
-: handle(-1), tex(0), image(NULL), width(0), height(0),
+: handle(0), flags(0), tex(0), image(NULL), width(0), height(0),
   hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y)
 {
 }
 
 Image::Image(int handle)
-: handle(handle), tex(0), image(NULL)
+: handle(handle), tex(0), image(NULL), flags(0)
 {
-    load();
 }
 
 Image::~Image()
 {
-    if (image != NULL)
-        stbi_image_free(image);
-    if (tex != 0)
-        glDeleteTextures(1, &tex);
-    image = NULL;
-    tex = 0;
+    unload();
+}
+
+void Image::destroy()
+{
+    if (flags & IMAGE_CACHED)
+        return;
+    delete this;
 }
 
 Image * Image::copy()
 {
+    Image * new_image;
     if (image == NULL) {
-        if (handle != -1) {
-            return new Image(handle);
-        } else {
+        if (flags & IMAGE_USED) {
             FileImage * image = (FileImage*)this;
-            return new FileImage(image->filename,
-                                 image->hotspot_x, image->hotspot_y,
-                                 image->action_x, image->action_y,
-                                 image->transparent);
+            new_image = new FileImage(image->filename,
+                                      image->hotspot_x, image->hotspot_y,
+                                      image->action_x, image->action_y,
+                                      image->transparent);
+        } else {
+            new_image = new Image(handle);
         }
+        new_image->load();
+        return new_image;
     }
-    Image * new_image = new Image();
+    new_image = new Image();
     new_image->width = width;
     new_image->height = height;
     new_image->handle = handle;
@@ -108,35 +113,62 @@ Image * Image::copy()
     return new_image;
 }
 
-void Image::load(bool upload)
+void Image::load()
 {
-    if (tex != 0)
+    flags |= IMAGE_USED;
+
+    if (tex != 0 || image != NULL)
         return;
-    if (image != NULL) {
-        if (upload)
-            upload_texture();
+
+    if (flags & IMAGE_FILE) {
+        ((FileImage*)this)->load_file();
         return;
     }
+
     open_image_file();
     FileStream stream(image_file);
     stream.seek(4 + handle * 4);
     unsigned int offset;
     stream >> offset;
     image_file.seek(offset);
-    stream >> hotspot_x;
-    stream >> hotspot_y;
-    stream >> action_x;
-    stream >> action_y;
-    int channels;
+
+    int hot_x, hot_y, act_x, act_y;
+    stream >> hot_x;
+    stream >> hot_y;
+    stream >> act_x;
+    stream >> act_y;
+
+    hotspot_x = hot_x;
+    hotspot_y = hot_y;
+    action_x = act_x;
+    action_y = act_y;
+
+    int w, h, channels;
     image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file,
-        &width, &height, &channels, 4);
+        &w, &h, &channels, 4);
+
+    width = w;
+    height = h;
+
     if (image == NULL) {
         std::cout << "Could not load image " << handle << std::endl;
         std::cout << stbi_failure_reason() << std::endl;
         return;
     }
-    if (upload)
-        upload_texture();
+}
+
+void Image::unload()
+{
+    if (image != NULL)
+        stbi_image_free(image);
+    if (tex != 0)
+        glDeleteTextures(1, &tex);
+    image = NULL;
+    tex = 0;
+
+#ifndef CHOWDREN_IS_WIIU
+    boost::dynamic_bitset<>().swap(alpha);
+#endif
 }
 
 void Image::replace(const Color & from, const Color & to)
@@ -160,10 +192,55 @@ void Image::upload_texture()
     if (tex != 0 || image == NULL)
         return;
 
+#ifndef CHOWDREN_IS_WIIU
+    // create alpha mask
+    alpha.resize(width * height);
+    for (int i = 0; i < width * height; i++) {
+        unsigned char c = ((unsigned char*)(((unsigned int*)image) + i))[3];
+        alpha.set(i, c != 0);
+    }
+#endif
+
+    int gl_width, gl_height;
+
+#ifdef CHOWDREN_NO_NPOT
+    pot_w = std::max(8, round_pow2(width));
+    pot_h = std::max(8, round_pow2(height));
+
+    if (pot_w >= 1024 || pot_h >= 1024) {
+        std::cout << "Image size too large" << std::endl;
+        pot_w = std::min<short>(1024, pot_w);
+        pot_h = std::min<short>(1024, pot_h);
+    }
+
+    gl_width = pot_w;
+    gl_height = pot_h;
+
+    if (pot_w != width || pot_h != height) {
+        unsigned int * old_image =(unsigned int*)image;
+        image = (unsigned char*)malloc(pot_w * pot_h * 4);
+        unsigned int * image_arr = (unsigned int*)image;
+
+        // in case the image is being cut off due to dimension restrictions
+        int ww = std::min(width, pot_w);
+        int hh = std::min(height, pot_h);
+
+        for (int x = 0; x < ww; x++)
+        for (int y = 0; y < hh; y++) {
+            image_arr[x + y * pot_w] = old_image[x + y * width];
+        }
+
+        stbi_image_free(old_image);
+    }
+#else
+    gl_width = width;
+    gl_height = height;
+#endif
+
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                     GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gl_width, gl_height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, image);
 #ifdef CHOWDREN_QUICK_SCALE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -173,15 +250,6 @@ void Image::upload_texture()
 #endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-#ifndef CHOWDREN_IS_WIIU
-    // create alpha mask
-    alpha.resize(width * height);
-    for (int i = 0; i < width * height; i++) {
-        unsigned char c = ((unsigned char*)(((unsigned int*)image) + i))[3];
-        alpha.set(i, c != 0);
-    }
-#endif
     // for memory reasons, we delete the image and access the alpha or
     // the texture directly
     stbi_image_free(image);
@@ -228,9 +296,8 @@ void Image::draw(double x, double y, double angle,
     if (tex == 0) {
         upload_texture();
 
-        if (tex == 0) {
+        if (tex == 0)
             return;
-        }
     }
 
     glPushMatrix();
@@ -255,12 +322,29 @@ void Image::draw(double x, double y, double angle,
     }
 
     glBegin(GL_QUADS);
+
+#ifdef CHOWDREN_NO_NPOT
+    float tex_coords[8];
+    if (flip_x) {
+        memcpy(tex_coords, flipped_texcoords, sizeof(tex_coords));
+    } else {
+        memcpy(tex_coords, normal_texcoords, sizeof(tex_coords));
+    }
+    float u = float(width) / float(pot_w);
+    float v = float(height) / float(pot_h);
+    for (int i = 0; i < 8; i += 2) {
+        tex_coords[i] *= u;
+        tex_coords[i+1] *= v;
+    }
+#else
     const float * tex_coords;
     if (flip_x) {
         tex_coords = flipped_texcoords;
     } else {
         tex_coords = normal_texcoords;
     }
+#endif
+
     glTexCoord2f(tex_coords[0], tex_coords[1]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[0], back_texcoords[1]);
@@ -280,6 +364,7 @@ void Image::draw(double x, double y, double angle,
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[6], back_texcoords[7]);
     glVertex2d(-hotspot_x, -hotspot_y + height);
+
     glEnd();
 
     if (has_tex_param) {
@@ -340,6 +425,11 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
                      int act_x, int act_y, TransparentColor color)
 : filename(filename), transparent(color), Image(hot_x, hot_y, act_x, act_y)
 {
+    flags |= IMAGE_FILE;
+}
+
+void FileImage::load_file()
+{
     int channels;
     FSFile fp(filename.c_str(), "r");
 
@@ -348,8 +438,12 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
         return;
     }
 
+    int w, h;
     image = stbi_load_from_callbacks(&fsfile_callbacks, &fp,
-        &width, &height, &channels, 4);
+        &w, &h, &channels, 4);
+
+    width = w;
+    height = h;
 
     fp.close();
 
@@ -358,7 +452,7 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
         return;
     }
 
-    if (!color.is_enabled())
+    if (!transparent.is_enabled())
         return;
 
 #ifndef CHOWDREN_FORCE_TRANSPARENT
@@ -368,7 +462,8 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
 
     for (int i = 0; i < width * height; i++) {
         unsigned char * c = &image[i*4];
-        if (c[0] != color.r || c[1] != color.g || c[2] != color.b)
+        if (c[0] != transparent.r || c[1] != transparent.g ||
+            c[2] != transparent.b)
             continue;
         c[3] = 0;
     }
@@ -381,19 +476,26 @@ static ImageCache image_cache;
 
 Image * get_internal_image(unsigned int i)
 {
-    if (internal_images[i] == NULL)
+    if (internal_images[i] == NULL) {
         internal_images[i] = new Image(i);
+        internal_images[i]->flags |= IMAGE_CACHED;
+    }
+
+    Image * image = internal_images[i];
+    image->load();
 
     return internal_images[i];
 }
 
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                        int act_x, int act_y, TransparentColor color)
+                            int act_x, int act_y, TransparentColor color)
 {
     FileImage * image;
     ImageCache::const_iterator it = image_cache.find(filename);
     if (it == image_cache.end()) {
         image = new FileImage(filename, 0, 0, 0, 0, color);
+        image->flags |= IMAGE_USED;
+        image->load();
         if (!image->is_valid()) {
             delete image;
             image = NULL;
@@ -405,6 +507,30 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
     return image;
 }
 
+void reset_image_cache()
+{
+#ifdef CHOWDREN_TEXTURE_GC
+    for (int i = 0; i < IMAGE_COUNT; i++) {
+        Image * image = internal_images[i];
+        if (image == NULL)
+            continue;
+        image->flags &= ~IMAGE_USED;
+    }
+#endif
+}
+
+void flush_image_cache()
+{
+#ifdef CHOWDREN_TEXTURE_GC
+    for (int i = 0; i < IMAGE_COUNT; i++) {
+        Image * image = internal_images[i];
+        if (image == NULL || image->flags & IMAGE_USED)
+            continue;
+        image->unload();
+    }
+#endif
+}
+
 Image dummy_image;
 
 void ReplacedImages::replace(const Color & from, const Color & to)
@@ -412,27 +538,29 @@ void ReplacedImages::replace(const Color & from, const Color & to)
     Replacements::iterator it = replacements.begin();
 
     while (it != replacements.end()) {
-        if (it->first.r == from.r &&
-            it->first.g == from.g &&
-            it->first.b == from.b &&
-            it->second.r == to.r &&
-            it->second.g == to.g &&
-            it->second.b == to.b)
+        const Color & first = it->first;
+        const Color & second = it->second;
+        if (first.r == from.r &&
+            first.g == from.g &&
+            first.b == from.b &&
+            second.r == to.r &&
+            second.g == to.g &&
+            second.b == to.b)
         {
             it = replacements.erase(it);
             continue;
         }
-        if (it->second.r == from.r &&
-            it->second.g == from.g &&
-            it->second.b == from.b &&
-            it->first.r == to.r &&
-            it->first.g == to.g &&
-            it->first.b == to.b)
+        if (second.r == from.r &&
+            second.g == from.g &&
+            second.b == from.b &&
+            first.r == to.r &&
+            first.g == to.g &&
+            first.b == to.b)
         {
             it = replacements.erase(it);
             return;
         }
-        it++;
+        ++it;
     }
     replacements.push_back(Replacement(from, to));
 }

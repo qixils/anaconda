@@ -833,7 +833,7 @@ void AudioDevice::stream_update()
     while (!closing) {
         stream_mutex.lock();
         vector<SoundStream*>::const_iterator it;
-        for (it = streams.begin(); it != streams.end(); it++)
+        for (it = streams.begin(); it != streams.end(); ++it)
             (*it)->update();
         stream_mutex.unlock();
         boost::this_thread::sleep_for(boost::chrono::milliseconds(125));

@@ -17,25 +17,38 @@ void initialize_images();
 extern const float normal_texcoords[8];
 extern const float back_texcoords[8];
 
+enum ImageFlags
+{
+    IMAGE_USED = 1 << 0,
+    IMAGE_FILE = 1 << 1,
+    IMAGE_CACHED = 1 << 2
+};
+
 class Image
 {
 public:
-    int handle;
-    int hotspot_x, hotspot_y, action_x, action_y;
+    unsigned short handle;
+    unsigned short flags;
+    short hotspot_x, hotspot_y, action_x, action_y;
+    short width, height;
     GLuint tex;
     unsigned char * image;
 #ifndef CHOWDREN_IS_WIIU
     boost::dynamic_bitset<> alpha;
 #endif
-    int width, height;
+
+#ifdef CHOWDREN_NO_NPOT
+    short pot_w, pot_h;
+#endif
 
     Image();
     Image(int hot_x, int hot_y, int act_x, int act_y);
     Image(int handle);
     ~Image();
+    void destroy();
     Image * copy();
     void replace(const Color & from, const Color & to);
-    void load(bool upload = false);
+    void load();
     void upload_texture();
     void draw(double x, double y, double angle = 0.0,
               double scale_x = 1.0, double scale_y = 1.0,
@@ -43,6 +56,7 @@ public:
               bool has_tex_param = false);
     void draw(double x, double y, int src_x, int src_y, int w, int h);
     bool is_valid();
+    void unload();
 
     // inline methods
 
@@ -72,11 +86,14 @@ public:
 
     FileImage(const std::string & filename, int hot_x, int hot_y,
               int act_x, int act_y, TransparentColor transparent);
+    void load_file();
 };
 
 Image * get_internal_image(unsigned int i);
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                        int act_x, int act_y, TransparentColor color);
+                            int act_x, int act_y, TransparentColor color);
+void reset_image_cache();
+void flush_image_cache();
 
 extern Image dummy_image;
 
@@ -114,18 +131,20 @@ public:
         int hash = 0;
         vector<Replacement>::const_iterator it;
         int hash_index = 1;
-        for (it = replacements.begin(); it != replacements.end(); it++) {
-            hash += it->first.r * hash_index;
-            hash += it->first.g * hash_index;
-            hash += it->first.b * hash_index;
-            hash += it->second.r * hash_index;
-            hash += it->second.g * hash_index;
-            hash += it->second.b * hash_index;
+        for (it = replacements.begin(); it != replacements.end(); ++it) {
+            const Color & first = it->first;
+            const Color & second = it->second;
+            hash += first.r * hash_index;
+            hash += first.g * hash_index;
+            hash += first.b * hash_index;
+            hash += second.r * hash_index;
+            hash += second.g * hash_index;
+            hash += second.b * hash_index;
             hash_index++;
         }
 
         vector<ReplacedImage>::const_iterator it2;
-        for (it2 = images.begin(); it2 != images.end(); it2++) {
+        for (it2 = images.begin(); it2 != images.end(); ++it2) {
             const ReplacedImage & img = *it2;
             if (img.hash == hash && img.src_image == image) {
                 return img.image;
@@ -136,7 +155,7 @@ public:
             << replacements.size() << std::endl;
 
         Image * new_image = image->copy();
-        for (it = replacements.begin(); it != replacements.end(); it++) {
+        for (it = replacements.begin(); it != replacements.end(); ++it) {
             std::cout << "Replace: " <<
                 int(it->first.r) << " " << int(it->first.g) << " " << int(it->first.b)
                 << " -> " <<

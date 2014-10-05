@@ -56,7 +56,8 @@ inline std::string number_to_string(T value)
 
 inline void to_lower(std::string & str)
 {
-    std::transform(str.begin(), str.end(), str.begin(), tolower);
+    std::transform(str.begin(), str.end(), str.begin(),
+                   static_cast<int(*)(int)>(tolower));
 }
 
 inline void replace_substring(std::string & str,

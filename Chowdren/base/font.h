@@ -172,7 +172,7 @@ class FTBBox
         }
 
 
-        FTBBox& operator += (const FTPoint vector)
+        FTBBox& operator += (const FTPoint & vector)
         {
             lower += vector;
             upper += vector;

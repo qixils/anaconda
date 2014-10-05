@@ -169,9 +169,6 @@ class SystemObject(ObjectWriter):
                     has_call.add(call_name)
                     defer_loops[name].add(call_name)
                     defer = True
-                    break
-                if defer:
-                    break
 
             if not defer:
                 loop_order.append(name)
@@ -210,12 +207,11 @@ class SystemObject(ObjectWriter):
         self.converter.current_loop_func = None
 
         for name in self.dynamic_loops:
-            loop_func = self.loop_funcs[name]
+            loop_func = self.loop_funcs[name.lower()]
             loop_name = get_loop_func_name(name, self.converter)
             writer.putmeth('static void loop_wrapper_%s' % loop_name,
                            'void * frame')
-            writer.putlnc('((Frames*)frame)->%s();',
-                          self.converter.frame_class, loop_func)
+            writer.putlnc('((Frames*)frame)->%s();', loop_func)
             writer.end_brace()
 
 
@@ -361,6 +357,7 @@ class PlayerKeyDown(PlayerKeyCondition):
 
 class PlayerKeyPressed(PlayerKeyCondition):
     is_always = True
+    pre_event = True
     key_method = 'is_player_pressed_once'
 
 class TimerEquals(ConditionWriter):
@@ -696,7 +693,7 @@ class CreateBase(ActionWriter):
             if delta < 0:
                 has_before = True
 
-        list_name = self.converter.get_object_list(object_info)
+        list_name = self.converter.get_object_list(object_info, True)
         has_selection = object_info in self.converter.has_selection
 
         select_single = (not has_after and not has_before and
@@ -705,9 +702,12 @@ class CreateBase(ActionWriter):
             obj = self.converter.get_object(object_info)
             self.converter.set_object(object_info, obj)
 
-        if object_info != parent_info and (not has_selection or has_after):
+        if object_info != parent_info and not has_selection:
             writer.putlnc('%s.empty_selection();', list_name)
             self.converter.set_list(object_info, list_name)
+
+        writer.putlnc('// select single: %s %s %s %s %s', select_single,
+                      has_after, has_before, has_after_spaced, has_selection)
 
         single_parent = self.converter.get_single(parent_info)
         safe = (select_single and parent_info is not None and not
@@ -751,7 +751,7 @@ class CreateBase(ActionWriter):
             layer = '%s->layer' % parent
         else:
             layer = details['layer']
-        writer.putlnc('FrameObject * new_obj; // %s', details)
+        writer.putlnc('FrameObject * new_obj;')
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
         if not select_single:
@@ -846,8 +846,8 @@ class SetPosition(ActionWriter):
             x = 'parent->%s + %s' % (parent_x, x)
             y = 'parent->%s + %s' % (parent_y, y)
         arguments = [x, y]
-        writer.putlnc('%s->set_global_position(%s); // %s', obj,
-                      ', '.join(arguments), details)
+        writer.putlnc('%s->set_global_position(%s);', obj,
+                      ', '.join(arguments))
         writer.put_label(end_name)
         if not single:
             self.converter.end_object_iteration(object_info, writer,
@@ -924,8 +924,12 @@ class StartLoop(ActionWriter):
                 try:
                     name = loop_funcs[real_name.lower()]
                 except KeyError, e:
+                    print 'Error: could not find loop instance'
                     print self.converter.current_loop_name
+                    print real_name
                     print loop_funcs
+                    import code
+                    code.interact(local=locals())
                     raise e
             func_call = '%s()' % name
         comparison = None
@@ -1073,6 +1077,8 @@ class SetFrameAction(ActionWriter):
         fade = self.converter.current_frame.fadeOut
         if not fade:
             return
+        if fade.duration == 0:
+            return
         color = fade.color
         writer.putln(to_c('manager->set_fade(%s, %s);', make_color(
             color), 1.0 / (fade.duration / 1000.0)))
@@ -1121,8 +1127,13 @@ class SetInkEffect(ActionWriter):
                 writer.putlnc('%s->set_shader(NULL);', obj)
             else:
                 print 'unknown set ink effect:', ink_effect
-            writer.putlnc('%s->blend_color.set_rgb(255, 255, 255);',
-                          obj)
+
+            if ink_effect == SEMITRANSPARENT_EFFECT:
+                writer.putlnc('%s->blend_color.set_rgb(255, 255, 255);',
+                              obj)
+            else:
+                writer.putlnc('%s->blend_color.set(255, 255, 255, 255);',
+                              obj)
 
 class SetSemiTransparency(ActionWriter):
     custom = True
@@ -1420,6 +1431,7 @@ actions = make_table(ActionMethodWriter, {
     'SetFrameEffect' : EmptyAction, # XXX fix
     'SetFrameEffectParameter' : EmptyAction, # XXX fix
     'SetFrameAlphaCoefficient' : EmptyAction, # XXX fix
+    'PauseDebugger' : EmptyAction, # don't implement
     'JumpSubApplicationFrame' : 'set_next_frame',
     'SetTextColor' : 'blend_color.set(%s)',
     'SetFrameHeight' : 'set_height(%s, true)'

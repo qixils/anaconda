@@ -15,6 +15,7 @@
 #include <iostream>
 #include "platform.h"
 #include <SDL.h>
+#include <time.h>
 
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;
@@ -210,6 +211,11 @@ double platform_get_time()
     Uint64 s = SDL_GetPerformanceCounter();
     s -= start_time;
     return s / double(SDL_GetPerformanceFrequency());
+}
+
+unsigned int platform_get_global_time()
+{
+    return time(NULL);
 }
 
 void platform_sleep(double t)
@@ -720,7 +726,7 @@ JoystickData & get_joy(int n)
 JoystickData * get_joy_instance(int instance)
 {
     vector<JoystickData>::iterator it;
-    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+    for (it = joysticks.begin(); it != joysticks.end(); ++it) {
         JoystickData & j = *it;
         if (j.instance != instance)
             continue;
@@ -734,7 +740,7 @@ void add_joystick(int device)
     if (!SDL_IsGameController(device))
         return;
     vector<JoystickData>::iterator it;
-    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+    for (it = joysticks.begin(); it != joysticks.end(); ++it) {
         JoystickData & j = *it;
         if (j.device == device)
             return;
@@ -750,7 +756,7 @@ void add_joystick(int device)
 void remove_joystick(int instance)
 {
     vector<JoystickData>::iterator it;
-    for (it = joysticks.begin(); it != joysticks.end(); it++) {
+    for (it = joysticks.begin(); it != joysticks.end(); ++it) {
         JoystickData & j = *it;
         if (j.instance != instance)
             continue;

@@ -66,7 +66,8 @@ actions = make_table(ActionMethodWriter, {
     5 : 'jump',
     6 : '.x_vel = %s',
     # 6 : 'set_x_vel',
-    7 : '.y_vel = %s',
+    # 7 : '.y_vel = %s',
+    7 : 'set_y_vel',
     8 : '.max_x_vel = %s',
     # 8 : 'set_max_x_vel', # for debug
     9 : '.max_y_vel = %s',
@@ -80,7 +81,8 @@ actions = make_table(ActionMethodWriter, {
     17 : '.paused = true',
     18 : '.paused = false',
     20 : '.add_x_vel = %s',
-    21 : '.add_y_vel = %s'
+    21 : 'set_add_y_vel'
+    # 21 : '.add_y_vel = %s'
 
 })
 

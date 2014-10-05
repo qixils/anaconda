@@ -2,16 +2,15 @@
 #define CHOWDREN_UTILITY_H
 
 #include <stdlib.h>
-#include <time.h>
 #include "crossrand.h"
+#include "platform.h"
 
 namespace Utility
 {
 
     inline bool Compare(float First, float Second, int ComparisonType)
     {
-        switch(ComparisonType)
-        {
+        switch(ComparisonType) {
             case 0:
                 return First == Second;
 
@@ -43,7 +42,7 @@ namespace Utility
 
     inline void SetRandomSeedToTimer()
     {
-        cross_srand(time(NULL));
+        cross_srand((unsigned int)platform_get_global_time());
     }
 
     // Useful Functions
@@ -67,7 +66,7 @@ namespace Utility
 
     inline float Nearest(float Value, float Minimum, float Maximum)
     {
-        return ((Minimum > Value) ? (Minimum - Value) : (Value - Minimum)) > 
+        return ((Minimum > Value) ? (Minimum - Value) : (Value - Minimum)) >
             ((Maximum > Value) ? (Maximum - Value) : (Value - Maximum)) ?
             Maximum : Minimum;
     }
@@ -157,7 +156,7 @@ namespace Utility
             }
 
             default:
-            {            
+            {
                 // Non-existing waveform
                 return 0;
             }
@@ -232,7 +231,7 @@ namespace Utility
     }
 
     // String expressions
-    inline std::string Substr(std::string String, int Start, int Length)
+    inline std::string Substr(const std::string & String, int Start, int Length)
     {
         if(Start < 0)
             Start = String.size() + Start;
@@ -243,13 +242,13 @@ namespace Utility
         return String.substr(Start, Length);
     }
 
-    inline const std::string & StrExpressionCompare(float First, float Second, 
-        int ComparisonType, const std::string & ReturnIfTrue, 
+    inline const std::string & StrExpressionCompare(float First, float Second,
+        int ComparisonType, const std::string & ReturnIfTrue,
         const std::string & ReturnIfFalse)
     {
-        if (Compare(First, Second, ComparisonType)) 
-            return ReturnIfTrue; 
-        else 
+        if (Compare(First, Second, ComparisonType))
+            return ReturnIfTrue;
+        else
             return ReturnIfFalse;
     }
 }

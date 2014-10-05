@@ -160,11 +160,15 @@ void PlatformObject::jump()
     y_vel = 0 - jump_strength;
 }
 
-// void PlatformObject::set_x_vel(int value)
-// {
-//     std::cout << "set x vel: " << value << std::endl;
-//     x_vel = value;
-// }
+void PlatformObject::set_y_vel(int value)
+{
+    y_vel = value;
+}
+
+void PlatformObject::set_add_y_vel(int value)
+{
+    add_y_vel = value;
+}
 
 // void PlatformObject::set_max_x_vel(int value)
 // {

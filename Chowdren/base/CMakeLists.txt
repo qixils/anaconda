@@ -63,7 +63,7 @@ endif()
 
 if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
     set(PLATFORM_SRCS
-        ${CHOWDREN_BASE_DIR}/desktop/glc.cpp
+        ${CHOWDREN_BASE_DIR}/glc/gl.cpp
         ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
         ${CHOWDREN_BASE_DIR}/desktop/fbo.cpp
         ${PLATFORM_SRCS}

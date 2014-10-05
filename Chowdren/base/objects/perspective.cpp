@@ -33,8 +33,10 @@ void PerspectiveObject::draw()
 {
     begin_draw();
 
-    glc_copy_color_buffer_rect(texture, x, y, x + width, y + height);
-
+    int box[4];
+    get_screen_aabb(box);
+    glc_copy_color_buffer_rect(texture, box[0], box[1],
+                               box[2], box[3]);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, texture);
     glColor4f(1.0f, 0.0f, 0.0f, 1.0f);

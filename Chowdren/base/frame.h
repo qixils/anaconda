@@ -82,7 +82,7 @@ public:
 #endif
 };
 
-typedef bool (*LoopCallback)(void*);
+typedef void (*LoopCallback)(void*);
 
 class DynamicLoop
 {
@@ -121,6 +121,7 @@ public:
     virtual void on_start();
     virtual void on_end();
     virtual void handle_events();
+    virtual void handle_pre_events();
 };
 
 class Frame

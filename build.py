@@ -46,7 +46,7 @@ for name in names:
     if name.startswith('#'):
         continue
     ext_modules.append(Extension(name, ['./' + name.replace('.', '/') + '.pyx'],
-        include_dirs = include_dirs))
+        include_dirs = include_dirs, language='c++'))
 
 # ext_modules.append(Extension('mmfparser.player.collision',
 #     [

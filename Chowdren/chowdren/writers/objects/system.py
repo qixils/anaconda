@@ -5,7 +5,7 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     ANIMATION_NAMES, NUMBERS, HIDDEN, VERTICAL_BAR, HORIZONTAL_BAR,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
-    LADDER_OBSTACLE, ANIMATION, APPEARING)
+    LADDER_OBSTACLE, ANIMATION, APPEARING, DISAPPEARING)
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren import hacks
 
@@ -74,6 +74,9 @@ class Active(ObjectWriter):
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
             writer.putln('forced_animation = APPEARING;')
+        if len(animations) == 1 and DISAPPEARING in animations:
+            writer.putln('flags |= FADEOUT;')
+
         writer.putln('initialize_active();')
 
     def has_updates(self):
@@ -441,6 +444,11 @@ class Counter(ObjectWriter):
         writer.putlnc('set(%s);', counter.initial)
 
     def is_static_background(self):
+        return False
+
+    def is_background(self):
+        # background counters really only start in the background,
+        # nothing else
         return False
 
     def get_images(self):

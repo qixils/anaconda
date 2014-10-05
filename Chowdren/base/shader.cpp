@@ -3,11 +3,7 @@
 #include "platform.h"
 #include "frameobject.h"
 
-#ifdef CHOWDREN_USE_GL
 std::string shader_path = "./shaders";
-#else
-std::string shader_path = "./glesshaders";
-#endif
 
 void set_shader_path(const std::string & path)
 {
@@ -796,5 +792,4 @@ void init_shaders()
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;
 #endif
-    glc_init_shaders();
 }

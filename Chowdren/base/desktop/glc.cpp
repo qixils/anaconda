@@ -1,9 +1,9 @@
 #define CHOWDREN_BUILD_GLC
 #include "chowconfig.h"
-#include "../include_gl.h"
-#include "../mathcommon.h"
+#include "include_gl.h"
+#include "mathcommon.h"
 #include "glslshader.h"
-#include "../types.h"
+#include "types.h"
 #include <string.h>
 
 struct Vec2
@@ -45,23 +45,49 @@ void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
     int y = WINDOW_HEIGHT - y2;
 
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
-                    0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height,
+                 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x1, y, width, height);
 }
 
 #ifdef CHOWDREN_USE_GL
 
-void glc_init_shaders()
+void glc_init()
 {
 }
 
 #else
 
+inline void mult_matrix(Mat4x4 & m, Mat4x4 & n, Mat4x4 & d)
+{
+    d[0] = m[0]*n[0] + m[4]*n[1] + m[8]*n[2] + m[12]*n[3];
+    d[1] = m[1]*n[0] + m[5]*n[1] + m[9]*n[2] + m[13]*n[3];
+    d[2] = m[2]*n[0] + m[6]*n[1] + m[10]*n[2] + m[14]*n[3];
+    d[3] = m[3]*n[0] + m[7]*n[1] + m[11]*n[2] + m[15]*n[3];
+    d[4] = m[0]*n[4] + m[4]*n[5] + m[8]*n[6] + m[12]*n[7];
+    d[5] = m[1]*n[4] + m[5]*n[5] + m[9]*n[6] + m[13]*n[7];
+    d[6] = m[2]*n[4] + m[6]*n[5] + m[10]*n[6] + m[14]*n[7];
+    d[7] = m[3]*n[4] + m[7]*n[5] + m[11]*n[6] + m[15]*n[7];
+    d[8] = m[0]*n[8] + m[4]*n[9] + m[8]*n[10] + m[12]*n[11];
+    d[9] = m[1]*n[8] + m[5]*n[9] + m[9]*n[10] + m[13]*n[11];
+    d[10] = m[2]*n[8] + m[6]*n[9] + m[10]*n[10] + m[14]*n[11];
+    d[11] = m[3]*n[8] + m[7]*n[9] + m[11]*n[10] + m[15]*n[11];
+    d[12] = m[0]*n[12] + m[4]*n[13] + m[8]*n[14] + m[12]*n[15];
+    d[13] = m[1]*n[12] + m[5]*n[13] + m[9]*n[14] + m[13]*n[15];
+    d[14] = m[2]*n[12] + m[6]*n[13] + m[10]*n[14] + m[14]*n[15];
+    d[15] = m[3]*n[12] + m[7]*n[13] + m[11]*n[14] + m[15]*n[15];
+}
+
+inline void mult_matrix(Mat4x4 & m, Vec3 & v, Vec3 & d)
+{
+    d.x = m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12];
+    d.y = m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13];
+    d.z = m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14];
+}
+
 class GLState
 {
 public:
-#ifdef CHOWDREN_USE_GLES2
     bool tex_on;
     GLenum matrix_mode;
     Stack projection_stack;
@@ -98,7 +124,6 @@ public:
         memcpy(m, d, sizeof(Mat4x4));
         ::mult_matrix(m, n, d);
     }
-#endif
 
     Vec4 current_color;
     Vec4 colors[4];
@@ -116,11 +141,12 @@ public:
 
 static GLState gl_state;
 
-void glc_init_shaders()
+void glc_init()
 {
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glEnableVertexAttribArray(POSITION_ATTRIB_IDX);
     glVertexAttribPointer(POSITION_ATTRIB_IDX, 3, GL_FLOAT, GL_FALSE, 0,
-                          (void*)gl_state.vertices);
+                          (void*)&gl_state.vertices[0]);
 
     glEnableVertexAttribArray(COLOR_ATTRIB_IDX);
     glVertexAttribPointer(COLOR_ATTRIB_IDX, 4, GL_FLOAT, GL_FALSE, 0,
@@ -131,33 +157,6 @@ void glc_init_shaders()
 
     glVertexAttribPointer(TEXCOORD2_ATTRIB_IDX, 2, GL_FLOAT, GL_FALSE, 0,
                           (void*)&gl_state.texcoords[1]);
-}
-
-inline void mult_matrix(Mat4x4 & m, Mat4x4 & n, Mat4x4 & d)
-{
-    d[0] = m[0]*n[0] + m[4]*n[1] + m[8]*n[2] + m[12]*n[3];
-    d[1] = m[1]*n[0] + m[5]*n[1] + m[9]*n[2] + m[13]*n[3];
-    d[2] = m[2]*n[0] + m[6]*n[1] + m[10]*n[2] + m[14]*n[3];
-    d[3] = m[3]*n[0] + m[7]*n[1] + m[11]*n[2] + m[15]*n[3];
-    d[4] = m[0]*n[4] + m[4]*n[5] + m[8]*n[6] + m[12]*n[7];
-    d[5] = m[1]*n[4] + m[5]*n[5] + m[9]*n[6] + m[13]*n[7];
-    d[6] = m[2]*n[4] + m[6]*n[5] + m[10]*n[6] + m[14]*n[7];
-    d[7] = m[3]*n[4] + m[7]*n[5] + m[11]*n[6] + m[15]*n[7];
-    d[8] = m[0]*n[8] + m[4]*n[9] + m[8]*n[10] + m[12]*n[11];
-    d[9] = m[1]*n[8] + m[5]*n[9] + m[9]*n[10] + m[13]*n[11];
-    d[10] = m[2]*n[8] + m[6]*n[9] + m[10]*n[10] + m[14]*n[11];
-    d[11] = m[3]*n[8] + m[7]*n[9] + m[11]*n[10] + m[15]*n[11];
-    d[12] = m[0]*n[12] + m[4]*n[13] + m[8]*n[14] + m[12]*n[15];
-    d[13] = m[1]*n[12] + m[5]*n[13] + m[9]*n[14] + m[13]*n[15];
-    d[14] = m[2]*n[12] + m[6]*n[13] + m[10]*n[14] + m[14]*n[15];
-    d[15] = m[3]*n[12] + m[7]*n[13] + m[11]*n[14] + m[15]*n[15];
-}
-
-inline void mult_matrix(Mat4x4 & m, Vec3 & v, Vec3 & d)
-{
-    d.x = m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12];
-    d.y = m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13];
-    d.z = m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14];
 }
 
 void glc_enable(GLenum cap)
@@ -224,22 +223,21 @@ void glc_end()
 {
     bool is_platform = false;
     GLSLShader * shader = GLSLShader::current;
-    if (shader == NULL) {
-        is_platform = true;
-        if (gl_state.tex_on) {
-            shader = (GLSLShader*)texture_shader;
-        } else {
-            shader = (GLSLShader*)basic_shader;
-        }
-        shader->begin(NULL, 0, 0); // we don't actually need these parameters
+    // if (shader == NULL) {
+    is_platform = true;
+    if (gl_state.tex_on) {
+        shader = (GLSLShader*)texture_shader;
+    } else {
+        shader = (GLSLShader*)basic_shader;
     }
+    shader->begin(NULL, 0, 0); // we don't actually need these parameters
+    // }
 
     if (shader != basic_shader)
         glEnableVertexAttribArray(TEXCOORD1_ATTRIB_IDX);
 
     if (shader->flags & SHADER_HAS_BACK)
         glEnableVertexAttribArray(TEXCOORD2_ATTRIB_IDX);
-
 
     // drawing
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);

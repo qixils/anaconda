@@ -38,6 +38,7 @@ from chowdren.shader import INK_EFFECTS
 from chowdren import hacks
 from chowdren.idpool import get_id
 from chowdren.codewriter import CodeWriter
+from mmfparser import texpack
 import platform
 import math
 import wave
@@ -207,7 +208,7 @@ def get_color_tuple(value):
 DEFAULT_CHARMAP = ''.join([chr(item) for item in xrange(32, 256)])
 
 class EventContainer(object):
-    is_static = False
+    is_static = None
     def __init__(self, name, inactive, parent, converter):
         self.name = name
         if parent is None:
@@ -216,10 +217,11 @@ class EventContainer(object):
             self.tree = parent.tree + [self]
         names = [item.name for item in self.tree]
         names = '_'.join(names)
+        names = get_method_name(names)
         converter.container_ids[names] += 1
         container_id = converter.container_ids[names]
 
-        self.code_name = 'group_%s_%s' % (get_method_name(names), container_id)
+        self.code_name = 'group_%s_%s' % (names, container_id)
         self.inactive = inactive
         self.parent = parent
         self.children = []
@@ -270,6 +272,7 @@ class EventGroup(object):
     write_callbacks = None
     data_hash = None
     in_place = False
+    pre_event = False
 
     def __init__(self, converter, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -675,6 +678,7 @@ class Converter(object):
             self.image_indexes = {}
             image_hashes = {}
             new_entries = []
+            maxrects_images = []
             image_fp = open(self.get_filename(image_file), 'wb')
             image_header = ByteReader(image_fp)
             image_index = 0
@@ -692,7 +696,8 @@ class Converter(object):
                         self.solid_images[handle] = color[1]
 
                     extra_hash = [image.xHotspot, image.yHotspot,
-                                  image.actionX, image.actionY]
+                                  image.actionX, image.actionY,
+                                  image.width, image.height]
                     extra_hash = [str(item) for item in extra_hash]
                     image_hash = get_hash(pil_image.tobytes() +
                                           '&'.join(extra_hash))
@@ -707,25 +712,35 @@ class Converter(object):
                     self.image_indexes[handle] = image_index
                     image_hashes[image_hash] = image_index
 
-                    temp = StringIO()
-                    pil_image.save(temp, 'PNG')
-                    temp = temp.getvalue()
-                    new_entries.append((temp, image))
+                    new_entries.append(image)
+                    maxrects_images.append(pil_image)
 
                     image_index += 1
+
+            # use maxrects to create texture maps
+            # makedirs('./testmaxrects')
+
+            # maxrects = texpack.pack_images(maxrects_images, 1024, 1024)
+
+            # for file_index, rects in enumerate(maxrects):
+            #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
 
             image_data = ByteReader()
             image_header.writeInt(len(new_entries), True)
             header_size = 4 * len(new_entries) + 4
 
-            for i, (data, image) in enumerate(new_entries):
+            for i, image in enumerate(new_entries):
                 image_header.writeInt(image_data.tell() + header_size,
                                       True)
                 image_data.writeInt(image.xHotspot)
                 image_data.writeInt(image.yHotspot)
                 image_data.writeInt(image.actionX)
                 image_data.writeInt(image.actionY)
-                image_data.write(data)
+
+                temp = StringIO()
+                maxrects_images[i].save(temp, 'PNG')
+                temp = temp.getvalue()
+                image_data.write(temp)
 
             image_header.writeReader(image_data)
             image_fp.close()
@@ -842,7 +857,7 @@ class Converter(object):
             event_file.start_brace()
             event_file.putln('ObjectList::iterator it;')
             list_name = self.get_object_list(handle)
-            event_file.putlnc('for (it = %s.begin(); it != %s.end(); it++) {',
+            event_file.putlnc('for (it = %s.begin(); it != %s.end(); ++it) {',
                               list_name, list_name)
             event_file.indent()
             event_file.putln('FrameObject * instance = it->obj;')
@@ -1199,14 +1214,13 @@ class Converter(object):
 
                 action_name = self.get_action_name(action)
                 action_dict[action_name].append(action_writer)
-                if action_name in ('CreateObject', 'Shoot',
+                if action_name in ('CreateObject', 'Shoot', 'ShootToward',
                                    'DisplayText', 'Destroy'):
                     if action_name == 'Destroy':
                         create_info = (action.objectInfo,
                                        action.objectType)
                     else:
-                        info = (action.items[0].loader.objectInfo,
-                                None)
+                        info = (action.items[0].loader.objectInfo, None)
                         create_info = self.filter_object_type(info)
                     if create_info[0] == 0xFFFF:
                         # the case for DisplayText
@@ -1253,6 +1267,7 @@ class Converter(object):
 
                 new_group.set_or_generated(not is_always)
                 new_group.in_place = first_writer.in_place
+                new_group.pre_event = first_writer.pre_event
 
                 if is_always or force_always:
                     new_always_groups.append(new_group)
@@ -1280,11 +1295,15 @@ class Converter(object):
                 group.set_groups(self, all_groups)
 
         for k, v in containers.iteritems():
-            if k not in changed_containers:
-                if v.inactive:
-                    # print v.name, 'is never activated!'
-                    continue
-                v.is_static = True
+            if k in changed_containers:
+                v.is_static = False
+                continue
+            if v.inactive:
+                # never activated!
+                continue
+            if v.is_static is not None:
+                continue
+            v.is_static = True
 
         for container in containers.values():
             if container.is_static:
@@ -1375,7 +1394,7 @@ class Converter(object):
                 remote_type = 'CHOWDREN_HYBRID_TARGET'
             else:
                 continue
-            start_writer.putlnc('layers[%s]->set_remote(%s);', layer_index,
+            start_writer.putlnc('layers[%s].set_remote(%s);', layer_index,
                                 remote_type)
         start_writer.putraw('#endif')
 
@@ -1429,6 +1448,7 @@ class Converter(object):
         group_index = 0
         call_groups = []
         first_groups = []
+        pre_groups = []
 
         while True:
             try:
@@ -1438,7 +1458,10 @@ class Converter(object):
 
             if (not group.is_container_mark and group.or_generated and not
                     group.in_place):
-                first_groups.append(group)
+                if group.pre_event:
+                    pre_groups.append(group)
+                else:
+                    first_groups.append(group)
             else:
                 call_groups.append(group)
 
@@ -1493,6 +1516,19 @@ class Converter(object):
             event_file.put_label(end_marker)
 
         event_file.end_brace()
+
+        handle_name = 'handle_frame_%s_pre_events' % (frame_index+1)
+        frame_file.putmeth('void handle_pre_events')
+        frame_file.putlnc('%s%s();', events_ref, handle_name)
+        frame_file.end_brace()
+
+        event_file.putmeth('void %s' % handle_name)
+
+        for group in pre_groups:
+            event_file.putlnc('%s();', group.event_name)
+
+        event_file.end_brace()
+
 
         event_start_name = None
         start_groups = generated_groups.pop('StartOfFrame', None)
@@ -1775,6 +1811,7 @@ class Converter(object):
         objects_file.end_brace(True)
 
         object_writer.write_post(objects_file)
+        object_writer.write_internal_post(objects_file)
 
         return objects_file
 
@@ -1838,7 +1875,7 @@ class Converter(object):
         else:
             list_name = getter
         self.set_iterator(object_info, list_name, '*' + name)
-        writer.putlnc('for (%s %s(%s); !%s.end(); %s++) {',
+        writer.putlnc('for (%s %s(%s); !%s.end(); ++%s) {',
                       iter_type, name, list_name, name, name)
         writer.indent()
 
@@ -2133,7 +2170,7 @@ class Converter(object):
                         self.set_iterator(obj, selected_name)
                         iter_type = get_iter_type(obj)
                         writer.putlnc('for (%s it(%s); !it.end(); '
-                                      'it++) {', iter_type, selected_name)
+                                      '++it) {', iter_type, selected_name)
                         writer.indent()
                         object_name = '(*it)'
                 writer.putindent()
@@ -2239,7 +2276,7 @@ class Converter(object):
                 list_name = self.create_list(obj, writer)
                 iter_type = get_iter_type(obj)
                 writer.putlnc('for (%s it(%s); !it.end(); '
-                              'it++) {', iter_type, list_name)
+                              '++it) {', iter_type, list_name)
                 writer.indent()
                 self.set_iterator(obj, list_name)
                 object_name = '*it'
@@ -2366,6 +2403,10 @@ class Converter(object):
 
             if parameter_type == 'VARGLOBAL_EXP':
                 out = '-1 + ' + out
+            if parameter_type == 'AlterableValueExpression':
+                # A.N.N.E hack for invalid commas in alt. val expression
+                if ')' not in out and '(' not in out and ', ' in out:
+                    out = out.split(',')[0]
         else:
             parameter_name = type(container.loader).__name__
             if parameter_name == 'Object':
@@ -2383,8 +2424,9 @@ class Converter(object):
                     position = loader
                 elif parameter_name == 'Shoot':
                     details['shoot_speed'] = loader.shootSpeed
-                    details['shoot_object'] = (loader.objectInfo,
-                                               loader.objectType)
+                    create_info = (loader.objectInfo, None)
+                    create_info = self.filter_object_type(create_info)
+                    details['shoot_object'] = create_info
                 elif parameter_name == 'Create':
                     create_info = (loader.objectInfo, None)
                     create_info = self.filter_object_type(create_info)

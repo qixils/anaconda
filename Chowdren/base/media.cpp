@@ -214,7 +214,7 @@ Media::~Media()
     stop_samples();
 
     SoundMap::const_iterator it;
-    for (it = sounds.begin(); it != sounds.end(); it++) {
+    for (it = sounds.begin(); it != sounds.end(); ++it) {
         SoundData * sound = it->second;
         delete sound;
     }

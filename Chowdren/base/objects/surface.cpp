@@ -18,7 +18,7 @@ SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
   stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL),
-  use_blit(false), vert_index(0)
+  use_fbo_blit(false), use_image_blit(false), vert_index(0)
 {
     if (!has_fbo) {
         has_fbo = true;
@@ -59,7 +59,7 @@ void SurfaceObject::draw()
     if (displayed_image == NULL)
         return;
 
-    if (use_blit) {
+    if (use_fbo_blit) {
         surface_fbo.bind();
 
         glViewport(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
@@ -93,7 +93,6 @@ void SurfaceObject::draw()
             }
         }
         blit_images.clear();
-        use_blit = false;
 
         glPopMatrix(); // restore MODELVIEW
         glMatrixMode(GL_PROJECTION);
@@ -131,9 +130,18 @@ void SurfaceObject::draw()
     }
 
     blend_color.apply();
-
     begin_draw();
-    displayed_image->draw(this, x, y);
+
+    if (use_image_blit) {
+        vector<SurfaceBlit>::const_iterator it;
+        for (it = blit_images.begin(); it != blit_images.end(); it++) {
+            const SurfaceBlit & img = *it;
+            int draw_x = x + img.x + img.image->hotspot_x * img.scale_x;
+            int draw_y = y + img.y + img.image->hotspot_y * img.scale_y;
+            img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
+        }
+    } else
+        displayed_image->draw(this, x, y);
     end_draw();
 }
 
@@ -231,7 +239,7 @@ void SurfaceObject::scroll(int x, int y, int wrap)
 
 void SurfaceObject::blit(Active * obj)
 {
-    use_blit = true;
+    use_fbo_blit = true;
     if (!collides(0, 0, selected_image->width, selected_image->height,
                   dest_x, dest_y, dest_x+dest_width, dest_y+dest_height))
         return;
@@ -328,7 +336,15 @@ void SurfaceObject::blit_alpha(int image)
 
 void SurfaceObject::blit_image(int image)
 {
-    std::cout << "Blit onto image: " << image << std::endl;
+    use_image_blit = true;
+    Image * img = images[image].handle;
+    int index = blit_images.size();
+    blit_images.resize(index+1);
+    blit_images[index].x = dest_x;
+    blit_images[index].y = dest_y;
+    blit_images[index].scale_x = dest_width / double(img->width);
+    blit_images[index].scale_y = dest_height / double(img->height);
+    blit_images[index].image = img;
 }
 
 void SurfaceObject::apply_matrix(double div, double offset, double iterations,

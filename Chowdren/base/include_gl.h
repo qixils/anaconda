@@ -1,6 +1,7 @@
 #ifndef INCLUDE_GL_H
 #define INCLUDE_GL_H
 
+#ifdef CHOWDREN_IS_DESKTOP
 #ifdef CHOWDREN_USE_GL
 #include <SDL_opengl.h>
 
@@ -36,10 +37,17 @@ extern PFNGLGETUNIFORMLOCATIONPROC __glGetUniformLocation;
 #elif CHOWDREN_USE_GLES2
 #include <SDL_opengles2.h>
 
-#else
+#else // CHOWDREN_USE_GL
 #define USE_GENERIC_GLC
 #include "generic_glc.h"
-#endif
+#endif // CHOWDREN_USE_GL
+
+#else // CHOWDREN_IS_DESKTOP
+
+// include platform-specific glc
+#include "glc.h"
+
+#endif // CHOWDREN_IS_DESKTOP
 
 void glc_enable(GLenum cap);
 void glc_disable(GLenum cap);
@@ -59,21 +67,6 @@ void glc_end();
 void glc_multi_texcoord_2f(GLenum target, GLfloat s, GLfloat t);
 void glc_texcoord_2f(GLfloat s, GLfloat t);
 void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
-
-#ifdef CHOWDREN_USE_GLES1
-#define glGenFramebuffers glGenFramebuffersOES
-#define glBindFramebuffer glGenFramebuffersOES
-#define glFramebufferTexture2D glFramebufferTexture2DOES
-#define glOrtho glOrthof
-#define glMultiTexCoord2f(target, s, t) glMultiTexCoord4f(target, s, t, 0, 1)
-// XXX still need shaders for this
-// #define glCreateProgram glCreateProgram
-// #define glLinkProgram glLinkProgram
-// #define glGetProgramiv glGetProgramiv
-// #define glDetachShader glDetachShader
-// #define glUseProgram glUseProgram
-// #define glUniform1i glUniform1i
-#endif
 
 #ifdef CHOWDREN_USE_GLES2
 #define glPushMatrix glc_push_matrix
@@ -100,11 +93,12 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 #define glMultiTexCoord2f glc_multi_texcoord_2f
 #define glTexCoord2f glc_texcoord_2f
 #define GL_CLAMP GL_CLAMP_TO_EDGE
+
 #endif
 
 #ifndef CHOWDREN_BUILD_GLC
 
-#if defined(CHOWDREN_USE_GL) || defined(USE_GENERIC_GLC)
+#if defined(CHOWDREN_USE_GL)
 #define glBlendEquation __glBlendEquationEXT
 #define glBlendEquationSeparate __glBlendEquationSeparateEXT
 #define glBlendFuncSeparate __glBlendFuncSeparateEXT

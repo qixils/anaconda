@@ -2,12 +2,12 @@
 #define CHOWDREN_COMMON_H
 
 #include "chowconfig.h"
+#include "include_gl.h"
 #include "profiler.h"
 #include "keydef.h"
 #include "keyconv.h"
 #include "manager.h"
 #include "platform.h"
-#include "include_gl.h"
 #include <string>
 #include <list>
 #include <map>
@@ -20,7 +20,7 @@
 #include "stringcommon.h"
 #include "shader.h"
 #include "datastream.h"
-#include <cctype>
+#include <ctype.h>
 #include "globals.h"
 #include "image.h"
 #include "frameobject.h"
@@ -67,15 +67,19 @@ inline int string_size(const std::string & a)
     return a.size();
 }
 
-inline std::string lowercase_string(std::string v)
+inline std::string lowercase_string(const std::string & str)
 {
-    std::transform(v.begin(), v.end(), v.begin(), tolower);
+	std::string v(str);
+    std::transform(v.begin(), v.end(), v.begin(),
+                   static_cast<int (*)(int)>(tolower));
     return v;
 }
 
-inline std::string uppercase_string(std::string v)
+inline std::string uppercase_string(const std::string & str)
 {
-    std::transform(v.begin(), v.end(), v.begin(), toupper);
+	std::string v(str);
+    std::transform(v.begin(), v.end(), v.begin(),
+                   static_cast<int(*)(int)>(toupper));
     return v;
 }
 
@@ -253,9 +257,9 @@ public:
 
     Text(int x, int y, int type_id);
     ~Text();
-    void add_line(std::string text);
+    void add_line(const std::string & text);
     void draw();
-    void set_string(std::string value);
+    void set_string(const std::string & value);
     void set_paragraph(unsigned int index);
     void next_paragraph();
     int get_index();
@@ -263,7 +267,7 @@ public:
     bool get_bold();
     bool get_italic();
     void set_bold(bool value);
-    std::string get_paragraph(int index);
+    const std::string & get_paragraph(int index);
     void set_scale(float scale);
     void set_width(int w);
     int get_width();
@@ -715,7 +719,7 @@ inline FrameObject * get_object_from_fixed(FixedValue fixed)
 inline void remove_list(FlatObjectList & a, FrameObject * obj)
 {
     FlatObjectList::iterator it;
-    for (it = a.begin(); it != a.end(); it++) {
+    for (it = a.begin(); it != a.end(); ++it) {
         if (*it != obj)
             continue;
         a.erase(it);
@@ -841,7 +845,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
     std::fill(int_temp.begin(), int_temp.end(), 0);
 
     bool ret = false;
-    for (ObjectIterator it1(list1); !it1.end(); it1++) {
+    for (ObjectIterator it1(list1); !it1.end(); ++it1) {
         FrameObject * instance = *it1;
         InstanceCollision * col = instance->collision;
         if (col == NULL) {
@@ -849,13 +853,13 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
             continue;
         }
         bool added = false;
-        for (ObjectIterator it2(list2); !it2.end(); it2++) {
+        for (ObjectIterator it2(list2); !it2.end(); ++it2) {
             FrameObject * other = *it2;
             if (other->collision == NULL) {
                 it2.deselect();
                 continue;
             }
-            if (!instance->overlaps(other))
+            if (!check_overlap<save>(instance, other))
                 continue;
             int_temp[it2.index-1] = 1;
             added = ret = true;
@@ -867,7 +871,7 @@ inline bool check_overlap(ObjectList & list1, ObjectList & list2)
     if (!ret)
         return false;
 
-    for (ObjectIterator it(list2); !it.end(); it++) {
+    for (ObjectIterator it(list2); !it.end(); ++it) {
         if (!int_temp[it.index-1])
             it.deselect();
     }
@@ -889,13 +893,13 @@ inline bool check_overlap(FrameObject * obj, ObjectList & list)
         return false;
 
     bool ret = false;
-    for (ObjectIterator it(list); !it.end(); it++) {
+    for (ObjectIterator it(list); !it.end(); ++it) {
         FrameObject * other = *it;
         if (other->collision == NULL) {
             it.deselect();
             continue;
         }
-        if (!obj->overlaps(other)) {
+        if (!check_overlap<save>(obj, other)) {
             it.deselect();
             continue;
         }
@@ -923,7 +927,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     std::fill(int_temp.begin(), int_temp.end(), 0);
 
     bool ret = false;
-    for (ObjectIterator it1(list2); !it1.end(); it1++) {
+    for (ObjectIterator it1(list2); !it1.end(); ++it1) {
         FrameObject * instance = *it1;
         if (instance->collision == NULL) {
             it1.deselect();
@@ -933,13 +937,13 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
         int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
-            for (ObjectIterator it2(list); !it2.end(); it2++) {
+            for (ObjectIterator it2(list); !it2.end(); ++it2) {
                 FrameObject * other = *it2;
                 if (other->collision == NULL) {
                     it2.deselect();
                     continue;
                 }
-                if (!instance->overlaps(other))
+                if (!check_overlap<save>(instance, other))
                     continue;
                 added = ret = true;
                 int_temp[temp_offset + it2.index - 1] = 1;
@@ -956,7 +960,7 @@ inline bool check_overlap(QualifierList & list1, ObjectList & list2)
     int total_index = 0;
     for (int i = 0; i < list1.count; i++) {
         ObjectList & list = *list1.items[i];
-        for (ObjectIterator it(list); !it.end(); it++) {
+        for (ObjectIterator it(list); !it.end(); ++it) {
             if (!int_temp[total_index + it.index - 1])
                 it.deselect();
         }
@@ -992,18 +996,17 @@ inline bool check_overlap(FrameObject * obj, QualifierList & list)
     int temp_offset = 0;
     for (int i = 0; i < list.count; i++) {
         ObjectList & list2 = *list.items[i];
-        for (ObjectIterator it(list2); !it.end(); it++) {
+        for (ObjectIterator it(list2); !it.end(); ++it) {
             FrameObject * other = *it;
             if (other->collision == NULL) {
                 it.deselect();
                 continue;
             }
-            if (obj->overlaps(other)) {
-                ret = true;
+            if (!check_overlap<save>(obj, other)) {
+                it.deselect();
                 continue;
             }
-            it.deselect();
-            continue;
+            ret = true;
         }
     }
 
@@ -1028,7 +1031,7 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     std::fill(int_temp.begin(), int_temp.end(), 0);
 
     bool ret = false;
-    for (QualifierIterator it1(list2); !it1.end(); it1++) {
+    for (QualifierIterator it1(list2); !it1.end(); ++it1) {
         FrameObject * instance = *it1;
         if (instance->collision == NULL) {
             it1.deselect();
@@ -1039,13 +1042,13 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
         int temp_offset = 0;
         for (int i = 0; i < list1.count; i++) {
             ObjectList & list = *list1.items[i];
-            for (ObjectIterator it2(list); !it2.end(); it2++) {
+            for (ObjectIterator it2(list); !it2.end(); ++it2) {
                 FrameObject * other = *it2;
                 if (other->collision == NULL) {
                     it2.deselect();
                     continue;
                 }
-                if (!instance->overlaps(other))
+                if (!check_overlap<save>(instance, other))
                     continue;
                 added = ret = true;
                 int_temp[temp_offset + it2.index - 1] = 1;
@@ -1062,7 +1065,7 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
     int total_index = 0;
     for (int i = 0; i < list1.count; i++) {
         ObjectList & list = *list1.items[i];
-        for (ObjectIterator it(list); !it.end(); it++) {
+        for (ObjectIterator it(list); !it.end(); ++it) {
             if (!int_temp[total_index + it.index - 1])
                 it.deselect();
         }
@@ -1076,11 +1079,11 @@ inline bool check_overlap(QualifierList & list1, QualifierList & list2)
 
 inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
 {
-    for (ObjectIterator it1(list1); !it1.end(); it1++) {
+    for (ObjectIterator it1(list1); !it1.end(); ++it1) {
         FrameObject * instance = *it1;
         if (instance->collision == NULL)
             continue;
-        for (ObjectIterator it2(list2); !it2.end(); it2++) {
+        for (ObjectIterator it2(list2); !it2.end(); ++it2) {
             FrameObject * other = *it2;
             if (!instance->overlaps(other))
                 continue;
@@ -1128,7 +1131,7 @@ inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
         return true;
     for (int i = 0; i < list.count; i++) {
         ObjectList & list2 = *list.items[i];
-        for (ObjectIterator it(list2); !it.end(); it++) {
+        for (ObjectIterator it(list2); !it.end(); ++it) {
             FrameObject * other = *it;
             if (!obj->overlaps(other))
                 continue;
@@ -1141,7 +1144,7 @@ inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
 inline bool pick_random(ObjectList & instances)
 {
     int size = 0;
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         if ((*it)->flags & (FADEOUT | DESTROYING)) {
             it.deselect();
             continue;
@@ -1151,7 +1154,7 @@ inline bool pick_random(ObjectList & instances)
     if (size == 0)
         return false;
     int index = randrange(size);
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         if (index == 0) {
             it.select_single();
             break;
@@ -1164,7 +1167,7 @@ inline bool pick_random(ObjectList & instances)
 inline bool pick_random(QualifierList & instances)
 {
     int size = 0;
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         if ((*it)->flags & (FADEOUT | DESTROYING)) {
             it.deselect();
             continue;
@@ -1174,7 +1177,7 @@ inline bool pick_random(QualifierList & instances)
     if (size == 0)
         return false;
     int index = randrange(size);
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         if (index == 0) {
             it.select_single();
             break;
@@ -1212,7 +1215,7 @@ inline void spread_value(FrameObject * obj, int alt, int start)
 
 inline void spread_value(ObjectList & instances, int alt, int start)
 {
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         (*it)->alterables->values.set(alt, start);
         start++;
     }
@@ -1220,7 +1223,7 @@ inline void spread_value(ObjectList & instances, int alt, int start)
 
 inline void spread_value(QualifierList & instances, int alt, int start)
 {
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         (*it)->alterables->values.set(alt, start);
         start++;
     }
@@ -1231,7 +1234,7 @@ inline int objects_in_zone(ObjectList & instances,
 {
     int v[4] = {x1, y1, x2, y2};
     int count = 0;
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         // XXX objects need to be fully contained in zone,
         // but here we only check for collision
         if (!collide_box(*it, v))
@@ -1246,7 +1249,7 @@ inline int objects_in_zone(QualifierList & instances,
 {
     int v[4] = {x1, y1, x2, y2};
     int count = 0;
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         // XXX objects need to be fully contained in zone,
         // but here we only check for collision
         if (!collide_box(*it, v))
@@ -1260,7 +1263,7 @@ inline void pick_objects_in_zone(ObjectList & instances,
                                  int x1, int y1, int x2, int y2)
 {
     int v[4] = {x1, y1, x2, y2};
-    for (ObjectIterator it(instances); !it.end(); it++) {
+    for (ObjectIterator it(instances); !it.end(); ++it) {
         // XXX objects need to be fully contained in zone,
         // but here we only check for collision
         if (collide_box(*it, v))
@@ -1273,7 +1276,7 @@ inline void pick_objects_in_zone(QualifierList & instances,
                                  int x1, int y1, int x2, int y2)
 {
     int v[4] = {x1, y1, x2, y2};
-    for (QualifierIterator it(instances); !it.end(); it++) {
+    for (QualifierIterator it(instances); !it.end(); ++it) {
         // XXX objects need to be fully contained in zone,
         // but here we only check for collision
         if (collide_box(*it, v))

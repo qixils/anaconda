@@ -146,6 +146,13 @@ def use_global_instances(converter):
 def use_update_filtering(converter):
     return is_anne
 
+def use_image_flush(converter, frame):
+    # for 3DS primarily (maybe Vita as well)
+    if is_avgn:
+        return frame.name in ('Level Select',)
+    else:
+        return True
+
 def write_defines(converter, writer):
     if is_anne:
         writer.putln('#define CHOWDREN_SNES_CONTROLLER')

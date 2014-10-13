@@ -288,8 +288,7 @@ const float back_texcoords[8] = {
 };
 #endif
 
-void Image::draw(double x, double y, double angle,
-                 double scale_x, double scale_y,
+void Image::draw(int x, int y, float angle, float scale_x, float scale_y,
                  bool flip_x, bool flip_y, GLuint background,
                  bool has_tex_param)
 {
@@ -348,22 +347,22 @@ void Image::draw(double x, double y, double angle,
     glTexCoord2f(tex_coords[0], tex_coords[1]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[0], back_texcoords[1]);
-    glVertex2d(-hotspot_x, -hotspot_y);
+    glVertex2i(-hotspot_x, -hotspot_y);
 
     glTexCoord2f(tex_coords[2], tex_coords[3]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[2], back_texcoords[3]);
-    glVertex2d(-hotspot_x + width, -hotspot_y);
+    glVertex2i(-hotspot_x + width, -hotspot_y);
 
     glTexCoord2f(tex_coords[4], tex_coords[5]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[4], back_texcoords[5]);
-    glVertex2d(-hotspot_x + width, -hotspot_y + height);
+    glVertex2i(-hotspot_x + width, -hotspot_y + height);
 
     glTexCoord2f(tex_coords[6], tex_coords[7]);
     if (background != 0)
         glMultiTexCoord2f(GL_TEXTURE1, back_texcoords[6], back_texcoords[7]);
-    glVertex2d(-hotspot_x, -hotspot_y + height);
+    glVertex2i(-hotspot_x, -hotspot_y + height);
 
     glEnd();
 
@@ -383,7 +382,7 @@ void Image::draw(double x, double y, double angle,
     glPopMatrix();
 }
 
-void Image::draw(double x, double y, int src_x, int src_y, int w, int h)
+void Image::draw(int x, int y, int src_x, int src_y, int w, int h)
 {
     if (tex == 0) {
         upload_texture();
@@ -392,8 +391,8 @@ void Image::draw(double x, double y, int src_x, int src_y, int w, int h)
             return;
     }
 
-    double x2 = x + double(w);
-    double y2 = y + double(h);
+    int x2 = x + w;
+    int y2 = y + h;
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -403,13 +402,13 @@ void Image::draw(double x, double y, int src_x, int src_y, int w, int h)
     float t_y1 = float(src_y) / float(height);
     float t_y2 = t_y1 + float(h) / float(height);
     glTexCoord2f(t_x1, t_y1);
-    glVertex2d(x, y);
+    glVertex2i(x, y);
     glTexCoord2f(t_x2, t_y1);
-    glVertex2d(x2, y);
+    glVertex2i(x2, y);
     glTexCoord2f(t_x2, t_y2);
-    glVertex2d(x2, y2);
+    glVertex2i(x2, y2);
     glTexCoord2f(t_x1, t_y2);
-    glVertex2d(x, y2);
+    glVertex2i(x, y2);
     glEnd();
     glDisable(GL_TEXTURE_2D);
 }

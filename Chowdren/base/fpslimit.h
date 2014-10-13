@@ -11,7 +11,6 @@ public:
     double dt;
 
     FPSLimiter();
-    ~FPSLimiter();
     void set(int value);
     void start();
     void finish();

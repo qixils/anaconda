@@ -166,11 +166,22 @@ Layer::Layer(int index, double scroll_x, double scroll_y, bool visible,
     init(index, scroll_x, scroll_y, visible, wrap_x, wrap_y);
 }
 
+Layer::Layer(const Layer & layer)
+{
+    // this should never be called, but need to make vector::resize happy
+    reset();
+}
+
+Layer & Layer::operator=(Layer & other)
+{
+    // this should never be called, but need to make vector::resize happy
+    return *this;
+}
+
 void Layer::reset()
 {
     x = y = 0;
     off_x = off_y = 0;
-    order_changed = false;
     back = NULL;
 }
 
@@ -211,9 +222,9 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     this->off_x = off_x;
     this->off_y = off_y;
 
-    LayerInstances::const_iterator it;
+    LayerInstances::iterator it;
     for (it = instances.begin(); it != instances.end(); ++it) {
-        FrameObject * object = *it;
+        FrameObject * object = &*it;
         if (object->flags & SCROLL)
             continue;
         object->set_position(object->x + dx, object->y + dy);
@@ -243,10 +254,10 @@ void Layer::set_position(int x, int y)
 
     this->x = x;
     this->y = y;
-    LayerInstances::const_iterator it;
+    LayerInstances::iterator it;
 
     for (it = instances.begin(); it != instances.end(); ++it) {
-        FrameObject * object = *it;
+        FrameObject * object = &*it;
         if (object->flags & SCROLL)
             continue;
         object->set_position(object->x + dx, object->y + dy);
@@ -278,7 +289,6 @@ void Layer::add_background_object(FrameObject * instance)
 
 void Layer::remove_background_object(FrameObject * instance)
 {
-    order_changed = true;
     FlatObjectList::iterator it;
     for (it = background_instances.begin(); it != background_instances.end();
          ++it) {
@@ -289,46 +299,43 @@ void Layer::remove_background_object(FrameObject * instance)
     }
 }
 
+#define LAYER_DEPTH_SPACING 1.0f
+
 void Layer::add_object(FrameObject * instance)
 {
-    instance->depth = instances.size();
-    instances.push_back(instance);
+    instance->depth = instances.back().depth + LAYER_DEPTH_SPACING;
+    instances.push_back(*instance);
 }
 
 void Layer::insert_object(FrameObject * instance, int index)
 {
-    order_changed = true;
     if (index == 0) {
-        instances.push_front(instance);
+        instance->depth = instances.front().depth - LAYER_DEPTH_SPACING;
+        instances.push_front(*instance);
         return;
     }
     LayerInstances::iterator it = instances.begin();
-    std::advance(it, index);
-    instances.insert(it, instance);
+    std::advance(it, index - 1);
+    float prev = it->depth;
+    ++it;
+    float next = it->depth;
+    instance->depth = (prev + next) / 2.0f;
+    instances.insert(it, *instance);
+}
+
+void Layer::reset_depth()
+{
+    LayerInstances::iterator it;
+    float i = 0.0f;
+    for (it = instances.begin(); it != instances.end(); ++it) {
+        it->depth = i;
+        i += LAYER_DEPTH_SPACING;
+    }
 }
 
 void Layer::remove_object(FrameObject * instance)
 {
-    order_changed = true;
-    LayerInstances::iterator it;
-    for (it = instances.begin(); it != instances.end(); ++it) {
-        if (*it != instance)
-            continue;
-        instances.erase(it);
-        break;
-    }
-}
-
-void Layer::set_level(int old_index, int new_index)
-{
-    LayerInstances::iterator it = instances.begin();
-    std::advance(it, old_index);
-    FrameObject * instance = *it;
-    instances.erase(it);
-    if (new_index == -1 || new_index >= int(instances.size()))
-        add_object(instance);
-    else
-        insert_object(instance, new_index);
+    instances.erase(LayerInstances::s_iterator_to(*instance));
 }
 
 void Layer::set_level(FrameObject * instance, int new_index)
@@ -345,7 +352,7 @@ int Layer::get_level(FrameObject * instance)
     LayerInstances::const_iterator it;
     int i = 0;
     for (it = instances.begin(); it != instances.end(); ++it) {
-        if (*it == instance)
+        if (&*it == instance)
             return i;
         i++;
     }
@@ -477,16 +484,6 @@ void Layer::draw(int off_x, int off_y)
     int y2 = y1+WINDOW_HEIGHT;
 
     PROFILE_BEGIN(Layer_draw_instances);
-
-    if (order_changed) {
-        LayerInstances::iterator it;
-        int i = 0;
-        for (it = instances.begin(); it != instances.end(); ++it) {
-            (*it)->depth = i;
-            i++;
-        }
-        order_changed = false;
-    }
 
     static FlatObjectList draw_list;
     draw_list.clear();
@@ -1052,8 +1049,8 @@ FrameObject::~FrameObject()
 #endif
 }
 
-void FrameObject::draw_image(Image * img, int x, int y, double angle,
-                             double x_scale, double y_scale, bool flip_x,
+void FrameObject::draw_image(Image * img, int x, int y, float angle,
+                             float x_scale, float y_scale, bool flip_x,
                              bool flip_y)
 {
     GLuint back_tex = 0;
@@ -1306,22 +1303,7 @@ void FrameObject::set_level(int index)
 
 int FrameObject::get_level()
 {
-    if (!layer->order_changed)
-        return depth;
-    return layer->get_level(this);
-}
-
-void FrameObject::move_back(FrameObject * other)
-{
-    if (other == NULL)
-        return;
-    if (other->layer != layer)
-        return;
-    int level = get_level();
-    int level2 = other->get_level();
-    if (level < level2)
-        return;
-    layer->set_level(level, level2);
+    return depth;
 }
 
 void FrameObject::move_back()
@@ -1334,17 +1316,50 @@ void FrameObject::move_front()
     layer->set_level(this, -1);
 }
 
+void FrameObject::move_back(FrameObject * other)
+{
+    if (other == NULL)
+        return;
+    if (other->layer != layer)
+        return;
+    if (depth <= other->depth)
+        return;
+
+    LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
+    float next = it->depth;
+
+    if (it == layer->instances.begin()) {
+        depth = next - LAYER_DEPTH_SPACING;
+    } else {
+        float prev = (--LayerInstances::s_iterator_to(*other))->depth;
+        depth = (prev + next) / 2.0f;
+    }
+
+    layer->instances.erase(LayerInstances::s_iterator_to(*this));
+    layer->instances.insert(it, *this);
+}
+
 void FrameObject::move_front(FrameObject * other)
 {
     if (other == NULL)
         return;
     if (other->layer != layer)
         return;
-    int level = get_level();
-    int level2 = other->get_level();
-    if (level > level2)
+    if (depth >= other->depth)
         return;
-    layer->set_level(level, level2);
+    LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
+    float prev = it->depth;
+    ++it;
+
+    if (it == layer->instances.end()) {
+        depth = prev + LAYER_DEPTH_SPACING;
+    } else {
+        float next = it->depth;
+        depth = (prev + next) / 2.0f;
+    }
+
+    layer->instances.erase(LayerInstances::s_iterator_to(*this));
+    layer->instances.insert(it, *this);
 }
 
 FixedValue FrameObject::get_fixed()
@@ -1792,8 +1807,6 @@ void Active::draw()
     bool blend = transparent || blend_color.a < 255 || shader != NULL;
     if (!blend)
         glDisable(GL_BLEND);
-    if (!blend)
-        glEnable(GL_BLEND);
     draw_image(image, x, y, angle, x_scale, y_scale, false, false);
     if (!blend)
         glEnable(GL_BLEND);
@@ -3236,14 +3249,14 @@ void LayerObject::set_alpha_coefficient(int index, int alpha)
     }
 }
 
-double LayerObject::get_alterable(FrameObject * instance)
+double LayerObject::get_alterable(const FrameObject & instance)
 {
-    if (instance->alterables == NULL)
+    if (instance.alterables == NULL)
         return def;
-    return instance->alterables->values.get(sort_index);
+    return instance.alterables->values.get(sort_index);
 }
 
-bool LayerObject::sort_func(FrameObject * a, FrameObject * b)
+bool LayerObject::sort_func(const FrameObject & a, const FrameObject & b)
 {
     double value1 = get_alterable(a);
     double value2 = get_alterable(b);
@@ -3259,13 +3272,8 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     sort_reverse = true;
     this->def = def;
     Layer * layer = &frame->layers[current_layer];
-    layer->order_changed = true;
-    LayerInstances & instances = layer->instances;
-#ifdef LAYER_USE_STD_SORT
-    std::sort(instances.begin(), instances.end(), sort_func);
-#else
-    instances.sort(sort_func);
-#endif
+    layer->instances.sort(sort_func);
+    layer->reset_depth();
 }
 
 // Viewport

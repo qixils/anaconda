@@ -11,6 +11,7 @@
 #undef max
 #include "broadphase.h"
 #include <assert.h>
+#include <boost/intrusive/list.hpp>
 
 class InstanceCollision;
 class Frame;
@@ -97,6 +98,9 @@ public:
 
 #endif
 
+typedef boost::intrusive::link_mode<boost::intrusive::normal_link> LinkMode;
+typedef boost::intrusive::list_member_hook<LinkMode> LayerPos;
+
 class FrameObject
 {
 public:
@@ -104,7 +108,7 @@ public:
     std::string name;
 #endif
     int index;
-    int depth;
+    float depth;
     int x, y;
     int width, height;
     int direction;
@@ -114,6 +118,7 @@ public:
     Color blend_color;
     Frame * frame;
     Layer * layer;
+    LayerPos layer_pos;
     Shader * shader;
     ShaderParameters * shader_parameters;
     int movement_count;
@@ -144,8 +149,8 @@ public:
     void set_visible(bool value);
     void set_blend_color(int color);
     virtual void draw();
-    void draw_image(Image * img, int x, int y, double angle = 0.0,
-                    double scale_x = 1.0, double scale_y = 1.0,
+    void draw_image(Image * img, int x, int y, float angle = 0.0f,
+                    float scale_x = 1.0f, float scale_y = 1.0f,
                     bool flip_x = false, bool flip_y = false);
     void begin_draw(int width, int height);
     void begin_draw();

@@ -11,21 +11,10 @@
 
 #include "fpslimit.h"
 
-
 FPSLimiter::FPSLimiter()
 : framerate(-1)
 {
     old_time = platform_get_time();
-#ifdef _WIN32
-    timeBeginPeriod(1);
-#endif
-}
-
-FPSLimiter::~FPSLimiter()
-{
-#ifdef _WIN32
-    timeEndPeriod(1);
-#endif
 }
 
 void FPSLimiter::set(int value)

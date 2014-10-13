@@ -163,10 +163,18 @@ void platform_init()
 #endif
     start_time = SDL_GetPerformanceCounter();
     init_joystick();
+
+#ifdef _WIN32
+    timeBeginPeriod(1);
+#endif
 }
 
 void platform_exit()
 {
+#ifdef _WIN32
+    timeEndPeriod(1);
+#endif
+
     SDL_Quit();
 }
 
@@ -385,6 +393,8 @@ void platform_create_display(bool fullscreen)
     screen_fbo.init(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
+static int vsync_value = -2;
+
 void platform_set_vsync(bool value)
 {
     if (global_window == NULL)
@@ -396,6 +406,10 @@ void platform_set_vsync(bool value)
     else
         vsync = 0;
 
+    if (vsync == vsync_value)
+        return;
+    vsync_value = vsync;
+
     int ret = SDL_GL_SetSwapInterval(vsync);
     if (ret == 0)
         return;
@@ -403,13 +417,28 @@ void platform_set_vsync(bool value)
     std::cout << "Set vsync failed: " << SDL_GetError() << std::endl;
 }
 
+#define CHOWDREN_DESKTOP_FULLSCREEN
+
 void platform_set_fullscreen(bool value)
 {
+#ifdef CHOWDREN_DESKTOP_FULLSCREEN
     int flags;
     if (value)
         flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
     else
         flags = 0;
+#else
+    int flags;
+    if (value) {
+        flags = SDL_WINDOW_FULLSCREEN;
+        int display = SDL_GetWindowDisplayIndex(global_window);
+        SDL_DisplayMode mode;
+        SDL_GetDesktopDisplayMode(display, &mode);
+        SDL_SetWindowDisplayMode(global_window, &mode);
+        std::cout << "Real fullscreen" << std::endl;
+    } else
+        flags = 0;
+#endif
     SDL_SetWindowFullscreen(global_window, flags);
 }
 

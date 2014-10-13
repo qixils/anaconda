@@ -50,11 +50,11 @@ public:
     void replace(const Color & from, const Color & to);
     void load();
     void upload_texture();
-    void draw(double x, double y, double angle = 0.0,
-              double scale_x = 1.0, double scale_y = 1.0,
-              bool flip_x = false, bool flip_y = false, GLuint back = 0,
-              bool has_tex_param = false);
-    void draw(double x, double y, int src_x, int src_y, int w, int h);
+    void draw(int x, int y, float angle = 0.0f,
+              float scale_x = 1.0f, float scale_y = 1.0f,
+              bool flip_x = false, bool flip_y = false,
+              GLuint back = 0, bool has_tex_param = false);
+    void draw(int x, int y, int src_x, int src_y, int w, int h);
     bool is_valid();
     void unload();
 

@@ -1362,17 +1362,17 @@ class Converter(object):
         start_writer.putln('timer_base = %s;' % timer_base)
 
         # load images on startup
-        if False:
-            start_writer.putln('static bool images_initialized = false;')
-            start_writer.putln('if (!images_initialized) {')
-            start_writer.indent()
-            start_writer.putln('images_initialized = true;')
-            for image_handle in startup_images:
-                img = game.images.itemDict[image_handle]
-                start_writer.putln('%s->load(true);' %
-                                   self.get_image(image_handle))
-            start_writer.end_brace()
+        if hacks.use_image_flush(self, frame):
+            start_writer.putlnc('reset_image_cache();')
 
+        if True:
+            for image_handle in startup_images:
+                img = self.game.images.itemDict[image_handle]
+                start_writer.putln('%s->load();' %
+                                   self.get_image(image_handle))
+
+        if hacks.use_image_flush(self, frame):
+            start_writer.putlnc('flush_image_cache();')
 
         start_writer.putlnc('layers.resize(%s);', len(frame.layers.items))
 

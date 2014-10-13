@@ -30,8 +30,9 @@ public:
     CollisionBase * collide(CollisionBase * a);
 };
 
-// #define LAYER_USE_STD_SORT
-typedef std::list<FrameObject*> LayerInstances;
+typedef boost::intrusive::member_hook<FrameObject, LayerPos,
+                                      &FrameObject::layer_pos> LayerHook;
+typedef boost::intrusive::list<FrameObject, LayerHook> LayerInstances;
 
 class Layer
 {
@@ -46,13 +47,14 @@ public:
     int off_x, off_y;
     int x, y;
     Broadphase broadphase;
-    bool order_changed;
     bool wrap_x, wrap_y;
 
     Layer();
     Layer(int index, double scroll_x, double scroll_y, bool visible,
           bool wrap_x, bool wrap_y);
     ~Layer();
+    Layer(const Layer & layer);
+    Layer & operator=(Layer &);
     void init(int index, double scroll_x, double scroll_y, bool visible,
               bool wrap_x, bool wrap_y);
     void reset();
@@ -63,9 +65,9 @@ public:
     void add_object(FrameObject * instance);
     void insert_object(FrameObject * instance, int index);
     void remove_object(FrameObject * instance);
+    void reset_depth();
     int get_level(FrameObject * instance);
     void set_level(FrameObject * instance, int index);
-    void set_level(int old_index, int new_index);
     void create_background();
     void destroy_backgrounds();
     void destroy_backgrounds(int x, int y, bool fine);

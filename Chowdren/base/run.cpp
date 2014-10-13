@@ -37,9 +37,9 @@ GameManager * global_manager;
 #define CHOWDREN_DEBUG
 #endif
 
-// #ifdef CHOWDREN_DEBUG
+#ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-// #endif
+#endif
 
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -348,16 +348,8 @@ void GameManager::set_frame(int index)
 
     std::cout << "Setting frame: " << index << std::endl;
 
-    bool flush_images = index != frame->index;
-
-    if (flush_images)
-        reset_image_cache();
-
     frame->set_index(index);
     frame->on_start();
-
-    if (flush_images)
-        flush_image_cache();
 
     std::cout << "Frame set" << std::endl;
 }

@@ -165,8 +165,8 @@ public:
     int animation_direction, animation_frame;
     int forced_animation, forced_frame, forced_speed, forced_direction;
     unsigned int counter;
-    double angle;
-    double x_scale, y_scale;
+    float angle;
+    float x_scale, y_scale;
     int action_x, action_y;
     bool collision_box;
     bool stopped;
@@ -528,8 +528,8 @@ public:
     void set_y(int index, int y);
     void set_position(int index, int x, int y);
     void set_alpha_coefficient(int index, int alpha);
-    static double get_alterable(FrameObject * instance);
-    static bool sort_func(FrameObject * a, FrameObject * b);
+    static double get_alterable(const FrameObject & instance);
+    static bool sort_func(const FrameObject & a, const FrameObject & b);
     void sort_alt_decreasing(int index, double def);
 };
 

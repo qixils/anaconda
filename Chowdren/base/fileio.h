@@ -3,30 +3,56 @@
 
 #include <string>
 #include <stdio.h>
-// stdio.h garbage
-#undef getc
 
-class FSFile
+class BaseFile
 {
 public:
     void * handle;
     bool closed;
 
-    FSFile();
-    FSFile(const char * filename, const char * mode);
-    ~FSFile();
+    BaseFile();
+    BaseFile(const char * filename, const char * mode);
+    ~BaseFile();
     void open(const char * filename, const char * mode);
     bool seek(size_t v, int origin = SEEK_SET);
     size_t tell();
     bool is_open();
-    void read_line(std::string & line);
-    void read_delim(std::string & line, char delim);
     size_t read(void * data, size_t size);
     size_t write(const void * data, size_t size);
     void close();
     bool at_end();
-    int getc();
 };
+
+class BufferedFile
+{
+public:
+    BaseFile fp;
+
+    size_t size;
+    size_t pos;
+    size_t buf_pos;
+    size_t buf_size;
+    void * buffer;
+
+    BufferedFile();
+    BufferedFile(const char * filename, const char * mode);
+    ~BufferedFile();
+    void buffer_data(size_t size);
+    void open(const char * filename, const char * mode);
+    bool seek(size_t v, int origin = SEEK_SET);
+    size_t tell();
+    bool is_open();
+    size_t read(void * data, size_t size);
+    size_t write(const void * data, size_t size);
+    void close();
+    bool at_end();
+};
+
+#ifdef CHOWDREN_FILE_BUFFERING
+typedef BufferedFile FSFile;
+#else
+typedef BaseFile FSFile;
+#endif
 
 bool read_file(const char * filename, char ** data, size_t * ret_size,
                bool binary = true);

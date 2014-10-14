@@ -47,14 +47,22 @@ void set_image_path(const std::string & filename)
 }
 
 static FSFile image_file;
+static unsigned int image_offsets[IMAGE_COUNT];
 
 void open_image_file()
 {
     if (image_file.is_open())
         return;
     image_file.open(image_path.c_str(), "r");
-    if (!image_file.is_open())
+    if (!image_file.is_open()) {
         std::cout << "Could not open image file " << image_path << std::endl;
+        return;
+    }
+    FileStream stream(image_file);
+    stream.seek(4);
+    for (int i = 0; i < IMAGE_COUNT; i++) {
+        image_offsets[i] = stream.read_uint32();
+    }
 }
 
 // dummy constructor
@@ -127,21 +135,12 @@ void Image::load()
 
     open_image_file();
     FileStream stream(image_file);
-    stream.seek(4 + handle * 4);
-    unsigned int offset;
-    stream >> offset;
-    image_file.seek(offset);
+    stream.seek(image_offsets[handle]);
 
-    int hot_x, hot_y, act_x, act_y;
-    stream >> hot_x;
-    stream >> hot_y;
-    stream >> act_x;
-    stream >> act_y;
-
-    hotspot_x = hot_x;
-    hotspot_y = hot_y;
-    action_x = act_x;
-    action_y = act_y;
+    hotspot_x = stream.read_int32();
+    hotspot_y = stream.read_int32();
+    action_x = stream.read_int32();
+    action_y = stream.read_int32();
 
     int w, h, channels;
     image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file,

@@ -1,40 +1,136 @@
 #include "fileio.h"
 
-FSFile::FSFile()
+// BaseFile
+
+BaseFile::BaseFile()
 : handle(NULL), closed(true)
 {
 }
 
-FSFile::FSFile(const char * filename, const char * mode)
+BaseFile::BaseFile(const char * filename, const char * mode)
 {
     open(filename, mode);
 }
 
-FSFile::~FSFile()
+BaseFile::~BaseFile()
 {
     close();
 }
 
-bool FSFile::is_open()
+bool BaseFile::is_open()
 {
     return !closed;
 }
 
-void FSFile::read_delim(std::string & line, char delim)
+// BufferedFile
+
+#define READ_BUFFER_SIZE size_t(1024 * 4)
+
+BufferedFile::BufferedFile()
+: buffer(NULL)
 {
-    while (true) {
-        int c = getc();
-        if (c == EOF)
-            break;
-        if (c == delim)
-            break;
-        line += c;
-    }
 }
 
-void FSFile::read_line(std::string & line)
+BufferedFile::BufferedFile(const char * filename, const char * mode)
+: buffer(NULL)
 {
-    return read_delim(line, '\n');
+    open(filename, mode);
+}
+
+void BufferedFile::open(const char * filename, const char * mode)
+{
+    pos = buf_pos = buf_size = 0;
+    fp.open(filename, mode);
+
+    if (fp.closed || *mode != 'r')
+        return;
+
+    buffer = malloc(READ_BUFFER_SIZE);
+
+    fp.seek(0, SEEK_END);
+    size = fp.tell();
+    fp.seek(0);
+}
+
+bool BufferedFile::seek(size_t new_pos, int origin)
+{
+    if (origin == SEEK_CUR)
+        pos += new_pos;
+    else if (origin == SEEK_END)
+        pos = size - new_pos;
+    else
+        pos = new_pos;
+
+    if (pos > size) {
+        pos = size;
+        return false;
+    }
+    return true;
+}
+
+size_t BufferedFile::tell()
+{
+    return pos;
+}
+
+bool BufferedFile::is_open()
+{
+    return fp.is_open();
+}
+
+size_t BufferedFile::read(void * data, size_t need)
+{
+    size_t total_read = 0;
+
+    if (pos >= buf_pos && pos < buf_pos + buf_size) {
+        size_t buf_off = pos - buf_pos;
+        total_read += std::min(need, buf_size - buf_off);
+        pos += total_read;
+        need -= total_read;
+        memcpy(data, (char*)buffer + buf_off, total_read);
+        data = (char*)data + total_read;
+    }
+    if (need == 0)
+        return total_read;
+    if (buf_pos + buf_size != pos)
+        fp.seek(pos);
+    if (need < READ_BUFFER_SIZE) {
+        buf_pos = pos;
+        buf_size = fp.read(buffer, std::max(READ_BUFFER_SIZE, need));
+        size_t read_size = std::min(buf_size, need);
+        memcpy(data, buffer, read_size);
+        total_read += read_size;
+        pos += read_size;
+    } else {
+        size_t read_size = fp.read(data, need);
+        pos += read_size;
+        total_read += read_size;
+    }
+    return total_read;
+}
+
+size_t BufferedFile::write(const void * data, size_t size)
+{
+    return fp.write(data, size);
+}
+
+void BufferedFile::close()
+{
+    if (fp.closed)
+        return;
+    fp.close();
+    free(buffer);
+    buffer = NULL;
+}
+
+bool BufferedFile::at_end()
+{
+    return pos >= size;
+}
+
+BufferedFile::~BufferedFile()
+{
+    close();
 }
 
 // stdio I/O wrappers
@@ -74,7 +170,7 @@ long int fsfile_ftell(void * fp)
 bool read_file(const char * filename, char ** data, size_t * ret_size,
                bool binary)
 {
-    FSFile fp(filename, "r");
+    BaseFile fp(filename, "r");
     if (!fp.is_open()) {
         std::cout << "Could not load file " << filename << std::endl;
         return false;
@@ -96,7 +192,7 @@ bool read_file(const char * filename, char ** data, size_t * ret_size,
 
 bool read_file(const char * filename, std::string & dst, bool binary)
 {
-    FSFile fp(filename, "r");
+    BaseFile fp(filename, "r");
     if (!fp.is_open()) {
         std::cout << "Could not load file " << filename << std::endl;
         return false;
@@ -118,7 +214,7 @@ bool read_file(const char * filename, std::string & dst, bool binary)
 bool read_file_c(const char * filename, char ** data, size_t * ret_size,
                  bool binary)
 {
-    FSFile fp(filename, "r");
+    BaseFile fp(filename, "r");
     if (!fp.is_open()) {
         std::cout << "Could not load file " << filename << std::endl;
         return false;

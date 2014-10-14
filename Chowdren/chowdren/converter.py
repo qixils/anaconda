@@ -1325,7 +1325,10 @@ class Converter(object):
         # object writer custom stuff
         for object_writer in object_writers:
             object_writer.write_frame(event_file)
-            startup_images.update(object_writer.get_images())
+            for image in object_writer.get_images():
+                image_name = self.get_image(
+                    image, game_index=object_writer.game_index)
+                startup_images.add(image_name)
 
         # print 'Startup images:', len(startup_images)
 
@@ -1366,10 +1369,8 @@ class Converter(object):
             start_writer.putlnc('reset_image_cache();')
 
         if True:
-            for image_handle in startup_images:
-                img = self.game.images.itemDict[image_handle]
-                start_writer.putln('%s->load();' %
-                                   self.get_image(image_handle))
+            for image_name in startup_images:
+                start_writer.putlnc('%s->load();', image_name)
 
         if hacks.use_image_flush(self, frame):
             start_writer.putlnc('flush_image_cache();')
@@ -1617,6 +1618,7 @@ class Converter(object):
                 object_type_id = '%s_type' % class_name
 
             object_writer.type_id = object_type_id
+            object_writer.game_index = self.game_index
 
             object_code = self.write_object(object_writer).get_data()
 
@@ -1818,8 +1820,10 @@ class Converter(object):
     def get_solid_image(self, value):
         return self.solid_images[(value, self.game_index)]
 
-    def get_image(self, value, pointer=True):
-        value = self.image_indexes[(value, self.game_index)]
+    def get_image(self, value, pointer=True, game_index=None):
+        if game_index is None:
+            game_index = self.game_index
+        value = self.image_indexes[(value, game_index)]
         func = 'get_internal_image'
         ret = '%s(%s)' % (func, value)
         if not pointer:

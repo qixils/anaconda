@@ -137,14 +137,16 @@ public:
 inline unsigned int read_le32(FSFile & file)
 {
     unsigned char buffer[4];
-    if(!file.read(reinterpret_cast<char*>(buffer), 4)) return 0;
+    if (!file.read((char*)buffer, 4))
+        return 0;
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);
 }
 
 inline unsigned short read_le16(FSFile & file)
 {
     unsigned char buffer[2];
-    if(!file.read(reinterpret_cast<char*>(buffer), 2)) return 0;
+    if (!file.read((char*)buffer, 2))
+        return 0;
     return buffer[0] | (buffer[1]<<8);
 }
 
@@ -170,13 +172,15 @@ public:
 
         unsigned char buffer[25];
         unsigned int length;
-        if(!file.read(reinterpret_cast<char*>(buffer), 12) ||
-           memcmp(buffer, "RIFF", 4) != 0 || memcmp(buffer+8, "WAVE", 4) != 0) {
+        if (!file.read(reinterpret_cast<char*>(buffer), 12) ||
+            memcmp(buffer, "RIFF", 4) != 0 ||
+            memcmp(buffer+8, "WAVE", 4) != 0)
+        {
             std::cerr << "Invalid header: " << filename << std::endl;
             return;
         }
 
-        while(!data_start) {
+        while (!data_start) {
             char tag[4];
             if(!file.read(tag, 4))
                 break;

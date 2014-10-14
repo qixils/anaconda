@@ -10,7 +10,6 @@ class BaseStream
 public:
     BaseStream()
     {
-
     }
 
     // read
@@ -28,82 +27,66 @@ public:
         out << data;
     }
 
-    BaseStream & operator>>(char &v)
+    char read_int8()
     {
-        if (!ensure_size(1))
-            v = 0;
-        else
-            read(&v, 1);
-        return *this;
+        char v;
+        if (!read(&v, 1))
+            return 0;
+        return v;
     }
 
-    BaseStream & operator>>(int &v)
+    unsigned char read_uint8()
     {
-        if (!ensure_size(4)) {
-            v = 0;
-            return *this;
-        }
-        unsigned char data[4];
-        read((char*)data, 4);
-        v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
-        return *this;
+        return (unsigned char)read_int8();
     }
 
-    BaseStream & operator>>(float &v)
+    short read_int16()
     {
-        int vv;
-        *this >> vv;
-        memcpy(&v, &vv, sizeof(float));
-        return *this;
-    }
-
-    BaseStream & operator>>(short &v)
-    {
-        if (!ensure_size(2)) {
-            v = 0;
-            return *this;
-        }
         unsigned char data[2];
-        read((char*)data, 2);
-        v = data[0] | (data[1] << 8);
-        return *this;
+        if (!read((char*)data, 2))
+            return 0;
+        return data[0] | (data[1] << 8);
     }
 
-    BaseStream & operator>>(std::string & str)
+    unsigned short read_uint16()
+    {
+        return (unsigned short)read_int16();
+    }
+
+    int read_int32()
+    {
+        unsigned char data[4];
+        if (!read((char*)data, 4))
+            return 0;
+        return data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+    }
+
+    unsigned int read_uint32()
+    {
+        return (unsigned int)read_int32();
+    }
+
+    float read_float()
+    {
+        float f;
+        int i = read_int32();
+        memcpy(&f, &i, sizeof(float));
+        return f;
+    }
+
+    void read_c_string(std::string & str)
     {
         read_delim(str, '\0');
-        return *this;
-    }
-
-    inline bool ensure_size(size_t size)
-    {
-        return true;
-    }
-
-    inline BaseStream & operator>>(unsigned int &v)
-    {
-        return *this >> reinterpret_cast<int&>(v);
-    }
-
-    inline BaseStream & operator>>(unsigned char &v)
-    {
-        return *this >> reinterpret_cast<char&>(v);
-    }
-
-    inline BaseStream & operator>>(unsigned short &v)
-    {
-        return *this >> reinterpret_cast<short&>(v);
     }
 
     // write
 
-    BaseStream & operator<<(char v)
+    void write_int8(char v)
     {
         write(&v, 1);
-        return *this;
     }
 
-    BaseStream & operator<<(int v)
+    void write_int32(int v)
     {
         unsigned char data[4];
         data[0] = v & 0xFF;
@@ -111,17 +94,16 @@ public:
         data[2] = (v >> 16) & 0xFF;
         data[3] = (v >> 24) & 0xFF;
         write((char*)&data[0], 4);
-        return *this;
     }
 
-    inline BaseStream & operator<<(unsigned int v)
+    void write_uint32(unsigned int v)
     {
-        return *this << (int)(v);
+        write_int32(int(v));
     }
 
-    inline BaseStream & operator<<(unsigned char v)
+    void write_uint8(unsigned char v)
     {
-        return *this << (char)(v);
+        write_int8(char(v));
     }
 
     void write_string(const std::string & str)
@@ -129,11 +111,27 @@ public:
         write(&str[0], str.size());
     }
 
+    void read_delim(std::string & line, char delim)
+    {
+        while (true) {
+            char c;
+            if (!read(&c, 1))
+                break;
+            if (c == delim)
+                break;
+            line += c;
+        }
+    }
+
+    void read_line(std::string & str)
+    {
+        read_delim(str, '\n');
+    }
+
     // subclasses implements this
 
     virtual void write(const char * data, size_t len) = 0;
-    virtual void read(char * data, size_t len) = 0;
-    virtual void read_delim(std::string & str, char delim) = 0;
+    virtual bool read(char * data, size_t len) = 0;
     virtual void seek(size_t pos) = 0;
     virtual bool at_end() = 0;
 };
@@ -148,14 +146,9 @@ public:
     {
     }
 
-    void read(char * data, size_t len)
+    bool read(char * data, size_t len)
     {
-        fp.read(data, len);
-    }
-
-    void read_delim(std::string & str, char delim)
-    {
-        fp.read_delim(str, delim);
+        return fp.read(data, len) == len;
     }
 
     void seek(size_t pos)
@@ -184,14 +177,9 @@ public:
     {
     }
 
-    void read(char * data, size_t len)
+    bool read(char * data, size_t len)
     {
-        stream.read(data, len);
-    }
-
-    void read_delim(std::string & str, char delim)
-    {
-        std::getline(stream, str, delim);
+        return !stream.read(data, len).eof();
     }
 
     void seek(size_t pos)
@@ -207,6 +195,41 @@ public:
     void write(const char * data, size_t len)
     {
         stream.write(data, len);
+    }
+};
+
+class StringStream : public BaseStream
+{
+public:
+    const std::string & str;
+    size_t pos;
+
+    StringStream(const std::string & str)
+    : str(str), pos(0)
+    {
+    }
+
+    bool read(char * data, size_t len)
+    {
+        if (str.size() - pos < len)
+            return false;
+        memcpy(data, &str[pos], len);
+        pos += len;
+        return true;
+    }
+
+    void seek(size_t p)
+    {
+        pos = std::max(size_t(0), std::min(p, str.size()));
+    }
+
+    bool at_end()
+    {
+        return pos == str.size();
+    }
+
+    void write(const char * data, size_t len)
+    {
     }
 };
 

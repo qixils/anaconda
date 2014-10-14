@@ -2,8 +2,6 @@
 #define HANDLE_BASE FileHandle
 
 #include <stdio.h>
-// stdio.h garbage
-#undef getc
 
 class FileHandle
 {
@@ -27,7 +25,7 @@ public:
         return 0;
     }
 
-    virtual int getc()
+    virtual int get_char()
     {
         return EOF;
     }
@@ -134,14 +132,9 @@ public:
     {
     }
 
-    int getc()
-    {
-        return stream.get();
-    }
-
     bool at_end()
     {
-        int c = getc();
+        int c = stream.get();
         stream.unget();
         return c == EOF;
     }
@@ -157,7 +150,7 @@ class StandardFile
 public:
     FILE * fp;
 
-    StandardFile(FSFile * parent, const char * filename, bool is_read)
+    StandardFile(BaseFile * parent, const char * filename, bool is_read)
     {
         const char * real_mode;
         if (is_read)
@@ -184,11 +177,6 @@ public:
         return ftell(fp);
     }
 
-    int getc()
-    {
-        return fgetc(fp);
-    }
-
     size_t read(void * data, size_t size)
     {
         return fread(data, 1, size, fp);
@@ -206,13 +194,13 @@ public:
 
     bool at_end()
     {
-        int c = getc();
+        int c = getc(fp);
         ungetc(c, fp);
         return c == EOF;
     }
 };
 
-void FSFile::open(const char * filename, const char * mode)
+void BaseFile::open(const char * filename, const char * mode)
 {
     bool is_read;
     switch (*mode) {
@@ -251,37 +239,32 @@ void FSFile::open(const char * filename, const char * mode)
     closed = false;
 }
 
-bool FSFile::seek(size_t v, int origin)
+bool BaseFile::seek(size_t v, int origin)
 {
     return ((HANDLE_BASE*)handle)->seek(v, origin);
 }
 
-size_t FSFile::tell()
+size_t BaseFile::tell()
 {
     return ((HANDLE_BASE*)handle)->tell();
 }
 
-int FSFile::getc()
-{
-    return ((HANDLE_BASE*)handle)->getc();
-}
-
-size_t FSFile::read(void * data, size_t size)
+size_t BaseFile::read(void * data, size_t size)
 {
     return ((HANDLE_BASE*)handle)->read(data, size);
 }
 
-size_t FSFile::write(const void * data, size_t size)
+size_t BaseFile::write(const void * data, size_t size)
 {
     return ((HANDLE_BASE*)handle)->write(data, size);
 }
 
-bool FSFile::at_end()
+bool BaseFile::at_end()
 {
     return ((HANDLE_BASE*)handle)->at_end();
 }
 
-void FSFile::close()
+void BaseFile::close()
 {
     if (closed)
         return;

@@ -16,8 +16,7 @@ bool load_fonts(const std::string & filename, FontList & fonts)
         return false;
     }
     FileStream stream(fp);
-    unsigned int count;
-    stream >> count;
+    unsigned int count = stream.read_uint32();
     for (unsigned int i = 0; i < count; i++) {
         FTTextureFont * font = new FTTextureFont(stream);
         fonts.push_back(font);
@@ -239,12 +238,13 @@ FTFont::FTFont(FileStream & stream)
 {
     glyphList = new FTGlyphContainer(this);
 
-    stream >> size;
-    stream >> width;
-    stream >> height;
-    stream >> ascender;
-    stream >> descender;
-    stream >> numGlyphs;
+    size = stream.read_int32();
+    width = stream.read_float();
+    height = stream.read_float();
+    ascender = stream.read_float();
+    descender = stream.read_float();
+    numGlyphs = stream.read_int32();
+
     for (int i = 0; i < numGlyphs; i++) {
         FTGlyph * glyph = new FTGlyph(stream);
         glyphList->Add(glyph, glyph->charcode);
@@ -582,23 +582,23 @@ GLint FTGlyph::activeTextureID = 0;
 FTGlyph::FTGlyph(FileStream & stream)
 : glTextureID(0), loaded(false)
 {
-    stream >> charcode;
+    charcode = stream.read_uint32();
     float x1, y1, x2, y2;
-    stream >> x1;
-    stream >> y1;
-    stream >> x2;
-    stream >> y2;
+    x1 = stream.read_float();
+    y1 = stream.read_float();
+    x2 = stream.read_float();
+    y2 = stream.read_float();
     bBox = FTBBox(x1, y1, 0.0f, x2, y2, 0.0f);
     float advance_x, advance_y;
-    stream >> advance_x;
-    stream >> advance_y;
+    advance_x = stream.read_float();
+    advance_y = stream.read_float();
     advance = FTPoint(advance_x, advance_y);
     float corner_x, corner_y;
-    stream >> corner_x;
-    stream >> corner_y;
+    corner_x = stream.read_float();
+    corner_y = stream.read_float();
     corner = FTPoint(corner_x, corner_y, 0.0f);
-    stream >> width;
-    stream >> height;
+    width = stream.read_int32();
+    height = stream.read_int32();
     data = new char[width*height];
     stream.read(data, width*height);
 }

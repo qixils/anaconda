@@ -300,9 +300,8 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         << std::endl;
     platform_create_directories(filename);
 
+    std::string new_data;
     if (!encrypt_key.empty() || use_compression) {
-        std::string new_data;
-
         bool decompressed = false;
 
         if (use_compression) {
@@ -318,12 +317,12 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         if (!encrypt_key.empty()) {
             encrypt_ini_data(new_data, encrypt_key);
         }
-
-        load_string(new_data, true);
-        return;
+    } else {
+        if (!read_file(filename.c_str(), new_data))
+            return;
     }
 
-    int e = ini_parse_file(filename.c_str(), _parse_handler, this);
+    int e = ini_parse_string(new_data, _parse_handler, this);
     if (e != 0) {
         std::cout << "INI load failed (" << filename << ") with code " << e
             << std::endl;

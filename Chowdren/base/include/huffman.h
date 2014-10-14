@@ -133,14 +133,14 @@ bool compress_huffman(const std::string & in_data, const char * filename)
     int node_count = get_huffman_tree(nodes);
 
     // construct compressed buffer
-    stream << (unsigned int)HUFFMAN_MAGIC;
-    stream << (unsigned int)in_data.size();
-    stream << (unsigned char)(node_count-1);
+    stream.write_uint32(HUFFMAN_MAGIC);
+    stream.write_uint32(in_data.size());
+    stream.write_uint8(node_count-1);
 
     // save Huffman tree used leaves nodes
     for(int i = 0; i < node_count; i++) {
-        stream << nodes[i].frequency;
-        stream << nodes[i].value;
+        stream.write_int32(nodes[i].frequency);
+        stream.write_uint8(nodes[i].value);
     }
 
     // sort nodes depending on ascii to can index nodes with its ascii value
@@ -160,7 +160,7 @@ bool compress_huffman(const std::string & in_data, const char * filename)
 
             if (bit_index >= 8) {
                 bit_index -= 8;
-                stream << code;
+                stream.write_uint8(code);
                 code = 0;
             }
         }
@@ -177,25 +177,19 @@ bool decompress_huffman(const char * filename, std::string & out)
     }
     FileStream stream(fp);
 
-    unsigned int magic;
-    stream >> magic;
-    if (magic != HUFFMAN_MAGIC)
+    if (stream.read_uint32() != HUFFMAN_MAGIC)
         return false;
 
-    unsigned int size;
-    stream >> size;
-    out.resize(size);
+    out.resize(stream.read_uint32());
 
-    unsigned char node_count_c;
-    stream >> node_count_c;
-    int node_count = node_count_c + 1;
+    int node_count = int(stream.read_uint8()) + 1;
 
     // initialize Huffman nodes with frequency and ascii
     HuffmanNode nodes[511];
 
     for (int i = 0; i < node_count; i++) {
-        stream >> nodes[i].frequency;
-        stream >> nodes[i].value;
+        nodes[i].frequency = stream.read_int32();
+        nodes[i].value = stream.read_uint8();
     }
 
     // construct Huffman tree
@@ -208,9 +202,7 @@ bool decompress_huffman(const char * filename, std::string & out)
 
     unsigned int dst_index = 0;
     int bit_index = 0;
-    unsigned char code;
-
-    stream >> code;
+    unsigned char code = stream.read_uint8();
 
     HuffmanNode * node;
     while (dst_index < out.size()) {
@@ -223,7 +215,7 @@ bool decompress_huffman(const char * filename, std::string & out)
             bit_index++;
             if (bit_index >= 8) {
                 bit_index -= 8;
-                stream >> code;
+                code = stream.read_uint8();
             }
         }
         out[dst_index++] = node->value;

@@ -2859,10 +2859,8 @@ void WindowControl::minimize()
 
 Workspace::Workspace(BaseStream & stream)
 {
-    stream >> name;
-    unsigned int len;
-    stream >> len;
-    stream.read(data, len);
+    stream.read_c_string(name);
+    stream.read(data, stream.read_uint32());
 }
 
 Workspace::Workspace(const std::string & name)
@@ -3050,27 +3048,21 @@ void ArrayObject::load(const std::string & filename)
         return;
     }
 
-    short major, minor;
-
-    stream >> major;
-    if (major != ARRAY_MAJOR_VERSION) {
+    if (stream.read_int16() != ARRAY_MAJOR_VERSION) {
         std::cout << "Invalid ARRAY_MAJOR_VERSION" << std::endl;
         return;
     }
 
-    stream >> minor;
-    if (minor != ARRAY_MINOR_VERSION) {
+    if (stream.read_int16() != ARRAY_MINOR_VERSION) {
         std::cout << "Invalid ARRAY_MINOR_VERSION" << std::endl;
         return;
     }
 
-    stream >> x_size;
-    stream >> y_size;
-    stream >> z_size;
+    x_size = stream.read_int32();
+    y_size = stream.read_int32();
+    z_size = stream.read_int32();
 
-    int flags;
-    stream >> flags;
-
+    int flags = stream.read_int32();
     is_numeric = (flags & NUMERIC_FLAG) != 0;
     offset = int((flags & BASE1_FLAG) != 0);
 
@@ -3082,13 +3074,9 @@ void ArrayObject::load(const std::string & filename)
 
     for (int i = 0; i < x_size * y_size * z_size; i++) {
         if (is_numeric) {
-            int value;
-            stream >> value;
-            array[i] = double(value);
+            array[i] = double(stream.read_int32());
         } else {
-            int len;
-            stream >> len;
-            stream.read_string(strings[i], len);
+            stream.read_string(strings[i], stream.read_int32());
         }
     }
 
@@ -3931,12 +3919,13 @@ ListObject::ListObject(int x, int y, int type_id)
 
 void ListObject::load_file(const std::string & name)
 {
-    FSFile fp(name.c_str(), "r");
-    if (!fp.is_open())
+    std::string data;
+    if (!read_file(name.c_str(), data))
         return;
+    StringStream ss(data);
     std::string line;
-    while (!fp.at_end()) {
-        fp.read_line(line);
+    while (!ss.at_end()) {
+        ss.read_line(line);
         add_line(line);
     }
 }

@@ -1,4 +1,5 @@
 from libcpp.vector cimport vector
+from mmfparser.common cimport allocate_memory
 cdef extern from "<algorithm>" namespace "std":
     void sort[T, R](T first, T second, R comp)
 
@@ -118,3 +119,253 @@ def pack_images(images, width, height):
         yield res
 
         print 'remaining sprites:', len(new_images)
+
+cdef inline bint pack_bits(unsigned char v, int n, unsigned char * out):
+    n = 8 - n
+    cdef unsigned char vv = v >> n
+    if v != (vv << n):
+        return False
+    out[0] = vv
+    return True
+
+def to_a4(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 8, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if r != 255 or g != 255 or b != 255:
+            return None
+        if not pack_bits(a, 4, &a):
+            return None
+        if i % 8 == 0:
+            dst[0] |= a << 4
+        else:
+            dst[0] |= a
+            dst += 1
+        i += 4
+    return ret
+
+def to_a4_ignore_rgb(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 8, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        a = src_c[i+3]
+        if not pack_bits(a, 4, &a):
+            return None
+        if i % 8 == 0:
+            dst[0] |= a << 4
+        else:
+            dst[0] |= a
+            dst += 1
+        i += 4
+    return ret
+
+def to_l4(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 8, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if r != g or r != b or g != b or a != 255:
+            return None
+        if not pack_bits(r, 4, &r):
+            return None
+        if i % 8 == 0:
+            dst[0] |= r << 4
+        else:
+            dst[0] |= r
+            dst += 1
+        i += 4
+    return ret
+
+def to_a8(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 4, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if r != 255 or g != 255 or b != 255:
+            return None
+        dst[0] = a
+        dst += 1
+        i += 4
+    return ret
+
+def to_l8(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 4, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if r != g or r != b or g != b or a != 255:
+            return None
+        dst[0] = r
+        dst += 1
+        i += 4
+    return ret
+
+def to_rgb565_with_alpha(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 2, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    cdef unsigned short * dst_s = <unsigned short*>dst
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if a != 255:
+            return None
+        if not pack_bits(r, 5, &r):
+            return None
+        if not pack_bits(g, 6, &g):
+            return None
+        if not pack_bits(b, 5, &b):
+            return None
+        dst_s[0] = (r << 11) | (g << 5) | b
+        dst_s += 1
+        i += 4
+    return ret
+
+def to_rgb565_without_alpha(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 2, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    cdef unsigned short * dst_s = <unsigned short*>dst
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if not pack_bits(r, 5, &r):
+            return None
+        if not pack_bits(g, 6, &g):
+            return None
+        if not pack_bits(b, 5, &b):
+            return None
+        dst_s[0] = (r << 11) | (g << 5) | b
+        dst_s += 1
+        i += 4
+    return ret
+
+def to_rgba4444(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 2, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    cdef unsigned short * dst_s = <unsigned short*>dst
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if a != 255:
+            return None
+        if not pack_bits(r, 4, &r):
+            return None
+        if not pack_bits(g, 4, &g):
+            return None
+        if not pack_bits(b, 4, &b):
+            return None
+        if not pack_bits(a, 4, &a):
+            return None
+        dst_s[0] = (r << 12) | (g << 8) | (b << 4) | a
+        dst_s += 1
+        i += 4
+    return ret
+
+def to_rgba5551(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory(size / 2, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    cdef unsigned short * dst_s = <unsigned short*>dst
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if a != 255:
+            return None
+        if not pack_bits(r, 5, &r):
+            return None
+        if not pack_bits(g, 5, &g):
+            return None
+        if not pack_bits(b, 5, &b):
+            return None
+        if not pack_bits(a, 1, &a):
+            return None
+        dst_s[0] = (r << 11) | (g << 6) | (b << 1) | a
+        dst_s += 1
+        i += 4
+    return ret
+
+def to_rgb888(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef object ret = allocate_memory((size / 4) * 3, &dst)
+    cdef int i = 0
+    cdef unsigned char r, g, b, a
+    while i < size:
+        r = src_c[i]
+        g = src_c[i+1]
+        b = src_c[i+2]
+        a = src_c[i+3]
+        if a != 255:
+            return None
+        dst[0] = r
+        dst[1] = g
+        dst[2] = b
+        dst += 3
+        i += 4
+    return ret

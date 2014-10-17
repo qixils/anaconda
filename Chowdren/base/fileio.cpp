@@ -17,6 +17,16 @@ BaseFile::~BaseFile()
     close();
 }
 
+size_t BaseFile::get_size()
+{
+    // XXX maybe make this platform-specific
+    size_t pos = tell();
+    seek(0, SEEK_END);
+    size_t size = tell();
+    seek(pos);
+    return size;
+}
+
 bool BaseFile::is_open()
 {
     return !closed;
@@ -131,6 +141,11 @@ bool BufferedFile::at_end()
 BufferedFile::~BufferedFile()
 {
     close();
+}
+
+size_t BufferedFile::get_size()
+{
+    return size;
 }
 
 // stdio I/O wrappers

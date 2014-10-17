@@ -1,5 +1,6 @@
 import string
 import os
+import subprocess
 
 def get_base_path():
     path = os.path.join(os.path.dirname(__file__), '..', 'base')
@@ -9,6 +10,20 @@ def makedirs(path):
     try:
         os.makedirs(path)
     except OSError:
+        return
+
+def fix_path(path):
+    return path.replace('\\', '/')
+
+def call(args):
+    exp = ' '.join(args)
+    print exp
+    print ''
+    try:
+        subprocess.check_call(args)
+    except subprocess.CalledProcessError:
+        print 'Error, quitting...'
+        sys.exit()
         return
 
 COMPARISONS = [

@@ -586,7 +586,7 @@ public:
     int char_width, char_height;
     int char_offset;
     Image * image;
-    std::string * charmap_str;
+    const std::string * charmap_str;
     int * charmap;
     float flash_time, flash_interval;
     int alignment;

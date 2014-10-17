@@ -153,6 +153,9 @@ def use_image_flush(converter, frame):
     else:
         return True
 
+def use_image_preload(converter, frame):
+    return is_avgn
+
 def write_defines(converter, writer):
     if is_anne:
         writer.putln('#define CHOWDREN_SNES_CONTROLLER')
@@ -186,8 +189,8 @@ def write_defines(converter, writer):
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
-    if is_hfa:
-        writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
+    # if is_hfa:
+    #     writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
 
 def get_frames(converter, game, frames):
     if not is_hfa:

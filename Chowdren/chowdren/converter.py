@@ -38,6 +38,7 @@ from chowdren.shader import INK_EFFECTS
 from chowdren import hacks
 from chowdren.idpool import get_id
 from chowdren.codewriter import CodeWriter
+from chowdren.platforms import classes as platform_classes
 from mmfparser import texpack
 import platform
 import math
@@ -560,8 +561,12 @@ class Converter(object):
     def __init__(self, filenames, outdir, image_file='Sprites.dat',
                  win_ico=None, mac_icns=None, company=None,
                  version=None, copyright=None, base_only=False,
-                 copy_shaders=False):
+                 copy_shaders=False, use_dlls=False, platform=None):
         self.outdir = outdir
+
+        # DLL architecture
+        self.use_dlls = use_dlls
+        self.event_hash_id = 0
 
         # copy base
         if base_only:
@@ -606,7 +611,8 @@ class Converter(object):
 
         # set up directory structure
         makedirs(outdir)
-        makedirs(os.path.join(outdir, 'build'))
+        self.build_dir = os.path.join(outdir, 'build')
+        makedirs(self.build_dir)
 
         # application info
         company = company or game.author
@@ -618,6 +624,9 @@ class Converter(object):
             copyright = copyright, description = game.name,
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
+
+        # hacks & platform init
+        self.platform = platform_classes[platform or 'generic'](self)
         hacks.init(self)
 
         if copy_shaders:
@@ -719,9 +728,7 @@ class Converter(object):
 
             # use maxrects to create texture maps
             # makedirs('./testmaxrects')
-
             # maxrects = texpack.pack_images(maxrects_images, 1024, 1024)
-
             # for file_index, rects in enumerate(maxrects):
             #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
 
@@ -737,9 +744,7 @@ class Converter(object):
                 image_data.writeInt(image.actionX)
                 image_data.writeInt(image.actionY)
 
-                temp = StringIO()
-                maxrects_images[i].save(temp, 'PNG')
-                temp = temp.getvalue()
+                temp = self.platform.get_image(maxrects_images[i])
                 image_data.write(temp)
 
             image_header.writeReader(image_data)
@@ -774,6 +779,7 @@ class Converter(object):
                 if not dir_created:
                     makedirs(self.get_filename('sounds'))
                     dir_created = True
+                filename, data = self.platform.get_sound(filename, data)
                 self.open('sounds', filename).write(data)
                 sounds_file.putln(to_c('media->add_cache(%r, %r);',
                     sound.name, filename))
@@ -1044,12 +1050,14 @@ class Converter(object):
                                                    self.frame_srcs),
                          object_srcs=get_cmake_list('OBJECTSRCS',
                                                     objects_file.sources),
-                         extension_srcs=get_cmake_list('EXTSRCS', ext_srcs))
+                         extension_srcs=get_cmake_list('EXTSRCS', ext_srcs),
+                         use_dlls=repr(self.use_dlls).upper())
         self.copy_file('icon.icns', overwrite=False)
         self.info_dict['event_srcs'] = event_file.sources
         self.info_dict['frame_srcs'] = self.frame_srcs
         self.info_dict['object_srcs'] = objects_file.sources
         self.write_config(self.info_dict, 'config.py')
+        self.platform.install()
 
         # post-mortem stats
         print ''
@@ -1368,7 +1376,7 @@ class Converter(object):
         if hacks.use_image_flush(self, frame):
             start_writer.putlnc('reset_image_cache();')
 
-        if True:
+        if hacks.use_image_preload(self, frame):
             for image_name in startup_images:
                 start_writer.putlnc('%s->load();', image_name)
 
@@ -2047,9 +2055,17 @@ class Converter(object):
         for k, v in members:
             self.frame_initializers[k] = v
 
+    def get_event_hash(self, data):
+        if self.use_dlls:
+            event_hash = self.event_hash_id
+            self.event_hash_id += 1
+        else:
+            event_hash = get_hash(data)
+        return event_hash
+
     def write_event(self, writer, group, triggered=False):
         data = self.get_event_code(group, triggered)
-        group.data_hash = get_hash(data)
+        group.data_hash = self.get_event_hash(data)
         group.fire_write_callbacks()
         data = group.filter(data)
 
@@ -2060,17 +2076,20 @@ class Converter(object):
         data = ''
         for group in groups:
             data += self.get_event_code(group, triggered)
-        event_hash = get_hash(data)
+
+        event_hash = self.get_event_hash(data)
+
         for group in groups:
             group.data_hash = event_hash
 
-        try:
-            event_name = self.event_functions[event_hash]
-            self.add_frame_members(event_hash)
-            groups[0].event_name = event_name
-            return event_name
-        except KeyError:
-            pass
+        if not self.use_dlls:
+            try:
+                event_name = self.event_functions[event_hash]
+                self.add_frame_members(event_hash)
+                groups[0].event_name = event_name
+                return event_name
+            except KeyError:
+                pass
 
         for group in groups:
             group.fire_write_callbacks()
@@ -2096,13 +2115,13 @@ class Converter(object):
             names.append(self.write_event_function(writer, new_groups,
                                                    triggered))
 
-        wrapper_hash = get_hash(''.join(names))
-        try:
-            return self.event_wrappers[wrapper_hash]
-        except KeyError:
-            pass
-
-        self.event_wrappers[wrapper_hash] = name
+        if not self.use_dlls:
+            wrapper_hash = get_hash(''.join(names))
+            try:
+                return self.event_wrappers[wrapper_hash]
+            except KeyError:
+                pass
+            self.event_wrappers[wrapper_hash] = name
 
         writer.putmeth('void %s' % name)
         for event_name in names:
@@ -2843,7 +2862,8 @@ class Converter(object):
         data = fp.read()
         fp.close()
         kw.update(self.info_dict)
-        data = data % kw
+        for k, v in kw.iteritems():
+            data = data.replace('%%(%s)s' % k, str(v))
         fp = open(dst, 'wb')
         fp.write(data)
         fp.close()

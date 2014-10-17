@@ -6,6 +6,8 @@ set(APP_NAME "%(name)s")
 set(APP_VERSION "%(version)s")
 set(APP_COPYRIGHT "%(copyright)s")
 
+set(USE_DLLS %(use_dlls)s)
+
 %(frame_srcs)s
 
 %(event_srcs)s

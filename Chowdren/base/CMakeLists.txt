@@ -239,12 +239,17 @@ set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
 if (CMAKE_CROSSCOMPILING)
-    # libogg
-    file(GLOB LIBOGG_C "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
-    file(GLOB LIBVORBIS_C "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
-    set(VORBIS_INCLUDE_DIR "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
     include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
-    set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
+    if (NOT NO_STATIC_OGG)
+        # libogg
+        file(GLOB LIBOGG_C
+             "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
+        file(GLOB LIBVORBIS_C
+             "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
+        set(VORBIS_INCLUDE_DIR
+            "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
+        set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
+    endif()
     find_package(Boost REQUIRED)
 else()
     find_package(SDL2 REQUIRED)

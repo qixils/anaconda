@@ -221,11 +221,11 @@ void AssociateArray::save(BaseStream & stream, int method)
 
         int len = key.size() + string.size() + value.size();
         stream.write_string(number_to_string(len));
-        stream << ' ';
+        stream.write_int8(' ');
         stream.write_string(key);
-        stream << '\x00';
+        stream.write_int8('\x00');
         stream.write_string(string);
-        stream << '\x00';
+        stream.write_int8('\x00');
         stream.write_string(value);
     }
 }

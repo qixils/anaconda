@@ -21,6 +21,7 @@ public:
     size_t write(const void * data, size_t size);
     void close();
     bool at_end();
+    size_t get_size();
 };
 
 class BufferedFile
@@ -46,6 +47,7 @@ public:
     size_t write(const void * data, size_t size);
     void close();
     bool at_end();
+    size_t get_size();
 };
 
 #ifdef CHOWDREN_FILE_BUFFERING

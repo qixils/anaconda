@@ -145,14 +145,14 @@ class TextBlitter(ObjectWriter):
             align_flags.append('0')
         writer.putln('alignment = %s;' % ' | '.join(align_flags))
         writer.putln('static int charmap[256];')
-        writer.putlnc('static std::string charmap_str = %r;', character_map)
         writer.putln('static bool initialized = false;')
         writer.putln('this->charmap = &charmap[0];')
-        writer.putln('this->charmap_str = &charmap_str;')
+        interned_map = self.converter.intern_string(character_map)
+        writer.putlnc('charmap_str = &%s;', interned_map)
         writer.putln('if (!initialized) {')
         writer.indent()
         writer.putln('initialized = true;')
-        writer.putln('initialize(charmap_str);')
+        writer.putln('initialize(*charmap_str);')
         writer.end_brace()
         # other data
         if flags & FLAGS_TRANSPARENT:

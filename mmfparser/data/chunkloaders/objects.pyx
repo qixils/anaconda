@@ -1000,7 +1000,7 @@ cdef class ObjectCommon(DataLoader):
             objectData.writeInt(self.extensionVersion)
             objectData.writeInt(self.extensionId)
             objectData.writeInt(self.extensionPrivate)
-            objectData.write(self.extensionData or '')
+            objectData.write(self.extensionData or b'')
         if self.fadeIn is not None:
             fadeInOffset = objectData.tell() + 62
             self.fadeIn.write(objectData)

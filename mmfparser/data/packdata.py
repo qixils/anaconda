@@ -17,13 +17,13 @@
 
 from mmfparser.loader import DataLoader
 from mmfparser.bytereader import ByteReader, checkDefault
-from mmfparser.data.gamedata import GAME_HEADER
+from mmfparser.data.gamedata import (GAME_HEADER, UNICODE_GAME_HEADER)
 
 import zlib
 
 import struct
 
-PACK_HEADER = '\x77\x77\x77\x77\x49\x87\x47\x12' # the magic word for the pack data
+PACK_HEADER = '\x77\x77\x77\x77\x49\x87\x47\x12'
 
 class PackFile(DataLoader):
     data = None
@@ -57,8 +57,6 @@ class PackFile(DataLoader):
 def checkSize(reader, size):
     return len(reader) - reader.tell() >= size
 
-UNICODE_VERSION = 17360735
-
 class PackData(DataLoader):
     formatVersion = None
     runtimeCompressed = None
@@ -68,6 +66,7 @@ class PackData(DataLoader):
         self.items = []
 
     def read(self, reader):
+        start = reader.tell()
         header = reader.read(8) # read file header
         if header != PACK_HEADER:
             raise NotImplementedError('pack data header invalid')
@@ -75,9 +74,13 @@ class PackData(DataLoader):
         # total header size, including PACK_HEADER
         checkDefault(reader, headerSize, 32)
         dataSize = reader.readInt() # total pack data size + 32
-        self.formatVersion = reader.readInt()
-        if self.formatVersion == UNICODE_VERSION:
+
+        reader.seek(start + dataSize - 32)
+        if reader.read(4) == UNICODE_GAME_HEADER:
             self.settings['unicode'] = True
+        reader.seek(start + 16)
+
+        self.formatVersion = reader.readInt() # actually hash?
         checkDefault(reader, reader.readInt(), 0)
         checkDefault(reader, reader.readInt(), 0)
         count = reader.readInt()
@@ -95,7 +98,9 @@ class PackData(DataLoader):
             if not checkSize(reader, value):
                 break
             reader.skipBytes(value)
-        hasBingo = reader.read(4) != GAME_HEADER
+
+        header = reader.read(4)
+        hasBingo = header not in (GAME_HEADER, UNICODE_GAME_HEADER)
         reader.seek(offset)
 
         self.items = [self.new(PackFile, reader, hasBingo = hasBingo)

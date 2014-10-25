@@ -16,6 +16,9 @@
 #include "platform.h"
 #include <SDL.h>
 #include <time.h>
+#include <boost/cstdint.hpp>
+
+using boost::uintmax_t;
 
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;

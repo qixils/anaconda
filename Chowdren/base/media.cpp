@@ -462,6 +462,8 @@ void Media::add_cache(const std::string & name, const std::string & fn)
 
 #ifdef CHOWDREN_IS_DESKTOP
 #define OGG_STREAM_THRESHOLD_MB 0.5
+#elif CHOWDREN_IS_3DS
+#define OGG_STREAM_THRESHOLD_MB 0.1
 #else
 #define OGG_STREAM_THRESHOLD_MB 0.75
 #endif
@@ -485,8 +487,9 @@ void Media::add_file(const std::string & name, const std::string & fn)
         (!is_wav && size <= OGG_STREAM_THRESHOLD))
     {
         data = new SoundMemory(name, filename);
-    } else
+    } else {
         data = new SoundFile(name, filename);
+    }
     sounds[name] = data;
 }
 

@@ -102,8 +102,9 @@ size_t BufferedFile::read(void * data, size_t need)
     }
     if (need == 0)
         return total_read;
-    if (buf_pos + buf_size != pos)
+    if (buf_pos + buf_size != pos) {
         fp.seek(pos);
+    }
     if (need < READ_BUFFER_SIZE) {
         buf_pos = pos;
         buf_size = fp.read(buffer, std::max(READ_BUFFER_SIZE, need));
@@ -114,6 +115,8 @@ size_t BufferedFile::read(void * data, size_t need)
     } else {
         size_t read_size = fp.read(data, need);
         pos += read_size;
+        buf_pos = pos;
+        buf_size = 0;
         total_read += read_size;
     }
     return total_read;

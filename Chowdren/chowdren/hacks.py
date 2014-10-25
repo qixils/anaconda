@@ -154,7 +154,7 @@ def use_image_flush(converter, frame):
         return True
 
 def use_image_preload(converter, frame):
-    return is_avgn
+    return False
 
 def write_defines(converter, writer):
     if is_anne:

@@ -50,11 +50,11 @@ public:
     size_t get_size();
 };
 
-#ifdef CHOWDREN_FILE_BUFFERING
-typedef BufferedFile FSFile;
-#else
+// #ifdef CHOWDREN_FILE_BUFFERING
+// typedef BufferedFile FSFile;
+// #else
 typedef BaseFile FSFile;
-#endif
+// #endif
 
 bool read_file(const char * filename, char ** data, size_t * ret_size,
                bool binary = true);

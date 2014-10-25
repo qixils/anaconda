@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <boost/type_traits/common_type.hpp>
 #include "dynnum.h"
+#include <algorithm>
 
 #define CHOW_PI 3.14159265358979323846264338327950288
 

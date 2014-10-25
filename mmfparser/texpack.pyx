@@ -1,5 +1,6 @@
 from libcpp.vector cimport vector
 from mmfparser.common cimport allocate_memory
+from libc.string cimport memset
 cdef extern from "<algorithm>" namespace "std":
     void sort[T, R](T first, T second, R comp)
 
@@ -120,6 +121,27 @@ def pack_images(images, width, height):
 
         print 'remaining sprites:', len(new_images)
 
+
+cdef void set_bit(char * data, int b):
+    data[b / 8] |= 1 << (b % 8)
+
+
+def get_alpha_bits(image):
+    cdef bytes data = image.tobytes()
+    cdef char * src_c = data
+    cdef char * dst
+    cdef int size = len(data)
+    cdef int bit_size = (size + 32 - 1) / 32
+    cdef object ret = allocate_memory(bit_size, &dst)
+    memset(dst, 0, bit_size)
+    cdef int i = 0
+    while i < size:
+        if src_c[i + 3] != 0:
+            set_bit(dst, i / 4)
+        i += 4
+    return ret
+
+
 cdef inline bint pack_bits(unsigned char v, int n, unsigned char * out):
     n = 8 - n
     cdef unsigned char vv = v >> n
@@ -127,6 +149,7 @@ cdef inline bint pack_bits(unsigned char v, int n, unsigned char * out):
         return False
     out[0] = vv
     return True
+
 
 def to_a4(image):
     cdef bytes data = image.tobytes()
@@ -153,6 +176,7 @@ def to_a4(image):
         i += 4
     return ret
 
+
 def to_a4_ignore_rgb(image):
     cdef bytes data = image.tobytes()
     cdef char * src_c = data
@@ -172,6 +196,7 @@ def to_a4_ignore_rgb(image):
             dst += 1
         i += 4
     return ret
+
 
 def to_l4(image):
     cdef bytes data = image.tobytes()
@@ -198,6 +223,7 @@ def to_l4(image):
         i += 4
     return ret
 
+
 def to_a8(image):
     cdef bytes data = image.tobytes()
     cdef char * src_c = data
@@ -218,6 +244,7 @@ def to_a8(image):
         i += 4
     return ret
 
+
 def to_l8(image):
     cdef bytes data = image.tobytes()
     cdef char * src_c = data
@@ -237,6 +264,7 @@ def to_l8(image):
         dst += 1
         i += 4
     return ret
+
 
 def to_rgb565_with_alpha(image):
     cdef bytes data = image.tobytes()
@@ -265,6 +293,7 @@ def to_rgb565_with_alpha(image):
         i += 4
     return ret
 
+
 def to_rgb565_without_alpha(image):
     cdef bytes data = image.tobytes()
     cdef char * src_c = data
@@ -289,6 +318,7 @@ def to_rgb565_without_alpha(image):
         dst_s += 1
         i += 4
     return ret
+
 
 def to_rgba4444(image):
     cdef bytes data = image.tobytes()
@@ -319,6 +349,7 @@ def to_rgba4444(image):
         i += 4
     return ret
 
+
 def to_rgba5551(image):
     cdef bytes data = image.tobytes()
     cdef char * src_c = data
@@ -347,6 +378,7 @@ def to_rgba5551(image):
         dst_s += 1
         i += 4
     return ret
+
 
 def to_rgb888(image):
     cdef bytes data = image.tobytes()

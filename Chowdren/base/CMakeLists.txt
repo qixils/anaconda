@@ -185,17 +185,14 @@ if(MSVC)
     # /bigobj is required for MSVC because objects.cpp can get too big on
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
     # silence some stupid warnings
     add_definitions("/wd4244 /wd4102 /wd4305 /wd4351")
     add_definitions("-D_CRT_SECURE_NO_WARNINGS")
     add_definitions("-D_SCL_SECURE_NO_WARNINGS")
     # multicore compile
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "15.0")
-        add_definitions("/MP")
-    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    # SSE2
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
-    add_definitions("/arch:SSE2")
     # Disable RTTI
     STRING(REGEX REPLACE "/GR" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")

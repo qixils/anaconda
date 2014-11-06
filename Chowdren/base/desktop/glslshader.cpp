@@ -6,6 +6,8 @@
 #include "image.h"
 #include "glslshader.h"
 #include "collision.h"
+#include "datastream.h"
+#include "assetfile.h"
 
 static bool background_initialized = false;
 static GLuint background_texture;
@@ -28,18 +30,25 @@ static void initialize_background()
 
 GLSLShader * GLSLShader::current = NULL;
 
-GLSLShader::GLSLShader(const std::string & name, int flags,
+GLSLShader::GLSLShader(unsigned int id, int flags,
                        const char * texture_parameter)
-: initialized(false), name(name), flags(flags),
+: initialized(false), id(id), flags(flags),
   texture_parameter(texture_parameter)
 {
 }
 
+static AssetFile fp;
+
 void GLSLShader::initialize()
 {
+    if (!fp.is_open())
+        fp.open();
+
+    fp.set_item(id, AssetFile::SHADER_DATA);
+
     program = glCreateProgram();
-    GLuint vert_shader = attach_source("vert", GL_VERTEX_SHADER);
-    GLuint frag_shader = attach_source("frag", GL_FRAGMENT_SHADER);
+    GLuint vert_shader = attach_source(fp, GL_VERTEX_SHADER);
+    GLuint frag_shader = attach_source(fp, GL_FRAGMENT_SHADER);
 
 #ifndef CHOWDREN_USE_GL
     glBindAttribLocation(program, POSITION_ATTRIB_IDX, POSITION_ATTRIB_NAME);
@@ -104,20 +113,16 @@ bool GLSLShader::has_texture_param()
     return texture_parameter != NULL;
 }
 
-GLuint GLSLShader::attach_source(const std::string & ext, GLenum type)
+GLuint GLSLShader::attach_source(FSFile & fp, GLenum type)
 {
     GLuint shader = glCreateShader(type);
 
-    std::string path = shader_path + "/" + name + "." + ext;
-    std::cout << "Compiling " << path << std::endl;
+    FileStream stream(fp);
+    size_t size = stream.read_uint32();
+    GLchar * data = new GLchar[size];
+    stream.read(data, size);
 
-    GLchar * data;
-    size_t length;
-
-    read_file(path.c_str(), &data, &length, false);
-
-    GLint len = length;
-
+    GLint len = size;
     glShaderSource(shader, 1, (const GLchar**)&data, &len);
     delete[] data;
     glCompileShader(shader);

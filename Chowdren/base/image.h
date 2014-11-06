@@ -21,7 +21,8 @@ enum ImageFlags
 {
     IMAGE_USED = 1 << 0,
     IMAGE_FILE = 1 << 1,
-    IMAGE_CACHED = 1 << 2
+    IMAGE_CACHED = 1 << 2,
+    IMAGE_STATIC = 1 << 3
 };
 
 class Image
@@ -49,6 +50,7 @@ public:
     Image * copy();
     void replace(const Color & from, const Color & to);
     void load();
+    void set_static();
     void upload_texture();
     void draw(int x, int y, float angle = 0.0f,
               float scale_x = 1.0f, float scale_y = 1.0f,
@@ -94,6 +96,7 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
                             int act_x, int act_y, TransparentColor color);
 void reset_image_cache();
 void flush_image_cache();
+void preload_images();
 
 extern Image dummy_image;
 

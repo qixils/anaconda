@@ -78,6 +78,7 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${PLATFORM_CPP}
+    ${CHOWDREN_BASE_DIR}/assetfile.cpp
     ${CHOWDREN_BASE_DIR}/shader.cpp
     ${CHOWDREN_BASE_DIR}/font.cpp
     ${CHOWDREN_BASE_DIR}/movement.cpp

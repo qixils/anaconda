@@ -1,7 +1,7 @@
 #ifndef CHOWDREN_MEDIA_H
 #define CHOWDREN_MEDIA_H
 
-#include <boost/unordered_map.hpp>
+#include "assetfile.h"
 
 void set_sounds_path(const std::string & path);
 
@@ -15,11 +15,10 @@ namespace ChowdrenAudio
 class Channel
 {
 public:
-    std::string name;
+    unsigned int id;
     bool locked;
     ChowdrenAudio::SoundBase * sound;
     double volume, frequency, pan;
-    bool is_music;
 
     Channel();
     void play(SoundData * data, int loop);
@@ -36,19 +35,25 @@ public:
     bool is_stopped();
 };
 
-typedef boost::unordered_map<std::string, SoundData*> SoundMap;
-
 class Media
 {
 public:
-    SoundMap sounds;
+    SoundData * sounds[SOUND_ARRAY_SIZE];
     Channel channels[32];
+
+    enum AudioType
+    {
+        NONE = 0,
+        WAV,
+        OGG,
+        NATIVE
+    };
 
     Media();
     ~Media();
     void play(SoundData * data, int channel = -1, int loop = 1);
     void play(const std::string & filename, int channel = -1, int loop = 1);
-    void play_name(const std::string & name, int channel = -1, int loop = 1);
+    void play_id(unsigned int id, int channel = -1, int loop = 1);
     void lock(unsigned int channel);
     void set_channel_volume(unsigned int channel, double volume);
     void set_channel_frequency(unsigned int channel, double freq);
@@ -56,14 +61,14 @@ public:
     void resume_channel(unsigned int channel);
     void pause_channel(unsigned int channel);
     void stop_channel(unsigned int channel);
-    Channel * get_sample(const std::string & name);
-    void set_sample_volume(const std::string & name, double volume);
-    void set_sample_pan(const std::string & name, double pan);
-    void set_sample_position(const std::string & name, double pos);
-    void set_sample_frequency(const std::string & name, double freq);
-    double get_sample_position(const std::string & name);
-    double get_sample_duration(const std::string & name);
-    void stop_sample(const std::string & name);
+    Channel * get_sample(unsigned int id);
+    void set_sample_volume(unsigned int id, double volume);
+    void set_sample_pan(unsigned int id, double pan);
+    void set_sample_position(unsigned int id, double pos);
+    void set_sample_frequency(unsigned int id, double freq);
+    double get_sample_position(unsigned int id);
+    double get_sample_duration(unsigned int id);
+    void stop_sample(unsigned int id);
     void stop_samples();
     void pause_samples();
     void resume_samples();
@@ -72,11 +77,12 @@ public:
     double get_channel_volume(unsigned int channel);
     double get_channel_duration(unsigned int channel);
     double get_channel_frequency(unsigned int channel);
-    bool is_sample_playing(const std::string & name);
+    bool is_sample_playing(unsigned int id);
     bool is_channel_playing(unsigned int channel);
     bool is_channel_valid(unsigned int channel);
-    void add_cache(const std::string & name, const std::string & fn);
-    void add_file(const std::string & name, const std::string & fn);
+    void add_file(unsigned int id, const std::string & fn);
+    void add_cache(unsigned int id, FSFile & fp);
+    void add_data(unsigned int id, FSFile & fp, size_t size, AudioType type);
     double get_main_volume();
     void set_main_volume(double volume);
 };

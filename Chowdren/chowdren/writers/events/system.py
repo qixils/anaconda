@@ -1173,6 +1173,19 @@ class Destroy(ActionMethodWriter):
     method = 'destroy'
     ignore_static = True
 
+class PlayerAction(ActionMethodWriter):
+    def write(self, writer):
+        player = self.data.objectInfo + 1
+        if player != 1:
+            return
+        return ActionMethodWriter.write(self, writer)
+
+class IgnoreControls(PlayerAction):
+    method = '.manager->ignore_controls = true'
+
+class RestoreControls(PlayerAction):
+    method = '.manager->ignore_controls = false'
+
 # expressions
 
 class ValueExpression(ExpressionWriter):
@@ -1291,6 +1304,24 @@ class GetLoopIndex(ExpressionWriter):
         index_name = get_loop_index_name(name)
         return index_name
 
+class SampleExpression(ExpressionWriter):
+    def get_string(self):
+        converter = self.converter
+        items = converter.expression_items
+        last_exp = items[converter.item_index + 2]
+        if last_exp.getName() != 'EndParenthesis':
+            raise NotImplementedError()
+        next_exp = items[converter.item_index + 1]
+        name = converter.assets.get_sound_id(next_exp.loader.value)
+        converter.item_index += 2
+        return '%s(%s)' % (self.value, name)
+
+class GetSamplePosition(SampleExpression):
+    value = 'media->get_sample_position'
+
+class GetSampleDuration(SampleExpression):
+    value = 'media->get_sample_duration'
+
 class CurrentFrame(ExpressionWriter):
     def get_string(self):
         return '(index+1-%s)' % self.converter.frame_index_offset
@@ -1330,10 +1361,10 @@ actions = make_table(ActionMethodWriter, {
     'SetChannelVolume' : 'media->set_channel_volume(%s-1, %s)',
     'PlayLoopingChannelFileSample' : 'media->play(%s, %s-1, %s)',
     'PlayChannelFileSample' : 'media->play(%s, %s-1)',
-    'PlayChannelSample' : 'media->play_name("%s", %s-1)',
-    'PlayLoopingChannelSample' : 'media->play_name("%s", %s-1, %s)',
-    'PlayLoopingSample' : 'media->play_name("%s", -1, %s)',
-    'PlaySample' : 'media->play_name("%s", -1, 1)',
+    'PlayChannelSample' : 'media->play_id(%s, %s-1)',
+    'PlayLoopingChannelSample' : 'media->play_id(%s, %s-1, %s)',
+    'PlayLoopingSample' : 'media->play_id(%s, -1, %s)',
+    'PlaySample' : 'media->play_id(%s, -1, 1)',
     'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
     'SetRGBCoefficient' : 'set_blend_color',
@@ -1391,18 +1422,18 @@ actions = make_table(ActionMethodWriter, {
     'StopAllSamples' : 'media->stop_samples',
     'PauseAllSounds' : 'media->pause_samples',
     'ResumeAllSounds' : 'media->resume_samples',
-    'StopSample' : 'media->stop_sample("%s")',
-    'SetSamplePan' : 'media->set_sample_volume("%s", %s)',
-    'SetSamplePosition' : 'media->set_sample_position("%s", %s)',
-    'SetSampleVolume' : 'media->set_sample_volume("%s", %s)',
-    'SetSampleFrequency' : 'media->set_sample_frequency("%s", %s)',
+    'StopSample' : 'media->stop_sample(%s)',
+    'SetSamplePan' : 'media->set_sample_volume(%s, %s)',
+    'SetSamplePosition' : 'media->set_sample_position(%s, %s)',
+    'SetSampleVolume' : 'media->set_sample_volume(%s, %s)',
+    'SetSampleFrequency' : 'media->set_sample_frequency(%s, %s)',
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
     'SetTimer' : 'set_timer((%s) / 1000.0)',
     'SetLoopIndex' : SetLoopIndex,
-    'IgnoreControls' : '.manager->ignore_controls = true', # XXX fix
-    'RestoreControls' : '.manager->ignore_controls = false', # XXX fix,
+    'IgnoreControls' : IgnoreControls,
+    'RestoreControls' : RestoreControls,
     'ChangeControlType' : '.manager->control_type = %s', # XXX fix,
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
@@ -1478,7 +1509,7 @@ conditions = make_table(ConditionMethodWriter, {
     'NotAlways' : NotAlways,
     'AnimationFrame' : make_comparison('get_frame()'),
     'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
-    'SampleNotPlaying' : '!media->is_sample_playing("%s")',
+    'SampleNotPlaying' : '!media->is_sample_playing(%s)',
     'Once' : OnceCondition,
     'Every' : TimerEvery,
     'TimerEquals' : TimerEquals,
@@ -1587,8 +1618,8 @@ expressions = make_table(ExpressionMethodWriter, {
     'Ceil' : 'get_ceil',
     'GetMainVolume' : 'media->get_main_volume()',
     'GetChannelPosition' : '.media->get_channel_position(-1 +',
-    'GetSamplePosition' : 'media->get_sample_position',
-    'GetSampleDuration' : 'media->get_sample_duration',
+    'GetSamplePosition' : GetSamplePosition,
+    'GetSampleDuration' : GetSampleDuration,
     'GetChannelVolume' : '.media->get_channel_volume(-1 +',
     'GetChannelDuration' : '.media->get_channel_duration(-1 + ',
     'GetChannelFrequency' : '.media->get_channel_frequency(-1 + ',

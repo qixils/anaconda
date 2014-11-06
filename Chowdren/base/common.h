@@ -783,40 +783,6 @@ inline FrameObject * get_single(QualifierList & list, int index,
 
 extern vector<int> int_temp;
 
-template <bool save>
-struct OverlapCallback
-{
-    FrameObject * instance;
-    bool added;
-    int * temp1;
-    int * temp2;
-
-    OverlapCallback(FrameObject * instance, int * temp1, int * temp2)
-    : instance(instance), added(false), temp1(temp1), temp2(temp2)
-    {
-    }
-
-    bool on_callback(void * data)
-    {
-        FrameObject * other = (FrameObject*)data;
-        if (other == instance)
-            return true;
-        if (!temp1[other->index-1])
-            return true;
-        if (!instance->overlaps(other))
-            return true;
-        if (save) {
-            if (instance->movement != NULL)
-                instance->movement->add_collision(other);
-            if (other->movement != NULL)
-                other->movement->add_collision(instance);
-        }
-        temp2[other->index-1] = 1;
-        added = true;
-        return true;
-    }
-};
-
 // FrameObject vs FrameObject
 
 template <bool save>

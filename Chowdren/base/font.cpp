@@ -5,21 +5,23 @@
 #include <wctype.h>
 #include <iostream>
 #include "platform.h"
+#include "assetfile.h"
 
 // front-end font loader
 
-bool load_fonts(const std::string & filename, FontList & fonts)
+bool load_fonts(FontList & fonts)
 {
-    FSFile fp(filename.c_str(), "r");
-    if (!fp.is_open()) {
-        std::cout << "Could not open font" << std::endl;
-        return false;
-    }
+    AssetFile fp;
+    fp.open();
     FileStream stream(fp);
-    unsigned int count = stream.read_uint32();
-    for (unsigned int i = 0; i < count; i++) {
-        FTTextureFont * font = new FTTextureFont(stream);
-        fonts.push_back(font);
+
+    for (int i = 0; i < FONT_COUNT; i++) {
+        fp.set_item(i, AssetFile::FONT_DATA);
+        unsigned int count = stream.read_uint32();
+        for (unsigned int i = 0; i < count; i++) {
+            FTTextureFont * font = new FTTextureFont(stream);
+            fonts.push_back(font);
+        }
     }
     return true;
 }

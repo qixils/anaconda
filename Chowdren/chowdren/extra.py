@@ -43,16 +43,12 @@ class SetString(ActionWriter):
     def write(self, writer):
         obj = (self.data.objectInfo, self.data.objectType)
         name = self.converter.get_object_writer(obj).data.name
-        if name == SPRITES_STRING:
-            writer.put('set_image_path(%s);' % self.convert_index(0))
-        elif name == FONT_STRING:
-            writer.put('set_font_path(%s);' % self.convert_index(0))
+        if name in (SPRITES_STRING, FONT_STRING, SHADERS_STRING,
+                    SOUNDS_STRING):
+            # deprecated
+            pass
         elif name == RESIZE_STRING:
             writer.putc('set_window_resize(%s);', self.get_bool(0))
-        elif name == SHADERS_STRING:
-            writer.put('set_shader_path(%s);' % self.convert_index(0))
-        elif name == SOUNDS_STRING:
-            writer.put('set_sounds_path(%s);' % self.convert_index(0))
         elif name == STEAM_STRING:
             v = self.get_bool(0)
             # writer.put(to_c('SteamObject::set_enabled(%s);', v))

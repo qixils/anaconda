@@ -69,8 +69,8 @@ inline bool UniformGrid::query(int proxy, T & callback)
 
     query_id++;
 
-    for (int x = item.box[0]; x < item.box[2]; x++)
-    for (int y = item.box[1]; y < item.box[3]; y++) {
+    for (int y = item.box[1]; y < item.box[3]; y++)
+    for (int x = item.box[0]; x < item.box[2]; x++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
 
         for (it = list.begin(); it != list.end(); ++it) {
@@ -97,8 +97,8 @@ inline bool UniformGrid::query(int v[4], T & callback)
 
     query_id++;
 
-    for (int x = vv[0]; x < vv[2]; x++)
-    for (int y = vv[1]; y < vv[3]; y++) {
+    for (int y = vv[1]; y < vv[3]; y++)
+    for (int x = vv[0]; x < vv[2]; x++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
 
         for (it = list.begin(); it != list.end(); ++it) {

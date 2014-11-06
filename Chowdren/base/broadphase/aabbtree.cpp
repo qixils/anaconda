@@ -178,7 +178,7 @@ bool AABBTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displa
     // Predict AABB displacement.
     chowVec2 d = chow_aabbMultiplier * displacement;
 
-    if (d.x < 0.0f)
+    if (d.x < 0)
     {
         b.lowerBound.x += d.x;
     }
@@ -187,7 +187,7 @@ bool AABBTree::MoveProxy(int32 proxyId, const AABB& aabb, const chowVec2& displa
         b.upperBound.x += d.x;
     }
 
-    if (d.y < 0.0f)
+    if (d.y < 0)
     {
         b.lowerBound.y += d.y;
     }
@@ -250,10 +250,10 @@ void AABBTree::InsertLeaf(int32 leaf)
         int32 combinedArea = combinedAABB.GetPerimeter();
 
         // Cost of creating a new parent for this node and the new leaf
-        int32 cost = 2.0f * combinedArea;
+        int32 cost = 2 * combinedArea;
 
         // Minimum cost of pushing the leaf further down the tree
-        int32 inheritanceCost = 2.0f * (combinedArea - area);
+        int32 inheritanceCost = 2 * (combinedArea - area);
 
         // Cost of descending into child1
         int32 cost1;
@@ -583,13 +583,13 @@ int32 AABBTree::GetAreaRatio() const
 {
     if (m_root == chow_nullNode)
     {
-        return 0.0f;
+        return 0;
     }
 
     const TreeNode* root = m_nodes + m_root;
     int32 rootArea = root->aabb.GetPerimeter();
 
-    int32 totalArea = 0.0f;
+    int32 totalArea = 0;
     for (int32 i = 0; i < m_nodeCapacity; ++i)
     {
         const TreeNode* node = m_nodes + i;

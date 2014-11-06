@@ -153,8 +153,8 @@ def use_image_flush(converter, frame):
     else:
         return True
 
-def use_image_preload(converter, frame):
-    return False
+def use_image_preload(converter):
+    return is_avgn and converter.platform_name == '3ds'
 
 def write_defines(converter, writer):
     if is_anne:
@@ -189,6 +189,8 @@ def write_defines(converter, writer):
     writer.putln('#define CHOWDREN_USE_DYNTREE')
     if is_avgn:
         writer.putln('#define CHOWDREN_WIIU_USE_COMMON')
+    if use_image_preload(converter):
+        writer.putln('#define CHOWDREN_PRELOAD_IMAGES')
     # if is_hfa:
     #     writer.putln('#define CHOWDREN_USE_DYNAMIC_NUMBER')
 

@@ -780,6 +780,10 @@ void Frame::update_objects(float dt)
 {
 }
 
+void Frame::load_static_images()
+{
+}
+
 bool Frame::update(float dt)
 {
     frame_time += dt;
@@ -1181,6 +1185,8 @@ bool FrameObject::mouse_over()
 
 bool FrameObject::overlaps(FrameObject * other)
 {
+    if (flags & INACTIVE || other->flags & INACTIVE)
+        return false;
     if (other == this)
         return false;
     if (collision->type == NONE_COLLISION)
@@ -1516,6 +1522,23 @@ void FrameObject::get_screen_aabb(int box[4])
     box[1] = aabb[1] + off_y;
     box[2] = aabb[2] + off_x;
     box[3] = aabb[3] + off_y;
+}
+
+#define INACTIVE_X 64
+#define INACTIVE_Y 16
+
+void FrameObject::update_inactive()
+{
+    flags &= ~INACTIVE;
+
+    int box[4];
+    get_screen_aabb(box);
+    if (box[0] > WINDOW_WIDTH + INACTIVE_X ||
+        box[1] > WINDOW_HEIGHT + INACTIVE_Y ||
+        box[2] < -INACTIVE_X || box[3] < -INACTIVE_Y)
+    {
+        flags |= INACTIVE;
+    }
 }
 
 // FixedValue
@@ -2042,14 +2065,6 @@ void Active::replace_color(const Color & from, const Color & to)
 FontList fonts;
 static bool has_fonts = false;
 static FTTextureFont * big_font = NULL;
-std::string font_path;
-
-void set_font_path(const std::string & value)
-{
-    if (!font_path.empty())
-        return;
-    font_path = value;
-}
 
 void init_font()
 {
@@ -2058,8 +2073,7 @@ void init_font()
         return;
 
     // default font, could be set already
-    set_font_path(std::string("Font.dat"));
-    has_fonts = load_fonts(font_path, fonts);
+    has_fonts = load_fonts(fonts);
 
     FontList::const_iterator it;
     for (it = fonts.begin(); it != fonts.end(); ++it) {

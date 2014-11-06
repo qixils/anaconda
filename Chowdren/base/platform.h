@@ -29,6 +29,7 @@ void platform_get_mouse_pos(int * x, int * y);
 void platform_hide_mouse();
 void platform_begin_draw();
 void platform_swap_buffers();
+void platform_prepare_frame_change();
 bool platform_remove_file(const std::string & path);
 const std::string & platform_get_appdata_dir();
 const std::string & platform_get_language();
@@ -67,6 +68,8 @@ void glc_init();
 void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
                                      int y2);
 void glc_scissor_world(int x, int y, int w, int h);
+void glc_set_storage(bool vram);
+bool glc_is_vram_full();
 
 // demo
 

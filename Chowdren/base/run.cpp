@@ -61,12 +61,10 @@ GameManager::GameManager()
 #endif
 
     platform_init();
-
-#ifdef CHOWDREN_STARTUP_WINDOW
     set_window(false);
-#endif
 
     // application setup
+    preload_images();
     reset_globals();
     setup_keys(this);
     media = frame->media = new Media;
@@ -176,6 +174,8 @@ int GameManager::update_frame()
     }
 
     if (frame->next_frame != -1 && fade_dir == 0.0f) {
+        // platform layer may want to force a swap if double-buffered, etc.
+        platform_prepare_frame_change();
         set_frame(frame->next_frame);
     }
 

@@ -8,61 +8,32 @@
 #include "chowconfig.h"
 #include "types.h"
 #include "mathcommon.h"
+#include "assetfile.h"
 
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-static int read_func(void *user, char *data, int size)
+inline unsigned char * load_image(FSFile & image_file, int size,
+                                  int * w, int * h, int * channels)
 {
-   return ((FSFile*)user)->read(data, size);
+    unsigned char * buf = new unsigned char[size];
+    image_file.read(buf, size);
+    unsigned char * out = stbi_load_from_memory(buf, size, w, h, channels, 4);
+    delete[] buf;
+    return out;
 }
-
-static void skip_func(void *user, int n)
-{
-   ((FSFile*)user)->seek(n, SEEK_CUR);
-}
-
-static int eof_func(void *user)
-{
-   return ((FSFile*)user)->at_end();
-}
-
-static stbi_io_callbacks fsfile_callbacks =
-{
-   read_func,
-   skip_func,
-   eof_func,
-};
 
 typedef vector<Image*> ImageList;
 
-static std::string image_path("./Sprites.dat");
-
-void set_image_path(const std::string & filename)
-{
-    image_path = convert_path(filename);
-    std::cout << "Setting image file to: " << image_path << std::endl;
-}
-
-static FSFile image_file;
-static unsigned int image_offsets[IMAGE_COUNT];
+static AssetFile image_file;
 
 void open_image_file()
 {
     if (image_file.is_open())
         return;
-    image_file.open(image_path.c_str(), "r");
-    if (!image_file.is_open()) {
-        std::cout << "Could not open image file " << image_path << std::endl;
-        return;
-    }
-    FileStream stream(image_file);
-    stream.seek(4);
-    for (int i = 0; i < IMAGE_COUNT; i++) {
-        image_offsets[i] = stream.read_uint32();
-    }
+    image_file.open();
 }
 
 // dummy constructor
@@ -121,6 +92,11 @@ Image * Image::copy()
     return new_image;
 }
 
+void Image::set_static()
+{
+    flags |= IMAGE_STATIC;
+}
+
 void Image::load()
 {
     flags |= IMAGE_USED;
@@ -134,17 +110,18 @@ void Image::load()
     }
 
     open_image_file();
+    image_file.set_item(handle, AssetFile::IMAGE_DATA);
     FileStream stream(image_file);
-    stream.seek(image_offsets[handle]);
 
-    hotspot_x = stream.read_int32();
-    hotspot_y = stream.read_int32();
-    action_x = stream.read_int32();
-    action_y = stream.read_int32();
+    hotspot_x = stream.read_int16();
+    hotspot_y = stream.read_int16();
+    action_x = stream.read_int16();
+    action_y = stream.read_int16();
+
+    int size = stream.read_uint32();
 
     int w, h, channels;
-    image = stbi_load_from_callbacks(&fsfile_callbacks, &image_file,
-        &w, &h, &channels, 4);
+    image = load_image(image_file, size, &w, &h, &channels);
 
     width = w;
     height = h;
@@ -299,9 +276,13 @@ void Image::draw(int x, int y, float angle, float scale_x, float scale_y,
     }
 
     glPushMatrix();
-    glTranslated(x, y, 0.0);
-    glRotated(-angle, 0.0, 0.0, 1.0);
-    glScaled(scale_x, scale_y, 1.0);
+    glTranslatef(x, y, 0.0);
+
+    if (angle != 0.0f)
+        glRotatef(-angle, 0.0, 0.0, 1.0);
+
+    if (scale_x != 1.0f || scale_y != 1.0f)
+        glScalef(scale_x, scale_y, 1.0);
 
     if (background != 0)
         glActiveTexture(GL_TEXTURE0);
@@ -428,7 +409,6 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
 
 void FileImage::load_file()
 {
-    int channels;
     FSFile fp(filename.c_str(), "r");
 
     if (!fp.is_open()) {
@@ -436,9 +416,8 @@ void FileImage::load_file()
         return;
     }
 
-    int w, h;
-    image = stbi_load_from_callbacks(&fsfile_callbacks, &fp,
-        &w, &h, &channels, 4);
+    int w, h, channels;
+    image = load_image(fp, fp.get_size(), &w, &h, &channels);
 
     width = w;
     height = h;
@@ -522,10 +501,29 @@ void flush_image_cache()
 #ifdef CHOWDREN_TEXTURE_GC
     for (int i = 0; i < IMAGE_COUNT; i++) {
         Image * image = internal_images[i];
-        if (image == NULL || image->flags & IMAGE_USED)
+        if (image == NULL || image->flags & (IMAGE_USED | IMAGE_STATIC))
             continue;
         image->unload();
     }
+#endif
+}
+
+void preload_images()
+{
+#ifdef CHOWDREN_PRELOAD_IMAGES
+    AssetFile fp;
+    fp.open();
+    FileStream stream(fp);
+    glc_set_storage(true);
+    for (int i = 0; i < IMAGE_COUNT; i++) {
+        unsigned short handle = stream.read_uint16();
+        Image * image = get_internal_image(handle);
+        image->upload_texture();
+        if (glc_is_vram_full())
+            break;
+        image->set_static();
+    }
+    glc_set_storage(false);
 #endif
 }
 

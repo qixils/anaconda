@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "path.h"
 #include <string.h>
+#include "media.h"
 
 namespace ChowdrenAudio {
 
@@ -67,11 +68,9 @@ private:
 public:
     double total_time;
 
-    OggDecoder(const std::string & filename)
+    OggDecoder(FSFile & fp)
     : ogg_info(NULL), ogg_bitstream(0)
     {
-        fp.open(filename.c_str(), "r");
-
         if (ov_open_callbacks((void*)&fp, &ogg_file, NULL, 0, callbacks) != 0)
             return;
 
@@ -99,7 +98,7 @@ public:
         return ogg_info != NULL;
     }
 
-    std::size_t read(signed short * sdata, std::size_t samples)
+    size_t read(signed short * sdata, std::size_t samples)
     {
         if (!(sdata && samples))
             return 0;
@@ -153,7 +152,7 @@ inline unsigned short read_le16(FSFile & file)
 class WavDecoder : public SoundDecoder
 {
 private:
-    FSFile file;
+    FSFile & file;
     int sample_size;
     int block_align;
     long data_start;
@@ -161,28 +160,22 @@ private:
     size_t rem_len;
 
 public:
-    WavDecoder(const std::string & filename)
-    : data_start(0)
+    WavDecoder(FSFile & fp)
+    : file(fp), data_start(0)
     {
-        file.open(filename.c_str(), "r");
-        if (!file.is_open()) {
-            std::cerr << "Invalid file: " << filename << std::endl;
-            return;
-        }
-
         unsigned char buffer[25];
         unsigned int length;
         if (!file.read(reinterpret_cast<char*>(buffer), 12) ||
             memcmp(buffer, "RIFF", 4) != 0 ||
             memcmp(buffer+8, "WAVE", 4) != 0)
         {
-            std::cerr << "Invalid header: " << filename << std::endl;
+            std::cerr << "WAV: Invalid header" << std::endl;
             return;
         }
 
         while (!data_start) {
             char tag[4];
-            if(!file.read(tag, 4))
+            if (!file.read(tag, 4))
                 break;
 
             length = read_le32(file);
@@ -191,7 +184,7 @@ public:
                 // data type (should be 1 for PCM data, 3 for float PCM data
                 int type = read_le16(file);
                 if(type != 0x0001 && type != 0x0003) {
-                    std::cerr << "Invalid type: " << filename << std::endl;
+                    std::cerr << "WAV: Invalid type" << std::endl;
                     break;
                 }
 
@@ -200,14 +193,12 @@ public:
                 file.seek(4, SEEK_CUR);
                 block_align = read_le16(file);
                 if(block_align == 0) {
-                    std::cerr << "Invalid blockalign: " << filename
-                        << std::endl;
+                    std::cerr << "WAV: Invalid blockalign" << std::endl;
                     break;
                 }
                 sample_size = read_le16(file);
                 if (sample_size != 16) {
-                    std::cerr << "Invalid sample size: " << filename
-                        << " " << sample_size << std::endl;
+                    std::cerr << "WAV: Invalid sample size" << std::endl;
                     break;
                 }
                 length -= 16;
@@ -237,10 +228,15 @@ public:
         return (data_start > 0);
     }
 
-    std::size_t read(signed short * data, std::size_t samples)
+    size_t read(signed short * data, std::size_t samples)
     {
         unsigned int bytes = samples * (sample_size / 8);
-        std::streamsize rem = ((rem_len >= bytes) ? bytes : rem_len) / block_align;
+        size_t rem;
+        if (rem_len >= bytes)
+            rem = bytes;
+        else
+            rem = rem_len;
+        rem /= block_align;
         size_t got = file.read((char*)data, rem*block_align);
         got -= got%block_align;
         rem_len -= got;
@@ -268,29 +264,27 @@ public:
         return got / (sample_size / 8);
     }
 
-    void seek(double time)
+    void seek(double t)
     {
-        std::size_t new_pos = time * sample_rate * (sample_size / 8) * channels;
+        size_t new_pos = t * sample_rate * (sample_size / 8) * channels;
+        new_pos = std::max(0, std::min(new_pos, data_len));
         if (file.seek(data_start + new_pos))
             rem_len = data_len - new_pos;
     }
 };
 
-SoundDecoder * create_decoder(const std::string & filename)
+SoundDecoder * create_decoder(FSFile & fp, Media::AudioType type)
 {
-    std::string ext = get_path_ext(filename);
     SoundDecoder * decoder;
-    if (ext == "wav")
-        decoder = new WavDecoder(filename);
-    else if (ext == "ogg")
-        decoder = new OggDecoder(filename);
-    else {
-        std::cout << "No decoder available for " << filename << std::endl;
+    if (type == Media::WAV)
+        decoder = new WavDecoder(fp);
+    else if (type == Media::OGG)
+        decoder = new OggDecoder(fp);
+    else
         return NULL;
-    }
     if (decoder->is_valid())
         return decoder;
-    std::cout << "Could not load sound '" << filename << "'" << std::endl;
+    std::cout << "Could not load sound" << std::endl;
     return NULL;
 }
 

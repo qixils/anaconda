@@ -188,6 +188,7 @@ public:
     void set_height(int height, bool adjust);
 
     virtual void set_index(int index) = 0;
+    virtual void load_static_images();
 
     void event_callback(int id)
     {

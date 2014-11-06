@@ -9,55 +9,69 @@
 #include "fileio.h"
 #include "path.h"
 #include "media.h"
-
-class Media;
-void setup_sounds(Media * media);
+#include "datastream.h"
 
 inline double clamp_sound(double val)
 {
     return std::max(0.0, std::min(val, 100.0));
 }
 
-static std::string cache_path("./sounds/");
-
-void set_sounds_path(const std::string & path)
+inline Media::AudioType get_audio_type(const std::string & filename)
 {
-    std::cout << "Set sounds path: " << path << std::endl;
-    cache_path = path + std::string("/");
+    Media::AudioType type;
+    if (get_path_ext(filename) == "wav")
+        type = Media::WAV;
+    else
+        type = Media::OGG;
+    return type;
 }
 
 class SoundData
 {
 public:
-    std::string name;
+    unsigned int id;
 
-    SoundData(const std::string & name)
-    : name(name)
+    SoundData(unsigned int id)
+    : id(id)
     {
-
     }
 
-    virtual void load(ChowdrenAudio::SoundBase ** source, bool * is_music) {}
+    virtual void load(ChowdrenAudio::SoundBase ** source) {}
     virtual ~SoundData() {}
 };
 
 class SoundFile : public SoundData
 {
 public:
+    Media::AudioType type;
     std::string filename;
 
-    SoundFile(const std::string & name, const std::string & filename)
-    : SoundData(name), filename(filename)
+    SoundFile(unsigned int id, Media::AudioType type,
+              const std::string & filename)
+    : SoundData(id), type(type), filename(filename)
     {
-
     }
 
-    void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
+    void load(ChowdrenAudio::SoundBase ** source)
     {
-        // std::cout << "Playing (stream) " << filename << std::endl;
-        *source = new ChowdrenAudio::SoundStream(filename);
-        // *source = NULL;
-        *is_music = true;
+        *source = new ChowdrenAudio::SoundStream(filename, type);
+    }
+};
+
+class SoundCache : public SoundData
+{
+public:
+    Media::AudioType type;
+    size_t offset;
+
+    SoundCache(unsigned int id, Media::AudioType type, size_t offset)
+    : SoundData(id), type(type), offset(offset)
+    {
+    }
+
+    void load(ChowdrenAudio::SoundBase ** source)
+    {
+        *source = new ChowdrenAudio::SoundStream(offset, type);
     }
 };
 
@@ -65,20 +79,17 @@ class SoundMemory : public SoundData
 {
 public:
     ChowdrenAudio::Sample * buffer;
-    std::string filename;
 
-    SoundMemory(const std::string & name, const std::string & filename)
-    : SoundData(name), buffer(NULL), filename(filename)
+    SoundMemory(unsigned int id, Media::AudioType type, FSFile & fp)
+    : SoundData(id), buffer(NULL)
     {
+        // load immediately
+        buffer = new ChowdrenAudio::Sample(fp, type);
     }
 
-    void load(ChowdrenAudio::SoundBase ** source, bool * is_music)
+    void load(ChowdrenAudio::SoundBase ** source)
     {
-        if (buffer == NULL)
-            buffer = new ChowdrenAudio::Sample(filename);
-        // std::cout << "Playing: " << name << std::endl;
         *source = new ChowdrenAudio::Sound(*buffer);
-        *is_music = false;
     }
 
     ~SoundMemory()
@@ -98,8 +109,8 @@ Channel::Channel()
 void Channel::play(SoundData * data, int loop)
 {
     stop();
-    name = data->name;
-    data->load(&sound, &is_music);
+    id = data->id;
+    data->load(&sound);
     if (sound == NULL) {
         std::cout << "Ignored play" << std::endl;
         return;
@@ -207,16 +218,21 @@ bool Channel::is_stopped()
 Media::Media()
 {
     ChowdrenAudio::open_audio();
+
+    AssetFile fp;
+    fp.open();
+    for (int i = 0; i < SOUND_COUNT; i++) {
+        fp.set_item(i, AssetFile::SOUND_DATA);
+        add_cache(i, fp);
+    }
 }
 
 Media::~Media()
 {
     stop_samples();
 
-    SoundMap::const_iterator it;
-    for (it = sounds.begin(); it != sounds.end(); ++it) {
-        SoundData * sound = it->second;
-        delete sound;
+    for (int i = 0; i < SOUND_COUNT; i++) {
+        delete sounds[i];
     }
 
     ChowdrenAudio::close_audio();
@@ -247,18 +263,14 @@ void Media::play(const std::string & filename, int channel, int loop)
         std::cout << "Audio file does not exist: " << filename << std::endl;
         return;
     }
-    SoundFile data(filename, convert_path(filename));
+    AudioType type = get_audio_type(filename);
+    SoundFile data(INVALID_ASSET_ID, type, convert_path(filename));
     play(&data, channel, loop);
 }
 
-void Media::play_name(const std::string & name, int channel, int loop)
+void Media::play_id(unsigned int id, int channel, int loop)
 {
-    static bool cache_initialized = false;
-    if (!cache_initialized) {
-        cache_initialized = true;
-        setup_sounds(this);
-    }
-    play(sounds[name], channel, loop);
+    play(sounds[id], channel, loop);
 }
 
 void Media::lock(unsigned int channel)
@@ -310,67 +322,69 @@ void Media::pause_channel(unsigned int channel)
     channels[channel].pause();
 }
 
-Channel * Media::get_sample(const std::string & name)
+Channel * Media::get_sample(unsigned int id)
 {
+    if (id == INVALID_ASSET_ID)
+        return NULL;
     for (int i = 0; i < 32; i++) {
-        if (channels[i].name != name)
+        if (channels[i].id != id)
             continue;
         return &channels[i];
     }
     return NULL;
 }
 
-void Media::set_sample_volume(const std::string & name, double volume)
+void Media::set_sample_volume(unsigned int id, double volume)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return;
     channel->set_volume(volume);
 }
 
-void Media::set_sample_pan(const std::string & name, double pan)
+void Media::set_sample_pan(unsigned int id, double pan)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return;
     channel->set_pan(pan);
 }
 
-void Media::set_sample_position(const std::string & name, double pos)
+void Media::set_sample_position(unsigned int id, double pos)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return;
     channel->set_position(pos);
 }
 
-void Media::set_sample_frequency(const std::string & name, double freq)
+void Media::set_sample_frequency(unsigned int id, double freq)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return;
     channel->set_frequency(freq);
 }
 
-double Media::get_sample_position(const std::string & name)
+double Media::get_sample_position(unsigned int id)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return 0.0;
     return channel->get_position();
 }
 
-double Media::get_sample_duration(const std::string & name)
+double Media::get_sample_duration(unsigned int id)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return 0.0;
     return channel->get_duration();
 }
 
-void Media::stop_sample(const std::string & name)
+void Media::stop_sample(unsigned int id)
 {
-    Channel * channel = get_sample(name);
+    Channel * channel = get_sample(id);
     if (channel == NULL)
         return;
     channel->stop();
@@ -439,12 +453,12 @@ bool Media::is_channel_playing(unsigned int channel)
     return !channels[channel].is_stopped();
 }
 
-bool Media::is_sample_playing(const std::string & name)
+bool Media::is_sample_playing(unsigned int id)
 {
     for (int i = 0; i < 32; i++) {
         if (channels[i].is_stopped())
             continue;
-        if (channels[i].name == name)
+        if (channels[i].id == id)
             return true;
     }
     return false;
@@ -455,11 +469,6 @@ bool Media::is_channel_valid(unsigned int channel)
     return channel < 32;
 }
 
-void Media::add_cache(const std::string & name, const std::string & fn)
-{
-    add_file(name, cache_path + fn);
-}
-
 #ifdef CHOWDREN_IS_DESKTOP
 #define OGG_STREAM_THRESHOLD_MB 0.5
 #elif CHOWDREN_IS_3DS
@@ -468,29 +477,48 @@ void Media::add_cache(const std::string & name, const std::string & fn)
 #define OGG_STREAM_THRESHOLD_MB 0.75
 #endif
 
-#define WAV_STREAM_THRESHOLD_MB 0.1
+#define WAV_STREAM_THRESHOLD_MB 0.2
 
 #define OGG_STREAM_THRESHOLD (OGG_STREAM_THRESHOLD_MB * 1024 * 1024)
 #define WAV_STREAM_THRESHOLD (WAV_STREAM_THRESHOLD_MB * 1024 * 1024)
 
-void Media::add_file(const std::string & name, const std::string & fn)
+void Media::add_file(unsigned int id, const std::string & fn)
 {
     std::string filename = convert_path(fn);
-    SoundMap::const_iterator it = sounds.find(name);
-    if (it != sounds.end()) {
-        delete it->second;
-    }
+    AudioType type = get_audio_type(filename);
+    size_t size = platform_get_file_size(filename.c_str());
+
+    bool is_wav = type == WAV;
     SoundData * data;
-    bool is_wav = get_path_ext(filename) == "wav";
-    int size = platform_get_file_size(filename.c_str());
     if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
         (!is_wav && size <= OGG_STREAM_THRESHOLD))
     {
-        data = new SoundMemory(name, filename);
+        FSFile fp(filename.c_str(), "r");
+        data = new SoundMemory(id, type, fp);
     } else {
-        data = new SoundFile(name, filename);
+        data = new SoundFile(id, type, filename);
     }
-    sounds[name] = data;
+    sounds[id] = data;
+}
+
+void Media::add_cache(unsigned int id, FSFile & fp)
+{
+    FileStream stream(fp);
+    AudioType type = (AudioType)stream.read_uint32();
+    if (type == NONE)
+        return;
+    unsigned int size = stream.read_uint32();
+
+    bool is_wav = type == WAV;
+    SoundData * data;
+    if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
+        (!is_wav && size <= OGG_STREAM_THRESHOLD))
+    {
+        data = new SoundMemory(id, type, fp);
+    } else {
+        data = new SoundCache(id, type, fp.tell());
+    }
+    sounds[id] = data;
 }
 
 double Media::get_main_volume()
@@ -502,5 +530,3 @@ void Media::set_main_volume(double volume)
 {
     ChowdrenAudio::Listener::set_volume(clamp_sound(volume) / 100.0);
 }
-
-#include "sounds.h"

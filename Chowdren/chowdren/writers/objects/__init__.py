@@ -64,6 +64,15 @@ class ObjectWriter(BaseWriter):
     def has_movements(self):
         return self.movement_count > 0
 
+    def has_sleep(self):
+        try:
+            if self.common.flags['ManualSleep']:
+                if not self.common.flags['NeverSleep']:
+                    return True
+        except AttributeError:
+            pass
+        return False
+
     def has_updates(self):
         return self.update
 

@@ -1,6 +1,7 @@
 import string
 import os
 import subprocess
+from mmfparser.bytereader import ByteReader
 
 def get_base_path():
     path = os.path.join(os.path.dirname(__file__), '..', 'base')
@@ -220,5 +221,10 @@ def get_animation_name(index):
         return ANIMATION_NAMES[index]
     except IndexError:
         return str(index)
+
+def get_sized_data(data):
+    writer = ByteReader()
+    writer.writeIntString(data)
+    return str(writer)
 
 TEMPORARY_GROUP_ID = 'thisisthetempid'

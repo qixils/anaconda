@@ -48,7 +48,8 @@ enum ObjectFlags
     SCROLL = (1 << 2),
     FADEOUT = (1 << 3),
     BACKGROUND = (1 << 4),
-    GLOBAL = (1 << 5)
+    GLOBAL = (1 << 5),
+    INACTIVE = (1 << 6)
 };
 
 #ifdef CHOWDREN_USE_VALUEADD
@@ -194,6 +195,7 @@ public:
     virtual void set_animation(int value);
     virtual void set_backdrop_offset(int dx, int dy);
     void get_screen_aabb(int box[4]);
+    void update_inactive();
 
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables & get_extra_alterables()

@@ -8,14 +8,14 @@ public:
     GLuint program;
     GLint size_uniform;
     bool initialized;
-    std::string name;
+    unsigned int id;
     int flags;
     const char * texture_parameter;
 
-    GLSLShader(const std::string & name, int flags = 0,
+    GLSLShader(unsigned int id, int flags = 0,
                const char * texture_parameter = NULL);
     void initialize();
-    GLuint attach_source(const std::string & ext, GLenum type);
+    GLuint attach_source(FSFile & fp, GLenum type);
     GLuint get_background_texture();
     bool has_texture_param();
     int get_uniform(const char * value);

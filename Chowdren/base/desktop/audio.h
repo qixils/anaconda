@@ -249,7 +249,7 @@ public:
     unsigned int channels;
     SoundList sounds;
 
-    Sample(const std::string & filename);
+    Sample(FSFile & fp, Media::AudioType type);
     ~Sample();
     void add_sound(Sound* sound);
     void remove_sound(Sound* sound);
@@ -492,6 +492,7 @@ public:
 class SoundStream : public SoundBase
 {
 public:
+    AssetFile fp;
     SoundDecoder * file;
     bool playing;
     SoundBuffer * buffers[BUFFER_COUNT];
@@ -502,10 +503,25 @@ public:
     bool end_buffers[BUFFER_COUNT];
     bool stopping;
 
-    SoundStream(const std::string & filename)
-    : playing(false), loop(false), stopping(false), SoundBase()
+    SoundStream(size_t offset, Media::AudioType type)
+    : SoundBase()
     {
-        file = create_decoder(filename);
+        fp.open();
+        fp.seek(offset);
+        init(create_decoder(fp, type));
+    }
+
+    SoundStream(const std::string & path, Media::AudioType type)
+    : SoundBase()
+    {
+        fp.open(path.c_str(), "r");
+        init(create_decoder(fp, type));
+    }
+
+    void init(SoundDecoder * decoder)
+    {
+        file = decoder;
+        playing = loop = stopping = false;
         format = get_format(file->channels);
 
         for (int i = 0; i < BUFFER_COUNT; ++i)
@@ -875,9 +891,9 @@ public:
 
 // Sample implementation
 
-Sample::Sample(const std::string & filename)
+Sample::Sample(FSFile & fp, Media::AudioType type)
 {
-    SoundDecoder * file = create_decoder(filename);
+    SoundDecoder * file = create_decoder(fp, type);
     channels = file->channels;
     sample_rate = file->sample_rate;
     buffer = new SoundBuffer(*file, file->samples);

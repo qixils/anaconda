@@ -2,13 +2,7 @@
 #include "include_gl.h"
 #include "platform.h"
 #include "frameobject.h"
-
-std::string shader_path = "./shaders";
-
-void set_shader_path(const std::string & path)
-{
-    shader_path = path;
-}
+#include "assetfile.h"
 
 void convert_vec4(int val, float & a, float & b, float & c, float & d)
 {
@@ -47,7 +41,7 @@ class SubtractShader : public GLSLShader
 {
 public:
     SubtractShader()
-    : GLSLShader("subtract")
+    : GLSLShader(SHADER_SUBTRACT)
     {
     }
 
@@ -74,7 +68,7 @@ class MonochromeShader : public GLSLShader
 {
 public:
     MonochromeShader()
-    : GLSLShader("monochrome")
+    : GLSLShader(SHADER_MONOCHROME)
     {
 
     }
@@ -88,7 +82,7 @@ public:
     int b;
 
     MixerShader()
-    : GLSLShader("colormixer")
+    : GLSLShader(SHADER_COLORMIXER)
     {
 
     }
@@ -114,7 +108,7 @@ public:
     int hue;
 
     HueShader()
-    : GLSLShader("hue")
+    : GLSLShader(SHADER_HUE)
     {
 
     }
@@ -137,7 +131,7 @@ public:
     int height;
 
     OffsetShader()
-    : GLSLShader("offset", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : GLSLShader(SHADER_OFFSET, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -159,7 +153,7 @@ class InvertShader : public GLSLShader
 {
 public:
     InvertShader()
-    : GLSLShader("invert")
+    : GLSLShader(SHADER_INVERT)
     {
 
     }
@@ -172,7 +166,7 @@ public:
     int radius;
 
     DodgeBlurShader()
-    : GLSLShader("dodgeblur", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : GLSLShader(SHADER_DODGEBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -198,7 +192,7 @@ public:
     int r, g, b, a;
 
     GrainShader()
-    : GLSLShader("grain")
+    : GLSLShader(SHADER_GRAIN)
     {
 
     }
@@ -230,7 +224,7 @@ class MultiplyShader : public GLSLShader
 {
 public:
     MultiplyShader()
-    : GLSLShader("multiply", SHADER_HAS_BACK)
+    : GLSLShader(SHADER_MULTIPLY, SHADER_HAS_BACK)
     {
     }
 };
@@ -239,7 +233,7 @@ class HardLightShader : public GLSLShader
 {
 public:
     HardLightShader()
-    : GLSLShader("hardlight", SHADER_HAS_BACK)
+    : GLSLShader(SHADER_HARDLIGHT, SHADER_HAS_BACK)
     {
     }
 };
@@ -252,7 +246,7 @@ public:
     int original_power;
 
     TintShader()
-    : GLSLShader("tint")
+    : GLSLShader(SHADER_TINT)
     {
 
     }
@@ -279,7 +273,7 @@ public:
     int r, g, b, a;
 
     ChannelBlurShader()
-    : GLSLShader("channelblur")
+    : GLSLShader(SHADER_CHANNELBLUR)
     {
     }
 
@@ -310,7 +304,7 @@ public:
     int coeff;
 
     BgBloomShader()
-    : GLSLShader("bgbloom", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : GLSLShader(SHADER_BGBLOOM, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -341,7 +335,7 @@ public:
     int freqY;
 
     UnderwaterShader()
-    : GLSLShader("underwater")
+    : GLSLShader(SHADER_UNDERWATER)
     {
     }
 
@@ -374,7 +368,7 @@ public:
     int angle, x, y, shift_x, shift_y;
 
     RotateSubShader()
-    : GLSLShader("rotatesub")
+    : GLSLShader(SHADER_ROTATESUB)
     {
     }
 
@@ -403,7 +397,7 @@ public:
     int fade, color;
 
     SimpleMaskShader()
-    : GLSLShader("simplemask")
+    : GLSLShader(SHADER_SIMPLEMASK)
     {
     }
 
@@ -427,7 +421,7 @@ public:
     int width, height, x_offset, y_offset;
 
     OffsetStationaryShader()
-    : GLSLShader("offsetstationary")
+    : GLSLShader(SHADER_OFFSETSTATIONARY)
     {
     }
 
@@ -455,7 +449,7 @@ public:
     int alpha;
 
     PatternOverlayShader()
-    : GLSLShader("patternoverlay", SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE,
+    : GLSLShader(SHADER_PATTERNOVERLAY, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE,
                  "pattern")
     {
     }
@@ -486,7 +480,7 @@ public:
     int x, y, limit;
 
     SubPxShader()
-    : GLSLShader("subpx", SHADER_HAS_TEX_SIZE)
+    : GLSLShader(SHADER_SUBPX, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -512,7 +506,7 @@ public:
     int zoom_x, zoom_y;
 
     ZoomOffsetShader()
-    : GLSLShader("zoomoffset")
+    : GLSLShader(SHADER_ZOOMOFFSET)
     {
     }
 
@@ -546,7 +540,7 @@ public:
     int t, f, r, mask;
 
     GradientShader()
-    : GLSLShader("gradient")
+    : GLSLShader(SHADER_GRADIENT)
     {
     }
 
@@ -587,7 +581,7 @@ public:
     int alpha;
 
     OverlayAlphaShader()
-    : GLSLShader("overlayalpha", SHADER_HAS_BACK)
+    : GLSLShader(SHADER_OVERLAYALPHA, SHADER_HAS_BACK)
     {
     }
 
@@ -608,7 +602,7 @@ public:
     int coeff, base;
 
     LensShader()
-    : GLSLShader("lens", SHADER_HAS_BACK)
+    : GLSLShader(SHADER_LENS, SHADER_HAS_BACK)
     {
     }
 
@@ -632,7 +626,7 @@ public:
     int angle, coeff;
 
     ColDirBlurShader()
-    : GLSLShader("coldirblur", SHADER_HAS_BACK)
+    : GLSLShader(SHADER_COLDIRBLUR, SHADER_HAS_BACK)
     {
     }
 
@@ -676,7 +670,7 @@ public:
     int sine_waves;
 
     PerspectiveShader()
-    : GLSLShader("perspective", SHADER_HAS_TEX_SIZE)
+    : GLSLShader(SHADER_PERSPECTIVE, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -706,7 +700,7 @@ class BasicShader : public GLSLShader
 {
 public:
     BasicShader()
-    : GLSLShader("basic", false)
+    : GLSLShader(SHADER_BASIC, false)
     {
     }
 };
@@ -715,7 +709,7 @@ class TextureShader : public GLSLShader
 {
 public:
     TextureShader()
-    : GLSLShader("texture", false)
+    : GLSLShader(SHADER_TEXTURE, false)
     {
     }
 };

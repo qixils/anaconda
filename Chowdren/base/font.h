@@ -502,7 +502,7 @@ class FTSimpleLayout
 
 typedef vector<FTTextureFont*> FontList;
 
-bool load_fonts(const std::string & filename, FontList & fonts);
+bool load_fonts(FontList & fonts);
 
 #endif // CHOWDREN_USE_FT2
 

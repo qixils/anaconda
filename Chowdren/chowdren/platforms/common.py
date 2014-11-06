@@ -3,7 +3,10 @@ class Platform(object):
         self.converter = converter
         self.initialize()
 
-    def get_image(self):
+    def get_image(self, image):
+        raise NotImplementedError()
+
+    def get_shader(self, vertex, fragment):
         raise NotImplementedError()
 
     def initialize(self):

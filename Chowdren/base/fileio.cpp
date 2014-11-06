@@ -97,6 +97,7 @@ size_t BufferedFile::read(void * data, size_t need)
         total_read += std::min(need, buf_size - buf_off);
         pos += total_read;
         need -= total_read;
+        // std::cout << "memcpy 1: " << buf_off << " " << total_read << std::endl;
         memcpy(data, (char*)buffer + buf_off, total_read);
         data = (char*)data + total_read;
     }
@@ -107,9 +108,10 @@ size_t BufferedFile::read(void * data, size_t need)
     }
     if (need < READ_BUFFER_SIZE) {
         buf_pos = pos;
-        buf_size = fp.read(buffer, std::max(READ_BUFFER_SIZE, need));
+        buf_size = fp.read(buffer, READ_BUFFER_SIZE);
         size_t read_size = std::min(buf_size, need);
         memcpy(data, buffer, read_size);
+        // std::cout << "memcpy 2: " << read_size << std::endl;
         total_read += read_size;
         pos += read_size;
     } else {

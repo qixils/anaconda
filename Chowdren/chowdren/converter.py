@@ -34,11 +34,12 @@ from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
 from chowdren import shader
-from chowdren.shader import INK_EFFECTS
+from chowdren.shader import INK_EFFECTS, get_shader_programs
 from chowdren import hacks
 from chowdren.idpool import get_id
 from chowdren.codewriter import CodeWriter
 from chowdren.platforms import classes as platform_classes
+from chowdren.assets import Assets
 from mmfparser import texpack
 import platform
 import math
@@ -46,6 +47,7 @@ import wave
 import audioop
 import struct
 import hashlib
+import cPickle
 
 WRITE_SOUNDS = True
 PROFILE = False
@@ -121,7 +123,7 @@ if sys.platform == 'win32':
         reg_name = ('Software\\Clickteam\\Multimedia Fusion Developer 2\\'
                     'Settings')
         reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
-        MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0]
+        MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0].strip()
     except (ImportError, WindowsError):
         pass
 
@@ -137,7 +139,7 @@ IGNORE_EXTENSIONS = set([
 ])
 
 def load_native_extension(name):
-    if not NATIVE_EXTENSIONS or sys.platform != 'win32':
+    if not NATIVE_EXTENSIONS or sys.platform != 'win32' or not MMF_BASE:
         return None
     name = EXTENSION_ALIAS.get(name, name)
     if name in IGNORE_EXTENSIONS:
@@ -552,16 +554,12 @@ def fix_sound(data, extension):
     wav.close()
     return fp.getvalue()
 
-class FrameData(object):
-    def __init__(self, converter):
-        pass
-
 class Converter(object):
     debug = False
-    def __init__(self, filenames, outdir, image_file='Sprites.dat',
-                 win_ico=None, mac_icns=None, company=None,
-                 version=None, copyright=None, base_only=False,
-                 copy_shaders=False, use_dlls=False, platform=None):
+    def __init__(self, filenames, outdir, assets='Assets.dat',
+                 skip_assets=False, win_ico=None, mac_icns=None, company=None,
+                 version=None, copyright=None, base_only=False, use_dlls=False,
+                 platform=None):
         self.outdir = outdir
 
         # DLL architecture
@@ -625,16 +623,15 @@ class Converter(object):
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
 
-        # hacks & platform init
-        self.platform = platform_classes[platform or 'generic'](self)
+        # assets, platform and hacks
+        self.assets = Assets(self, skip_assets)
+        self.platform_name = platform or 'generic'
+        self.platform = platform_classes[self.platform_name](self)
         hacks.init(self)
 
-        if copy_shaders:
-            src = os.path.join(self.base_path, 'shaders')
-            dst = self.get_filename('shaders')
-            copytree(src, dst)
-
         self.frame_map = {}
+        self.image_frames = defaultdict(set)
+        self.frame_images = []
 
         max_index = 0
         for game in self.games:
@@ -674,119 +671,19 @@ class Converter(object):
         fonts_header.close()
 
         # images
-
-        # print 'Image count:', len(game.images.items)
-
-        if image_file is None:
-            config = self.read_config('images.py')
-            self.solid_images = config['solid']
-            self.image_indexes = config['indexes']
-            self.image_count = config['count']
+        if skip_assets:
+            with open(self.get_filename('cache.dat'), 'rb') as fp:
+                cache = cPickle.load(fp)
+            self.solid_images = cache['solid']
+            self.image_indexes = cache['indexes']
+            self.image_count = cache['count']
+            del cache
         else:
-            self.solid_images = {}
-            self.image_indexes = {}
-            image_hashes = {}
-            new_entries = []
-            maxrects_images = []
-            image_fp = open(self.get_filename(image_file), 'wb')
-            image_header = ByteReader(image_fp)
-            image_index = 0
-            for game_index, game in enumerate(self.games):
-                if not game.images:
-                    continue
-                for image in game.images.itemDict.itervalues():
-                    pil_image = Image.fromstring('RGBA', (image.width,
-                        image.height), image.getImageData())
-
-                    handle = (image.handle, game_index)
-                    colors = pil_image.getcolors(1)
-                    if colors is not None:
-                        color, = colors
-                        self.solid_images[handle] = color[1]
-
-                    extra_hash = [image.xHotspot, image.yHotspot,
-                                  image.actionX, image.actionY,
-                                  image.width, image.height]
-                    extra_hash = [str(item) for item in extra_hash]
-                    image_hash = get_hash(pil_image.tobytes() +
-                                          '&'.join(extra_hash))
-
-                    try:
-                        alias = image_hashes[image_hash]
-                        self.image_indexes[handle] = alias
-                        continue
-                    except KeyError:
-                        pass
-
-                    self.image_indexes[handle] = image_index
-                    image_hashes[image_hash] = image_index
-
-                    new_entries.append(image)
-                    maxrects_images.append(pil_image)
-
-                    image_index += 1
-
-            # use maxrects to create texture maps
-            # makedirs('./testmaxrects')
-            # maxrects = texpack.pack_images(maxrects_images, 1024, 1024)
-            # for file_index, rects in enumerate(maxrects):
-            #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
-
-            image_data = ByteReader()
-            image_header.writeInt(len(new_entries), True)
-            header_size = 4 * len(new_entries) + 4
-
-            for i, image in enumerate(new_entries):
-                image_header.writeInt(image_data.tell() + header_size,
-                                      True)
-                image_data.writeInt(image.xHotspot)
-                image_data.writeInt(image.yHotspot)
-                image_data.writeInt(image.actionX)
-                image_data.writeInt(image.actionY)
-
-                temp = self.platform.get_image(maxrects_images[i])
-                image_data.write(temp)
-
-            image_header.writeReader(image_data)
-            image_fp.close()
-            self.image_count = image_index
-
-            config = {'solid': self.solid_images,
-                      'indexes': self.image_indexes,
-                      'count': self.image_count}
-            self.write_config(config, 'images.py')
-
-        # sounds
-        dir_created = False
-        sounds_file = self.open_code('sounds.h')
-        sounds_file.putln('#include "common.h"')
-        sounds_file.start_guard('SOUNDS_H')
-        sounds_file.putmeth('void setup_sounds', 'Media * media')
-        sound_set = set()
-
-        for game in self.games:
-            if not game.sounds:
-                continue
-            for sound in game.sounds.items:
-                if sound.name in sound_set:
-                    continue
-                sound_set.add(sound.name)
-                sound_type = sound.getType()
-                extension = {'OGG' : 'ogg', 'WAV' : 'wav', 'MOD' : 'mp3'}[
-                    sound_type]
-                filename = '%s.%s' % (sound.name, extension)
-                data = fix_sound(sound.data, extension)
-                if not dir_created:
-                    makedirs(self.get_filename('sounds'))
-                    dir_created = True
-                filename, data = self.platform.get_sound(filename, data)
-                self.open('sounds', filename).write(data)
-                sounds_file.putln(to_c('media->add_cache(%r, %r);',
-                    sound.name, filename))
-        sounds_file.end_brace()
-        sounds_file.close_guard('SOUNDS_H')
-        sounds_file.putln('')
-        sounds_file.close()
+            cache = {}
+            self.create_assets(cache)
+            with open(self.get_filename('cache.dat'), 'wb') as fp:
+                cPickle.dump(cache, fp, protocol=2)
+            del cache
 
         objects_header = self.open_code('objects.h')
         objects_header.start_guard('CHOWDREN_OBJECTS_H')
@@ -852,6 +749,7 @@ class Converter(object):
                 continue
             has_updates = writer.has_updates()
             has_movements = writer.has_movements()
+            has_sleep = writer.has_sleep()
             if not has_updates and not has_movements:
                 continue
             func_name = 'update_%s' % writer.new_class_name.lower()
@@ -871,6 +769,12 @@ class Converter(object):
             event_file.indent()
             event_file.putln('continue;')
             event_file.dedent()
+            if has_sleep:
+                event_file.putln('instance->update_inactive();')
+                event_file.putln('if (instance->flags & INACTIVE)')
+                event_file.indent()
+                event_file.putln('continue;')
+                event_file.dedent()
             if has_updates:
                 event_file.putlnc('((%s*)instance)->update(dt);',
                                   writer.class_name)
@@ -931,6 +835,23 @@ class Converter(object):
         event_file.end_brace()
         event_file.putln('data->frame = this;')
         event_file.end_brace()
+
+        if hacks.use_image_preload(self):
+            handles = []
+
+            for handle, frames in sorted(self.image_frames.iteritems(),
+                                         key=lambda (k, v): len(v),
+                                         reverse=True):
+                handles.append(handle)
+
+            for frame_index, images in enumerate(self.frame_images):
+                event_file.putmeth('void load_frame_%s_images'
+                                   % (frame_index + 1))
+                for image in images:
+                    event_file.putlnc('get_internal_image(%s);', image)
+                event_file.end_brace()
+
+            self.assets.write_preload(handles)
 
         event_file.close()
 
@@ -1014,7 +935,6 @@ class Converter(object):
         config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
         config_file.putdefine('FRAMERATE', header.frameRate)
         config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
-        config_file.putdefine('IMAGE_COUNT', self.image_count)
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
         if header.newFlags['VSync']:
@@ -1057,6 +977,8 @@ class Converter(object):
         self.info_dict['frame_srcs'] = self.frame_srcs
         self.info_dict['object_srcs'] = objects_file.sources
         self.write_config(self.info_dict, 'config.py')
+        self.assets.write_header()
+        self.assets.close()
         self.platform.install()
 
         # post-mortem stats
@@ -1070,6 +992,99 @@ class Converter(object):
         print ''
         print 'EXPRESSIONS'
         print default_writers['expressions'].checked.most_common()
+
+    def create_assets(self, cache):
+        self.solid_images = {}
+        self.image_indexes = {}
+        image_hashes = {}
+        new_entries = []
+        maxrects_images = []
+        image_index = 0
+        for game_index, game in enumerate(self.games):
+            if not game.images:
+                continue
+            for image in game.images.itemDict.itervalues():
+                pil_image = Image.fromstring('RGBA', (image.width,
+                    image.height), image.getImageData())
+
+                handle = (image.handle, game_index)
+                colors = pil_image.getcolors(1)
+                if colors is not None:
+                    color, = colors
+                    self.solid_images[handle] = color[1]
+
+                extra_hash = [image.xHotspot, image.yHotspot,
+                              image.actionX, image.actionY,
+                              image.width, image.height]
+                extra_hash = [str(item) for item in extra_hash]
+                image_hash = get_hash(pil_image.tobytes() +
+                                      '&'.join(extra_hash))
+
+                try:
+                    alias = image_hashes[image_hash]
+                    self.image_indexes[handle] = alias
+                    continue
+                except KeyError:
+                    pass
+
+                self.image_indexes[handle] = image_index
+                image_hashes[image_hash] = image_index
+
+                new_entries.append(image)
+                maxrects_images.append(pil_image)
+
+                image_index += 1
+
+        # use maxrects to create texture maps
+        # makedirs('./testmaxrects')
+        # maxrects = texpack.pack_images(maxrects_images, 1024, 1024)
+        # for file_index, rects in enumerate(maxrects):
+        #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
+
+        for i, image in enumerate(new_entries):
+            temp = self.platform.get_image(maxrects_images[i])
+            arg = (image.xHotspot, image.yHotspot,
+                   image.actionX, image.actionY, temp)
+            self.assets.add_image(*arg)
+
+        self.image_count = image_index
+
+        cache['solid'] = self.solid_images
+        cache['indexes'] = self.image_indexes
+        cache['count'] = self.image_count
+
+       # sounds
+        sound_set = set()
+        for game in self.games:
+            if not game.sounds:
+                continue
+            for sound in game.sounds.items:
+                if sound.name in sound_set:
+                    continue
+                sound_set.add(sound.name)
+                sound_type = sound.getType()
+                extension = {'OGG' : 'ogg', 'WAV' : 'wav', 'MOD' : 'mp3'}[
+                    sound_type]
+                filename = '%s.%s' % (sound.name, extension)
+                data = fix_sound(sound.data, extension)
+                filename, data = self.platform.get_sound(filename, data)
+                new_extension = os.path.splitext(filename)[1].lower()[1:]
+                self.assets.add_sound(sound.name, new_extension, data)
+
+        shader_path = os.path.join(self.base_path, 'shaders')
+        for shader in get_shader_programs():
+            vert_path = os.path.join(shader_path, '%s.vert' % shader)
+            frag_path = os.path.join(shader_path, '%s.frag' % shader)
+
+            with open(vert_path, 'rb') as fp:
+                vert = fp.read()
+            with open(frag_path, 'rb') as fp:
+                frag = fp.read()
+
+            data = self.platform.get_shader(vert, frag)
+            self.assets.add_shader(shader, data)
+
+        self.assets.write_data()
 
     def write_frame(self, frame_index, frame, event_file, lists_file,
                     lists_header):
@@ -1329,16 +1344,17 @@ class Converter(object):
         frame_file.putlnc('name = %r;', frame.name)
         frame_file.end_brace()
 
-        startup_images = set()
         # object writer custom stuff
+        startup_images = set()
         for object_writer in object_writers:
             object_writer.write_frame(event_file)
             for image in object_writer.get_images():
-                image_name = self.get_image(
+                handle = self.get_image_handle(
                     image, game_index=object_writer.game_index)
-                startup_images.add(image_name)
+                startup_images.add(handle)
+                self.image_frames[handle].add(frame_index)
 
-        # print 'Startup images:', len(startup_images)
+        self.frame_images.append(startup_images)
 
         frame_file.putmeth('void on_start')
         frame_file.putlnc('%s%s();', events_ref, start_name)
@@ -1376,9 +1392,8 @@ class Converter(object):
         if hacks.use_image_flush(self, frame):
             start_writer.putlnc('reset_image_cache();')
 
-        if hacks.use_image_preload(self, frame):
-            for image_name in startup_images:
-                start_writer.putlnc('%s->load();', image_name)
+        if hacks.use_image_preload(self):
+            start_writer.putlnc('load_frame_%s_images();', frame_index + 1)
 
         if hacks.use_image_flush(self, frame):
             start_writer.putlnc('flush_image_cache();')
@@ -1829,14 +1844,17 @@ class Converter(object):
         return self.solid_images[(value, self.game_index)]
 
     def get_image(self, value, pointer=True, game_index=None):
-        if game_index is None:
-            game_index = self.game_index
-        value = self.image_indexes[(value, game_index)]
+        value = self.get_image_handle(value, game_index)
         func = 'get_internal_image'
         ret = '%s(%s)' % (func, value)
         if not pointer:
             ret = '(*%s)' % ret
         return ret
+
+    def get_image_handle(self, value, game_index=None):
+        if game_index is None:
+            game_index = self.game_index
+        return self.image_indexes[(value, game_index)]
 
     def iterate_groups(self, groups):
         index = 0
@@ -2435,7 +2453,7 @@ class Converter(object):
             if parameter_name == 'Object':
                 return self.get_object((loader.objectInfo, loader.objectType))
             elif parameter_name == 'Sample':
-                return loader.name
+                return self.assets.get_sound_id(loader.name)
             elif parameter_name in ('Position', 'Shoot', 'Create'):
                 if parameter_name != 'Position':
                     obj = (loader.objectInfo, None)

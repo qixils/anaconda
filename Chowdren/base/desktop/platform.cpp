@@ -960,7 +960,13 @@ void platform_print_stats()
 
 }
 
-// wiiu dummies
+
+
+// dummies
+
+void platform_prepare_frame_change()
+{
+}
 
 void platform_set_remote_setting(const std::string & v)
 {

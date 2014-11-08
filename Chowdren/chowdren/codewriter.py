@@ -37,7 +37,7 @@ class CodeWriter(object):
         self.putln(*arg, **kw)
         self.indentation = indentation
 
-    def putdefine(self, name, value):
+    def putdefine(self, name, value=''):
         if value is None:
             return
         if value == '':

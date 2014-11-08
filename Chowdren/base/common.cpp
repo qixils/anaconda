@@ -190,7 +190,7 @@ void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
 {
     reset();
 
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#if defined(CHOWDREN_HAS_MRT)
     remote = CHOWDREN_TV_TARGET;
 #endif
 
@@ -410,7 +410,7 @@ CollisionBase * Layer::test_background_collision(CollisionBase * a)
             return ret;
     }
     BackgroundCallback callback(a);
-    if (!broadphase.query(a->aabb, callback))
+    if (!broadphase.query_static(a->aabb, callback))
         return callback.other;
     return NULL;
 }
@@ -532,7 +532,7 @@ void Layer::draw(int off_x, int off_y)
     PROFILE_END();
 }
 
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#if defined(CHOWDREN_HAS_MRT)
 void Layer::set_remote(int value)
 {
     remote = value;
@@ -827,7 +827,7 @@ void Frame::draw(int remote)
     glLoadIdentity();
     glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
     glMatrixMode(GL_MODELVIEW);
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#ifdef CHOWDREN_HAS_MRT
     if (remote == CHOWDREN_REMOTE_TARGET)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     else
@@ -835,7 +835,7 @@ void Frame::draw(int remote)
     {
         background_color.apply_clear_color();
     }
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#ifdef CHOWDREN_HAS_MRT
     if (remote != CHOWDREN_REMOTE_ONLY)
 #endif
     {
@@ -848,7 +848,7 @@ void Frame::draw(int remote)
     for (it = layers.begin(); it != layers.end(); ++it) {
         Layer & layer = *it;
 
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#ifdef CHOWDREN_HAS_MRT
         if (remote == CHOWDREN_HYBRID_TARGET) {
             if (layer.remote == CHOWDREN_REMOTE_TARGET)
                 continue;
@@ -957,13 +957,12 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
     instance->frame = this;
     Layer * layer = &layers[layer_index];
     instance->layer = layer;
-    if (instance->id != BACKGROUND_TYPE) {
+    if (instance->id != BACKGROUND_TYPE)
         INSTANCE_MAP.items[instance->id].add(instance);
-    }
     layer->add_background_object(instance);
     if (instance->collision) {
         instance->collision->update_aabb();
-        instance->collision->create_proxy();
+        instance->collision->create_static_proxy();
     } else {
         int bb[4] = {instance->x,
                      instance->y,
@@ -975,6 +974,10 @@ void Frame::add_background_object(FrameObject * instance, int layer_index)
 
 void Frame::set_object_layer(FrameObject * instance, int new_layer)
 {
+    if (instance->flags & BACKGROUND) {
+        std::cout << "Cannot move background object layer" << std::endl;
+        return;
+    }
     new_layer = clamp(new_layer, 0, layers.size()-1);
     Layer * layer = &layers[new_layer];
     if (layer == instance->layer)
@@ -1198,13 +1201,39 @@ bool FrameObject::overlaps(FrameObject * other)
     return collide(collision, other->collision);
 }
 
+struct BackgroundOverlapCallback
+{
+    CollisionBase * collision;
+
+    BackgroundOverlapCallback(CollisionBase * collision)
+    : collision(collision)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * obj = (FrameObject*)data;
+        CollisionBase * other = (CollisionBase*)obj->collision;
+        if (other == NULL)
+            return true;
+        if (other->flags & LADDER_OBSTACLE)
+            return true;
+        if (!collide(collision, other))
+            return true;
+        return false;
+    }
+};
+
 bool FrameObject::overlaps_background()
 {
     if (flags & DESTROYING || collision == NULL)
         return false;
     if (layer->back != NULL && layer->back->collide(collision))
         return true;
-    return collision->overlaps_type(BACKGROUND_TYPE);
+    BackgroundOverlapCallback callback(collision);
+    if (!layer->broadphase.query_static(collision->proxy, callback))
+        return true;
+    return false;
 }
 
 bool FrameObject::overlaps_background_save()
@@ -1591,14 +1620,14 @@ Active::Active(int x, int y, int type_id)
   animation_direction(0), stopped(false), flash_interval(0.0f),
   animation_finished(-1), transparent(false), image(NULL), direction_data(NULL)
 {
-    active_col.instance = this;
-    collision = &active_col;
+    sprite_col.instance = this;
+    collision = &sprite_col;
 }
 
 void Active::initialize_active()
 {
     if (collision_box)
-        active_col.flags |= BOX_COLLISION;
+        sprite_col.flags |= BOX_COLLISION;
     update_direction();
 }
 
@@ -1708,7 +1737,7 @@ void Active::update_frame()
     if (image == NULL)
         return;
 
-    active_col.set_image(image, image->hotspot_x, image->hotspot_y);
+    sprite_col.set_image(image, image->hotspot_x, image->hotspot_y);
     update_action_point();
 }
 
@@ -1723,10 +1752,10 @@ void Active::update_direction(Direction * dir)
 
 void Active::update_action_point()
 {
-    active_col.get_transform(image->action_x, image->action_y,
+    sprite_col.get_transform(image->action_x, image->action_y,
                              action_x, action_y);
-    action_x -= active_col.new_hotspot_x;
-    action_y -= active_col.new_hotspot_y;
+    action_x -= sprite_col.new_hotspot_x;
+    action_y -= sprite_col.new_hotspot_y;
 }
 
 void Active::update(float dt)
@@ -1863,7 +1892,7 @@ void Active::set_angle(float angle, int quality)
 {
     angle = mod(angle, 360.0f);
     this->angle = angle;
-    active_col.set_angle(angle);
+    sprite_col.set_angle(angle);
     update_action_point();
 }
 
@@ -1962,21 +1991,21 @@ void Active::set_scale(float value)
 {
     value = std::max(0.0f, value);
     x_scale = y_scale = value;
-    active_col.set_scale(value);
+    sprite_col.set_scale(value);
     update_action_point();
 }
 
 void Active::set_x_scale(float value)
 {
     x_scale = std::max(0.0f, value);
-    active_col.set_x_scale(x_scale);
+    sprite_col.set_x_scale(x_scale);
     update_action_point();
 }
 
 void Active::set_y_scale(float value)
 {
     y_scale = std::max(0.0f, value);
-    active_col.set_y_scale(y_scale);
+    sprite_col.set_y_scale(y_scale);
     update_action_point();
 }
 
@@ -2009,7 +2038,7 @@ void Active::flash(float value)
 
 bool Active::is_near_border(int border)
 {
-    int * box = active_col.aabb;
+    int * box = sprite_col.aabb;
     int off_x = layer->off_x;
     int off_y = layer->off_y;
 
@@ -3801,13 +3830,13 @@ ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
   scale_x(1.0f), scale_y(1.0f), angle(0.0f)
 {
-    collision = new SpriteCollision(this);
+    sprite_col.instance = this;
+    collision = &sprite_col;
 }
 
 ActivePicture::~ActivePicture()
 {
     image = NULL;
-    delete collision;
 }
 
 void ActivePicture::load(const std::string & fn)
@@ -3832,8 +3861,7 @@ void ActivePicture::load(const std::string & fn)
     if (image == NULL)
         return;
 
-    SpriteCollision * col = (SpriteCollision*)collision;
-    col->set_image(image, 0, 0);
+    sprite_col.set_image(image, 0, 0);
 }
 
 void ActivePicture::set_transparent_color(const Color & color)
@@ -3846,8 +3874,8 @@ void ActivePicture::set_hotspot(int x, int y)
     if (image == NULL)
         return;
     SpriteCollision * col = (SpriteCollision*)collision;
-    this->x += x - col->hotspot_x;
-    this->y += y - col->hotspot_y;
+    this->x += x - sprite_col.hotspot_x;
+    this->y += y - sprite_col.hotspot_y;
     ((SpriteCollision*)collision)->set_hotspot(x, y);
 }
 
@@ -3904,9 +3932,8 @@ void ActivePicture::draw()
     if (image == NULL)
         return;
     blend_color.apply();
-    SpriteCollision * col = (SpriteCollision*)collision;
-    image->hotspot_x = col->hotspot_x;
-    image->hotspot_y = col->hotspot_y;
+    image->hotspot_x = sprite_col.hotspot_x;
+    image->hotspot_y = sprite_col.hotspot_y;
     draw_image(image, x, y, angle, scale_x, scale_y, horizontal_flip);
 }
 

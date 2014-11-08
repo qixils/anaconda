@@ -15,8 +15,6 @@ def main():
         default='Assets.dat', help='destination file for assets')
     parser.add_argument('--skipassets', action='store_true',
         help='do not generate an assets file')
-    parser.add_argument('--base', action='store_true',
-        help='only copy base dir')
     parser.add_argument('--ico', type=str, action='store', default=None,
         help='icon to use for Windows')
     parser.add_argument('--icns', type=str, action='store', default=None,
@@ -31,12 +29,10 @@ def main():
                         help='use DLL architecture')
     parser.add_argument('--platform', type=str, action='store',
         default=None, help='platform for which to generate')
+    parser.add_argument('--config', type=str, action='store', default=None,
+                        help='game-specific configuration file')
     args = parser.parse_args()
-    Converter(args.filenames, args.outdir, assets=args.assets,
-              skip_assets=args.skipassets, win_ico=args.ico,
-              mac_icns=args.icns, version=args.version,
-              company=args.company, copyright=args.copyright,
-              base_only=args.base, use_dlls=args.dlls, platform=args.platform)
+    Converter(args)
 
 if __name__ == '__main__':
     main()

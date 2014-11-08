@@ -10,7 +10,6 @@ from chowdren.common import (get_method_name, to_c, make_color,
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
-from chowdren import hacks
 from chowdren.key import convert_key
 from mmfparser.bitdict import BitDict
 from chowdren.idpool import get_id
@@ -711,7 +710,7 @@ class CreateBase(ActionWriter):
 
         single_parent = self.converter.get_single(parent_info)
         safe = (select_single and parent_info is not None and not
-                single_parent and hacks.use_safe_create(self.converter))
+                single_parent and self.converter.config.use_safe_create())
         safe_name = None
 
         if safe:
@@ -1218,7 +1217,7 @@ class DivideExpression(ConstantExpression):
     value = '/'
 
     def get_string(self):
-        if hacks.use_safe_division(self.converter):
+        if self.converter.config.use_safe_division():
             return '/math_helper/'
         return self.value
 
@@ -1238,7 +1237,7 @@ class VirguleExpression(ExpressionWriter):
 
 class AlterableValueExpression(ExpressionWriter):
     def get_string(self):
-        if hacks.use_alterable_int(self):
+        if self.converter.config.use_alterable_int(self):
             func = 'alterables->values.get_int'
         else:
             func = 'alterables->values.get'
@@ -1254,7 +1253,7 @@ class AlterableStringExpression(ExpressionWriter):
 
 class GlobalValueExpression(ExpressionWriter):
     def get_string(self):
-        if hacks.use_global_int(self):
+        if self.converter.config.use_global_int(self):
             func = 'global_values->get_int'
         else:
             func = 'global_values->get'

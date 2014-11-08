@@ -47,6 +47,7 @@ public:
     int off_x, off_y;
     int x, y;
     Broadphase broadphase;
+    Broadphase background_broadphase;
     bool wrap_x, wrap_y;
 
     Layer();
@@ -78,7 +79,7 @@ public:
                int collision_type, const Color & color);
     void draw(int off_x, int off_y);
 
-#if defined(CHOWDREN_IS_WIIU) || defined(CHOWDREN_EMULATE_WIIU)
+#ifdef CHOWDREN_HAS_MRT
     int remote;
     void set_remote(int value);
 #endif

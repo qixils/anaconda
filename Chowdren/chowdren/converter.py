@@ -35,7 +35,7 @@ from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
 from chowdren import shader
 from chowdren.shader import INK_EFFECTS, get_shader_programs
-from chowdren import hacks
+from chowdren.config import ConfigurationFile
 from chowdren.idpool import get_id
 from chowdren.codewriter import CodeWriter
 from chowdren.platforms import classes as platform_classes
@@ -230,7 +230,7 @@ class EventContainer(object):
         self.children = []
         self.end_label = '%s_end' % self.code_name
         self.check_ids = itertools.count()
-        hacks.init_container(parent, self)
+        converter.config.init_container(self)
 
     def add_child(self, child):
         self.children.append(child)
@@ -305,7 +305,7 @@ class EventGroup(object):
         return new_id
 
     def set_groups(self, converter, groups):
-        is_simple = hacks.use_simple_or(converter)
+        is_simple = converter.config.use_simple_or()
         if len(groups) == 1:
             self.name = 'event_%s' % TEMPORARY_GROUP_ID
             self.unique_id = TEMPORARY_GROUP_ID
@@ -556,19 +556,12 @@ def fix_sound(data, extension):
 
 class Converter(object):
     debug = False
-    def __init__(self, filenames, outdir, assets='Assets.dat',
-                 skip_assets=False, win_ico=None, mac_icns=None, company=None,
-                 version=None, copyright=None, base_only=False, use_dlls=False,
-                 platform=None):
-        self.outdir = outdir
+    def __init__(self, args):
+        self.outdir = args.outdir
 
         # DLL architecture
-        self.use_dlls = use_dlls
+        self.use_dlls = args.dlls
         self.event_hash_id = 0
-
-        # copy base
-        if base_only:
-            return
 
         self.has_single_selection = {}
         self.has_selection = {}
@@ -582,10 +575,11 @@ class Converter(object):
         self.event_wrappers = {}
         self.objs_to_qualifier = {}
         self.event_frame_initializers = defaultdict(list)
+        self.defines = set()
 
         self.games = []
 
-        for game_index, filename in enumerate(filenames):
+        for game_index, filename in enumerate(args.filenames):
             fp = open(filename, 'rb')
             if filename.endswith('.exe'):
                 exe = ExecutableData(ByteReader(fp), loadFrames = False)
@@ -602,32 +596,32 @@ class Converter(object):
 
         self.game = self.games[0]
 
-        if win_ico is not None:
-            shutil.copy(win_ico, self.get_filename('icon.ico'))
-        if mac_icns is not None:
-            shutil.copy(mac_icns, self.get_filename('icon.icns'))
+        if args.ico is not None:
+            shutil.copy(args.ico, self.get_filename('icon.ico'))
+        if args.icns is not None:
+            shutil.copy(args.icns, self.get_filename('icon.icns'))
 
         # set up directory structure
-        makedirs(outdir)
-        self.build_dir = os.path.join(outdir, 'build')
+        makedirs(self.outdir)
+        self.build_dir = os.path.join(self.outdir, 'build')
         makedirs(self.build_dir)
 
         # application info
-        company = company or game.author
-        version = version or '1.0.0.0'
+        company = args.company or game.author
+        version = args.version or '1.0.0.0'
         version_number = ', '.join(version.split('.'))
-        copyright = copyright or game.author
+        copyright = args.copyright or game.author
         self.base_path = get_base_path()
         self.info_dict = dict(company = company, version = version,
             copyright = copyright, description = game.name,
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
 
-        # assets, platform and hacks
-        self.assets = Assets(self, skip_assets)
-        self.platform_name = platform or 'generic'
+        # assets, platform and config
+        self.config = ConfigurationFile(self, args.config)
+        self.assets = Assets(self, args.skipassets)
+        self.platform_name = args.platform or 'generic'
         self.platform = platform_classes[self.platform_name](self)
-        hacks.init(self)
 
         self.frame_map = {}
         self.image_frames = defaultdict(set)
@@ -671,7 +665,7 @@ class Converter(object):
         fonts_header.close()
 
         # images
-        if skip_assets:
+        if self.assets.skip:
             with open(self.get_filename('cache.dat'), 'rb') as fp:
                 cache = cPickle.load(fp)
             self.solid_images = cache['solid']
@@ -801,7 +795,7 @@ class Converter(object):
             self.game = game
             self.game_index = game.index
             frame_dict = dict(enumerate(game.frames))
-            frame_dict = hacks.get_frames(self, game, frame_dict)
+            frame_dict = self.config.get_frames(game, frame_dict)
             for frame in frame_dict.itervalues():
                 self.write_frame(frame.offset_index, frame, event_file,
                                  lists_file, lists_header)
@@ -836,7 +830,7 @@ class Converter(object):
         event_file.putln('data->frame = this;')
         event_file.end_brace()
 
-        if hacks.use_image_preload(self):
+        if self.config.use_image_preload():
             handles = []
 
             for handle, frames in sorted(self.image_frames.iteritems(),
@@ -924,8 +918,7 @@ class Converter(object):
         # explicitly.
         extension_names = set([item.name for item in  game.extensions.items])
         if 'ultimatefullscreen' not in extension_names:
-            config_file.putln('#define CHOWDREN_STARTUP_WINDOW')
-            config_file.putln('')
+            config_file.putdefine('CHOWDREN_STARTUP_WINDOW')
 
         config_file.putdefine('NAME', game.name)
         config_file.putdefine('COPYRIGHT', game.copyright)
@@ -938,11 +931,18 @@ class Converter(object):
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
         if header.newFlags['VSync']:
-            config_file.putln('#define CHOWDREN_VSYNC')
+            config_file.putdefine('CHOWDREN_VSYNC')
         if PROFILE:
-            config_file.putdefine('CHOWDREN_USE_PROFILER', '')
-        hacks.write_defines(self, config_file)
-        extra.write_defines(self, config_file)
+            config_file.putdefine('CHOWDREN_USE_PROFILER')
+
+        # write all options/extension defines
+        if self.config.use_iteration_index():
+            config_file.putdefine('CHOWDREN_ITER_INDEX')
+        if self.config.use_image_preload():
+            config_file.putdefine('CHOWDREN_PRELOAD_IMAGES')
+
+        for (name, value) in self.defines:
+            config_file.putdefine(name, value or '')
 
         config_file.close_guard("CHOWDREN_CONFIG_H")
         config_file.close()
@@ -992,6 +992,9 @@ class Converter(object):
         print ''
         print 'EXPRESSIONS'
         print default_writers['expressions'].checked.most_common()
+
+    def add_define(self, name, value=None):
+        self.defines.add((name, value))
 
     def create_assets(self, cache):
         self.solid_images = {}
@@ -1389,13 +1392,13 @@ class Converter(object):
         start_writer.putln('timer_base = %s;' % timer_base)
 
         # load images on startup
-        if hacks.use_image_flush(self, frame):
+        if self.config.use_image_flush(frame):
             start_writer.putlnc('reset_image_cache();')
 
-        if hacks.use_image_preload(self):
+        if self.config.use_image_preload():
             start_writer.putlnc('load_frame_%s_images();', frame_index + 1)
 
-        if hacks.use_image_flush(self, frame):
+        if self.config.use_image_flush(frame):
             start_writer.putlnc('flush_image_cache();')
 
         start_writer.putlnc('layers.resize(%s);', len(frame.layers.items))
@@ -1409,8 +1412,7 @@ class Converter(object):
                                 layer.xCoefficient, layer.yCoefficient,
                                 visible, wrap_horizontal, wrap_vertical)
 
-        start_writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
-                            'defined(CHOWDREN_EMULATE_WIIU)')
+        start_writer.putraw('#ifdef CHOWDREN_HAS_MRT')
         for layer_index, layer in enumerate(frame.layers.items):
             if layer.name.endswith('(DRC)'):
                 remote_type = 'CHOWDREN_REMOTE_TARGET'
@@ -1422,8 +1424,8 @@ class Converter(object):
                                 remote_type)
         start_writer.putraw('#endif')
 
-        startup_instances = hacks.get_startup_instances(self,
-                                                        startup_instances)
+        startup_instances = self.config.get_startup_instances(
+            startup_instances)
 
         for instance, frameitem in startup_instances:
             obj = (frameitem.handle, frameitem.objectType)
@@ -1624,7 +1626,7 @@ class Converter(object):
             object_writer.new_class_name = class_name
             object_writer.object_type = object_type
             for define in object_writer.defines:
-                extra.add_define(define)
+                self.add_define(define)
             self.application_writers.add(object_writer.write_application)
             self.all_objects[handle] = object_writer
             type_handle = (handle[0], self.game_index)
@@ -2177,7 +2179,7 @@ class Converter(object):
         if PROFILE:
             writer.putlnc('PROFILE_BLOCK(event_%s);', group.global_id)
 
-        hacks.write_pre(self, writer, group)
+        self.config.write_pre(writer, group)
         if conditions or has_container_check:
             if has_container_check:
                 condition = self.get_container_check(container)
@@ -2637,7 +2639,7 @@ class Converter(object):
     def get_object(self, obj, as_list=False, use_default=False, index=None):
         handle = obj[0]
         object_type = self.get_object_class(obj[1])
-        use_index = (hacks.use_iteration_index(self) and self.iterated_index
+        use_index = (self.config.use_iteration_index() and self.iterated_index
                      and self.in_actions) or index is not None
         index = index or self.iterated_index
         if obj in self.has_single_selection:

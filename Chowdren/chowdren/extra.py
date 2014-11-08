@@ -76,15 +76,6 @@ class SetString(ActionWriter):
 
         raise NotImplementedError()
 
-defines = []
-
-def add_define(define):
-    defines.append('#define %s' % define)
-
-def write_defines(converter, writer):
-    for define in set(defines):
-        writer.putln(define)
-
 actions = {
     'SetString' : SetString
 }

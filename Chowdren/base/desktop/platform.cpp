@@ -799,6 +799,8 @@ void remove_joystick(int instance)
 
 void init_joystick()
 {
+    SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
+
     rumble_effect.type = SDL_HAPTIC_LEFTRIGHT;
     rumble_effect.leftright.length = 0;
 

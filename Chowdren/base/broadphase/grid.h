@@ -15,7 +15,16 @@ struct GridItem
     }
 };
 
-typedef vector<int> GridItemList;
+struct GridItemList
+{
+    int static_items;
+    vector<int> items;
+
+    GridItemList()
+    : static_items(0)
+    {
+    }
+};
 
 #define GRID_INDEX(x, y) ((x) + (y) * width)
 #define GRID_SIZE 256
@@ -25,22 +34,27 @@ class UniformGrid
 public:
     int width, height;
     vector<GridItem> store;
-    GridItemList free_list;
+    vector<int> free_list;
     GridItemList * grid;
     int query_id;
 
     UniformGrid();
     ~UniformGrid();
     int add(void * data, int v[4]);
+    int add_static(void * data, int v[4]);
     void move(int proxy, int v[4]);
     void remove(int proxy);
     void clear();
+    void set_static();
+
+    template <typename T>
+    bool query_static(int v[4], T & callback);
+
+    template <typename T>
+    bool query_static(int proxy, T & callback);
 
     template <typename T>
     bool query(int v[4], T & callback);
-
-    template <typename T>
-    bool query(int proxy, T & callback);
 
     void get_pos(int in[4], int out[4]);
 };
@@ -62,20 +76,46 @@ inline void UniformGrid::get_pos(int in[4], int out[4])
 }
 
 template <typename T>
-inline bool UniformGrid::query(int proxy, T & callback)
+inline bool UniformGrid::query_static(int v[4], T & callback)
+{
+    int vv[4];
+    get_pos(v, vv);
+    query_id++;
+
+    for (int y = vv[1]; y < vv[3]; y++)
+    for (int x = vv[0]; x < vv[2]; x++) {
+        GridItemList & list = grid[GRID_INDEX(x, y)];
+        int count = list.static_items;
+
+        for (int i = 0; i < count; ++i) {
+            int index = list.items[i];
+            if (index == -1)
+                continue;
+            GridItem & vv = store[index];
+            if (vv.last_query_id == query_id)
+                continue;
+            vv.last_query_id = query_id;
+            if (!callback.on_callback(vv.data))
+                return false;
+        }
+    }
+    return true;
+}
+
+template <typename T>
+inline bool UniformGrid::query_static(int proxy, T & callback)
 {
     GridItem & item = store[proxy];
-    GridItemList::iterator it;
-
     query_id++;
 
     for (int y = item.box[1]; y < item.box[3]; y++)
     for (int x = item.box[0]; x < item.box[2]; x++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
+        int count = list.static_items;
 
-        for (it = list.begin(); it != list.end(); ++it) {
-            int index = *it;
-            if (index == proxy)
+        for (int i = 0; i < count; ++i) {
+            int index = list.items[i];
+            if (index == -1)
                 continue;
             GridItem & vv = store[index];
             if (vv.last_query_id == query_id)
@@ -91,7 +131,7 @@ inline bool UniformGrid::query(int proxy, T & callback)
 template <typename T>
 inline bool UniformGrid::query(int v[4], T & callback)
 {
-    GridItemList::iterator it;
+    vector<int>::iterator it;
     int vv[4];
     get_pos(v, vv);
 
@@ -101,8 +141,11 @@ inline bool UniformGrid::query(int v[4], T & callback)
     for (int x = vv[0]; x < vv[2]; x++) {
         GridItemList & list = grid[GRID_INDEX(x, y)];
 
-        for (it = list.begin(); it != list.end(); ++it) {
-            GridItem & vv = store[*it];
+        for (it = list.items.begin(); it != list.items.end(); ++it) {
+            int index = *it;
+            if (index == -1)
+                continue;
+            GridItem & vv = store[index];
             if (vv.last_query_id == query_id)
                 continue;
             vv.last_query_id = query_id;

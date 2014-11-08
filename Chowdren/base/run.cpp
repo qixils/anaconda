@@ -273,6 +273,19 @@ void GameManager::draw()
             render_frame->draw(CHOWDREN_REMOTE_ONLY);
         }
     }
+#elif CHOWDREN_IS_3DS
+    platform_set_display_target(CHOWDREN_TV_TARGET);
+    render_frame->draw(CHOWDREN_TV_TARGET);
+    draw_fade();
+
+    // only draw 30 fps on bottom screen
+    static int draw_interval = 0;
+    if (draw_interval == 0) {
+        platform_set_display_target(CHOWDREN_REMOTE_TARGET);
+        render_frame->draw(CHOWDREN_REMOTE_TARGET);
+        draw_fade();
+    }
+    draw_interval = (draw_interval + 1) % 3;
 #else
     render_frame->draw(CHOWDREN_HYBRID_TARGET);
     draw_fade();

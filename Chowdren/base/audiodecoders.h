@@ -30,48 +30,33 @@ public:
     virtual ~SoundDecoder() {};
 };
 
-static size_t read_func(void * ptr, size_t size, size_t nmemb, void *fp)
-{
-    return fsfile_fread(ptr, size, nmemb, (FSFile*)fp);
-}
-
-static int seek_func(void *fp, ogg_int64_t offset, int whence)
-{
-    return fsfile_fseek((FSFile*)fp, offset, whence);
-}
-
-static int close_func(void *fp)
-{
-    return fsfile_fclose((FSFile*)fp);
-}
-
-static long tell_func(void *fp)
-{
-    return fsfile_ftell((FSFile*)fp);
-}
+static size_t read_func(void * ptr, size_t size, size_t nmemb, void *fp);
+static int seek_func(void *fp, ogg_int64_t offset, int whence);
+static long tell_func(void *fp);
 
 ov_callbacks callbacks = {
     read_func,
     seek_func,
-    close_func,
+    NULL,
     tell_func
 };
 
 class OggDecoder : public SoundDecoder
 {
-private:
+public:
+    FSFile & fp;
+    size_t start;
+    size_t size;
     OggVorbis_File ogg_file;
     vorbis_info * ogg_info;
     int ogg_bitstream;
-    FSFile fp;
-
-public:
     double total_time;
 
-    OggDecoder(FSFile & fp)
-    : ogg_info(NULL), ogg_bitstream(0)
+    OggDecoder(FSFile & fp, size_t size)
+    : ogg_info(NULL), ogg_bitstream(0), size(size), fp(fp)
     {
-        if (ov_open_callbacks((void*)&fp, &ogg_file, NULL, 0, callbacks) != 0)
+        start = fp.tell();
+        if (ov_open_callbacks((void*)this, &ogg_file, NULL, 0, callbacks) != 0)
             return;
 
         ogg_info = ov_info(&ogg_file, -1);
@@ -90,7 +75,6 @@ public:
         if(ogg_info)
             ov_clear(&ogg_file);
         ogg_info = NULL;
-        fp.close();
     }
 
     bool is_valid()
@@ -133,6 +117,35 @@ public:
     }
 };
 
+size_t read_func(void * ptr, size_t size, size_t nmemb, void *fp)
+{
+    OggDecoder * file = (OggDecoder*)fp;
+    return file->fp.read(ptr, size*nmemb);
+}
+
+int seek_func(void *fp, ogg_int64_t offset, int whence)
+{
+    OggDecoder * file = (OggDecoder*)fp;
+    switch (whence) {
+        case SEEK_SET:
+            offset += file->start;
+            break;
+        case SEEK_END:
+            offset = file->start + file->size - offset;
+            whence = SEEK_SET;
+            break;
+        default:
+            break;
+    }
+    return file->fp.seek(offset, whence);
+}
+
+long tell_func(void *fp)
+{
+    OggDecoder * file = (OggDecoder*)fp;
+    return file->fp.tell() - file->start;
+}
+
 inline unsigned int read_le32(FSFile & file)
 {
     unsigned char buffer[4];
@@ -160,7 +173,7 @@ private:
     size_t rem_len;
 
 public:
-    WavDecoder(FSFile & fp)
+    WavDecoder(FSFile & fp, size_t size)
     : file(fp), data_start(0)
     {
         unsigned char buffer[25];
@@ -220,7 +233,6 @@ public:
 
     ~WavDecoder()
     {
-        file.close();
     }
 
     bool is_valid()
@@ -266,20 +278,20 @@ public:
 
     void seek(double t)
     {
-        size_t new_pos = t * sample_rate * (sample_size / 8) * channels;
-        new_pos = std::max(0, std::min(new_pos, data_len));
+        long new_pos = t * sample_rate * (sample_size / 8) * channels;
+        new_pos = std::max(0L, std::min(new_pos, data_len));
         if (file.seek(data_start + new_pos))
             rem_len = data_len - new_pos;
     }
 };
 
-SoundDecoder * create_decoder(FSFile & fp, Media::AudioType type)
+SoundDecoder * create_decoder(FSFile & fp, Media::AudioType type, size_t size)
 {
     SoundDecoder * decoder;
     if (type == Media::WAV)
-        decoder = new WavDecoder(fp);
+        decoder = new WavDecoder(fp, size);
     else if (type == Media::OGG)
-        decoder = new OggDecoder(fp);
+        decoder = new OggDecoder(fp, size);
     else
         return NULL;
     if (decoder->is_valid())

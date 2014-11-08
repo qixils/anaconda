@@ -45,16 +45,17 @@ class SoundFile : public SoundData
 public:
     Media::AudioType type;
     std::string filename;
+    size_t size;
 
-    SoundFile(unsigned int id, Media::AudioType type,
-              const std::string & filename)
-    : SoundData(id), type(type), filename(filename)
+    SoundFile(unsigned int id, const std::string & filename,
+              Media::AudioType type, size_t size)
+    : SoundData(id), type(type), filename(filename), size(size)
     {
     }
 
     void load(ChowdrenAudio::SoundBase ** source)
     {
-        *source = new ChowdrenAudio::SoundStream(filename, type);
+        *source = new ChowdrenAudio::SoundStream(filename, type, size);
     }
 };
 
@@ -63,15 +64,17 @@ class SoundCache : public SoundData
 public:
     Media::AudioType type;
     size_t offset;
+    size_t size;
 
-    SoundCache(unsigned int id, Media::AudioType type, size_t offset)
-    : SoundData(id), type(type), offset(offset)
+    SoundCache(unsigned int id, size_t offset, Media::AudioType type,
+               size_t size)
+    : SoundData(id), type(type), offset(offset), size(size)
     {
     }
 
     void load(ChowdrenAudio::SoundBase ** source)
     {
-        *source = new ChowdrenAudio::SoundStream(offset, type);
+        *source = new ChowdrenAudio::SoundStream(offset, type, size);
     }
 };
 
@@ -80,11 +83,12 @@ class SoundMemory : public SoundData
 public:
     ChowdrenAudio::Sample * buffer;
 
-    SoundMemory(unsigned int id, Media::AudioType type, FSFile & fp)
+    SoundMemory(unsigned int id, FSFile & fp, Media::AudioType type,
+                size_t size)
     : SoundData(id), buffer(NULL)
     {
         // load immediately
-        buffer = new ChowdrenAudio::Sample(fp, type);
+        buffer = new ChowdrenAudio::Sample(fp, type, size);
     }
 
     void load(ChowdrenAudio::SoundBase ** source)
@@ -257,14 +261,16 @@ void Media::play(SoundData * data, int channel, int loop)
     channels[channel].play(data, loop);
 }
 
-void Media::play(const std::string & filename, int channel, int loop)
+void Media::play(const std::string & in, int channel, int loop)
 {
-    if (platform_get_file_size(filename.c_str()) <= 0) {
+    std::string filename = convert_path(in);
+    size_t size = platform_get_file_size(filename.c_str());
+    if (size <= 0) {
         std::cout << "Audio file does not exist: " << filename << std::endl;
         return;
     }
     AudioType type = get_audio_type(filename);
-    SoundFile data(INVALID_ASSET_ID, type, convert_path(filename));
+    SoundFile data(INVALID_ASSET_ID, filename, type, size);
     play(&data, channel, loop);
 }
 
@@ -494,9 +500,9 @@ void Media::add_file(unsigned int id, const std::string & fn)
         (!is_wav && size <= OGG_STREAM_THRESHOLD))
     {
         FSFile fp(filename.c_str(), "r");
-        data = new SoundMemory(id, type, fp);
+        data = new SoundMemory(id, fp, type, size);
     } else {
-        data = new SoundFile(id, type, filename);
+        data = new SoundFile(id, filename, type, size);
     }
     sounds[id] = data;
 }
@@ -514,9 +520,9 @@ void Media::add_cache(unsigned int id, FSFile & fp)
     if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
         (!is_wav && size <= OGG_STREAM_THRESHOLD))
     {
-        data = new SoundMemory(id, type, fp);
+        data = new SoundMemory(id, fp, type, size);
     } else {
-        data = new SoundCache(id, type, fp.tell());
+        data = new SoundCache(id, fp.tell(), type, size);
     }
     sounds[id] = data;
 }

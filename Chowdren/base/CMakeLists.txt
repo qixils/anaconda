@@ -164,6 +164,7 @@ endif()
 
 if (EMULATE_WIIU)
     add_definitions(-DCHOWDREN_EMULATE_WIIU)
+    add_definitions(-DCHOWDREN_HAS_MRT)
 endif()
 
 if(WIN32)

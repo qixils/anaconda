@@ -52,6 +52,8 @@ public:
     void load();
     void set_static();
     void upload_texture();
+    void draw(int x1, int y1, int x2, int y2, bool flip_x, bool flip_y,
+              GLuint back = 0, bool has_tex_param = false);
     void draw(int x, int y, float angle = 0.0f,
               float scale_x = 1.0f, float scale_y = 1.0f,
               bool flip_x = false, bool flip_y = false,

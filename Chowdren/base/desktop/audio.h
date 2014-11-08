@@ -249,7 +249,7 @@ public:
     unsigned int channels;
     SoundList sounds;
 
-    Sample(FSFile & fp, Media::AudioType type);
+    Sample(FSFile & fp, Media::AudioType type, size_t size);
     ~Sample();
     void add_sound(Sound* sound);
     void remove_sound(Sound* sound);
@@ -503,19 +503,19 @@ public:
     bool end_buffers[BUFFER_COUNT];
     bool stopping;
 
-    SoundStream(size_t offset, Media::AudioType type)
+    SoundStream(size_t offset, Media::AudioType type, size_t size)
     : SoundBase()
     {
         fp.open();
         fp.seek(offset);
-        init(create_decoder(fp, type));
+        init(create_decoder(fp, type, size));
     }
 
-    SoundStream(const std::string & path, Media::AudioType type)
+    SoundStream(const std::string & path, Media::AudioType type, size_t size)
     : SoundBase()
     {
         fp.open(path.c_str(), "r");
-        init(create_decoder(fp, type));
+        init(create_decoder(fp, type, size));
     }
 
     void init(SoundDecoder * decoder)
@@ -891,9 +891,9 @@ public:
 
 // Sample implementation
 
-Sample::Sample(FSFile & fp, Media::AudioType type)
+Sample::Sample(FSFile & fp, Media::AudioType type, size_t size)
 {
-    SoundDecoder * file = create_decoder(fp, type);
+    SoundDecoder * file = create_decoder(fp, type, size);
     channels = file->channels;
     sample_rate = file->sample_rate;
     buffer = new SoundBuffer(*file, file->samples);

@@ -8,6 +8,8 @@
 #include "frame.h"
 #include <boost/algorithm/string.hpp>
 
+// #define CHOWDREN_AUTOSAVE_ON_CHANGE
+
 inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
 {
@@ -405,9 +407,11 @@ void INI::save_file(bool force)
 
 void INI::save_auto()
 {
+#ifdef CHOWDREN_AUTOSAVE_ON_CHANGE
     if (!auto_save)
         return;
     save_file(false);
+#endif
 }
 
 int INI::get_item_count(const std::string & section)
@@ -627,6 +631,10 @@ void INI::set_auto(bool save, bool load)
 
 INI::~INI()
 {
+#ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
+    if (auto_save)
+        save_file(false);
+#endif
     if (!is_global)
         delete data;
 }

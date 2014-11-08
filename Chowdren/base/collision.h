@@ -22,7 +22,8 @@ enum CollisionType
 enum CollisionFlags
 {
     BOX_COLLISION = 1 << 0,
-    LADDER_OBSTACLE = 1 << 1
+    LADDER_OBSTACLE = 1 << 1,
+    HAS_TRANSFORM = 1 << 2
 };
 
 class CollisionBase
@@ -32,7 +33,7 @@ public:
     int flags;
     int aabb[4];
 
-    CollisionBase(CollisionType type, unsigned char flags)
+    CollisionBase(CollisionType type, int flags)
     : flags(flags), type(type)
     {
     }
@@ -81,40 +82,13 @@ inline bool collide_line(int x1, int y1, int x2, int y2,
     }
 }
 
-struct TypeOverlapCallback
-{
-    CollisionBase * collision;
-    int type;
-
-    TypeOverlapCallback(CollisionBase * collision, int type)
-    : collision(collision), type(type)
-    {
-    }
-
-    bool on_callback(void * data)
-    {
-        FrameObject * obj = (FrameObject*)data;
-        if (obj->id != type)
-            return true;
-        CollisionBase * other = (CollisionBase*)obj->collision;
-        if (other == NULL)
-            return true;
-        if (other->flags & LADDER_OBSTACLE)
-            return true;
-        if (!collide(collision, other))
-            return true;
-        return false;
-    }
-};
-
 class InstanceCollision : public CollisionBase
 {
 public:
     FrameObject * instance;
     int proxy;
 
-    InstanceCollision(FrameObject * instance, CollisionType type,
-                      unsigned char flags)
+    InstanceCollision(FrameObject * instance, CollisionType type, int flags)
     : instance(instance), CollisionBase(type, flags), proxy(-1)
     {
     }
@@ -139,19 +113,18 @@ public:
         proxy = instance->layer->broadphase.add(instance, aabb);
     }
 
+    void create_static_proxy()
+    {
+        if (proxy != -1)
+            return;
+        proxy = instance->layer->broadphase.add_static(instance, aabb);
+    }
+
     virtual void update_aabb()
     {
         if (proxy == -1)
             return;
         instance->layer->broadphase.move(proxy, aabb);
-    }
-
-    bool overlaps_type(int type)
-    {
-        TypeOverlapCallback callback(this, type);
-        if (!instance->layer->broadphase.query(proxy, callback))
-            return true;
-        return false;
     }
 };
 
@@ -201,39 +174,45 @@ public:
     }
 };
 
-inline int int_min_4(int a, int b, int c, int d)
-{
-    return std::min<int>(
-        a, std::min<int>(
-            b, std::min<int>(c, d)
-        )
-    );
-}
-
-inline int int_max_4(int a, int b, int c, int d)
-{
-    return std::max<int>(
-        a, std::max<int>(
-            b, std::max<int>(c, d)
-        )
-    );
-}
-
-inline void transform_rect(int width, int height, float co, float si,
-                           float x_scale, float y_scale,
+inline void transform_rect(float xx, float yy, float co, float si,
                            int & x1, int & y1, int & x2, int & y2)
 {
-    int top_right_x = int(width * x_scale * co);
-    int top_right_y = int(-width * x_scale * si);
-    int bottom_left_x = int(height * y_scale * si);
-    int bottom_left_y = int(height * y_scale * co);
-    int bottom_right_x = int(width * x_scale * co + height * y_scale * si);
-    int bottom_right_y = int(height * y_scale * co - width * x_scale * si);
-    x1 = int_min_4(0, top_right_x, bottom_left_x, bottom_right_x);
-    y1 = int_min_4(0, top_right_y, bottom_left_y, bottom_right_y);
-    x2 = int_max_4(0, top_right_x, bottom_left_x, bottom_right_x);
-    y2 = int_max_4(0, top_right_y, bottom_left_y, bottom_right_y);
+    if (co >= 0.0f) {
+        if (si >= 0.0f) {
+            x1 = 0;
+            y1 = int(xx * -si);
+            x2 = int(xx * co + yy * si);
+            y2 = int(yy * co);
+        } else {
+            x1 = int(yy * si);
+            y1 = 0;
+            x2 = int(xx * co);
+            y2 = int(yy * co - xx * si);
+        }
+    } else {
+        if (si >= 0.0f) {
+            x1 = int(xx * co);
+            y1 = int(yy * co - xx * si);
+            x2 = int(yy * si);
+            y2 = 0;
+        } else {
+            x1 = int(xx * co + yy * si);
+            y1 = int(yy * co);
+            x2 = 0;
+            y2 = int(-xx * si);
+        }
+    }
 }
+
+#define INTEGER_GET_BIT
+
+#ifdef INTEGER_GET_BIT
+#define CONVERT_SCALER(x) (int((x) * 0x7FFF))
+#define GET_SCALER_RESULT(x) ((x) >> 15)
+#else
+#define CONVERT_SCALER(x) x
+#define GET_SCALER_RESULT(x) (int(x))
+#endif
 
 class SpriteCollision : public InstanceCollision
 {
@@ -243,18 +222,20 @@ public:
     float x_scale, y_scale;
     int hotspot_x, hotspot_y;
     // transformed variables
-    bool transform;
     float co, si;
-    float co_divx, si_divx;
-    float co_divy, si_divy;
+#ifdef INTEGER_GET_BIT
+    int co_divx, si_divx, co_divy, si_divy;
+#else
+    float co_divx, si_divx, co_divy, si_divy;
+#endif
     int x_t, y_t; // transformed offset
     int width, height;
     int new_hotspot_x, new_hotspot_y;
 
     SpriteCollision(FrameObject * instance = NULL)
     : InstanceCollision(instance, SPRITE_COLLISION, 0), image(NULL),
-      transform(false), angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
-      si(0.0f), hotspot_x(0), hotspot_y(0), width(0), height(0)
+      angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
+      si(0.0f), hotspot_x(0), hotspot_y(0), width(0), height(0), x_t(0), y_t(0)
     {
     }
 
@@ -276,8 +257,9 @@ public:
     void set_angle(float value)
     {
         angle = value;
-        co = cos_deg(angle);
-        si = sin_deg(angle);
+        float r = rad(angle);
+        co = cos(r);
+        si = sin(r);
         update_transform();
     }
 
@@ -301,43 +283,46 @@ public:
 
     void update_transform()
     {
-        if (x_scale == 1.0f && y_scale == 1.0f && angle == 0.0f) {
+        bool no_scale = x_scale == 1.0f && y_scale == 1.0f;
+        bool no_rotate = angle == 0.0f;
+        if (no_scale && no_rotate) {
             width = image->width;
             height = image->height;
             new_hotspot_x = hotspot_x;
             new_hotspot_y = hotspot_y;
-            transform = false;
+            x_t = y_t = 0;
+            flags &= ~HAS_TRANSFORM;
             update_aabb();
             return;
         }
 
-        transform = true;
+        flags |= HAS_TRANSFORM;
 
+        float xx = image->width * x_scale;
+        float yy = image->height * y_scale;
         float x_scale_inv = 1.0f / x_scale;
         float y_scale_inv = 1.0f / y_scale;
 
-        if (angle == 0.0f) {
-            co_divx = x_scale_inv;
-            co_divy = y_scale_inv;
+        if (no_rotate) {
+            co_divx = CONVERT_SCALER(x_scale_inv);
+            co_divy = CONVERT_SCALER(y_scale_inv);
             si_divx = si_divy = 0.0f;
-            width = int(image->width * x_scale);
-            height = int(image->height * y_scale);
-            x_t = 0;
-            y_t = 0;
+            width = int(xx);
+            height = int(yy);
+            x_t = y_t = 0;
             new_hotspot_x = int(hotspot_x * x_scale);
             new_hotspot_y = int(hotspot_y * y_scale);
             update_aabb();
             return;
         }
 
-        co_divx = co * x_scale_inv;
-        co_divy = co * y_scale_inv;
-        si_divx = si * x_scale_inv;
-        si_divy = si * y_scale_inv;
+        co_divx = CONVERT_SCALER(co * x_scale_inv);
+        co_divy = CONVERT_SCALER(co * y_scale_inv);
+        si_divx = CONVERT_SCALER(si * x_scale_inv);
+        si_divy = CONVERT_SCALER(si * y_scale_inv);
 
         int x2, y2;
-        transform_rect(image->width, image->height, co, si, x_scale, y_scale,
-                       x_t, y_t, x2, y2);
+        transform_rect(xx, yy, co, si, x_t, y_t, x2, y2);
         width = x2 - x_t;
         height = y2 - y_t;
         get_transform(hotspot_x, hotspot_y,
@@ -347,24 +332,27 @@ public:
 
     void get_transform(int x, int y, int & r_x, int & r_y)
     {
-        if (!transform) {
+        if (!(flags & HAS_TRANSFORM)) {
             r_x = x;
             r_y = y;
             return;
         }
-        int new_x = int(x * x_scale * co + y * y_scale * si);
-        int new_y = int(y * y_scale * co - x * x_scale * si);
+        float xx = x * x_scale;
+        float yy = y * y_scale;
+        int new_x = int(xx * co + yy * si);
+        int new_y = int(yy * co - xx * si);
         r_x = new_x - x_t;
         r_y = new_y - y_t;
     }
 
     inline bool get_bit(int x, int y)
     {
-        if (transform) {
-            int xx = x + x_t;
-            int yy = y + y_t;
-            x = int(xx * co_divx - yy * si_divx);
-            y = int(yy * co_divy + xx * si_divy);
+        // XXX bad branching
+        if (flags & HAS_TRANSFORM) {
+            int xx = GET_SCALER_RESULT(x * co_divx - y * si_divx);
+            int yy = GET_SCALER_RESULT(y * co_divy + x * si_divy);
+            x = xx;
+            y = yy;
             if (x < 0 || x >= image->width || y < 0 || y >= image->height)
                 return false;
         }
@@ -460,8 +448,6 @@ public:
 
     inline bool get_bit(int x, int y)
     {
-        x += src_x;
-        y += src_y;
         return image->get_alpha(x, y);
     }
 
@@ -476,8 +462,13 @@ inline bool collide_sprite_background(CollisionBase * a, CollisionBase * b,
                                       int w, int h, int offx1, int offy1,
                                       int offx2, int offy2)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    offx1 += ((SpriteCollision*)a)->x_t;
+    offy1 += ((SpriteCollision*)a)->y_t;
+    offx2 += ((BackgroundItem*)b)->src_x;
+    offy2 += ((BackgroundItem*)b)->src_y;
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
             bool c2 = ((BackgroundItem*)b)->get_bit(offx2 + x, offy2 + y);
             if (c1 && c2)
@@ -490,8 +481,11 @@ inline bool collide_sprite_background(CollisionBase * a, CollisionBase * b,
 inline bool collide_background_box(CollisionBase * a, int w, int h,
                                    int offx, int offy)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    offx += ((BackgroundItem*)a)->src_x;
+    offy += ((BackgroundItem*)a)->src_y;
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             if (((BackgroundItem*)a)->get_bit(offx + x, offy + y))
                 return true;
         }
@@ -502,8 +496,8 @@ inline bool collide_background_box(CollisionBase * a, int w, int h,
 inline bool collide_backdrop_box(CollisionBase * a, int w, int h,
                                  int offx, int offy)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             if (((BackdropCollision*)a)->get_bit(offx + x, offy + y))
                 return true;
         }
@@ -514,8 +508,11 @@ inline bool collide_backdrop_box(CollisionBase * a, int w, int h,
 inline bool collide_sprite_box(CollisionBase * a, int w, int h,
                                int offx, int offy)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    offx += ((SpriteCollision*)a)->x_t;
+    offy += ((SpriteCollision*)a)->y_t;
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             if (((SpriteCollision*)a)->get_bit(offx + x, offy + y))
                 return true;
         }
@@ -527,8 +524,13 @@ inline bool collide_sprite_sprite(CollisionBase * a, CollisionBase * b,
                                   int w, int h, int offx1, int offy1,
                                   int offx2, int offy2)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    offx1 += ((SpriteCollision*)a)->x_t;
+    offy1 += ((SpriteCollision*)a)->y_t;
+    offx2 += ((SpriteCollision*)b)->x_t;
+    offy2 += ((SpriteCollision*)b)->y_t;
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
             bool c2 = ((SpriteCollision*)b)->get_bit(offx2 + x, offy2 + y);
             if (c1 && c2)
@@ -542,8 +544,11 @@ inline bool collide_sprite_backdrop(CollisionBase * a, CollisionBase * b,
                                     int w, int h, int offx1, int offy1,
                                     int offx2, int offy2)
 {
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    offx1 += ((SpriteCollision*)a)->x_t;
+    offy1 += ((SpriteCollision*)a)->y_t;
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             bool c1 = ((SpriteCollision*)a)->get_bit(offx1 + x, offy1 + y);
             bool c2 = ((BackdropCollision*)b)->get_bit(offx2 + x, offy2 + y);
             if (c1 && c2)

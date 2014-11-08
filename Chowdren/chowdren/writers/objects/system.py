@@ -7,7 +7,6 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING, DISAPPEARING)
 from chowdren.common import get_animation_name, to_c, make_color
-from chowdren import hacks
 
 def get_closest_directions(direction, dir_dict):
     try:
@@ -80,7 +79,7 @@ class Active(ObjectWriter):
         writer.putln('initialize_active();')
 
     def has_updates(self):
-        if not hacks.use_update_filtering(self.converter):
+        if not self.converter.config.use_update_filtering():
             return True
         animations = self.common.animations.loadedAnimations
         if len(animations) > 1:

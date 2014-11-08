@@ -1,7 +1,6 @@
 from chowdren.writers import BaseWriter
 from mmfparser.bytereader import ByteReader
 from chowdren.idpool import get_id
-from chowdren import hacks
 
 class ObjectWriter(BaseWriter):
     common = None
@@ -131,14 +130,14 @@ class ObjectWriter(BaseWriter):
     def is_global(self):
         if not self.data.flags['Global']:
             return False
-        if not hacks.use_global_alterables(self.converter, self):
+        if not self.converter.config.use_global_alterables(self):
             return False
         return True
 
     def has_single_global(self):
         if not self.is_global():
             return False
-        return hacks.use_single_global_alterables(self.converter, self)
+        return self.converter.config.use_single_global_alterables(self)
 
     def get_images(self):
         return []

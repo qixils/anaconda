@@ -32,7 +32,6 @@
 #include "types.h"
 #include "crossrand.h"
 #include "utility.h"
-#include "broadphase.h"
 #include "input.h"
 #include "movement.h"
 #include "strings.h"
@@ -175,7 +174,7 @@ public:
     bool auto_rotate;
     bool transparent;
     int loop_count;
-    SpriteCollision active_col;
+    SpriteCollision sprite_col;
     Direction * direction_data;
     Image * image;
 
@@ -650,6 +649,7 @@ public:
     TransparentColor transparent_color;
     float scale_x, scale_y;
     float angle;
+    SpriteCollision sprite_col;
 
     ActivePicture(int x, int y, int type_id);
     ~ActivePicture();

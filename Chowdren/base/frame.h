@@ -50,6 +50,10 @@ public:
     Broadphase background_broadphase;
     bool wrap_x, wrap_y;
 
+#ifdef CHOWDREN_IS_3DS
+    float depth;
+#endif
+
     Layer();
     Layer(int index, double scroll_x, double scroll_y, bool visible,
           bool wrap_x, bool wrap_y);

@@ -1,6 +1,7 @@
 from chowdren.writers import BaseWriter
 from mmfparser.bytereader import ByteReader
 from chowdren.idpool import get_id
+from chowdren.common import get_method_name
 
 class ObjectWriter(BaseWriter):
     common = None
@@ -224,6 +225,9 @@ class ObjectWriter(BaseWriter):
 
         if is_global:
             writer.end_brace()
+
+    def get_pool(self):
+        return '%s_pool' % get_method_name(self.class_name)
 
     def get_base_filename(self):
         if '/' in self.filename:

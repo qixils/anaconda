@@ -12,6 +12,7 @@
 #include "broadphase.h"
 #include <assert.h>
 #include <boost/intrusive/list.hpp>
+#include "pool.h"
 
 class InstanceCollision;
 class Frame;
@@ -102,6 +103,10 @@ public:
 typedef boost::intrusive::link_mode<boost::intrusive::normal_link> LinkMode;
 typedef boost::intrusive::list_member_hook<LinkMode> LayerPos;
 
+#define FRAMEOBJECT_HEAD(x) static ObjectPool<x> pool; \
+                            static X * alloc() {(X*)pool.create()} \
+                            static void dealloc(X * p) {pool.destroy(p)}
+
 class FrameObject
 {
 public:
@@ -136,6 +141,7 @@ public:
 
     FrameObject(int x, int y, int type_id);
     virtual ~FrameObject();
+    virtual void dealloc();
     void set_position(int x, int y);
     void set_global_position(int x, int y);
     int get_x();

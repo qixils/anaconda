@@ -575,6 +575,7 @@ class Converter(object):
         self.event_wrappers = {}
         self.objs_to_qualifier = {}
         self.event_frame_initializers = defaultdict(list)
+        self.pools = set()
         self.defines = set()
 
         self.games = []
@@ -619,6 +620,7 @@ class Converter(object):
 
         # assets, platform and config
         self.config = ConfigurationFile(self, args.config)
+        self.config.init()
         self.assets = Assets(self, args.skipassets)
         self.platform_name = args.platform or 'generic'
         self.platform = platform_classes[self.platform_name](self)
@@ -681,7 +683,7 @@ class Converter(object):
 
         objects_header = self.open_code('objects.h')
         objects_header.start_guard('CHOWDREN_OBJECTS_H')
-        objects_header.putln('#include "frameobject.h"')
+        objects_header.putln('#include "common.h"')
         objects_header.putln('')
 
         objects_file = ObjectFileWriter(self)
@@ -719,6 +721,11 @@ class Converter(object):
                                objects_header, lists_header)
 
         self.max_type_id = self.type_ids.next()
+
+        for (class_name, pool) in self.pools:
+            pool_type = 'ObjectPool<%s>' % class_name
+            objects_header.putlnc('extern %s %s;', pool_type, pool)
+            objects_file.putlnc('%s %s;', pool_type, pool)
 
         objects_header.close_guard('CHOWDREN_OBJECTS_H')
         objects_file.close()
@@ -1424,6 +1431,15 @@ class Converter(object):
                                 remote_type)
         start_writer.putraw('#endif')
 
+        start_writer.putraw('#ifdef CHOWDREN_IS_3DS')
+        for layer_index, layer in enumerate(frame.layers.items):
+            depth = self.config.get_depth(layer)
+            if depth is None:
+                continue
+            start_writer.putlnc('layers[%s].depth = float(%s);', layer_index,
+                                depth)
+        start_writer.putraw('#endif')
+
         startup_instances = self.config.get_startup_instances(
             startup_instances)
 
@@ -1679,13 +1695,16 @@ class Converter(object):
 
             objects_header.putln('FrameObject * %s(int x, int y);'
                                  % object_func)
-
+            pool = object_writer.get_pool()
             objects_file.putmeth('FrameObject * %s' % object_func,
                                  'int x', 'int y')
-            objects_file.putln('return new %s(x, y);' % class_name)
+            objects_file.putlnc('return new (%s.create()) %s(x, y);',
+                                pool, class_name)
             objects_file.end_brace()
 
             objects_file.next()
+
+            self.pools.add((object_writer.class_name, pool))
 
     def write_object(self, object_writer):
         class_name = object_writer.new_class_name
@@ -1834,6 +1853,11 @@ class Converter(object):
             objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
             objects_file.putlnc('%s::draw();', subclass)
             objects_file.end_brace()
+
+        objects_file.putmeth('void dealloc')
+        objects_file.putlnc('%s::~%s();', subclass, subclass)
+        objects_file.putlnc('%s.destroy(this);', object_writer.get_pool())
+        objects_file.end_brace()
 
         objects_file.end_brace(True)
 

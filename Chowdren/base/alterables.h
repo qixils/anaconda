@@ -7,6 +7,7 @@
 #include <string>
 #include <iostream>
 #include "dynnum.h"
+#include "pool.h"
 
 #define ALT_VALUES 26
 #define ALT_STRINGS 10
@@ -156,6 +157,21 @@ public:
         values.set(other.values);
         flags.set(other.flags);
     }
+
+    static Alterables * create();
+    static void destroy(Alterables * ptr);
 };
+
+extern ObjectPool<Alterables> alterable_pool;
+
+inline Alterables * Alterables::create()
+{
+    return new (alterable_pool.create()) Alterables();
+}
+
+inline void Alterables::destroy(Alterables * ptr)
+{
+    alterable_pool.destroy(ptr);
+}
 
 #endif // ALTERABLES_H

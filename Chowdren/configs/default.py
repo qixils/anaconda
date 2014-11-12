@@ -52,5 +52,5 @@ def add_defines(converter):
 def get_frames(converter, game, frames):
     return frames
 
-def get_depth(converter, obj):
+def get_depth(converter, layer):
     return None

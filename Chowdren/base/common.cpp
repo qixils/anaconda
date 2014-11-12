@@ -183,6 +183,10 @@ void Layer::reset()
     x = y = 0;
     off_x = off_y = 0;
     back = NULL;
+
+#ifdef CHOWDREN_IS_3DS
+    depth = 0.0f;
+#endif
 }
 
 void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
@@ -213,7 +217,7 @@ Layer::~Layer()
     for (it = background_instances.begin(); it != background_instances.end();
          ++it) {
         FrameObject * obj = *it;
-        delete obj;
+        obj->dealloc();
     }
 }
 
@@ -476,6 +480,10 @@ void Layer::draw(int off_x, int off_y)
 {
     if (!visible)
         return;
+
+#ifdef CHOWDREN_IS_3DS
+    glc_set_global_depth(depth);
+#endif
 
     // draw backgrounds
     int x1 = off_x * scroll_x;
@@ -771,7 +779,7 @@ void Frame::clean_instances()
             instance->layer->remove_background_object(instance);
         else
             instance->layer->remove_object(instance);
-        delete instance;
+        instance->dealloc();
     }
     destroyed_instances.clear();
 }
@@ -1007,7 +1015,7 @@ void Frame::reset()
         for (it = list.begin(); it != list.end(); ++it) {
             if (it->obj->flags & BACKGROUND)
                 continue;
-            delete it->obj;
+            it->obj->dealloc();
         }
     }
 
@@ -1050,7 +1058,7 @@ FrameObject::~FrameObject()
     }
     delete shader_parameters;
     if (!(flags & GLOBAL))
-        delete alterables;
+        Alterables::destroy(alterables);
 #ifdef CHOWDREN_USE_VALUEADD
     delete extra_alterables;
 #endif
@@ -1135,7 +1143,7 @@ int FrameObject::get_y()
 
 void FrameObject::create_alterables()
 {
-    alterables = new Alterables;
+    alterables = Alterables::create();
 }
 
 void FrameObject::set_visible(bool value)
@@ -1328,6 +1336,10 @@ void FrameObject::destroy()
     if (collision != NULL)
         collision->type = NONE_COLLISION;
     frame->destroyed_instances.push_back(this);
+}
+
+void FrameObject::dealloc()
+{
 }
 
 void FrameObject::set_level(int index)

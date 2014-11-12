@@ -7,6 +7,8 @@
 #include "fpslimit.h"
 #include "include_gl.h"
 #include "input.h"
+#include "pool.h"
+#include "chowconfig.h"
 
 class Frame;
 class Media;

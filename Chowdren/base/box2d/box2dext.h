@@ -122,13 +122,13 @@ public:
     void create_body(float x, float y, float angle);
     void create_body(FrameObject * obj, float x, float y, int rot, int dest);
     void create_shape(FrameObject * obj, const std::string & value);
-    void create_shape(FrameObject * obj, const std::string & value, 
+    void create_shape(FrameObject * obj, const std::string & value,
                       float x, float y, float density, float friction,
                       float elasticity);
     void create_mouse_joint(FrameObject * obj, float x, float y,
                             float max_force);
     void create_distance_joint(FrameObject * obj2, FrameObject * obj,
-                               float x2, float y2, int local2, 
+                               float x2, float y2, int local2,
                                float x, float y, int local,
                                int collide);
     void create_box(FrameObject * obj, float width, float height,

@@ -7,6 +7,7 @@
 #include "types.h"
 #include <algorithm>
 #include "dynnum.h"
+#include <boost/algorithm/string/replace.hpp>
 
 extern std::string empty_string;
 
@@ -66,14 +67,17 @@ inline void replace_substring(std::string & str,
 {
     if (from.empty())
         return;
-    size_t start_pos = 0;
-    while (true) {
-        start_pos = str.find(from, start_pos);
-        if (start_pos == std::string::npos)
-            break;
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length();
-    }
+    boost::algorithm::replace_all(str, from, to);
+}
+
+// case-insensitive version
+inline void ireplace_substring(std::string & str,
+                               const std::string & from,
+                               const std::string & to)
+{
+    if (from.empty())
+        return;
+    boost::algorithm::ireplace_all(str, from, to);
 }
 
 inline void split_string(const std::string & s, char delim,

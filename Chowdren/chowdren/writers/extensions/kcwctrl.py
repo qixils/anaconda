@@ -29,6 +29,7 @@ class SetFrameWidth(ActionMethodWriter):
 actions = make_table(StaticActionWriter, {
     0 : 'set_x',
     1 : 'set_y',
+    2 : 'set_placement',
     3 : 'set_width',
     4 : 'set_height',
     9 : 'set_visible(true)',

@@ -118,13 +118,24 @@ def translate_shader_data(data, typ, profile):
         lines.insert(1, new_line)
     return '\n'.join(lines)
 
+def translate_data(data, typ, out_path, profile):
+    data = translate_shader_data(data, typ, profile)
+    with open(out_path, 'wb') as fp:
+        fp.write(data)
+
 def translate_shader_path(path, typ, out_path, profile):
     with open(path, 'rU') as fp:
         data = fp.read()
-    data = translate_shader_data(data, typ, profile)
-    open(out_path, 'wb').write(data)
+    translate_data(data, typ, out_path, profile)
 
-def translate_program(name, out_dir, profile):
+def translate_program(vert, frag, out_dir, profile):
+    new_vert_path = os.path.join(out_dir, 'out.vert')
+    new_frag_path = os.path.join(out_dir, 'out.frag')
+    translate_data(vert, 'vertex', new_vert_path, profile)
+    translate_data(frag, 'fragment', new_frag_path, profile)
+    return new_vert_path, new_frag_path
+
+def translate_name(name, out_dir, profile):
     makedirs(out_dir)
     shader_path = os.path.join(get_base_path(), 'shaders')
     vert_path = os.path.join(shader_path, '%s.vert' % name)
@@ -144,7 +155,7 @@ def get_shader_programs():
 def main():
     out_dir = os.path.join(os.getcwd(), 'glesshaders')
     for name in get_shader_programs():
-        translate_program(name, out_dir, 'gles')
+        translate_name(name, out_dir, 'gles')
         print 'Translated shader', name
 
 if __name__ == '__main__':

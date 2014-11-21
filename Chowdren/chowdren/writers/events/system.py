@@ -33,6 +33,8 @@ def get_restrict_name(group):
 PROFILE_LOOPS = set([])
 
 class SystemObject(ObjectWriter):
+    loop_name_warnings = set()
+
     def __init__(self, converter):
         self.converter = converter
         self.data = None
@@ -40,6 +42,7 @@ class SystemObject(ObjectWriter):
     def write_frame(self, writer):
         self.write_group_activated(writer)
         self.write_loops(writer)
+        self.write_foreach(writer)
         # self.write_collisions(writer)
 
     def write_start(self, writer):
@@ -115,9 +118,36 @@ class SystemObject(ObjectWriter):
             writer.put_label(end_name)
         writer.end_brace()
 
+    def write_foreach(self, writer):
+        loops = defaultdict(list)
+        loop_objects = {}
+        for loop in self.get_conditions('OnObjectLoop'):
+            parameter = loop.conditions[0].data.items[0]
+            items = parameter.loader.items
+            name = self.converter.convert_static_expression(items)
+            loop_objects[name] = loop.conditions[0].get_object()
+            loops[name].append(loop)
+
+        for real_name in loops.keys():
+            name = 'foreach_instance_' + get_method_name(real_name)
+            writer.add_member('FrameObject * %s' % name)
+
+        self.converter.begin_events()
+        for real_name, groups in loops.iteritems():
+            obj = loop_objects[real_name]
+            name = get_method_name(real_name)
+            object_class = self.converter.get_object_class(obj[1])
+            writer.putmeth('bool foreach_%s' % name, 'FrameObject * selected')
+            for group in groups:
+                self.converter.set_object(obj, '((%s)selected)' % object_class)
+                self.converter.write_event(writer, group, True)
+            writer.putln('return true;')
+            writer.end_brace()
+
     def write_loops(self, writer):
         self.loop_names = set()
         self.loop_funcs = {}
+        self.loop_pos = {}
         loops = self.loops = defaultdict(list)
         self.dynamic_loops = set()
         for loop_group in self.get_conditions('OnLoop'):
@@ -125,8 +155,13 @@ class SystemObject(ObjectWriter):
             items = parameter.loader.items
             name = self.converter.convert_static_expression(items)
             if name is None:
+                # try and get config to give us a loop name
+                name = self.converter.config.get_loop_name(parameter)
+            if name is None:
                 name = self.converter.convert_parameter(parameter)
-                print 'dynamic "on loop" not implemented:', name
+                if name not in self.loop_name_warnings:
+                    print 'dynamic "on loop" not implemented:', name
+                    self.loop_name_warnings.add(name)
                 continue
 
             if name == 'Clear Filter':
@@ -134,6 +169,7 @@ class SystemObject(ObjectWriter):
                 continue
             self.loop_names.add(name.lower())
             loops[name].append(loop_group)
+            self.loop_pos[name] = loop_group.global_id
 
         if not loops:
             return
@@ -169,6 +205,14 @@ class SystemObject(ObjectWriter):
                     defer_loops[name].add(call_name)
                     defer = True
 
+            extra_calls = self.converter.config.get_loop_call_names(name)
+            if extra_calls is not None:
+                defer = True
+                for call in extra_calls:
+                    has_call.add(call)
+                    defer_loops[name].add(call)
+
+
             if not defer:
                 loop_order.append(name)
 
@@ -198,8 +242,25 @@ class SystemObject(ObjectWriter):
             loop_name = 'loop_%s' % get_loop_func_name(name, self.converter)
             self.converter.current_loop_name = name
             self.converter.current_loop_func = loop_name
-            loop_name = self.converter.write_generated(loop_name, writer,
-                                                       groups)
+            extra_calls = self.converter.config.get_loop_call_names(name)
+            if extra_calls is None:
+                pre_calls = None
+                post_calls = None
+            else:
+                pos = self.loop_pos[name]
+
+                pre_calls = []
+                post_calls = []
+                for call in extra_calls:
+                    other_pos = self.loop_pos[call]
+                    func_name = self.loop_funcs[call.lower()]
+                    if pos > other_pos:
+                        pre_calls.append(func_name)
+                    else:
+                        post_calls.append(func_name)
+
+            loop_name = self.converter.write_generated(
+                loop_name, writer, groups, pre_calls, post_calls)
             self.loop_funcs[name.lower()] = loop_name
 
         self.converter.current_loop_name = None
@@ -554,6 +615,19 @@ class PickAlterableValue(PickCondition):
                               index, comparison, 'check_value')
         writer.end_brace()
 
+class PickFlagOn(PickCondition):
+    def write_pick(self, writer, objs):
+        comparison = self.get_comparison()
+        index = self.convert_index(0)
+
+        writer.start_brace()
+
+        for obj in objs:
+            with self.converter.iterate_object(obj, writer, copy=False):
+                obj = self.converter.get_object(obj)
+                writer.putlnc('if (!((*it)->alterables->flags.is_on(%s)))'
+                              ' it.deselect();', index)
+        writer.end_brace()
 
 class CompareFixedValue(ConditionWriter):
     custom = True
@@ -621,7 +695,8 @@ class LeavingPlayfield(ConditionMethodWriter):
     def write(self, writer):
         value = self.parameters[0].loader.value
         if value != 15:
-            raise NotImplementedError()
+            print 'leaving playfield for %s not implemented' % value
+            # raise NotImplementedError()
         writer.put('outside_playfield()')
 
 # actions
@@ -639,6 +714,39 @@ class BounceAction(CollisionAction):
     method = 'get_movement()->bounce(%s)'
 
 class CreateBase(ActionWriter):
+    """
+    Cases to consider:
+
+    1) Create object 1
+       Use of object 1
+       Create object 2
+       Use object 1 (right now, we select object 2)
+
+    2) Create object 1, 2, 3
+       Use object 1, 2, 3
+
+    3) Create object 1
+       Create object 2
+       Use object 1, 2
+       Create object 3
+       Use object 1, 2 (right now, we select object 3)
+
+    4) Use object 1, 2
+       Create object 3, 4
+       Use object 1, 2 (right now, we select object 3, 4)
+
+    5) Create object 4, 5 from parent 2, 3 (1 action)
+       Use object 4
+
+    6) Create object 2 from parent 1
+       -> All objects are deselected here
+       Create object 3 from parent 1
+       Use object 3
+
+    In reality, Fusion only deals with a single instance at a time, iterating
+    the action list for each. We try and emulate that here, as this is the
+    only place where it makes a difference
+    """
     custom = True
 
     def get_create_info(self):
@@ -668,12 +776,12 @@ class CreateBase(ActionWriter):
         else:
             create_object = details['create_object']
 
+
         # here are some crazy heuristics to properly emulate the super wonky
         # MMF2 create selection behaviour
         actions = self.converter.current_group.actions
         self_index = actions.index(self)
 
-        has_after_spaced = False
         has_after = False
         has_before = False
 
@@ -685,37 +793,40 @@ class CreateBase(ActionWriter):
             if action.get_create_info() != object_info:
                 continue
             delta = self_index - index
-            if delta >= 2:
-                has_after_spaced = True
-            if delta > 0:
+            if delta == 1:
                 has_after = True
-            if delta < 0:
+            elif delta == -1:
                 has_before = True
 
+        multi = has_after or has_before
+
         list_name = self.converter.get_object_list(object_info, True)
-        has_selection = object_info in self.converter.has_selection
 
-        select_single = (not has_after and not has_before and
-                         parent_info is not None and not has_selection)
+        has_selection = (object_info in self.converter.has_selection)
+        select_single = (not multi and parent_info is not None
+                         and not has_selection)
+        single_name = 'single_instance_%s' % self.get_id(self)
         if select_single:
-            obj = self.converter.get_object(object_info)
-            self.converter.set_object(object_info, obj)
+            class_name = self.converter.get_object_class(object_info[1])
+            self.converter.set_object(object_info,
+                                      '((%s)%s)' % (class_name, single_name))
 
-        if object_info != parent_info and not has_selection:
+        if object_info != parent_info and (not has_selection and
+                                           not select_single):
             writer.putlnc('%s.empty_selection();', list_name)
             self.converter.set_list(object_info, list_name)
 
-        writer.putlnc('// select single: %s %s %s %s %s', select_single,
-                      has_after, has_before, has_after_spaced, has_selection)
+        writer.putlnc('// select single: %s %s %s %s', select_single,
+                      has_after, has_before, has_selection)
 
         single_parent = self.converter.get_single(parent_info)
         safe = (select_single and parent_info is not None and not
                 single_parent and self.converter.config.use_safe_create())
         safe_name = None
 
-        if safe:
-            safe_name = 'has_create_%s' % self.get_id(self)
-            writer.putlnc('bool %s; %s = false;', safe_name, safe_name)
+        if select_single:
+            writer.putlnc('FrameObject * %s; %s = NULL;', single_name,
+                          single_name)
 
         if single_parent:
             parent = single_parent
@@ -724,8 +835,6 @@ class CreateBase(ActionWriter):
                                                   copy=False)
             writer.putlnc('FrameObject * parent = *p_it;')
             parent = 'parent'
-            if safe:
-                writer.putlnc('%s = true;', safe_name)
 
         writer.start_brace()
         if parent_info is not None and not is_shoot:
@@ -753,7 +862,12 @@ class CreateBase(ActionWriter):
         writer.putlnc('FrameObject * new_obj;')
         self.converter.create_object(create_object, x, y, layer, 'new_obj',
                                      writer)
-        if not select_single:
+        if select_single:
+            writer.putlnc('if (%s == NULL)', single_name)
+            writer.indent()
+            writer.putlnc('%s = new_obj;', single_name)
+            writer.dedent()
+        else:
             writer.putlnc('%s.add_back();', list_name)
         if is_shoot:
             writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
@@ -776,12 +890,11 @@ class CreateBase(ActionWriter):
                                                 copy=False)
 
         if safe:
-            writer.putlnc('if (!%s) {', safe_name)
+            writer.putlnc('if (%s == NULL) {', single_name)
             writer.indent()
-            writer.putln('FrameObject * new_obj;')
-            self.converter.create_object(create_object, 0, 0, 0, 'new_obj',
+            self.converter.create_object(create_object, 0, 0, 0, single_name,
                                          writer)
-            writer.putlnc('new_obj->destroy();')
+            writer.putlnc('%s->destroy();', single_name)
             writer.end_brace()
 
         if False: # action_name == 'DisplayText':
@@ -852,6 +965,29 @@ class SetPosition(ActionWriter):
             self.converter.end_object_iteration(object_info, writer,
                                                 copy=False)
 
+class SwapPosition(ActionWriter):
+    custom = True
+    def write(self, writer):
+        config = self.group.config
+        swap_name = config.get('swap_name', None)
+        if swap_name is None:
+            swap_name = 'swap_%s' % TEMPORARY_GROUP_ID
+            config['swap_name'] = swap_name
+            writer.putlnc('static FlatObjectList %s;', swap_name)
+            writer.putlnc('%s.clear();', swap_name)
+
+        obj = self.get_object()
+        with self.converter.iterate_object(obj, writer, copy=False):
+            writer.putlnc('%s.push_back(%s);', swap_name,
+                          self.converter.get_object(obj))
+
+    def write_post(self, writer):
+        config = self.group.config
+        if config.get('has_swap', False):
+            return
+        config['has_swap'] = True
+        writer.putlnc('swap_position(%s);', config['swap_name'])
+
 class LookAt(ActionWriter):
     def write(self, writer):
         object_info = self.get_object()
@@ -879,8 +1015,33 @@ class MoveBehind(ActionWriter):
                        self.parameters[0].loader.objectType)
         writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
 
+class Foreach(ActionWriter):
+    custom = True
+
+    def get_name(self):
+        parameter = self.parameters[0]
+        items = parameter.loader.items
+        return self.converter.convert_static_expression(items)
+
+    def write(self, writer):
+        writer.start_brace()
+        obj = self.get_object()
+        object_class = self.converter.get_object_class(obj[1])
+        real_name = self.get_name()
+        if real_name is None:
+            raise NotImplementedError()
+        name = get_method_name(real_name)
+        func_call = 'foreach_%s(' % name
+        with self.converter.iterate_object(obj, writer):
+            selected = self.converter.get_object(obj)
+            writer.putlnc('foreach_instance_%s = %s;', name, selected)
+            writer.putlnc('if (!%s((%s)%s))) break;', func_call, object_class,
+                          selected)
+        writer.end_brace()
+
 class StartLoop(ActionWriter):
     custom = True
+    loop_warnings = set()
 
     def get_name(self):
         parameter = self.parameters[0]
@@ -914,7 +1075,10 @@ class StartLoop(ActionWriter):
             if real_name.lower() not in loop_names:
                 if real_name == 'Clear Filter':
                     self.converter.clear_selection()
-                print 'Could not find loop %r' % real_name
+                if real_name not in self.loop_warnings:
+                    print 'Could not find loop %r' % real_name
+                    print '(ignoring all future instances)'
+                    self.loop_warnings.add(real_name)
                 return
             loop_funcs = self.converter.system_object.loop_funcs
             if real_name == self.converter.current_loop_name:
@@ -955,8 +1119,11 @@ class StartLoop(ActionWriter):
             comparison = '%s < times' % index_name
         writer.start_brace()
         if is_dynamic:
-            writer.putlnc('DynamicLoop & dyn_loop = (*loops)[%s];',
-                          self.convert_index(0))
+            writer.putlnc('DynamicLoops::iterator dyn_it = '
+                          '(*loops).find(%s);', self.convert_index(0))
+            writer.putlnc('if (dyn_it == (*loops).end()) %s',
+                          self.converter.event_break)
+            writer.putlnc('DynamicLoop & dyn_loop = dyn_it->second;')
         writer.putln('%s = true;' % running_name)
         if not is_infinite:
             writer.putln('int times = int(%s);' % times)
@@ -1329,7 +1496,9 @@ actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
     'Shoot' : ShootObject,
     'StartLoop' : StartLoop,
+    'Foreach' : Foreach,
     'StopLoop' : StopLoop,
+    'SwapPosition' : SwapPosition,
     'SetX' : 'set_x',
     'SetY' : 'set_y',
     'SetAlterableValue' : 'alterables->values.set',
@@ -1352,6 +1521,7 @@ actions = make_table(ActionMethodWriter, {
     'Show' : 'set_visible(true)',
     'SetParagraph' : 'set_paragraph(%s-1)',
     'LockChannel' : 'media->lock(%s-1)',
+    'UnlockChannel' : 'media->unlock(%s-1)',
     'StopChannel' : 'media->stop_channel(%s-1)',
     'ResumeChannel' : 'media->resume_channel(%s-1)',
     'PauseChannel' : 'media->pause_channel(%s-1)',
@@ -1437,13 +1607,15 @@ actions = make_table(ActionMethodWriter, {
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
     'SetSpeed' : 'get_movement()->set_speed',
+    'SetDeceleration' : 'get_movement()->set_deceleration',
     'Bounce' : BounceAction,
     'Start' : 'get_movement()->start()',
     'Stop': StopAction,
     'SetDirections' : 'get_movement()->set_directions',
     'GoToNode' : 'get_movement()->set_node',
     'SelectMovement' : 'set_movement(%s)',
-    'NextMovement' : 'set_next_movement()',
+    'NextMovement' : 'advance_movement(+1)',
+    'PreviousMovement' : 'advance_movement(-1)',
     'EnableFlag' : 'alterables->flags.enable',
     'DisableFlag' : 'alterables->flags.disable',
     'ToggleFlag' : 'alterables->flags.toggle',
@@ -1497,12 +1669,14 @@ conditions = make_table(ConditionMethodWriter, {
     'InsidePlayfield' : InsidePlayfield,
     'OutsidePlayfield' : 'outside_playfield',
     'IsObstacle' : 'test_obstacle',
+    'IsLadder' : 'test_ladder',
     'IsOverlappingBackground' : 'overlaps_background',
     'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
     'ObjectsInZone' : CompareObjectsInZone,
     'PickObjectsInZone' : PickObjectsInZone,
     'PickAlterableValue' : PickAlterableValue,
+    'PickFlagOn' : PickFlagOn,
     'NumberOfObjects' : NumberOfObjects,
     'GroupActivated' : GroupActivated,
     'NotAlways' : NotAlways,
@@ -1533,6 +1707,9 @@ conditions = make_table(ConditionMethodWriter, {
     # XXX implement this
     'SubApplicationFinished' : '.done',
     'LeavingPlayfield' : LeavingPlayfield,
+    # XXX implement
+    'MouseWheelDown' : FalseCondition,
+    'MouseWheelUp' : FalseCondition,
     'OnLoop' : FalseCondition # if not a generated group, this is always false
 })
 
@@ -1648,5 +1825,6 @@ expressions = make_table(ExpressionMethodWriter, {
     'FontColor' : 'blend_color.get_int()',
     'RGBCoefficient' : 'blend_color.get_int()',
     'MovementNumber' : 'get_movement()->index',
-    'FrameBackgroundColor' : 'background_color.get_int()'
+    'FrameBackgroundColor' : 'background_color.get_int()',
+    'PlayerLives' : '.manager->lives'
 })

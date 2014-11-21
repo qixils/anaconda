@@ -6,7 +6,7 @@
 
 /*
 NOTE: This intentionally leaks the blocks used, as we intend to use them for
-the duration of the application
+the duration of the application.
 */
 
 template <class T>
@@ -18,11 +18,6 @@ public:
     long total;
     long buffer_size;
 
-    ObjectPool()
-    : buffer_size(32), available(0), free_items(NULL), total(0)
-    {
-    }
-
     ~ObjectPool()
     {
         delete[] free_items;
@@ -32,6 +27,9 @@ public:
     {
         if (available > 0)
             return free_items[--available];
+
+        if (buffer_size == 0)
+            buffer_size = 32;
 
         delete[] free_items;
         unsigned char * block = new unsigned char[sizeof(T)*buffer_size];

@@ -21,6 +21,7 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     0 : '.value',
+    1 : '.value.size()',
     9 : 'remove',
     10 : 'replace',
     29 : '.get_element(-1 + ',

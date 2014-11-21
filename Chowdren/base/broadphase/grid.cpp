@@ -39,25 +39,15 @@ inline void remove_proxy(GridItemList & list, int proxy)
             static_count--;
             continue;
         }
-        if (static_count >= 1) {
-            // static items need to be tightly packed
-            list.items.erase(it);
+        if (static_count >= 1)
             list.static_items--;
-        } else
-            *it = -1;
+        list.items.erase(it);
         break;
     }
 }
 
 inline void add_proxy(GridItemList & list, int proxy)
 {
-    vector<int>::iterator it;
-    for (it = list.items.begin(); it != list.items.end(); ++it) {
-        if (*it != -1)
-            continue;
-        *it = proxy;
-        return;
-    }
     list.items.push_back(proxy);
 }
 
@@ -72,7 +62,7 @@ int UniformGrid::add(void * data, int v[4])
     int index;
     if (free_list.empty()) {
         index = store.size();
-        store.resize(index + 1);
+        store.emplace_back();
     } else {
         index = free_list.back();
         free_list.pop_back();

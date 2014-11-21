@@ -36,6 +36,30 @@ std::string get_md5(const std::string & value)
     return res;
 }
 
+void swap_position(const FlatObjectList & list)
+{
+    if (list.size() <= 1)
+        return;
+    int num1 = randrange(list.size());
+    int num2;
+    while (true) {
+        num2 = randrange(list.size());
+        if (num2 != num1)
+            break;
+    }
+
+    FrameObject * a = list[num1];
+    FrameObject * b = list[num2];
+
+    int x1 = a->get_x();
+    int y1 = a->get_y();
+    int x2 = b->get_x();
+    int y2 = b->get_y();
+
+    a->set_global_position(x2, y2);
+    b->set_global_position(x1, y1);
+}
+
 // Font
 
 Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
@@ -107,6 +131,10 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                        int src_x, int src_y, int src_width, int src_height,
                        int collision_type, const Color & color)
 {
+    // collision types:
+    // 0: not an obstacle
+    // 1: obstacle
+    // 4: no effect on collisions
     src_width = std::min<int>(img->width, src_x + src_width) - src_x;
     src_height = std::min<int>(img->height, src_y + src_height) - src_y;
 
@@ -118,11 +146,10 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                src_x, src_y,
                                                src_width, src_height,
                                                collision_type, color));
-    }
 #ifndef CHOWDREN_OBSTACLE_IMAGE
-    else
         return;
 #endif
+    }
 
     if (color.a == 0 || color.a == 1)
         return;
@@ -303,18 +330,24 @@ void Layer::remove_background_object(FrameObject * instance)
     }
 }
 
-#define LAYER_DEPTH_SPACING 1.0f
+#define LAYER_DEPTH_SPACING 20.0f
 
 void Layer::add_object(FrameObject * instance)
 {
-    instance->depth = instances.back().depth + LAYER_DEPTH_SPACING;
+    if (instances.empty())
+        instance->depth = 0.0f;
+    else
+        instance->depth = instances.back().depth + LAYER_DEPTH_SPACING;
     instances.push_back(*instance);
 }
 
 void Layer::insert_object(FrameObject * instance, int index)
 {
     if (index == 0) {
-        instance->depth = instances.front().depth - LAYER_DEPTH_SPACING;
+        if (instances.empty())
+            instance->depth = 0.0f;
+        else
+            instance->depth = instances.front().depth - LAYER_DEPTH_SPACING;
         instances.push_front(*instance);
         return;
     }
@@ -323,12 +356,17 @@ void Layer::insert_object(FrameObject * instance, int index)
     float prev = it->depth;
     ++it;
     float next = it->depth;
-    instance->depth = (prev + next) / 2.0f;
+    float new_depth = (prev + next) / 2.0f;
+    instance->depth = new_depth;
     instances.insert(it, *instance);
+
+    if (new_depth == next || new_depth == prev)
+        reset_depth();
 }
 
 void Layer::reset_depth()
 {
+    std::cout << "Flush" << std::endl;
     LayerInstances::iterator it;
     float i = 0.0f;
     for (it = instances.begin(); it != instances.end(); ++it) {
@@ -344,6 +382,8 @@ void Layer::remove_object(FrameObject * instance)
 
 void Layer::set_level(FrameObject * instance, int new_index)
 {
+    if (instance->flags & BACKGROUND)
+        return;
     remove_object(instance);
     if (new_index == -1 || new_index >= int(instances.size()))
         add_object(instance);
@@ -361,12 +401,6 @@ int Layer::get_level(FrameObject * instance)
         i++;
     }
     return -1;
-}
-
-void Layer::create_background()
-{
-    if (back == NULL)
-        back = new Background;
 }
 
 void Layer::destroy_backgrounds()
@@ -435,7 +469,8 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
         std::cout << "Collision type " << collision_type << " not supported"
             << std::endl;
     }
-    create_background();
+    if (back == NULL)
+        back = new Background;
     back->paste(img, dest_x, dest_y, src_x, src_y,
                 src_width, src_height, collision_type, color);
 }
@@ -731,6 +766,11 @@ bool Frame::test_obstacle(int x, int y)
     return get_background_mask(x, y) == 1;
 }
 
+bool Frame::test_ladder(int x, int y)
+{
+    return get_background_mask(x, y) == 2;
+}
+
 bool Frame::compare_joystick_direction(int n, int test_dir)
 {
     if (!is_joystick_attached(n))
@@ -810,9 +850,11 @@ bool Frame::update(float dt)
     update_objects(dt);
     PROFILE_END();
 
-    PROFILE_BEGIN(clean_instances);
-    clean_instances();
-    PROFILE_END();
+    if (loop_count > 0) {
+        PROFILE_BEGIN(clean_instances);
+        clean_instances();
+        PROFILE_END();
+    }
 
     PROFILE_BEGIN(handle_events);
     data->handle_events();
@@ -1101,10 +1143,12 @@ void FrameObject::end_draw()
         shader->end(this);
 }
 
-void FrameObject::set_position(int x, int y)
+void FrameObject::set_position(int new_x, int new_y)
 {
-    this->x = x;
-    this->y = y;
+    if (new_x == x && new_y == y)
+        return;
+    x = new_x;
+    y = new_y;
     if (collision == NULL)
         return;
     collision->update_aabb();
@@ -1117,7 +1161,10 @@ void FrameObject::set_global_position(int x, int y)
 
 void FrameObject::set_x(int x)
 {
-    this->x = x - layer->off_x;
+    int new_x = x - layer->off_x;
+    if (this->x == new_x)
+        return;
+    this->x = new_x;
     if (collision == NULL)
         return;
     collision->update_aabb();
@@ -1130,7 +1177,10 @@ int FrameObject::get_x()
 
 void FrameObject::set_y(int y)
 {
-    this->y = y - layer->off_y;
+    int new_y = y - layer->off_y;
+    if (this->y == new_y)
+        return;
+    this->y = new_y;
     if (collision == NULL)
         return;
     collision->update_aabb();
@@ -1221,6 +1271,8 @@ struct BackgroundOverlapCallback
     bool on_callback(void * data)
     {
         FrameObject * obj = (FrameObject*)data;
+        if (obj->id != BACKGROUND_TYPE)
+            return true;
         CollisionBase * other = (CollisionBase*)obj->collision;
         if (other == NULL)
             return true;
@@ -1256,9 +1308,11 @@ bool FrameObject::overlaps_background_save()
 bool FrameObject::outside_playfield()
 {
     int * box = collision->aabb;
-    return !collides(box[0] + layer->off_x, box[1] + layer->off_y,
-                     box[2] + layer->off_x, box[3] + layer->off_y,
-                     0, 0, frame->width, frame->height);
+    int x1 = box[0] + layer->off_x;
+    int y1 = box[1] + layer->off_y;
+    int x2 = box[2] + layer->off_x;
+    int y2 = box[3] + layer->off_y;
+    return x1 < 0 || y1 < 0 || x2 > frame->width || y2 > frame->height;
 }
 
 int FrameObject::get_box_index(int index)
@@ -1363,6 +1417,16 @@ void FrameObject::move_front()
     layer->set_level(this, -1);
 }
 
+inline float get_next_depth(float prev, float next)
+{
+    float d = next - prev;
+
+    float v = 0.1f * LAYER_DEPTH_SPACING;
+    while (v >= d && v != 0.0f)
+        v *= 0.1f;
+    return v;
+}
+
 void FrameObject::move_back(FrameObject * other)
 {
     if (other == NULL)
@@ -1375,15 +1439,22 @@ void FrameObject::move_back(FrameObject * other)
     LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
     float next = it->depth;
 
+    bool reset;
     if (it == layer->instances.begin()) {
         depth = next - LAYER_DEPTH_SPACING;
+        reset = depth == next;
     } else {
         float prev = (--LayerInstances::s_iterator_to(*other))->depth;
-        depth = (prev + next) / 2.0f;
+        depth = prev + get_next_depth(prev, next);
+
+        reset = depth == next || depth == prev;
     }
 
     layer->instances.erase(LayerInstances::s_iterator_to(*this));
     layer->instances.insert(it, *this);
+
+    if (reset)
+        layer->reset_depth();
 }
 
 void FrameObject::move_front(FrameObject * other)
@@ -1394,19 +1465,26 @@ void FrameObject::move_front(FrameObject * other)
         return;
     if (depth >= other->depth)
         return;
+
     LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
     float prev = it->depth;
     ++it;
 
+    bool reset;
     if (it == layer->instances.end()) {
         depth = prev + LAYER_DEPTH_SPACING;
+        reset = depth == prev;
     } else {
         float next = it->depth;
-        depth = (prev + next) / 2.0f;
+        depth = next - get_next_depth(prev, next);
+        reset = depth == next || depth == prev;
     }
 
     layer->instances.erase(LayerInstances::s_iterator_to(*this));
     layer->instances.insert(it, *this);
+
+    if (reset)
+        layer->reset_depth();
 }
 
 FixedValue FrameObject::get_fixed()
@@ -1429,9 +1507,9 @@ void FrameObject::clear_movements()
     movement = NULL;
 }
 
-void FrameObject::set_next_movement()
+void FrameObject::advance_movement(int dir)
 {
-    set_movement(movement->index+1);
+    set_movement(movement->index + dir);
 }
 
 void FrameObject::set_movement(int i)
@@ -1592,9 +1670,8 @@ FixedValue::FixedValue(FrameObject * object)
 
 FixedValue::operator double() const
 {
-    int64_t v = int64_t(intptr_t(object));
-    double v2;
-    memcpy(&v2, &v, sizeof(double));
+    double v2 = 0.0;
+    memcpy(&v2, &object, sizeof(FrameObject*));
     return v2;
 }
 
@@ -1670,6 +1747,10 @@ void Active::force_animation(int value)
     value = get_animation(value);
     if (value == forced_animation)
         return;
+    if (flags & FADEOUT) {
+        FrameObject::destroy();
+        return;
+    }
     int old_anim = get_animation();
     forced_animation = value;
     if (old_anim == forced_animation)
@@ -1863,10 +1944,6 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
 
 void Active::draw()
 {
-    if (image == NULL) {
-        std::cout << "Invalid image draw (" << get_name() << ")" << std::endl;
-        return;
-    }
     blend_color.apply();
     bool blend = transparent || blend_color.a < 255 || shader != NULL;
     if (!blend)
@@ -1878,14 +1955,7 @@ void Active::draw()
 
 inline Image * Active::get_image()
 {
-    int frame = get_frame();
-    if (frame >= direction_data->frame_count) {
-        std::cout << "Invalid frame: " << frame << " " <<
-            direction_data->frame_count << " " <<
-            "(" << get_name() << ")" << std::endl;
-        return NULL;
-    }
-    Image * image = direction_data->frames[frame];
+    Image * image = direction_data->frames[get_frame()];
     image->load();
     return image;
 }
@@ -1961,10 +2031,35 @@ int Active::get_animation()
     return animation;
 }
 
+static int animation_alias[] = {
+    APPEARING, WALKING, RUNNING,
+    RUNNING, STOPPED, -1,
+    WALKING, STOPPED, -1,
+    STOPPED, WALKING, RUNNING,
+    STOPPED, -1, -1,
+    STOPPED, WALKING, RUNNING,
+    STOPPED, WALKING, RUNNING,
+    WALKING, RUNNING, STOPPED,
+    STOPPED, WALKING, RUNNING,
+    WALKING, RUNNING, STOPPED,
+    STOPPED, WALKING, RUNNING,
+    STOPPED, WALKING, RUNNING,
+    -1, -1, -1,
+    -1, -1, -1,
+    -1, -1, -1,
+    -1, -1, -1,
+};
+
 int Active::get_animation(int value)
 {
     if (has_animation(value))
         return value;
+    for (int i = 0; i < 3; i++) {
+        int alias = animation_alias[i + value * 3];
+        if (alias == -1)
+            break;
+        return alias;
+    }
     for (value = 0; value < animations->count; value++) {
         if (has_animation(value))
             break;
@@ -1974,8 +2069,6 @@ int Active::get_animation(int value)
 
 void Active::set_direction(int value, bool set_movement)
 {
-    if (flags & FADEOUT)
-        return;
     value &= 31;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
@@ -2082,9 +2175,10 @@ void Active::destroy()
         FrameObject::destroy();
         return;
     }
-    flags |= FADEOUT;
     clear_movements();
+    restore_animation();
     force_animation(DISAPPEARING);
+    flags |= FADEOUT;
     collision->type = NONE_COLLISION;
 }
 
@@ -2190,7 +2284,7 @@ void Text::draw()
         layout->Render(draw_text.c_str(), -1, FTPoint());
         glPopMatrix();
     } else {
-        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
+	    FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
         double box_w = box.Upper().X() - box.Lower().X();
         double box_h = box.Upper().Y() - box.Lower().Y();
         double off_x = x;
@@ -2910,6 +3004,13 @@ void WindowControl::minimize()
     std::cout << "Minimize window" << std::endl;
 }
 
+void WindowControl::set_placement(int value)
+{
+    // 0=top/left, 1=top/middle, 2=top/right, 3=middle/left, 4=middle/middle
+    // 5=middle/right, 6=bottom/left, 7=bottom/middle, 8=bottom/right.
+    std::cout << "Set window placement: " << value << std::endl;
+}
+
 // Workspace
 
 Workspace::Workspace(BaseStream & stream)
@@ -3138,6 +3239,12 @@ void ArrayObject::load(const std::string & filename)
     fp.close();
 }
 
+void ArrayObject::save(const std::string & filename)
+{
+    std::cout << "Array object save not implemented: " << filename
+        << std::endl;
+}
+
 double ArrayObject::get_value(int x, int y, int z)
 {
     adjust_pos(x, y, z);
@@ -3279,6 +3386,16 @@ void LayerObject::set_y(int index, int y)
 {
     Layer & layer = frame->layers[index];
     layer.set_position(layer.x, y);
+}
+
+int LayerObject::get_x(int index)
+{
+    return frame->layers[index].x;
+}
+
+int LayerObject::get_y(int index)
+{
+    return frame->layers[index].y;
 }
 
 void LayerObject::set_alpha_coefficient(int index, int alpha)
@@ -3794,11 +3911,11 @@ void TextBlitter::draw()
         // draw line
         for (int i = 0; i < line.size; i++) {
             unsigned char c = (unsigned char)line.start[i];
-
-            int ci = charmap[c] - char_offset;
-            int img_x = (ci * char_width) % image->width;
+            c -= char_offset;
+            int ci = charmap[c];
+            int img_x = (ci * char_width) % image_width;
             img_x = clamp(img_x + x_off, 0, image->width);
-            int img_y = ((ci * char_width) / image->width) * char_height;
+            int img_y = ((ci * char_width) / image_width) * char_height;
             img_y = clamp(img_y + y_off, 0, image->height);
 
             float t_x1 = float(img_x) / float(image->width);
@@ -4113,6 +4230,11 @@ int get_joystick_dpad(int n)
     else
         dir /= 4;
     return dir;
+}
+
+float get_joystick_dummy(int n)
+{
+    return 0.0f;
 }
 
 float get_joystick_dpad_degrees(int n)

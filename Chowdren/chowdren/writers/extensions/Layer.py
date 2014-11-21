@@ -181,6 +181,8 @@ actions = make_table(ActionMethodWriter, {
     23 : MoveAbove,
     24 : MoveBehind,
     25 : MoveObject,
+    28 : 'set_x(%s-1, %s)',
+    29 : 'set_y(%s-1, %s)',
     30 : 'set_position(%s-1, %s, %s)',
     33 : SetXByName,
     34 : SetYByName,
@@ -199,6 +201,7 @@ conditions = make_table(ConditionMethodWriter, {
 
 expressions = make_table(ExpressionMethodWriter, {
     6 : GetObjectLevel,
+    8 : '.get_x(-1 + ',
     12 : GetLayerCount,
     14 : GetIndexByName,
     10 : GetXByName,

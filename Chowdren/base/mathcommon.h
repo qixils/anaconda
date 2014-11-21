@@ -19,6 +19,14 @@ inline float mod(float a, float b)
     return a - b * floor(a / b);
 }
 
+inline int wrap_range(int v, int a, int b)
+{
+    int range = b - a + 1;
+    if (v < a)
+        v += range * ((a - v) / range + 1);
+    return a + (v - a) % range;
+}
+
 template <class T>
 inline T rad(T x)
 {

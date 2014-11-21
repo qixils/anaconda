@@ -118,6 +118,8 @@ class TextBlitter(ObjectWriter):
             writer.putlnc('wave_freq = %s;', param[1])
             writer.putlnc('wave_height = %s;', param[2])
 
+        real_width = image_size[0]
+
         writer.putln('width = %s;' % width)
         writer.putln('height = %s;' % height)
         writer.putln('char_width = %s;' % char_size[0])
@@ -128,6 +130,8 @@ class TextBlitter(ObjectWriter):
         writer.putlnc('x_off = %s;', image_offset[0])
         writer.putlnc('y_off = %s;', image_offset[1])
         writer.putln('image = %s;' % self.converter.get_image(image))
+        writer.putlnc('image_width = %s;',
+                      (image_size[0] / char_size[0]) * char_size[0])
         align_flags = []
         if horizontal_align == 0:
             align_flags.append('ALIGN_LEFT')

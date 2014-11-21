@@ -61,33 +61,47 @@ def use_alterable_int(converter, expression):
     return False
 
 def get_startup_instances(converter, instances):
-    if converter.current_frame_index != 0:
-        return instances
-    # bug in Text Blitter object, need to move them to front
-    new_instances = []
-    text_blitters = []
-    for item in instances:
-        frameitem = item[1]
-        obj = (frameitem.handle, frameitem.objectType)
-        writer = converter.get_object_writer(obj)
-        if writer.class_name == 'TextBlitter':
-            text_blitters.append(item)
-        else:
-            new_instances.append(item)
+    if converter.current_frame_index == 0:
+        # bug in Text Blitter object, need to move them to front
+        new_instances = []
+        text_blitters = []
+        for item in instances:
+            frameitem = item[1]
+            obj = (frameitem.handle, frameitem.objectType)
+            writer = converter.get_object_writer(obj)
+            if writer.class_name == 'TextBlitter':
+                text_blitters.append(item)
+            else:
+                new_instances.append(item)
 
-    new_instances += text_blitters
-    return new_instances
+        new_instances += text_blitters
+        return new_instances
+    return instances
+
+def write_frame_post(converter, writer):
+    if converter.current_frame_index != 26:
+        return
+    for item in converter.startup_instances:
+        frameitem = item[1]
+        if frameitem.name == 'Active 4':
+            break
+    handle = (frameitem.handle, frameitem.objectType, converter.game_index)
+    writer.putlnc('%s->move_front();', converter.get_object(handle))
 
 def use_safe_create(converter):
     return True
 
+def get_fonts(converter):
+    return ('SmallFonts',)
+
 def get_frames(converter, game, frames):
     new_frames = {}
     if game.index == 0:
-        indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-                   31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-                   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-                   63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
+        # indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        #            31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        #            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+        #            63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
+        indexes = (32,)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6)
     for index in indexes:

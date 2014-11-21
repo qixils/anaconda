@@ -30,11 +30,14 @@ actions = make_table(ActionMethodWriter, {
     3 : '.x_pos++',
     4 : '.y_pos++',
     7 : 'set_string',
+    13 : 'set_value',
     14 : 'set_value',
+    15 : 'set_value', # xyz
     16 : 'set_string',
     18 : 'set_string', # with xyz
     8 : 'clear',
-    9 : 'load'
+    9 : 'load',
+    11 : 'save'
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -44,7 +47,9 @@ expressions = make_table(ExpressionMethodWriter, {
     0 : '.x_pos',
     1 : '.y_pos',
     4 : 'get_string', # current pos
+    5 : 'get_value',
     6 : 'get_value',
+    7 : 'get_value', # xyz
     8 : 'get_string',
     10 : 'get_string' # with xyz
 })

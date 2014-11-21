@@ -55,6 +55,7 @@ public:
     void play(const std::string & filename, int channel = -1, int loop = 1);
     void play_id(unsigned int id, int channel = -1, int loop = 1);
     void lock(unsigned int channel);
+    void unlock(unsigned int channel);
     void set_channel_volume(unsigned int channel, double volume);
     void set_channel_frequency(unsigned int channel, double freq);
     void set_channel_pan(unsigned int channel, double pan);

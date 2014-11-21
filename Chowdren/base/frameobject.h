@@ -5,6 +5,7 @@
 #include "alterables.h"
 #include "color.h"
 #include <string>
+#include <string.h>
 #include "types.h"
 #include <algorithm>
 #include <stdarg.h>
@@ -34,11 +35,30 @@ public:
     operator double() const;
     operator std::string() const;
     operator FrameObject*() const;
-
 #ifdef CHOWDREN_USE_DYNAMIC_NUMBER
     operator DynamicNumber() const;
 #endif
 };
+
+inline bool operator==(FixedValue a, FixedValue b)
+{
+    return a.object == b.object;
+}
+
+inline bool operator!=(FixedValue a, FixedValue b)
+{
+    return !(a == b);
+}
+
+inline bool operator==(double a, FixedValue b)
+{
+    return memcmp(&a, &b.object, sizeof(FrameObject*)) == 0;
+}
+
+inline bool operator!=(double a, FixedValue b)
+{
+    return !(a == b);
+}
 
 #define BACKGROUND_TYPE 1
 
@@ -188,7 +208,7 @@ public:
     bool overlaps_background_save();
     void clear_movements();
     void set_movement(int i);
-    void set_next_movement();
+    void advance_movement(int dir);
     Movement * get_movement();
     void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();

@@ -74,8 +74,10 @@ GameManager::GameManager()
 
     fps_limit.set(FRAMERATE);
 
-#ifdef CHOWDREN_IS_HFA
-    set_frame(24);
+#if defined(CHOWDREN_IS_HFA)
+    set_frame(32);
+#elif defined(CHOWDREN_IS_FP)
+    set_frame(20);
 #else
     set_frame(0);
 #endif

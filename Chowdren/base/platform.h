@@ -46,6 +46,7 @@ bool platform_path_exists(const std::string & path);
 
 // debug
 void platform_print_stats();
+void platform_debug(const std::string & error);
 
 // joystick
 bool is_joystick_attached(int n);

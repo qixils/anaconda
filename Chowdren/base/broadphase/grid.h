@@ -89,8 +89,6 @@ inline bool UniformGrid::query_static(int v[4], T & callback)
 
         for (int i = 0; i < count; ++i) {
             int index = list.items[i];
-            if (index == -1)
-                continue;
             GridItem & vv = store[index];
             if (vv.last_query_id == query_id)
                 continue;
@@ -115,8 +113,6 @@ inline bool UniformGrid::query_static(int proxy, T & callback)
 
         for (int i = 0; i < count; ++i) {
             int index = list.items[i];
-            if (index == -1)
-                continue;
             GridItem & vv = store[index];
             if (vv.last_query_id == query_id)
                 continue;

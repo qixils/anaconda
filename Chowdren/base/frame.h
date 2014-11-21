@@ -73,7 +73,6 @@ public:
     void reset_depth();
     int get_level(FrameObject * instance);
     void set_level(FrameObject * instance, int index);
-    void create_background();
     void destroy_backgrounds();
     void destroy_backgrounds(int x, int y, bool fine);
     CollisionBase * test_background_collision(CollisionBase * a);
@@ -184,6 +183,7 @@ public:
     CollisionBase * test_background_collision(int x, int y);
     int get_background_mask(int x, int y);
     bool test_obstacle(int x, int y);
+    bool test_ladder(int x, int y);
     bool compare_joystick_direction(int n, int test_dir);
     bool is_joystick_direction_changed(int n);
     void clean_instances();

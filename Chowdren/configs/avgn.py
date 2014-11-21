@@ -18,6 +18,9 @@ def init(converter):
     converter.add_define('CHOWDREN_SCREEN2_WIDTH', 240)
     converter.add_define('CHOWDREN_SCREEN2_HEIGHT', 180)
 
+    if converter.platform_name == 'wiiu':
+        converter.add_define('CHOWDREN_PRELOAD_ALL')
+
 
 alterable_int_objects = [
     'FireShark',
@@ -43,20 +46,37 @@ def use_safe_create(converter):
     return True
 
 def use_image_flush(converter, frame):
+    if converter.platform_name != '3ds':
+        return False
     # for 3DS primarily (maybe Vita as well)
     return frame.name in ('Level Select',)
 
 def use_image_preload(converter):
-    return converter.platform_name == '3ds'
+    return converter.platform_name in ('3ds', 'wiiu')
 
 def get_depth(converter, layer):
     if converter.platform_name != '3ds':
         return None
-    if layer.name in ('HUD', 'Untitled'):
+    if layer.name in ('HUD', 'Untitled', 'Foreground Parallax'):
         return 0.0
-    coeff = layer.xCoefficient
+
+    if layer.name == 'Bullets':
+        coeff = 1.0
+    else:
+        coeff = layer.xCoefficient
     if coeff == 0.0:
         return 1.0
     depth = 1.0 - coeff
     depth = 0.15 + depth * (1.0 - 0.15)
     return max(0.0, min(1.0, depth))
+
+def get_object_depth(converter, obj):
+    if converter.platform_name != '3ds':
+        return None
+    name = obj.data.name
+    if name == 'Particle':
+        return 'alterables->values.get(1) * -0.01f'
+    elif name == 'SMDC2000':
+        return '(x_scale - 1.0f) * -0.5f'
+    elif name == 'Glitch Gremlin':
+        return '-0.1f'

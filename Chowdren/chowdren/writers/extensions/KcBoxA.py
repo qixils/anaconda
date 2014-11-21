@@ -148,7 +148,7 @@ class SystemBox(ObjectWriter):
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_size',
-    1 : 'set_position',
+    1 : 'set_global_position',
     6 : 'hide_fill',
     22 : 'hide_border_1',
     31 : 'hide_border_2',

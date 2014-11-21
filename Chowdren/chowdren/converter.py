@@ -27,7 +27,7 @@ from chowdren.writers.events import system as system_writers
 from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
-    to_c, make_color, parse_direction, get_base_path, makedirs,
+    to_c, make_color, parse_direction, get_base_path, get_root_path, makedirs,
     is_qualifier, get_qualifier, get_iter_type, get_list_type,
     TEMPORARY_GROUP_ID)
 from chowdren.writers.extensions import load_extension_module
@@ -153,7 +153,8 @@ def load_native_extension(name):
     library = loadLibrary(os.path.join(MMF_PATH, name + MMF_EXT))
     os.chdir(cwd)
     if library is None:
-        raise NotImplementedError(name)
+        native_extension_cache[name] = None
+        return None
     print 'Loading', name
     extension = LoadedExtension(library, False)
     native_extension_cache[name] = extension
@@ -608,21 +609,27 @@ class Converter(object):
         makedirs(self.build_dir)
 
         # application info
-        company = args.company or game.author
+        def fix_quotes(value):
+            if value is None:
+                return None
+            return value.replace('"', '')
+
+        company = fix_quotes(args.company or game.author)
         version = args.version or '1.0.0.0'
         version_number = ', '.join(version.split('.'))
-        copyright = args.copyright or game.author
+        copyright = fix_quotes(args.copyright or game.author)
         self.base_path = get_base_path()
+        self.root_path = get_root_path()
         self.info_dict = dict(company = company, version = version,
             copyright = copyright, description = game.name,
             version_number = version_number, name = game.name,
             base_path = self.base_path.replace('\\', '/'))
 
         # assets, platform and config
+        self.platform_name = args.platform or 'generic'
         self.config = ConfigurationFile(self, args.config)
         self.config.init()
         self.assets = Assets(self, args.skipassets)
-        self.platform_name = args.platform or 'generic'
         self.platform = platform_classes[self.platform_name](self)
 
         self.frame_map = {}
@@ -670,6 +677,7 @@ class Converter(object):
         if self.assets.skip:
             with open(self.get_filename('cache.dat'), 'rb') as fp:
                 cache = cPickle.load(fp)
+            self.assets.load_cache(cache)
             self.solid_images = cache['solid']
             self.image_indexes = cache['indexes']
             self.image_count = cache['count']
@@ -1059,10 +1067,6 @@ class Converter(object):
 
         self.image_count = image_index
 
-        cache['solid'] = self.solid_images
-        cache['indexes'] = self.image_indexes
-        cache['count'] = self.image_count
-
        # sounds
         sound_set = set()
         for game in self.games:
@@ -1094,7 +1098,18 @@ class Converter(object):
             data = self.platform.get_shader(vert, frag)
             self.assets.add_shader(shader, data)
 
+        for font in self.config.get_fonts():
+            path = os.path.join(self.root_path, 'fonts', '%s.dat' % font)
+            with open(path, 'rb') as fp:
+                data = fp.read()
+            self.assets.add_font(font, data)
+
         self.assets.write_data()
+
+        cache['solid'] = self.solid_images
+        cache['indexes'] = self.image_indexes
+        cache['count'] = self.image_count
+        self.assets.write_cache(cache)
 
     def write_frame(self, frame_index, frame, event_file, lists_file,
                     lists_header):
@@ -1442,6 +1457,7 @@ class Converter(object):
 
         startup_instances = self.config.get_startup_instances(
             startup_instances)
+        self.startup_instances = startup_instances
 
         for instance, frameitem in startup_instances:
             obj = (frameitem.handle, frameitem.objectType)
@@ -1556,6 +1572,8 @@ class Converter(object):
             event_file.putlnc('%s();', group.event_name)
         for end_marker in end_markers:
             event_file.put_label(end_marker)
+
+        self.config.write_frame_post(event_file)
 
         event_file.end_brace()
 
@@ -1849,15 +1867,23 @@ class Converter(object):
                                     class_name)
                 objects_file.putlnc('%s::update(dt);', subclass)
                 objects_file.end_brace()
-            objects_file.putmeth('void draw')
-            objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
-            objects_file.putlnc('%s::draw();', subclass)
-            objects_file.end_brace()
 
         objects_file.putmeth('void dealloc')
         objects_file.putlnc('%s::~%s();', subclass, subclass)
         objects_file.putlnc('%s.destroy(this);', object_writer.get_pool())
         objects_file.end_brace()
+
+        depth = self.config.get_object_depth(object_writer)
+        if depth is not None or PROFILE:
+            objects_file.putmeth('void draw')
+            if PROFILE:
+                objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
+            if depth is not None:
+                objects_file.putlnc('glc_set_depth(%s);', depth)
+            objects_file.putlnc('%s::draw();', subclass)
+            if depth is not None:
+                objects_file.putlnc('glc_set_depth(0.0f);')
+            objects_file.end_brace()
 
         objects_file.end_brace(True)
 
@@ -1976,6 +2002,7 @@ class Converter(object):
 
     def clear_selection(self):
         self.has_selection = {}
+        self.has_single_selection = {}
 
     def write_container_check(self, group, writer):
         container = group.container
@@ -2052,7 +2079,7 @@ class Converter(object):
                 sets['max_speed'] = movement.loader.speed
                 sets['deceleration'] = movement.loader.deceleration
                 sets['acceleration'] = movement.loader.acceleration
-            elif movement_name == 'pinball':
+            elif movement_name.lower() == 'pinball':
                 movement_class = 'PinballMovement'
                 data = movement.loader.data
                 data.skipBytes(1)
@@ -2152,12 +2179,16 @@ class Converter(object):
         writer.end_brace()
         return event_name
 
-    def write_events(self, name, writer, groups, triggered=False):
-        names = []
+    def write_events(self, name, writer, groups, triggered=False,
+                     pre_calls=None, post_calls=None):
+        names = pre_calls or []
 
         for new_groups in self.iterate_groups(groups):
             names.append(self.write_event_function(writer, new_groups,
                                                    triggered))
+
+        if post_calls is not None:
+            names.extend(post_calls)
 
         if not self.use_dlls:
             wrapper_hash = get_hash(''.join(names))
@@ -2173,8 +2204,10 @@ class Converter(object):
         writer.end_brace()
         return name
 
-    def write_generated(self, name, writer, groups):
-        return self.write_events(name, writer, groups, True)
+    def write_generated(self, name, writer, groups, pre_calls=None,
+                        post_calls=None):
+        return self.write_events(name, writer, groups, True, pre_calls,
+                                 post_calls)
 
     def get_event_code(self, group, triggered=False):
         self.current_group = group
@@ -2231,8 +2264,8 @@ class Converter(object):
                     self.set_iterator(obj, None, object_name)
                 elif object_name is not None and self.has_multiple_instances(
                         obj):
-                    selected_name = self.create_list(obj, writer)
                     if condition_writer.iterate_objects is not False:
+                        selected_name = self.create_list(obj, writer)
                         has_multiple = True
                         self.set_iterator(obj, selected_name)
                         iter_type = get_iter_type(obj)
@@ -2422,12 +2455,12 @@ class Converter(object):
                 out += str(item.loader.value)
             elif name == 'Plus':
                 continue
-            elif name == 'AlterableString':
-                object_info = (item.objectInfo, item.objectType)
-                index = item.loader.value
-                writer = self.get_object_writer(object_info)
-                value = writer.common.strings.items[index]
-                out += value
+            # elif name == 'AlterableString':
+            #     object_info = (item.objectInfo, item.objectType)
+            #     index = item.loader.value
+            #     writer = self.get_object_writer(object_info)
+            #     value = writer.common.strings.items[index]
+            #     out += value
             else:
                 return None
         return out

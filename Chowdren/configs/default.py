@@ -7,6 +7,9 @@ def init_container(converter, container):
 def write_pre(converter, writer, group):
     pass
 
+def write_frame_post(converter, writer):
+    pass
+
 def use_simple_or(converter):
     return False
 
@@ -54,3 +57,15 @@ def get_frames(converter, game, frames):
 
 def get_depth(converter, layer):
     return None
+
+def get_object_depth(converter, obj):
+    return None
+
+def get_loop_name(converter, parameter):
+    return None
+
+def get_loop_call_names(converter, name):
+    return None
+
+def get_fonts(converter):
+    return ()

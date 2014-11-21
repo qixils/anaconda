@@ -46,16 +46,17 @@ class OggDecoder : public SoundDecoder
 public:
     FSFile & fp;
     size_t start;
+    size_t pos;
     size_t size;
     OggVorbis_File ogg_file;
     vorbis_info * ogg_info;
     int ogg_bitstream;
-    double total_time;
 
     OggDecoder(FSFile & fp, size_t size)
     : ogg_info(NULL), ogg_bitstream(0), size(size), fp(fp)
     {
         start = fp.tell();
+        pos = 0;
         if (ov_open_callbacks((void*)this, &ogg_file, NULL, 0, callbacks) != 0)
             return;
 
@@ -120,7 +121,10 @@ public:
 size_t read_func(void * ptr, size_t size, size_t nmemb, void *fp)
 {
     OggDecoder * file = (OggDecoder*)fp;
-    return file->fp.read(ptr, size*nmemb);
+    size *= nmemb;
+    size = std::min(file->size - file->pos, size);
+    file->pos += size;
+    return file->fp.read(ptr, size);
 }
 
 int seek_func(void *fp, ogg_int64_t offset, int whence)
@@ -128,22 +132,25 @@ int seek_func(void *fp, ogg_int64_t offset, int whence)
     OggDecoder * file = (OggDecoder*)fp;
     switch (whence) {
         case SEEK_SET:
-            offset += file->start;
             break;
         case SEEK_END:
-            offset = file->start + file->size - offset;
-            whence = SEEK_SET;
+            offset = file->size - offset;
             break;
-        default:
+        case SEEK_CUR:
+            offset += file->pos;
             break;
     }
-    return file->fp.seek(offset, whence);
+    offset = std::min<ogg_int64_t>(file->size, offset);
+    offset = std::max<ogg_int64_t>(0, offset);
+    file->pos = offset;
+    file->fp.seek(offset + file->start, SEEK_SET);
+    return 1;
 }
 
 long tell_func(void *fp)
 {
     OggDecoder * file = (OggDecoder*)fp;
-    return file->fp.tell() - file->start;
+    return file->pos;
 }
 
 inline unsigned int read_le32(FSFile & file)

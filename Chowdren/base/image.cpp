@@ -70,7 +70,7 @@ Image * Image::copy()
 {
     Image * new_image;
     if (image == NULL) {
-        if (flags & IMAGE_USED) {
+        if (flags & IMAGE_FILE) {
             FileImage * image = (FileImage*)this;
             new_image = new FileImage(image->filename,
                                       image->hotspot_x, image->hotspot_y,
@@ -519,8 +519,10 @@ void preload_images()
         unsigned short handle = stream.read_uint16();
         Image * image = get_internal_image(handle);
         image->upload_texture();
+#ifndef CHOWDREN_PRELOAD_ALL
         if (glc_is_vram_full())
             break;
+#endif
         image->set_static();
     }
     glc_set_storage(false);

@@ -417,6 +417,7 @@ public:
     static int get_screen_height();
     static void set_visible(bool value);
     static void minimize();
+    static void set_placement(int value);
 };
 
 class Workspace
@@ -484,6 +485,7 @@ public:
     void set_value(double value, int x=-1, int y=-1, int z=-1);
     void set_string(const std::string & value, int x=-1, int y=-1, int z=-1);
     void load(const std::string & filename);
+    void save(const std::string & filename);
     void expand(int x, int y, int z);
 
     inline void adjust_pos(int & x, int & y, int & z)
@@ -525,6 +527,8 @@ public:
     void show_layer(int index);
     void set_x(int index, int x);
     void set_y(int index, int y);
+    int get_x(int index);
+    int get_y(int index);
     void set_position(int index, int x, int y);
     void set_alpha_coefficient(int index, int alpha);
     static double get_alterable(const FrameObject & instance);
@@ -595,6 +599,7 @@ public:
     bool charmap_ref;
     bool wrap;
     bool transparent;
+    int image_width;
 
     int anim_type;
     int anim_speed;
@@ -698,17 +703,25 @@ inline void reset_global_data()
 
 extern MathHelper math_helper;
 
+inline bool double_equals_exact(double a, double b)
+{
+    return memcmp(&a, &b, sizeof(double)) == 0;
+}
+
 inline FrameObject * get_object_from_fixed(double fixed)
 {
     // -1 as a double is
     // 00 00 00 00 00 00 F0 BF
     // which is quite unlikely to be a memory address
-    if (fixed == 0.0 || fixed == -1.0)
+    if (double_equals_exact(fixed, 0.0) || double_equals_exact(fixed, -1.0))
         return NULL;
-    int64_t v;
-    memcpy(&v, &fixed, sizeof(int64_t));
-    intptr_t p = intptr_t(v);
-    return (FrameObject*)p;
+    FrameObject * p;
+    memcpy(&p, &fixed, sizeof(FrameObject*));
+    return p;
+    // int64_t v;
+    // memcpy(&v, &fixed, sizeof(int64_t));
+    // intptr_t p = intptr_t(v);
+    // return (FrameObject*)p;
 }
 
 inline FrameObject * get_object_from_fixed(FixedValue fixed)
@@ -1198,12 +1211,12 @@ inline void spread_value(QualifierList & instances, int alt, int start)
 inline int objects_in_zone(ObjectList & instances,
                            int x1, int y1, int x2, int y2)
 {
-    int v[4] = {x1, y1, x2, y2};
     int count = 0;
     for (ObjectIterator it(instances); !it.end(); ++it) {
-        // XXX objects need to be fully contained in zone,
-        // but here we only check for collision
-        if (!collide_box(*it, v))
+        FrameObject * obj = *it;
+        int x = obj->get_x();
+        int y = obj->get_y();
+        if (x < x1 || x >= x2 || y < y1 || y >= y2)
             continue;
         count++;
     }
@@ -1213,12 +1226,12 @@ inline int objects_in_zone(ObjectList & instances,
 inline int objects_in_zone(QualifierList & instances,
                            int x1, int y1, int x2, int y2)
 {
-    int v[4] = {x1, y1, x2, y2};
     int count = 0;
     for (QualifierIterator it(instances); !it.end(); ++it) {
-        // XXX objects need to be fully contained in zone,
-        // but here we only check for collision
-        if (!collide_box(*it, v))
+        FrameObject * obj = *it;
+        int x = obj->get_x();
+        int y = obj->get_y();
+        if (x < x1 || x >= x2 || y < y1 || y >= y2)
             continue;
         count++;
     }
@@ -1228,26 +1241,24 @@ inline int objects_in_zone(QualifierList & instances,
 inline void pick_objects_in_zone(ObjectList & instances,
                                  int x1, int y1, int x2, int y2)
 {
-    int v[4] = {x1, y1, x2, y2};
     for (ObjectIterator it(instances); !it.end(); ++it) {
-        // XXX objects need to be fully contained in zone,
-        // but here we only check for collision
-        if (collide_box(*it, v))
-            continue;
-        it.deselect();
+        FrameObject * obj = *it;
+        int x = obj->get_x();
+        int y = obj->get_y();
+        if (x < x1 || x >= x2 || y < y1 || y >= y2)
+            it.deselect();
     }
 }
 
 inline void pick_objects_in_zone(QualifierList & instances,
                                  int x1, int y1, int x2, int y2)
 {
-    int v[4] = {x1, y1, x2, y2};
     for (QualifierIterator it(instances); !it.end(); ++it) {
-        // XXX objects need to be fully contained in zone,
-        // but here we only check for collision
-        if (collide_box(*it, v))
-            continue;
-        it.deselect();
+        FrameObject * obj = *it;
+        int x = obj->get_x();
+        int y = obj->get_y();
+        if (x < x1 || x >= x2 || y < y1 || y >= y2)
+            it.deselect();
     }
 }
 
@@ -1272,6 +1283,8 @@ inline void transform_pos(int & x, int & y, FrameObject * parent)
     y = new_y;
 }
 
+void swap_position(const FlatObjectList & value);
+
 inline void set_cursor_visible(bool value)
 {
     if (value)
@@ -1287,6 +1300,11 @@ inline std::string get_command_arg(const std::string & arg)
 }
 
 std::string get_md5(const std::string & value);
+
+inline float get_joystick_dummy(float value, int n)
+{
+    return value;
+}
 
 inline int get_ascii(const std::string & value)
 {

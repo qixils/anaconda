@@ -83,6 +83,10 @@ class Assets(object):
             header.writeInt(data.tell() + header_size, True)
             data.write(sound)
 
+        for font in self.fonts:
+            header.writeInt(data.tell() + header_size, True)
+            data.write(font)
+
         for shader in self.shaders:
             header.writeInt(data.tell() + header_size, True)
             data.write(shader)
@@ -97,6 +101,12 @@ class Assets(object):
 
         self.sounds = self.images = self.fonts = self.shaders = None
 
+    def write_cache(self, cache):
+        cache['sound_ids'] = self.sound_ids
+
+    def load_cache(self, cache):
+        self.sound_ids = cache['sound_ids']
+
     def write_preload(self, images):
         self.fp.seek(self.use_count_offset)
         data = ByteReader()
@@ -109,13 +119,17 @@ class Assets(object):
         self.fp.write(str(data))
 
     def close(self):
+        if self.skip:
+            return
         self.fp.close()
 
     def write_header(self):
+        if self.skip:
+            return
         self.header.putln('')
         self.header.putdefine('IMAGE_COUNT', self.image_count)
         self.header.putdefine('SOUND_COUNT', self.sound_count)
-        self.header.putdefine('FONT_COUNT', 0)
+        self.header.putdefine('FONT_COUNT', self.font_count)
         self.header.putdefine('SHADER_COUNT', self.shader_count)
         self.header.close_guard('CHOWDREN_ASSETS_H')
         self.header.close()
@@ -150,6 +164,9 @@ class Assets(object):
             writer.writeIntString(data)
 
         self.sounds.append(str(writer))
+
+    def add_font(self, name, data):
+        self.fonts.append(data)
 
     def get_sound_id(self, name):
         return self.sound_ids.get(name.lower(), 'INVALID_ASSET_ID')

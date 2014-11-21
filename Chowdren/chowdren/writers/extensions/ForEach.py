@@ -82,10 +82,9 @@ class ForEach(ObjectWriter):
             obj = loop_objects[real_name]
             name = get_method_name(real_name)
             object_class = self.converter.get_object_class(obj[1])
-            writer.putmeth('bool foreach_%s' % name, '%s selected' %
-                           object_class)
+            writer.putmeth('bool foreach_%s' % name, 'FrameObject * selected')
             for group in groups:
-                self.converter.set_object(obj, 'selected')
+                self.converter.set_object(obj, '((%s)selected)' % object_class)
                 self.converter.write_event(writer, group, True)
             writer.putln('return true;')
             writer.end_brace()

@@ -612,7 +612,7 @@ cdef class Paragraph(DataLoader):
         self.font = reader.readShort(True)
         self.flags.setFlags(reader.readShort(True))
         self.color = reader.readColor()
-        self.value = reader.readString()
+        self.value = self.readString(reader)
 
     def write(self, ByteReader reader):
         reader.writeShort(self.font, True)

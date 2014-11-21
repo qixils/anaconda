@@ -1001,3 +1001,9 @@ bool platform_has_error()
 {
     return false;
 }
+
+void platform_debug(const std::string & value)
+{
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Debug",
+                             value.c_str(), NULL);
+}

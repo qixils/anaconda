@@ -286,6 +286,13 @@ void Media::lock(unsigned int channel)
     channels[channel].locked = true;
 }
 
+void Media::unlock(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return;
+    channels[channel].locked = false;
+}
+
 void Media::set_channel_volume(unsigned int channel, double volume)
 {
     if (!is_channel_valid(channel))

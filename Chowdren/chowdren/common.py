@@ -4,7 +4,10 @@ import subprocess
 from mmfparser.bytereader import ByteReader
 
 def get_base_path():
-    path = os.path.join(os.path.dirname(__file__), '..', 'base')
+    return os.path.join(get_root_path(), 'base')
+
+def get_root_path():
+    path = os.path.join(os.path.dirname(__file__), '..')
     return os.path.abspath(path)
 
 def makedirs(path):

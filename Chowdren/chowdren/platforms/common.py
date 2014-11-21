@@ -1,10 +1,15 @@
+from cStringIO import StringIO
+from mmfparser.bytereader import ByteReader
+
 class Platform(object):
     def __init__(self, converter):
         self.converter = converter
         self.initialize()
 
     def get_image(self, image):
-        raise NotImplementedError()
+        temp = StringIO()
+        image.save(temp, 'PNG')
+        return temp.getvalue()
 
     def get_shader(self, vertex, fragment):
         raise NotImplementedError()

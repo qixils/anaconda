@@ -9,7 +9,19 @@ class StringReplace(ObjectWriter):
     filename = 'stringreplace'
 
     def write_init(self, writer):
-        pass
+        data = self.get_data()
+        case_sensitive = data.readByte() == 1
+        use_match_count = data.readByte() == 1
+        data.skipBytes(2) # padding
+        match_count = data.readInt()
+        right_to_left = data.readByte() == 1
+
+        if case_sensitive:
+            raise NotImplementedError()
+        if use_match_count:
+            raise NotImplementedError()
+        if right_to_left:
+            raise NotImplementedError()
 
 class ReplaceExpression(StaticExpressionWriter):
     method = 'replace'

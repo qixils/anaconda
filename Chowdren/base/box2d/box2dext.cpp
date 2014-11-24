@@ -679,7 +679,7 @@ void Box2D::reset_world()
     enumController = -2;
 }
 
-void Box2D::update_world(float dt)
+void Box2D::update_world()
 {
     world->Step(timestep, velIterations, posIterations);
 
@@ -749,10 +749,10 @@ void Box2D::update_world(float dt)
     lastcall = NULL;
 }
 
-void Box2D::update(float dt)
+void Box2D::update()
 {
     if (autoUpdate) {
-        update_world(dt);
+        update_world();
     } else if (callbacks) {
         while(callbacks) {
             callbacks->Do(this);

@@ -6,17 +6,22 @@ ColorizerObject::ColorizerObject(int x, int y, int id)
 
 }
 
+inline float round_color(float v)
+{
+    return int(v * 256.0f) / 256.0f;
+}
+
 void ColorizerObject::set_red(float v)
 {
-    r = v;
+    r = round_color(v);
 }
 
 void ColorizerObject::set_green(float v)
 {
-    g = v;
+    g = round_color(v);
 }
 
 void ColorizerObject::set_blue(float v)
 {
-    b = v;
+    b = round_color(v);
 }

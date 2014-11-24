@@ -13,13 +13,12 @@ void main()
     vec2 coord = texture_coordinate;
     coord.x -= fSx;
     coord.y -= fSy;
-    float x = fX;
-    float y = fY;
-    float a = fA;
-    x += 0.5f;
-    y += 0.5f;
-    a *= 0.0174532925f;
-    float Ray = sqrt(pow(coord.x-x,2)+pow(coord.y-y,2));
+    float x = fX + 0.5f;
+    float y = fY + 0.5f;
+    float a = fA * 0.0174532925f;
+    float xx = coord.x - x;
+    float yy = coord.y - y;
+    float Ray = sqrt(xx*xx + yy*yy);
     float Angle;
     if(coord.y-y>0)
         Angle = acos((coord.x-x)/Ray);

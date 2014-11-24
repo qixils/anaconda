@@ -31,7 +31,7 @@ class Python(ObjectWriter):
         for name, groups in functions.iteritems():
             writer.putmeth('static PyObject * _python_%s' % name,
                 'PyObject * self', 'PyObject * args')
-            writer.putln(('return ((%s*)global_manager->frame)->python_%s('
+            writer.putln(('return ((%s*)manager.frame)->python_%s('
                           'self, args);') % (frame_class, name))
             writer.end_brace()
 

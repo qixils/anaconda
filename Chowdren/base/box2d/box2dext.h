@@ -117,8 +117,8 @@ public:
     ~Box2D();
     void initialize_box2d();
     void generate_event(int id);
-    void update_world(float dt);
-    void update(float dt);
+    void update_world();
+    void update();
     void create_body(float x, float y, float angle);
     void create_body(FrameObject * obj, float x, float y, int rot, int dest);
     void create_shape(FrameObject * obj, const std::string & value);

@@ -43,7 +43,7 @@ public:
     bool is_moving();
     void jump();
     void jump_in_air();
-    void update(float dt);
+    void update();
     void set_y_vel(int value);
     void set_add_y_vel(int value);
     // void set_x_vel(int value);

@@ -102,9 +102,13 @@ void SurfaceObject::draw()
         surface_fbo.unbind();
 
         blend_color.apply();
+        begin_draw(SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
 
-        subtract_shader->begin(this, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+        GLuint back_tex = 0;
+        if (shader != NULL)
+            back_tex = shader->get_background_texture();
 
+        blend_color.apply();
         int x1 = x;
         int y1 = y;
         int x2 = x1 + SURFACE_FBO_WIDTH;
@@ -112,20 +116,48 @@ void SurfaceObject::draw()
 
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, surface_fbo.get_tex());
+
+        if (back_tex != 0) {
+            glActiveTexture(GL_TEXTURE1);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, back_tex);
+        }
+
         glBegin(GL_QUADS);
         glTexCoord2f(back_texcoords[0], back_texcoords[1]);
-        glVertex2d(x1, y1);
+        if (back_tex != 0)
+            glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[0],
+                              back_texcoords[1]);
+        glVertex2i(x1, y1);
         glTexCoord2f(back_texcoords[2], back_texcoords[3]);
-        glVertex2d(x2, y1);
+        if (back_tex != 0)
+            glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[2],
+                              back_texcoords[3]);
+        glVertex2i(x2, y1);
         glTexCoord2f(back_texcoords[4], back_texcoords[5]);
-        glVertex2d(x2, y2);
+        if (back_tex != 0)
+            glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[4],
+                              back_texcoords[5]);
+        glVertex2i(x2, y2);
         glTexCoord2f(back_texcoords[6], back_texcoords[7]);
-        glVertex2d(x1, y2);
+        if (back_tex != 0)
+            glMultiTexCoord2f(GL_TEXTURE1,
+                              back_texcoords[6],
+                              back_texcoords[7]);
+        glVertex2i(x1, y2);
         glEnd();
+
+        if (back_tex != 0) {
+            glDisable(GL_TEXTURE_2D);
+            glActiveTexture(GL_TEXTURE0);
+        }
 
         glDisable(GL_TEXTURE_2D);
 
-        subtract_shader->end(this);
+        end_draw();
         return;
     }
 
@@ -145,7 +177,7 @@ void SurfaceObject::draw()
     end_draw();
 }
 
-void SurfaceObject::update(float dt)
+void SurfaceObject::update()
 {
     load_failed = false;
 }

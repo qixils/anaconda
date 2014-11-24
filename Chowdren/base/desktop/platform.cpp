@@ -98,12 +98,12 @@ static void on_key(SDL_KeyboardEvent & e)
 {
     if (e.repeat != 0)
         return;
-    global_manager->on_key(e.keysym.sym, e.state == SDL_PRESSED);
+    manager.on_key(e.keysym.sym, e.state == SDL_PRESSED);
 }
 
 static void on_mouse(SDL_MouseButtonEvent & e)
 {
-    global_manager->on_mouse(e.button, e.state == SDL_PRESSED);
+    manager.on_mouse(e.button, e.state == SDL_PRESSED);
 }
 
 void init_joystick();
@@ -481,7 +481,6 @@ void platform_swap_buffers()
     screen_fbo.unbind();
 
     // resize the window contents if necessary (fullscreen mode)
-
     glViewport(0, 0, window_width, window_height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();

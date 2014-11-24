@@ -1,3 +1,8 @@
+// make sure frameobject.h is included first
+#ifndef CHOWDREN_FRAMEOBJECT_H
+#include "frameobject.h"
+#endif
+
 #ifndef CHOWDREN_FRAME_H
 #define CHOWDREN_FRAME_H
 
@@ -47,7 +52,6 @@ public:
     int off_x, off_y;
     int x, y;
     Broadphase broadphase;
-    Broadphase background_broadphase;
     bool wrap_x, wrap_y;
 
 #ifdef CHOWDREN_IS_3DS
@@ -140,7 +144,6 @@ public:
     DynamicLoops * loops;
     FrameData * data;
     InstanceMap instances;
-    GameManager * manager;
     FlatObjectList destroyed_instances;
     vector<Layer> layers;
     GlobalValues * global_values;
@@ -155,10 +158,10 @@ public:
     int timer_base;
     float timer_mul;
 
-    Frame(GameManager * manager);
+    Frame();
     void reset();
-    bool update(float dt);
-    virtual void update_objects(float dt);
+    bool update();
+    virtual void update_objects();
     void pause();
     void restart();
     void draw(int remote);

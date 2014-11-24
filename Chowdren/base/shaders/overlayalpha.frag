@@ -11,12 +11,12 @@ uniform float bgA;
 void main()
 {
     vec4 B = texture2D(background_texture, texture_coordinate1);
-    vec4 L = texture2D(texture, texture_coordinate0);
+    vec4 L = texture2D(texture, texture_coordinate0) * gl_Color;
     B.a = bgA;
     vec4 blend;
     blend.r = OVERLAY(B.r, L.r);
     blend.g = OVERLAY(B.g, L.g);
     blend.b = OVERLAY(B.b, L.b);
     blend.a = OVERLAY(B.a, L.a);
-    gl_FragColor = blend * gl_Color;
+    gl_FragColor = blend;
 }

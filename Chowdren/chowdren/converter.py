@@ -699,7 +699,7 @@ class Converter(object):
         lists_header = self.open_code('lists.h')
         lists_header.start_guard('CHOWDREN_LISTS_H')
         lists_header.putln('#include "objects.h"')
-        lists_header.putln('void global_object_update(float dt);')
+        lists_header.putln('void global_object_update();')
 
         lists_file = self.open_code('lists.cpp')
         lists_file.putln('#include "lists.h"')
@@ -766,7 +766,7 @@ class Converter(object):
                 # ignore alias
                 continue
             update_calls.append(func_name)
-            event_file.putmeth('void %s' % func_name, 'float dt')
+            event_file.putmeth('void %s' % func_name)
             event_file.start_brace()
             event_file.putln('ObjectList::iterator it;')
             list_name = self.get_object_list(handle)
@@ -785,20 +785,20 @@ class Converter(object):
                 event_file.putln('continue;')
                 event_file.dedent()
             if has_updates:
-                event_file.putlnc('((%s*)instance)->update(dt);',
+                event_file.putlnc('((%s*)instance)->update();',
                                   writer.class_name)
             if has_movements:
                 event_file.putln('if (instance->movement)')
                 event_file.indent()
-                event_file.putln('instance->movement->update(dt);')
+                event_file.putln('instance->movement->update();')
                 event_file.dedent()
             event_file.end_brace()
             event_file.end_brace()
             event_file.end_brace()
 
-        event_file.putmeth('void update_objects', 'float dt')
+        event_file.putmeth('void update_objects')
         for call in update_calls:
-            event_file.putlnc('%s(dt);', call)
+            event_file.putlnc('%s();', call)
         event_file.end_brace()
 
         self.processed_frames = []
@@ -815,13 +815,12 @@ class Converter(object):
                 self.write_frame(frame.offset_index, frame, event_file,
                                  lists_file, lists_header)
 
-        init_list = ['Frame(manager)']
+        init_list = ['Frame()']
         for instances, qualifier in self.objs_to_qualifier.iteritems():
             count = len(instances)
             instances = ', '.join(instances)
             init_list.append('%s(%s, %s)' % (qualifier, count, instances))
-        event_file.putmeth('Frames', 'GameManager * manager',
-                           init_list=init_list)
+        event_file.putmeth('Frames', init_list=init_list)
         event_file.end_brace()
 
         event_file.putmeth('void set_index', 'int index')
@@ -1615,7 +1614,7 @@ class Converter(object):
             if fade.duration == 0:
                 print 'invalid fade duration:', fade.duration
                 fade.duration = 0.00001
-            start_writer.putlnc('manager->set_fade(%s, %s);',
+            start_writer.putlnc('manager.set_fade(%s, %s);',
                 make_color(fade.color), -1.0 / (fade.duration / 1000.0))
 
         event_file.putmeth('void %s' % start_name)
@@ -1862,10 +1861,10 @@ class Converter(object):
 
         if PROFILE:
             if object_writer.update:
-                objects_file.putmeth('void update', 'float dt')
+                objects_file.putmeth('void update')
                 objects_file.putlnc('PROFILE_BLOCK(%s_update);',
                                     class_name)
-                objects_file.putlnc('%s::update(dt);', subclass)
+                objects_file.putlnc('%s::update();', subclass)
                 objects_file.end_brace()
 
         objects_file.putmeth('void dealloc')

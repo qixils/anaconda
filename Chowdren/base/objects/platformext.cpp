@@ -15,7 +15,7 @@ PlatformObject::PlatformObject(int x, int y, int type_id)
 {
 }
 
-void PlatformObject::update(float dt)
+void PlatformObject::update()
 {
     bool l = left;
     bool r = right;

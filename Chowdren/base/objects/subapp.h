@@ -16,7 +16,7 @@ public:
     SubApplication(int x, int y, int id);
     ~SubApplication();
     void restart(int index);
-    void update(float dt);
+    void update();
     void set_next_frame(int index);
     void set_frame(int index);
 };

@@ -490,7 +490,7 @@ class SubApplication(ObjectWriter):
     def write_init(self, writer):
         data = self.common.subApplication
 
-        writer.putlnc('subapp_frame.media = global_manager->media;')
+        writer.putlnc('subapp_frame.media = manager.media;')
 
         writer.putlnc('width = %s;', data.width)
         writer.putlnc('height = %s;', data.height)
@@ -498,9 +498,9 @@ class SubApplication(ObjectWriter):
         flags = data.options
         if flags['ShareGlobals']:
             writer.putlnc('subapp_frame.global_values = '
-                          'global_manager->values;')
+                          'manager.values;')
             writer.putlnc('subapp_frame.global_strings = '
-                          'global_manager->strings;')
+                          'manager.strings;')
 
         if not flags['ShareLives']:
             print 'Non-shared live not implemented'

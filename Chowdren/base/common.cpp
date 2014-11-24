@@ -182,6 +182,8 @@ CollisionBase * Background::collide(CollisionBase * a)
 
 // Layer
 
+static Layer default_layer(0, 1.0, 1.0, false, false, false);
+
 Layer::Layer()
 {
     reset();
@@ -233,6 +235,11 @@ void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
     this->wrap_y = wrap_y;
 
     scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
+
+    if (this == &default_layer)
+        return;
+
+    broadphase.init();
 }
 
 Layer::~Layer()
@@ -314,7 +321,10 @@ void Layer::set_position(int x, int y)
 
 void Layer::add_background_object(FrameObject * instance)
 {
-    instance->depth = background_instances.size();
+    static int depth = 0;
+    instance->depth = depth;
+    depth++;
+    // instance->depth = background_instances.size();
     background_instances.push_back(instance);
 }
 
@@ -330,45 +340,93 @@ void Layer::remove_background_object(FrameObject * instance)
     }
 }
 
-#define LAYER_DEPTH_SPACING 20.0f
+// means we can store about 20,000 objects in both directions
+#define LAYER_DEPTH_SPACING 100000
+#define LAYER_DEPTH_START 0x7FFFFFFF
+
+inline unsigned int add_depth(unsigned int start, unsigned int add,
+                              bool * reset)
+{
+    if (0xFFFFFFFF - start < add) {
+        *reset = true;
+        return 0;
+    }
+    return start + add;
+}
+
+inline unsigned int sub_depth(unsigned int start, unsigned int sub,
+                              bool * reset)
+{
+    if (start < sub) {
+        *reset = true;
+        return 0;
+    }
+    return start - sub;
+}
 
 void Layer::add_object(FrameObject * instance)
 {
+    bool reset = false;
     if (instances.empty())
-        instance->depth = 0.0f;
+        instance->depth = LAYER_DEPTH_START;
     else
-        instance->depth = instances.back().depth + LAYER_DEPTH_SPACING;
+        instance->depth = add_depth(instances.back().depth,
+                                    LAYER_DEPTH_SPACING,
+                                    &reset);
+
     instances.push_back(*instance);
+
+    if (reset) {
+#ifndef NDEBUG
+        std::cout << "Flush in add_object" << std::endl;
+#endif
+        reset_depth();
+    }
 }
 
 void Layer::insert_object(FrameObject * instance, int index)
 {
+    bool reset = false;
+
     if (index == 0) {
         if (instances.empty())
-            instance->depth = 0.0f;
+            instance->depth = LAYER_DEPTH_START;
         else
-            instance->depth = instances.front().depth - LAYER_DEPTH_SPACING;
+            instance->depth = sub_depth(instances.front().depth,
+                                        LAYER_DEPTH_SPACING,
+                                        &reset);
+
         instances.push_front(*instance);
+
+        if (reset) {
+#ifndef NDEBUG
+            std::cout << "Flush in insert_object (1)" << std::endl;
+#endif
+            reset_depth();
+        }
         return;
     }
     LayerInstances::iterator it = instances.begin();
     std::advance(it, index - 1);
-    float prev = it->depth;
+    unsigned int prev = it->depth;
     ++it;
-    float next = it->depth;
-    float new_depth = (prev + next) / 2.0f;
+    unsigned int next = it->depth;
+    unsigned int new_depth = (prev + next) / 2;
     instance->depth = new_depth;
     instances.insert(it, *instance);
 
-    if (new_depth == next || new_depth == prev)
+    if (new_depth == next || new_depth == prev) {
+#ifndef NDEBUG
+        std::cout << "Flush in insert_object (2)" << std::endl;
+#endif
         reset_depth();
+    }
 }
 
 void Layer::reset_depth()
 {
-    std::cout << "Flush" << std::endl;
     LayerInstances::iterator it;
-    float i = 0.0f;
+    unsigned int i = LAYER_DEPTH_START;
     for (it = instances.begin(); it != instances.end(); ++it) {
         it->depth = i;
         i += LAYER_DEPTH_SPACING;
@@ -515,7 +573,6 @@ void Layer::draw(int off_x, int off_y)
 {
     if (!visible)
         return;
-
 #ifdef CHOWDREN_IS_3DS
     glc_set_global_depth(depth);
 #endif
@@ -610,10 +667,10 @@ void FrameData::handle_pre_events()
 
 // Frame
 
-Frame::Frame(GameManager * manager)
+Frame::Frame()
 : off_x(0), off_y(0), new_off_x(0), new_off_y(0), has_quit(false),
   last_key(-1), next_frame(-1), loop_count(0), frame_time(0.0),
-  index(-1), manager(manager)
+  index(-1)
 {
 }
 
@@ -633,12 +690,12 @@ void Frame::set_timer(double value)
 
 void Frame::set_lives(int value)
 {
-    manager->lives = value;
+    manager.lives = value;
 }
 
 void Frame::set_score(int value)
 {
-    manager->score = value;
+    manager.score = value;
 }
 
 void Frame::set_display_center(int x, int y)
@@ -718,8 +775,8 @@ void Frame::set_background_color(const Color & color)
 
 void Frame::get_mouse_pos(int * x, int * y)
 {
-    *x = manager->mouse_x + off_x;
-    *y = manager->mouse_y + off_y;
+    *x = manager.mouse_x + off_x;
+    *y = manager.mouse_y + off_y;
 }
 
 int Frame::get_mouse_x()
@@ -824,7 +881,7 @@ void Frame::clean_instances()
     destroyed_instances.clear();
 }
 
-void Frame::update_objects(float dt)
+void Frame::update_objects()
 {
 }
 
@@ -832,14 +889,14 @@ void Frame::load_static_images()
 {
 }
 
-bool Frame::update(float dt)
+bool Frame::update()
 {
-    frame_time += dt;
+    frame_time += manager.dt;
 
     if (timer_base == 0) {
         timer_mul = 1.0f;
     } else {
-        timer_mul = dt * timer_base;
+        timer_mul = manager.dt * timer_base;
     }
 
     PROFILE_BEGIN(handle_pre_events);
@@ -847,7 +904,7 @@ bool Frame::update(float dt)
     PROFILE_END();
 
     PROFILE_BEGIN(frame_update_objects);
-    update_objects(dt);
+    update_objects();
     PROFILE_END();
 
     if (loop_count > 0) {
@@ -924,8 +981,6 @@ void Frame::draw(int remote)
 //     Box2D::draw_debug();
 // #endif
 }
-
-static Layer default_layer(0, 1.0, 1.0, false, false, false);
 
 void setup_default_instance(FrameObject * obj)
 {
@@ -1147,11 +1202,20 @@ void FrameObject::set_position(int new_x, int new_y)
 {
     if (new_x == x && new_y == y)
         return;
+    if (collision == NULL) {
+        x = new_x;
+        y = new_y;
+        return;
+    }
+    int dx = new_x - x;
+    int dy = new_y - y;
     x = new_x;
     y = new_y;
-    if (collision == NULL)
-        return;
-    collision->update_aabb();
+    collision->aabb[0] += dx;
+    collision->aabb[1] += dy;
+    collision->aabb[2] += dx;
+    collision->aabb[3] += dy;
+    collision->update_proxy();
 }
 
 void FrameObject::set_global_position(int x, int y)
@@ -1159,36 +1223,36 @@ void FrameObject::set_global_position(int x, int y)
     set_position(x - layer->off_x, y - layer->off_y);
 }
 
-void FrameObject::set_x(int x)
+void FrameObject::set_x(int new_x)
 {
-    int new_x = x - layer->off_x;
-    if (this->x == new_x)
+    new_x -= layer->off_x;
+    if (x == new_x)
         return;
-    this->x = new_x;
-    if (collision == NULL)
+    if (collision == NULL) {
+        x = new_x;
         return;
-    collision->update_aabb();
+    }
+    int d = new_x - x;
+    x = new_x;
+    collision->aabb[0] += d;
+    collision->aabb[2] += d;
+    collision->update_proxy();
 }
 
-int FrameObject::get_x()
+void FrameObject::set_y(int new_y)
 {
-    return x + layer->off_x;
-}
-
-void FrameObject::set_y(int y)
-{
-    int new_y = y - layer->off_y;
-    if (this->y == new_y)
+    new_y -= layer->off_y;
+    if (y == new_y)
         return;
-    this->y = new_y;
-    if (collision == NULL)
+    if (collision == NULL) {
+        y = new_y;
         return;
-    collision->update_aabb();
-}
-
-int FrameObject::get_y()
-{
-    return y + layer->off_y;
+    }
+    int d = new_y - y;
+    y = new_y;
+    collision->aabb[1] += d;
+    collision->aabb[3] += d;
+    collision->update_proxy();
 }
 
 void FrameObject::create_alterables()
@@ -1417,14 +1481,43 @@ void FrameObject::move_front()
     layer->set_level(this, -1);
 }
 
-inline float get_next_depth(float prev, float next)
+inline unsigned int get_next_depth(unsigned int prev, unsigned int next,
+                                   bool * reset)
 {
-    float d = next - prev;
-
-    float v = 0.1f * LAYER_DEPTH_SPACING;
-    while (v >= d && v != 0.0f)
-        v *= 0.1f;
+    unsigned int d = next - prev;
+    unsigned int v = LAYER_DEPTH_SPACING / 10;
+    while (v >= d && v != 0)
+        v /= 10;
+    if (v == 0)
+        *reset = true;
     return v;
+}
+
+void FrameObject::move_relative(FrameObject * other, int disp)
+{
+    // XXX not 100% correct behaviour, but good enough for our purposes
+    if (other == NULL)
+        return;
+    if (other->layer != layer)
+        return;
+    LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
+    if (disp < 0) {
+        while (disp < 0 && it != layer->instances.begin()) {
+            it--;
+            disp++;
+        }
+        move_back(&*it);
+    } else {
+        while (disp > 0) {
+            it++;
+            disp--;
+            if (it != layer->instances.end())
+                continue;
+            it--;
+            break;
+        }
+        move_front(&*it);
+    }
 }
 
 void FrameObject::move_back(FrameObject * other)
@@ -1437,24 +1530,25 @@ void FrameObject::move_back(FrameObject * other)
         return;
 
     LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
-    float next = it->depth;
+    unsigned int next = it->depth;
 
-    bool reset;
+    bool reset = false;
     if (it == layer->instances.begin()) {
-        depth = next - LAYER_DEPTH_SPACING;
-        reset = depth == next;
+        depth = sub_depth(next, LAYER_DEPTH_SPACING, &reset);
     } else {
-        float prev = (--LayerInstances::s_iterator_to(*other))->depth;
-        depth = prev + get_next_depth(prev, next);
-
-        reset = depth == next || depth == prev;
+        unsigned int prev = (--LayerInstances::s_iterator_to(*other))->depth;
+        depth = prev + get_next_depth(prev, next, &reset);
     }
 
     layer->instances.erase(LayerInstances::s_iterator_to(*this));
     layer->instances.insert(it, *this);
 
-    if (reset)
+    if (reset) {
+#ifndef NDEBUG
+        std::cout << "Flush in move_back" << std::endl;
+#endif
         layer->reset_depth();
+    }
 }
 
 void FrameObject::move_front(FrameObject * other)
@@ -1467,24 +1561,30 @@ void FrameObject::move_front(FrameObject * other)
         return;
 
     LayerInstances::iterator it = LayerInstances::s_iterator_to(*other);
-    float prev = it->depth;
+    unsigned int prev = it->depth;
     ++it;
 
-    bool reset;
+    bool reset = false;
     if (it == layer->instances.end()) {
-        depth = prev + LAYER_DEPTH_SPACING;
-        reset = depth == prev;
+        depth = add_depth(prev, LAYER_DEPTH_SPACING, &reset);
     } else {
-        float next = it->depth;
-        depth = next - get_next_depth(prev, next);
-        reset = depth == next || depth == prev;
+        unsigned int next = it->depth;
+        depth = next - get_next_depth(prev, next, &reset);
+
+        if (reset) {
+            std::cout << "move_front flush: " << next << " " << prev << std::endl;
+        }
     }
 
     layer->instances.erase(LayerInstances::s_iterator_to(*this));
     layer->instances.insert(it, *this);
 
-    if (reset)
+    if (reset) {
+#ifndef NDEBUG
+        std::cout << "Flush in move_front: " << depth << std::endl;
+#endif
         layer->reset_depth();
+    }
 }
 
 FixedValue FrameObject::get_fixed()
@@ -1613,11 +1713,11 @@ bool FrameObject::test_directions(int value)
     return ((value >> direction) & 1) != 0;
 }
 
-void FrameObject::update_flash(float dt, float interval, float & t)
+void FrameObject::update_flash(float interval, float & t)
 {
     if (interval == 0.0f)
         return;
-    t += dt;
+    t += manager.dt;
     if (t < interval)
         return;
     t = 0.0f;
@@ -1726,13 +1826,16 @@ Active::~Active()
 
 void Active::set_animation(int value)
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Set animation: " << value << std::endl;
+    }
     if (value == animation)
         return;
     value = get_animation(value);
     if (value == animation)
         return;
     animation = value;
-    if (forced_animation != -1)
+    if (forced_animation >= 0)
         return;
     if (forced_frame == -1) {
         animation_frame = 0;
@@ -1742,6 +1845,10 @@ void Active::set_animation(int value)
 
 void Active::force_animation(int value)
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Force animation: " << value << std::endl;
+    }
+
     if (value == forced_animation)
         return;
     value = get_animation(value);
@@ -1751,18 +1858,34 @@ void Active::force_animation(int value)
         FrameObject::destroy();
         return;
     }
+    int old_forced = forced_animation;
     int old_anim = get_animation();
     forced_animation = value;
     if (old_anim == forced_animation)
         return;
+    Direction * dir = NULL;
     if (forced_frame == -1) {
+        // MMF behaviour: lock the animation if we try and force the one that
+        // just ended
+        if (animation_finished == value && old_forced == -2) {
+            direction_data = get_direction_data();
+            animation_frame = direction_data->frame_count - 1;
+            loop_count = 0;
+            update_frame();
+            return;
+        }
+
         animation_frame = 0;
     }
-    update_direction();
+    update_direction(dir);
 }
 
 void Active::force_frame(int value)
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Force frame: " << value << std::endl;
+    }
+
     if (flags & FADEOUT)
         return;
     forced_frame = value;
@@ -1783,6 +1906,10 @@ void Active::force_speed(int value)
 
 void Active::force_direction(int value)
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Force direction: " << value << std::endl;
+    }
+
     value &= 31;
     if (forced_direction == value)
         return;
@@ -1792,6 +1919,10 @@ void Active::force_direction(int value)
 
 void Active::restore_direction()
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Restore direction" << std::endl;
+    }
+
     if (flags & FADEOUT)
         return;
     forced_direction = -1;
@@ -1800,6 +1931,10 @@ void Active::restore_direction()
 
 void Active::restore_animation()
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Restore animation" << std::endl;
+    }
+
     forced_animation = -1;
     if (forced_frame == -1)
         animation_frame = 0;
@@ -1808,6 +1943,10 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Restore frame" << std::endl;
+    }
+
     if (flags & FADEOUT || forced_frame == -1)
         return;
     animation_frame = forced_frame;
@@ -1826,9 +1965,10 @@ void Active::update_frame()
     int & current_frame = get_frame();
     current_frame = int_max(0, int_min(current_frame, frame_count - 1));
 
-    image = get_image();
-    if (image == NULL)
+    Image * new_image = get_image();
+    if (new_image == image)
         return;
+    image = new_image;
 
     sprite_col.set_image(image, image->hotspot_x, image->hotspot_y);
     update_action_point();
@@ -1851,21 +1991,18 @@ void Active::update_action_point()
     action_y -= sprite_col.new_hotspot_y;
 }
 
-void Active::update(float dt)
+void Active::update()
 {
     if (flags & FADEOUT && animation_finished == DISAPPEARING) {
         FrameObject::destroy();
         return;
     }
 
-    update_flash(dt, flash_interval, flash_time);
+    update_flash(flash_interval, flash_time);
 
     animation_finished = -1;
 
-    if (forced_frame != -1 || stopped)
-        return;
-
-    if (loop_count == 0)
+    if (forced_frame != -1 || stopped || loop_count == 0)
         return;
 
     counter += int(get_speed() * frame->timer_mul);
@@ -1885,13 +2022,13 @@ void Active::update(float dt)
         animation_finished = get_animation();
         animation_frame--;
 
-#ifdef CHOWDREN_RESTORE_ANIMATIONS
-        if (forced_animation != -1 && (flags & FADEOUT) == 0)
-            restore_animation();
-#else
-        if (forced_animation == APPEARING)
-            restore_animation();
-#endif
+        if (forced_animation >= 0 && (flags & FADEOUT) == 0) {
+            forced_animation = -2;
+            if (forced_frame == -1)
+                animation_frame = 0;
+            update_direction();
+        }
+        return;
     }
     if (animation_frame != old_frame)
         update_frame();
@@ -1938,6 +2075,7 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
     ObjectList & list = this->frame->instances.items[id];
     for (it = list.begin(); it != list.end(); ++it) {
         Active * obj = (Active*)it->obj;
+        obj->image = NULL;
         obj->update_frame();
     }
 }
@@ -2026,7 +2164,7 @@ Direction * Active::get_direction_data()
 
 int Active::get_animation()
 {
-    if (forced_animation != -1)
+    if (forced_animation >= 0)
         return forced_animation;
     return animation;
 }
@@ -2056,7 +2194,7 @@ int Active::get_animation(int value)
         return value;
     for (int i = 0; i < 3; i++) {
         int alias = animation_alias[i + value * 3];
-        if (alias == -1)
+        if (alias == -1 || !has_animation(alias))
             break;
         return alias;
     }
@@ -2069,6 +2207,10 @@ int Active::get_animation(int value)
 
 void Active::set_direction(int value, bool set_movement)
 {
+    if (get_name() == "Immi Chain") {
+        std::cout << "Set direction: " << value << std::endl;
+    }
+
     value &= 31;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {
@@ -2738,9 +2880,9 @@ void Counter::set_min(int value)
     set(this->value);
 }
 
-void Counter::update(float dt)
+void Counter::update()
 {
-    update_flash(dt, flash_interval, flash_time);
+    update_flash(flash_interval, flash_time);
 }
 
 void Counter::flash(float value)
@@ -2814,9 +2956,9 @@ void Lives::flash(float value)
     flash_time = 0.0f;
 }
 
-void Lives::update(float dt)
+void Lives::update()
 {
-    update_flash(dt, flash_interval, flash_time);
+    update_flash(flash_interval, flash_time);
 }
 
 void Lives::draw()
@@ -2825,7 +2967,7 @@ void Lives::draw()
 
     int xx = x;
     int i = 0;
-    while (i < frame->manager->lives) {
+    while (i < manager.lives) {
         image->draw(xx, y);
         xx += image->width;
         i++;
@@ -3811,9 +3953,9 @@ void TextBlitter::set_transparent_color(int v)
     transparent_color = v;
 }
 
-void TextBlitter::update(float dt)
+void TextBlitter::update()
 {
-    update_flash(dt, flash_interval, flash_time);
+    update_flash(flash_interval, flash_time);
 
     if (anim_type != BLITTER_ANIMATION_SINWAVE)
         return;

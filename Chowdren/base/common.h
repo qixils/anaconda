@@ -192,7 +192,7 @@ public:
     void update_frame();
     void update_direction(Direction * dir = NULL);
     void update_action_point();
-    void update(float dt);
+    void update();
     void draw();
     Image * get_image();
     int get_action_x();
@@ -354,7 +354,7 @@ public:
     void set(double value);
     void draw();
     void calculate_box();
-    void update(float dt);
+    void update();
     void flash(float value);
 };
 
@@ -367,7 +367,7 @@ public:
 
     Lives(int x, int y, int type_id);
     ~Lives();
-    void update(float dt);
+    void update();
     void flash(float value);
     void draw();
 };
@@ -631,7 +631,7 @@ public:
     void set_width(int width);
     void set_height(int height);
     void draw();
-    void update(float dt);
+    void update();
     void flash(float value);
     std::string get_line(int index);
     int get_line_count();
@@ -718,10 +718,6 @@ inline FrameObject * get_object_from_fixed(double fixed)
     FrameObject * p;
     memcpy(&p, &fixed, sizeof(FrameObject*));
     return p;
-    // int64_t v;
-    // memcpy(&v, &fixed, sizeof(int64_t));
-    // intptr_t p = intptr_t(v);
-    // return (FrameObject*)p;
 }
 
 inline FrameObject * get_object_from_fixed(FixedValue fixed)
@@ -1062,8 +1058,9 @@ inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
         FrameObject * instance = *it1;
         if (instance->collision == NULL)
             continue;
-        for (ObjectIterator it2(list2); !it2.end(); ++it2) {
-            FrameObject * other = *it2;
+        ObjectList::iterator it2;
+        for (it2 = list2.begin(); it2 != list2.end(); ++it2) {
+            FrameObject * other = it2->obj;
             if (!instance->overlaps(other))
                 continue;
             return false;
@@ -1085,7 +1082,11 @@ inline bool check_not_overlap(QualifierList & list1, ObjectList & list2)
 
 inline bool check_not_overlap(ObjectList & list1, QualifierList & list2)
 {
-    return check_not_overlap(list2, list1);
+    for (int i = 0; i < list2.count; i++) {
+        if (!check_not_overlap(list1, *list2.items[i]))
+            return false;
+    }
+    return true;
 }
 
 // QualifierList vs QualifierList
@@ -1110,8 +1111,10 @@ inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
         return true;
     for (int i = 0; i < list.count; i++) {
         ObjectList & list2 = *list.items[i];
-        for (ObjectIterator it(list2); !it.end(); ++it) {
-            FrameObject * other = *it;
+
+        ObjectList::iterator it;
+        for (it = list2.begin(); it != list2.end(); ++it) {
+            FrameObject * other = it->obj;
             if (!obj->overlaps(other))
                 continue;
             return false;
@@ -1214,6 +1217,8 @@ inline int objects_in_zone(ObjectList & instances,
     int count = 0;
     for (ObjectIterator it(instances); !it.end(); ++it) {
         FrameObject * obj = *it;
+        if (obj->flags & (FADEOUT | DESTROYING))
+            continue;
         int x = obj->get_x();
         int y = obj->get_y();
         if (x < x1 || x >= x2 || y < y1 || y >= y2)
@@ -1229,6 +1234,8 @@ inline int objects_in_zone(QualifierList & instances,
     int count = 0;
     for (QualifierIterator it(instances); !it.end(); ++it) {
         FrameObject * obj = *it;
+        if (obj->flags & (FADEOUT | DESTROYING))
+            continue;
         int x = obj->get_x();
         int y = obj->get_y();
         if (x < x1 || x >= x2 || y < y1 || y >= y2)
@@ -1243,6 +1250,10 @@ inline void pick_objects_in_zone(ObjectList & instances,
 {
     for (ObjectIterator it(instances); !it.end(); ++it) {
         FrameObject * obj = *it;
+        if (obj->flags & (FADEOUT | DESTROYING)) {
+            it.deselect();
+            continue;
+        }
         int x = obj->get_x();
         int y = obj->get_y();
         if (x < x1 || x >= x2 || y < y1 || y >= y2)
@@ -1255,6 +1266,10 @@ inline void pick_objects_in_zone(QualifierList & instances,
 {
     for (QualifierIterator it(instances); !it.end(); ++it) {
         FrameObject * obj = *it;
+        if (obj->flags & (FADEOUT | DESTROYING)) {
+            it.deselect();
+            continue;
+        }
         int x = obj->get_x();
         int y = obj->get_y();
         if (x < x1 || x >= x2 || y < y1 || y >= y2)
@@ -1321,14 +1336,6 @@ inline int reverse_color(int value)
     color.b = 255 - color.b;
     color.a = 0;
     return color.get_int();
-}
-
-template <class T>
-inline T return_if(T val1, T val2, bool test)
-{
-    if (test)
-        return val1;
-    return val2;
 }
 
 inline std::string get_platform()

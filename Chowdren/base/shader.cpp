@@ -449,8 +449,7 @@ public:
     int alpha;
 
     PatternOverlayShader()
-    : GLSLShader(SHADER_PATTERNOVERLAY, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE,
-                 "pattern")
+    : GLSLShader(SHADER_PATTERNOVERLAY, SHADER_HAS_TEX_SIZE, "pattern")
     {
     }
 

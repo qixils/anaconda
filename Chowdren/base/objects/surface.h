@@ -106,7 +106,7 @@ public:
 
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();
-    void update(float dt);
+    void update();
     void draw();
     void load(const std::string & filename, const std::string & ignore_ext);
     void resize(int w, int h);

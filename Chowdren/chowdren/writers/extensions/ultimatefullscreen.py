@@ -19,14 +19,14 @@ class SetFullscreenType(ActionMethodWriter):
         #     raise NotImplementedError()
 
 actions = make_table(ActionMethodWriter, {
-    1 : 'manager->set_window(false)',
-    0 : 'manager->set_window(true)',
-    5 : 'manager->set_window_scale',
+    1 : 'manager.set_window(false)',
+    0 : 'manager.set_window(true)',
+    5 : 'manager.set_window_scale',
     4 : SetFullscreenType
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    1 : '!manager->is_fullscreen()'
+    1 : '!manager.is_fullscreen()'
 })
 
 expressions = make_table(ExpressionMethodWriter, {

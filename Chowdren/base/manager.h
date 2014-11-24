@@ -30,6 +30,7 @@ public:
     float fade_value;
     int score;
     int lives;
+    float dt;
     float timer_mul;
 #if CHOWDREN_IS_DEMO
     bool idle_timer_started;
@@ -49,6 +50,7 @@ public:
     bool ignore_controls;
 
     GameManager();
+    void init();
     void on_key(int key, bool state);
     void on_mouse(int key, bool state);
     bool update();
@@ -136,6 +138,6 @@ extern FrameObject * default_picture_instance;
 extern FrameObject * default_blitter_instance;
 #endif
 
-extern GameManager * global_manager;
+extern GameManager manager;
 
 #endif // CHOWDREN_MANAGER_H

@@ -74,7 +74,7 @@ Movement::~Movement()
 {
 }
 
-void Movement::update(float dt)
+void Movement::update()
 {
 
 }
@@ -326,7 +326,7 @@ BallMovement::BallMovement(FrameObject * instance)
 
 }
 
-void BallMovement::update(float dt)
+void BallMovement::update()
 {
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
@@ -430,7 +430,7 @@ void PathMovement::stop(bool collision)
     set_speed(0);
 }
 
-void PathMovement::update(float dt)
+void PathMovement::update()
 {
     node_changed = false;
     if (current_node < 0) {
@@ -556,7 +556,7 @@ float get_pinball_angle(float x, float y)
     return angle;
 }
 
-void PinballMovement::update(float dt)
+void PinballMovement::update()
 {
     if (stopped)
         return;
@@ -645,7 +645,7 @@ ShootMovement::ShootMovement(FrameObject * instance)
 
 }
 
-void ShootMovement::update(float dt)
+void ShootMovement::update()
 {
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
@@ -749,7 +749,7 @@ void EightDirections::stop(bool collision)
     fix_position();
 }
 
-void EightDirections::update(float dt)
+void EightDirections::update()
 {
     if (max_speed == 0)
         return;

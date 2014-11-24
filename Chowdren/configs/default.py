@@ -1,5 +1,5 @@
 def init(converter):
-    pass
+    converter.add_define('CHOWDREN_RESTORE_ANIMATIONS')
 
 def init_container(converter, container):
     pass

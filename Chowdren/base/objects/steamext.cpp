@@ -22,7 +22,7 @@ public:
     void unlock_achievement(const std::string & name);
     bool is_achievement_unlocked(const std::string & name);
 
-    STEAM_CALLBACK(SteamGlobal, receive_callback, UserStatsReceived_t, 
+    STEAM_CALLBACK(SteamGlobal, receive_callback, UserStatsReceived_t,
                    receive_callback_data);
 };
 
@@ -78,7 +78,7 @@ static SteamGlobal steam;
 
 // SteamObject
 
-SteamObject::SteamObject(int x, int y, int type_id) 
+SteamObject::SteamObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
 }
@@ -92,7 +92,7 @@ bool SteamObject::is_ready()
 #endif
 }
 
-void SteamObject::update(float dt)
+void SteamObject::update()
 {
 #ifdef CHOWDREN_ENABLE_STEAM
     steam.update();

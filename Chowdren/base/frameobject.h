@@ -16,15 +16,14 @@
 #include "pool.h"
 
 class InstanceCollision;
-class Frame;
 class Shader;
+class Frame;
 class Image;
-
-typedef hash_map<std::string, double> ShaderParameters;
-
 class FrameObject;
 class Movement;
 class Layer;
+
+typedef hash_map<std::string, double> ShaderParameters;
 
 class FixedValue
 {
@@ -80,10 +79,12 @@ int hash_extra_key(const std::string & value);
 class ExtraAlterables
 {
 public:
+    int & flags;
     hash_map<int, double> values;
     hash_map<int, std::string> strings;
 
-    ExtraAlterables()
+    ExtraAlterables(int & flags)
+    : flags(flags)
     {
     }
 
@@ -109,11 +110,15 @@ public:
 
     void set_value(int key, double value)
     {
+        if (flags & (DESTROYING | FADEOUT))
+            return;
         values[key] = value;
     }
 
     void set_string(int key, const std::string & value)
     {
+        if (flags & (DESTROYING | FADEOUT))
+            return;
         strings[key] = value;
     }
 };
@@ -134,7 +139,7 @@ public:
     std::string name;
 #endif
     int index;
-    float depth;
+    unsigned int depth;
     int x, y;
     int width, height;
     int direction;
@@ -165,8 +170,8 @@ public:
     void set_position(int x, int y);
     void set_global_position(int x, int y);
     int get_x();
-    void set_x(int x);
     int get_y();
+    void set_x(int x);
     void set_y(int y);
     virtual int get_action_x();
     virtual int get_action_y();
@@ -196,6 +201,7 @@ public:
     double get_shader_parameter(const std::string & name);
     int get_level();
     void set_level(int index);
+    void move_relative(FrameObject * other, int disp);
     void move_back();
     void move_back(FrameObject * other);
     void move_front();
@@ -214,7 +220,7 @@ public:
     const std::string & get_name();
     void look_at(int x, int y);
     void rotate_toward(int dir);
-    void update_flash(float dt, float interval, float & time);
+    void update_flash(float interval, float & time);
     bool test_direction(int value);
     bool test_directions(int value);
     virtual void flash(float value);
@@ -227,7 +233,7 @@ public:
     ExtraAlterables & get_extra_alterables()
     {
         if (extra_alterables == NULL)
-            extra_alterables = new ExtraAlterables;
+            extra_alterables = new ExtraAlterables(flags);
         return *extra_alterables;
     }
 #endif
@@ -791,5 +797,17 @@ inline void ObjectList::restore_selection()
 }
 
 void setup_default_instance(FrameObject * obj);
+
+#include "frame.h"
+
+inline int FrameObject::get_x()
+{
+    return x + layer->off_x;
+}
+
+inline int FrameObject::get_y()
+{
+    return y + layer->off_y;
+}
 
 #endif // CHOWDREN_FRAMEOBJECT_H

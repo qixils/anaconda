@@ -308,11 +308,13 @@ class IsOverlapping(CollisionCondition):
                       data.items[0].loader.objectType)
         converter = self.converter
         selected_name = converter.create_list(object_info, writer)
-        other_selected = converter.create_list(other_info, writer)
         if negated:
+            other_selected = converter.get_object_list(other_info,
+                                                       allow_single=True)
             condition = to_c('check_not_overlap(%s, %s)', selected_name,
                              other_selected)
         else:
+            other_selected = converter.create_list(other_info, writer)
             if self.has_collisions():
                 func_name = 'check_overlap<true>'
                 self.add_collision_objects(object_info, other_info)
@@ -455,7 +457,7 @@ class TimerEvery(ConditionWriter):
         name = 'every_%s' % TEMPORARY_GROUP_ID
         self.group.add_member('float %s' % name, '0.0f')
         event_break = self.converter.event_break
-        writer.putln('%s += float(manager->fps_limit.dt);' % name)
+        writer.putln('%s += manager.dt;' % name)
         writer.putln('if (%s < %s) %s' % (name, seconds, event_break))
         writer.putln('%s -= %s;' % (name, seconds))
 
@@ -1246,7 +1248,7 @@ class SetFrameAction(ActionWriter):
         if fade.duration == 0:
             return
         color = fade.color
-        writer.putln(to_c('manager->set_fade(%s, %s);', make_color(
+        writer.putln(to_c('manager.set_fade(%s, %s);', make_color(
             color), 1.0 / (fade.duration / 1000.0)))
 
 class JumpToFrame(SetFrameAction):
@@ -1347,10 +1349,10 @@ class PlayerAction(ActionMethodWriter):
         return ActionMethodWriter.write(self, writer)
 
 class IgnoreControls(PlayerAction):
-    method = '.manager->ignore_controls = true'
+    method = '.manager.ignore_controls = true'
 
 class RestoreControls(PlayerAction):
-    method = '.manager->ignore_controls = false'
+    method = '.manager.ignore_controls = false'
 
 # expressions
 
@@ -1569,7 +1571,7 @@ actions = make_table(ActionMethodWriter, {
     'SetInkEffect' : SetInkEffect,
     'SetEffect' : SetEffect,
     'AddToDebugger' : EmptyAction,
-    'SetFrameRate' : 'manager->set_framerate(%s)',
+    'SetFrameRate' : 'manager.set_framerate(%s)',
     'Destroy' : Destroy,
     'BringToBack' : 'move_back',
     'BringToFront' : 'move_front',
@@ -1603,7 +1605,7 @@ actions = make_table(ActionMethodWriter, {
     'SetLoopIndex' : SetLoopIndex,
     'IgnoreControls' : IgnoreControls,
     'RestoreControls' : RestoreControls,
-    'ChangeControlType' : '.manager->control_type = %s', # XXX fix,
+    'ChangeControlType' : '.manager.control_type = %s', # XXX fix,
     'FlashDuring' : 'flash((%s) / 1000.0)',
     'SetMaximumSpeed' : 'get_movement()->set_max_speed',
     'SetSpeed' : 'get_movement()->set_speed',
@@ -1623,8 +1625,8 @@ actions = make_table(ActionMethodWriter, {
     'ReplaceColor' : 'replace_color',
     'SetLives' : 'set_lives',
     'SetScore' : 'set_score',
-    'SubtractLives' : 'set_lives(manager->lives - (%s))',
-    'AddLives' : 'set_lives(manager->lives + (%s))',
+    'SubtractLives' : 'set_lives(manager.lives - (%s))',
+    'AddLives' : 'set_lives(manager.lives + (%s))',
     'EnableVsync' : 'set_vsync(true)',
     'DisableVsync' : 'set_vsync(false)',
     'SetGravity' : 'get_movement()->set_gravity',
@@ -1700,7 +1702,7 @@ conditions = make_table(ConditionMethodWriter, {
     'AnimationFinished' : AnimationFinished,
     'StartOfFrame' : '.loop_count <= 1',
     'Never' : '.false',
-    'NumberOfLives' :  make_comparison('manager->lives'),
+    'NumberOfLives' :  make_comparison('manager.lives'),
     'AnyKeyPressed' : AnyKeyPressed,
     'Repeat' : RepeatCondition,
     'RestrictFor' : RestrictFor,
@@ -1819,12 +1821,12 @@ expressions = make_table(ExpressionMethodWriter, {
     'DisplayMode' : '.8',
     'GetClipboard' : '.empty_string',
     'TotalObjectCount' : 'get_instance_count()',
-    'FrameRate' : '.manager->fps_limit.framerate',
+    'FrameRate' : '.manager.fps_limit.framerate',
     'TemporaryPath' : 'get_temp_path()',
     'GetCollisionMask' : 'get_background_mask',
     'FontColor' : 'blend_color.get_int()',
     'RGBCoefficient' : 'blend_color.get_int()',
     'MovementNumber' : 'get_movement()->index',
     'FrameBackgroundColor' : 'background_color.get_int()',
-    'PlayerLives' : '.manager->lives'
+    'PlayerLives' : '.manager.lives'
 })

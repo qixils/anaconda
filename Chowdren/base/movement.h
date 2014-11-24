@@ -22,7 +22,7 @@ public:
 
     Movement(FrameObject * instance);
     virtual ~Movement();
-    virtual void update(float dt);
+    virtual void update();
     virtual void set_max_speed(int speed);
     virtual void set_speed(int speed);
     virtual void set_acceleration(int value);
@@ -97,7 +97,7 @@ public:
     void add_named_node(int i, const std::string & name);
     void set_current_node(int i);
     void set_node(const std::string & node);
-    void update(float dt);
+    void update();
     void start();
     void stop(bool collision);
     bool is_path_finished();
@@ -116,7 +116,7 @@ public:
     PinballMovement(FrameObject * instance);
     void start();
     void stop(bool collision);
-    void update(float dt);
+    void update();
     void bounce(bool collision);
     void set_deceleration(int value);
     void set_gravity(int value);
@@ -128,7 +128,7 @@ class BallMovement : public Movement
 {
 public:
     BallMovement(FrameObject * instance);
-    void update(float dt);
+    void update();
     void bounce(bool collision);
 };
 
@@ -136,7 +136,7 @@ class ShootMovement : public Movement
 {
 public:
     ShootMovement(FrameObject * instance);
-    void update(float dt);
+    void update();
 };
 
 class EightDirections : public Movement
@@ -146,7 +146,7 @@ public:
     int acceleration, deceleration;
 
     EightDirections(FrameObject * instance);
-    void update(float dt);
+    void update();
     void set_deceleration(int value);
     void set_acceleration(int value);
     void start();

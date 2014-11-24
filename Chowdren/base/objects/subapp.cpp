@@ -2,7 +2,7 @@
 #include "subapp.h"
 
 SubApplication::SubApplication(int x, int y, int id)
-: FrameObject(x, y, id), subapp_frame(global_manager)
+: FrameObject(x, y, id)
 {
     current = this;
 }
@@ -27,29 +27,29 @@ void SubApplication::restart(int index)
     subapp_frame.next_frame = index + frame_offset;
 }
 
-void SubApplication::update(float dt)
+void SubApplication::update()
 {
     if (done)
         return;
     starting = false;
-    Frame * old_frame = global_manager->frame;
-    global_manager->frame = &subapp_frame;
+    Frame * old_frame = manager.frame;
+    manager.frame = &subapp_frame;
 
     if (subapp_frame.next_frame != -1) {
         int next_frame = subapp_frame.next_frame;
         if (subapp_frame.index != -1)
             subapp_frame.on_end();
-        global_manager->frame = old_frame;
+        manager.frame = old_frame;
         set_frame(next_frame);
         return;
     }
 
-    bool ret = subapp_frame.update(dt);
+    bool ret = subapp_frame.update();
 
     if (!ret)
         subapp_frame.on_end();
 
-    global_manager->frame = old_frame;
+    manager.frame = old_frame;
 
     if (ret)
         return;
@@ -60,13 +60,13 @@ void SubApplication::update(float dt)
 void SubApplication::set_frame(int index)
 {
     done = false;
-    Frame * old_frame = global_manager->frame;
-    global_manager->frame = &subapp_frame;
+    Frame * old_frame = manager.frame;
+    manager.frame = &subapp_frame;
 
     subapp_frame.set_index(index);
     subapp_frame.on_start();
 
-    global_manager->frame = old_frame;
+    manager.frame = old_frame;
 }
 
 SubApplication * SubApplication::current = NULL;

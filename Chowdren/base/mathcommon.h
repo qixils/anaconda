@@ -19,14 +19,6 @@ inline float mod(float a, float b)
     return a - b * floor(a / b);
 }
 
-inline int wrap_range(int v, int a, int b)
-{
-    int range = b - a + 1;
-    if (v < a)
-        v += range * ((a - v) / range + 1);
-    return a + (v - a) % range;
-}
-
 template <class T>
 inline T rad(T x)
 {
@@ -135,13 +127,15 @@ inline typename boost::common_type<T, U>::type get_max(T a, U b)
 template <class T>
 inline T clamp(T value, T min, T max)
 {
-    return std::max(min, std::min(value, max));
+    T x = value > max ? max : value;
+    return x < min ? min : x;
 }
 
 template <class T>
 inline T clamp(T val)
 {
-    return std::max<T>(0, std::min<T>(val, 1));
+    T x = value > 1 ? 1 : value;
+    return x < 0 ? 0 : x;
 }
 
 inline int get_abs(int v)

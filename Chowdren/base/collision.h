@@ -120,11 +120,15 @@ public:
         proxy = instance->layer->broadphase.add_static(instance, aabb);
     }
 
-    virtual void update_aabb()
+    void update_proxy()
     {
         if (proxy == -1)
             return;
         instance->layer->broadphase.move(proxy, aabb);
+    }
+
+    virtual void update_aabb()
+    {
     }
 };
 
@@ -142,7 +146,7 @@ public:
         aabb[1] = instance->y;
         aabb[2] = aabb[0] + instance->width;
         aabb[3] = aabb[1] + instance->height;
-        InstanceCollision::update_aabb();
+        update_proxy();
     }
 };
 
@@ -163,7 +167,7 @@ public:
         aabb[1] = instance->y + off_y;
         aabb[2] = aabb[0] + instance->width;
         aabb[3] = aabb[1] + instance->height;
-        InstanceCollision::update_aabb();
+        update_proxy();
     }
 
     void set_offset(int x, int y)
@@ -367,7 +371,7 @@ public:
         aabb[1] = instance->y - new_hotspot_y;
         aabb[2] = aabb[0] + width;
         aabb[3] = aabb[1] + height;
-        InstanceCollision::update_aabb();
+        update_proxy();
     }
 };
 
@@ -388,7 +392,7 @@ public:
         aabb[1] = instance->y;
         aabb[2] = aabb[0] + image->width;
         aabb[3] = aabb[1] + image->height;
-        InstanceCollision::update_aabb();
+        update_proxy();
     }
 
     inline bool get_bit(int x, int y)

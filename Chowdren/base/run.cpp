@@ -13,7 +13,7 @@
 #include "manager.h"
 #include "fpslimit.h"
 
-GameManager * global_manager;
+GameManager manager;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,13 +47,15 @@ GameManager::GameManager()
   fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false),
   last_control_flags(0), control_flags(0)
 {
+}
+
+void GameManager::init()
+{
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
 #endif
-    static Frames static_frames(this);
+    static Frames static_frames;
     frame = &static_frames;
-
-    global_manager = this;
 
 #ifdef CHOWDREN_IS_DEMO
     idle_timer_started = false;
@@ -75,7 +77,7 @@ GameManager::GameManager()
     fps_limit.set(FRAMERATE);
 
 #if defined(CHOWDREN_IS_HFA)
-    set_frame(32);
+    set_frame(0);
 #elif defined(CHOWDREN_IS_FP)
     set_frame(20);
 #else
@@ -181,6 +183,8 @@ int GameManager::update_frame()
         set_frame(frame->next_frame);
     }
 
+    this->dt = float(dt);
+
 #ifdef CHOWDREN_IS_DEMO
     global_time += dt;
     if (idle_timer_started) {
@@ -206,7 +210,7 @@ int GameManager::update_frame()
     }
 #endif
 
-    bool ret = frame->update((float)dt);
+    bool ret = frame->update();
     if (ret)
         return 1;
     else
@@ -463,12 +467,14 @@ bool GameManager::update()
 #ifdef CHOWDREN_IS_EMSCRIPTEN
 static void _emscripten_run()
 {
-    global_manager->update();
+    manager.update();
 }
 #endif
 
 void GameManager::run()
 {
+    init();
+
 #ifdef CHOWDREN_IS_EMSCRIPTEN
     emscripten_set_main_loop(_emscripten_run, 0, 1);
 #else
@@ -607,50 +613,50 @@ bool is_mouse_pressed(int button)
 {
     if (button < 0)
         return false;
-    return global_manager->mouse.is_pressed(button);
+    return manager.mouse.is_pressed(button);
 }
 
 bool is_key_pressed(int button)
 {
     if (button < 0)
         return false;
-    return global_manager->keyboard.is_pressed(button);
+    return manager.keyboard.is_pressed(button);
 }
 
 bool is_any_key_pressed()
 {
-    return global_manager->keyboard.is_any_pressed();
+    return manager.keyboard.is_any_pressed();
 }
 
 bool is_any_key_pressed_once()
 {
-    return global_manager->keyboard.is_any_pressed_once();
+    return manager.keyboard.is_any_pressed_once();
 }
 
 bool is_mouse_pressed_once(int key)
 {
     if (key < 0)
         return false;
-    return global_manager->mouse.is_pressed_once(key);
+    return manager.mouse.is_pressed_once(key);
 }
 
 bool is_key_released_once(int key)
 {
     if (key < 0)
         return false;
-    return global_manager->keyboard.is_released_once(key);
+    return manager.keyboard.is_released_once(key);
 }
 
 bool is_key_pressed_once(int key)
 {
     if (key < 0)
         return false;
-    return global_manager->keyboard.is_pressed_once(key);
+    return manager.keyboard.is_pressed_once(key);
 }
 
 int get_last_key_pressed()
 {
-    return global_manager->keyboard.last;
+    return manager.keyboard.last;
 }
 
 enum {
@@ -662,28 +668,28 @@ enum {
 
 static int get_player_control_flags(int player)
 {
-    GameManager * m = global_manager;
-    if (m->ignore_controls)
+    GameManager & m = manager;
+    if (m.ignore_controls)
         return 0;
 
     int flags = 0;
 
-    if (m->control_type == CONTROL_KEYBOARD) {
-        if (is_key_pressed(m->up))
+    if (m.control_type == CONTROL_KEYBOARD) {
+        if (is_key_pressed(m.up))
             flags |= CONTROL_UP;
-        if (is_key_pressed(m->down))
+        if (is_key_pressed(m.down))
             flags |= CONTROL_DOWN;
-        if (is_key_pressed(m->left))
+        if (is_key_pressed(m.left))
             flags |= CONTROL_LEFT;
-        if (is_key_pressed(m->right))
+        if (is_key_pressed(m.right))
             flags |= CONTROL_RIGHT;
-        if (is_key_pressed(m->button1))
+        if (is_key_pressed(m.button1))
             flags |= CONTROL_BUTTON1;
-        if (is_key_pressed(m->button2))
+        if (is_key_pressed(m.button2))
             flags |= CONTROL_BUTTON2;
-        if (is_key_pressed(m->button3))
+        if (is_key_pressed(m.button3))
             flags |= CONTROL_BUTTON3;
-        if (is_key_pressed(m->button4))
+        if (is_key_pressed(m.button4))
             flags |= CONTROL_BUTTON4;
     } else {
         flags |= get_joystick_direction_flags(player);
@@ -701,22 +707,22 @@ static int get_player_control_flags(int player)
 
 bool is_player_pressed(int player, int flags)
 {
-    GameManager * m = global_manager;
-    if (m->ignore_controls)
+    GameManager & m = manager;
+    if (m.ignore_controls)
         return false;
     if (flags == 0)
-        return m->last_control_flags == 0;
-    return (m->last_control_flags & flags) == flags;
+        return m.last_control_flags == 0;
+    return (m.last_control_flags & flags) == flags;
 }
 
 bool is_player_pressed_once(int player, int flags)
 {
-    GameManager * m = global_manager;
-    if (m->ignore_controls)
+    GameManager & m = manager;
+    if (m.ignore_controls)
         return false;
     if (flags == 0)
-        return m->control_flags == 0;
-    return (m->control_flags & flags) == flags;
+        return m.control_flags == 0;
+    return (m.control_flags & flags) == flags;
 }
 
 // main function
@@ -748,9 +754,6 @@ int main(int argc, char *argv[])
 
     std::ios::sync_with_stdio();
 #endif
-
-    GameManager manager;
-
     manager.run();
     return 0;
 }

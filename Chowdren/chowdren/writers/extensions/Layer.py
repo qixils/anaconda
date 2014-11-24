@@ -47,9 +47,116 @@ class MoveBack(ActionMethodWriter):
         return (parameter.objectInfo, parameter.objectType)
 
 class MoveObject(ActionMethodWriter):
+    custom = True
     def write(self, writer):
-        level = self.convert_index(1)
-        writer.putc('set_level(%s);', level)
+        converter = self.converter
+        items = self.parameters[1].loader.items
+
+        # hacks for HFA
+        last_exp = items[2]
+        if last_exp.getName() == 'Multiply':
+            self.multiply_case(writer)
+            return
+        elif items[0].getName() == 'Min':
+            self.min_case(writer)
+            return
+
+        import code
+        code.interact(local=locals())
+        raise NotImplementedError()
+
+
+    def min_case(self, writer):
+        converter = self.converter
+        items = self.parameters[1].loader.items
+
+        obj1 = items[2]
+        if obj1.getName() != 'FixedValue':
+            raise NotImplementedError()
+
+        if items[3].getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        if items[4].getName() == 'Minus':
+            direction = -1
+        # elif items[4].getName() == 'Plus':
+        #     direction = 1
+        else:
+            raise NotImplementedError()
+
+        if items[5].getName() != 'Long':
+            raise NotImplementedError()
+
+        offset = items[5].loader.value * direction
+
+        if items[6].getName() != 'Virgule':
+            raise NotImplementedError()
+
+        obj2 = items[8]
+        if obj2.getName() != 'FixedValue':
+            raise NotImplementedError()
+
+        if items[9].getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        if items[10].getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        obj1 = converter.get_object((obj1.objectInfo,
+                                     obj1.objectType))
+        obj2 = converter.get_object((obj2.objectInfo,
+                                     obj2.objectType))
+        with converter.iterate_object(self.get_object(), writer, copy=False):
+            set_obj = converter.get_object(self.get_object())
+            writer.putlnc('%s->move_relative(%s, %s);', set_obj, obj1, offset)
+            writer.putlnc('%s->move_back(%s);', set_obj, obj2)
+
+    def multiply_case(self, writer):
+        converter = self.converter
+        items = self.parameters[1].loader.items
+
+        fixed_exp = items[1]
+        if fixed_exp.getName() != 'FixedValue':
+            print self.convert_index(1)
+            raise NotImplementedError()
+
+        last_exp = items[2]
+        if last_exp.getName() != 'Multiply':
+            raise NotImplementedError()
+
+        alt_exp = items[3]
+        if alt_exp.getName() != 'AlterableValue':
+            raise NotImplementedError()
+
+        if items[4].getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        if items[5].getName() == 'Minus':
+            direction = -1
+        elif items[5].getName() == 'Plus':
+            direction = 1
+        else:
+            raise NotImplementedError()
+
+        value_exp = items[6]
+        if value_exp.getName() != 'Long':
+            raise NotImplementedError()
+
+        relative = value_exp.loader.value * direction
+
+        obj = converter.get_object((fixed_exp.objectInfo,
+                                    fixed_exp.objectType))
+
+        # don't try this at home kids
+        # very hacky, expect for the alt + end paranthesis to follow
+        obj2 = converter.get_object((alt_exp.objectInfo,
+                                     alt_exp.objectType))
+        alt = '%s->alterables->values.get(%s)' % (obj2, alt_exp.loader.value)
+
+        with converter.iterate_object(self.get_object(), writer, copy=False):
+            set_obj = converter.get_object(self.get_object())
+            writer.putlnc('%s->move_relative(%s != 0.0 ? %s : NULL, %s);',
+                          set_obj, alt, obj, relative)
 
     def get_object(self):
         parameter = self.parameters[0].loader
@@ -137,44 +244,10 @@ class GetObjectLevel(ExpressionMethodWriter):
         converter = self.converter
         items = converter.expression_items
         last_exp = items[converter.item_index + 2]
-        if last_exp.getName() != 'EndParenthesis':
-            # XXX hack for HFA
-            if last_exp.getName() == 'Multiply':
-                return self.get_multiply_case()
-            else:
-                raise NotImplementedError()
         next_exp = items[converter.item_index + 1]
         obj = converter.get_object((next_exp.objectInfo, next_exp.objectType))
         converter.item_index += 2
         return '%s->get_level()' % obj
-
-    def get_multiply_case(self):
-        converter = self.converter
-        items = converter.expression_items
-
-        fixed_exp = items[converter.item_index + 1]
-        if fixed_exp.getName() != 'FixedValue':
-            raise NotImplementedError()
-
-        exp = items[converter.item_index + 2]
-        if exp.getName() != 'Multiply':
-            raise NotImplementedError()
-
-        alt_exp = items[converter.item_index + 3]
-        if alt_exp.getName() != 'AlterableValue':
-            raise NotImplementedError()
-
-        exp = items[converter.item_index + 4]
-        if exp.getName() != 'EndParenthesis':
-            raise NotImplementedError()
-
-        converter.item_index += 2
-        obj = converter.get_object((fixed_exp.objectInfo,
-                                    fixed_exp.objectType))
-
-        # don't try this at home kids
-        # very hacky, expect for the alt + end paranthesis to follow
-        return 'return_if(%s->get_level(), 0, ' % obj
 
 actions = make_table(ActionMethodWriter, {
     20 : MoveBack,

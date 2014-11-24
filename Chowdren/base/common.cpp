@@ -1826,9 +1826,6 @@ Active::~Active()
 
 void Active::set_animation(int value)
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Set animation: " << value << std::endl;
-    }
     if (value == animation)
         return;
     value = get_animation(value);
@@ -1845,10 +1842,6 @@ void Active::set_animation(int value)
 
 void Active::force_animation(int value)
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Force animation: " << value << std::endl;
-    }
-
     if (value == forced_animation)
         return;
     value = get_animation(value);
@@ -1882,10 +1875,6 @@ void Active::force_animation(int value)
 
 void Active::force_frame(int value)
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Force frame: " << value << std::endl;
-    }
-
     if (flags & FADEOUT)
         return;
     forced_frame = value;
@@ -1906,10 +1895,6 @@ void Active::force_speed(int value)
 
 void Active::force_direction(int value)
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Force direction: " << value << std::endl;
-    }
-
     value &= 31;
     if (forced_direction == value)
         return;
@@ -1919,10 +1904,6 @@ void Active::force_direction(int value)
 
 void Active::restore_direction()
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Restore direction" << std::endl;
-    }
-
     if (flags & FADEOUT)
         return;
     forced_direction = -1;
@@ -1931,10 +1912,6 @@ void Active::restore_direction()
 
 void Active::restore_animation()
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Restore animation" << std::endl;
-    }
-
     forced_animation = -1;
     if (forced_frame == -1)
         animation_frame = 0;
@@ -1943,10 +1920,6 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Restore frame" << std::endl;
-    }
-
     if (flags & FADEOUT || forced_frame == -1)
         return;
     animation_frame = forced_frame;
@@ -2207,10 +2180,6 @@ int Active::get_animation(int value)
 
 void Active::set_direction(int value, bool set_movement)
 {
-    if (get_name() == "Immi Chain") {
-        std::cout << "Set direction: " << value << std::endl;
-    }
-
     value &= 31;
     FrameObject::set_direction(value, set_movement);
     if (auto_rotate) {

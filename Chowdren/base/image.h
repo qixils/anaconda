@@ -135,17 +135,16 @@ public:
     {
         int hash = 0;
         vector<Replacement>::const_iterator it;
-        int hash_index = 1;
+        int hash_index = 0;
         for (it = replacements.begin(); it != replacements.end(); ++it) {
             const Color & first = it->first;
             const Color & second = it->second;
-            hash += first.r * hash_index;
-            hash += first.g * hash_index;
-            hash += first.b * hash_index;
-            hash += second.r * hash_index;
-            hash += second.g * hash_index;
-            hash += second.b * hash_index;
-            hash_index++;
+            hash += first.r * (++hash_index);
+            hash += first.g * (++hash_index);
+            hash += first.b * (++hash_index);
+            hash += second.r * (++hash_index);
+            hash += second.g * (++hash_index);
+            hash += second.b * (++hash_index);
         }
 
         vector<ReplacedImage>::const_iterator it2;

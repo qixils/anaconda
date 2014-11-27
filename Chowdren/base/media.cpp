@@ -219,7 +219,7 @@ bool Channel::is_stopped()
 
 // Media
 
-Media::Media()
+void Media::init()
 {
     ChowdrenAudio::open_audio();
 
@@ -231,7 +231,7 @@ Media::Media()
     }
 }
 
-Media::~Media()
+void Media::stop()
 {
     stop_samples();
 
@@ -543,3 +543,5 @@ void Media::set_main_volume(double volume)
 {
     ChowdrenAudio::Listener::set_volume(clamp_sound(volume) / 100.0);
 }
+
+Media media;

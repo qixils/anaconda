@@ -490,8 +490,6 @@ class SubApplication(ObjectWriter):
     def write_init(self, writer):
         data = self.common.subApplication
 
-        writer.putlnc('subapp_frame.media = manager.media;')
-
         writer.putlnc('width = %s;', data.width)
         writer.putlnc('height = %s;', data.height)
 

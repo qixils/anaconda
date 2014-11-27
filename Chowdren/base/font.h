@@ -102,18 +102,6 @@ class FTPoint
                  + a.values[2] * b.values[2];
         }
 
-        inline FTPoint operator ^ (const FTPoint& point)
-        {
-            FTPoint temp;
-            temp.values[0] = values[1] * point.values[2]
-                              - values[2] * point.values[1];
-            temp.values[1] = values[2] * point.values[0]
-                              - values[0] * point.values[2];
-            temp.values[2] = values[0] * point.values[1]
-                              - values[1] * point.values[0];
-            return temp;
-        }
-
         friend bool operator == (const FTPoint &a, const FTPoint &b);
         friend bool operator != (const FTPoint &a, const FTPoint &b);
 

@@ -49,8 +49,8 @@ public:
         NATIVE
     };
 
-    Media();
-    ~Media();
+    void init();
+    void stop();
     void play(SoundData * data, int channel = -1, int loop = 1);
     void play(const std::string & filename, int channel = -1, int loop = 1);
     void play_id(unsigned int id, int channel = -1, int loop = 1);
@@ -87,5 +87,7 @@ public:
     double get_main_volume();
     void set_main_volume(double volume);
 };
+
+extern Media media;
 
 #endif // CHOWDREN_MEDIA_H

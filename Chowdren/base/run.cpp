@@ -69,7 +69,7 @@ void GameManager::init()
     preload_images();
     reset_globals();
     setup_keys(this);
-    media = frame->media = new Media;
+    media.init();
 
     // setup random generator from start
     cross_srand((unsigned int)platform_get_global_time());
@@ -200,7 +200,7 @@ int GameManager::update_frame()
     }
     if (reset_timer >= 60*10) {
         reset_timer = -10.0;
-        media->stop_samples();
+        media.stop_samples();
         set_frame(5);
     }
     if (global_time <= 60) {
@@ -345,7 +345,7 @@ void GameManager::set_frame(int index)
 #endif
 
 #ifndef CHOWDREN_SAMPLES_OVER_FRAMES
-    media->stop_samples();
+    media.stop_samples();
 #endif
 
     if (frame->index != -1)
@@ -353,7 +353,7 @@ void GameManager::set_frame(int index)
 
     if (index == -2) {
         platform_begin_draw();
-        media->stop_samples();
+        media.stop_samples();
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         platform_swap_buffers();
@@ -482,7 +482,7 @@ void GameManager::run()
         if (!update())
             break;
     }
-    delete media;
+    media.stop();
     platform_exit();
 #endif
 }

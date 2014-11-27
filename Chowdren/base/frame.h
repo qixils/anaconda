@@ -115,7 +115,6 @@ public:
 
 typedef hash_map<std::string, DynamicLoop> DynamicLoops;
 
-class Media;
 class GameManager;
 class GlobalValues;
 class GlobalStrings;
@@ -148,7 +147,6 @@ public:
     vector<Layer> layers;
     GlobalValues * global_values;
     GlobalStrings * global_strings;
-    Media * media;
     bool has_quit;
     int off_x, off_y, new_off_x, new_off_y;
     int last_key;

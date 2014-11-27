@@ -1057,8 +1057,7 @@ inline void FTSimpleLayout::OutputWrappedI(const T *buf, const int len,
 
     // If we have bounds expand them by the line's bounds, otherwise render
     // the line.
-    if(bounds)
-    {
+    if (bounds) {
         FTBBox temp = currentFont->BBox(buf, len);
 
         // Add the extra space to the upper x dimension
@@ -1074,9 +1073,7 @@ inline void FTSimpleLayout::OutputWrappedI(const T *buf, const int len,
         {
             *bounds = temp;
         }
-    }
-    else
-    {
+    } else {
         RenderSpace(buf, len, position, distributeWidth);
     }
 }

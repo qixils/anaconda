@@ -531,32 +531,27 @@ void preload_images()
 
 Image dummy_image;
 
+inline bool compare_color(const Color & color1, const Color & color2)
+{
+    return color1.r == color2.r &&
+           color1.g == color2.g &&
+           color1.b == color2.b;
+}
+
 void ReplacedImages::replace(const Color & from, const Color & to)
 {
     Replacements::iterator it = replacements.begin();
 
     while (it != replacements.end()) {
-        const Color & first = it->first;
-        const Color & second = it->second;
-        if (first.r == from.r &&
-            first.g == from.g &&
-            first.b == from.b &&
-            second.r == to.r &&
-            second.g == to.g &&
-            second.b == to.b)
-        {
+        Color & first = it->first;
+        Color & second = it->second;
+        if (compare_color(first, from) && compare_color(second, to)) {
             it = replacements.erase(it);
             continue;
         }
-        if (second.r == from.r &&
-            second.g == from.g &&
-            second.b == from.b &&
-            first.r == to.r &&
-            first.g == to.g &&
-            first.b == to.b)
-        {
+        if (compare_color(second, from) && compare_color(first, to)) {
             it = replacements.erase(it);
-            return;
+            continue;
         }
         ++it;
     }

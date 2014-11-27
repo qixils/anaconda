@@ -134,7 +134,7 @@ inline T clamp(T value, T min, T max)
 template <class T>
 inline T clamp(T val)
 {
-    T x = value > 1 ? 1 : value;
+    T x = val > 1 ? 1 : val;
     return x < 0 ? 0 : x;
 }
 

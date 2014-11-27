@@ -13,9 +13,9 @@ class Util(ObjectWriter):
         pass
 
 actions = make_table(ActionMethodWriter, {
-    0 : 'media->play_name(%s, %s-1, %s)',
-    1 : 'media->play_name(%s, %s-1)',
-    3 : 'media->add_file'
+    0 : 'media.play_name(%s, %s-1, %s)',
+    1 : 'media.play_name(%s, %s-1)',
+    3 : 'media.add_file'
 })
 
 conditions = make_table(ConditionMethodWriter, {

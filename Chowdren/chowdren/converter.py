@@ -557,6 +557,7 @@ def fix_sound(data, extension):
 
 class Converter(object):
     debug = False
+
     def __init__(self, args):
         self.outdir = args.outdir
 
@@ -578,6 +579,7 @@ class Converter(object):
         self.event_frame_initializers = defaultdict(list)
         self.pools = set()
         self.defines = set()
+        self.current_group = None
 
         self.games = []
 
@@ -1943,7 +1945,8 @@ class Converter(object):
 
     def start_object_iteration(self, object_info, writer, name='it',
                                copy=True):
-        if self.get_single(object_info):
+        if (self.has_single(object_info)
+                or not self.has_multiple_instances(object_info)):
             writer.start_brace()
             return
         iter_type = get_iter_type(object_info)
@@ -2635,6 +2638,8 @@ class Converter(object):
                 return repr(directions[0])
 
     def has_multiple_instances(self, handle):
+        if not self.current_group:
+            return True
         if is_qualifier(handle[0]):
             return True
         if handle in self.multiple_instances:
@@ -2686,11 +2691,19 @@ class Converter(object):
         return False
 
     def get_single(self, obj):
-        if obj in self.has_single_selection:
-            return self.has_single_selection[obj]
+        single = self.has_single_selection.get(obj, None)
+        if single:
+            return single
         elif obj == self.iterated_object:
             return self.iterated_name
         return None
+
+    def has_single(self, obj):
+        if obj in self.has_single_selection:
+            return True
+        elif obj == self.iterated_object:
+            return True
+        return False
 
     def get_object(self, obj, as_list=False, use_default=False, index=None):
         handle = obj[0]
@@ -2702,18 +2715,23 @@ class Converter(object):
             return self.has_single_selection[obj]
         if self.iterated_object == obj:
             return '((%s)%s)' % (object_type, self.iterated_name)
-        elif obj in self.has_selection:
+
+        if not self.has_multiple_instances(obj):
+            use_index = use_default = False
+
+        if obj in self.has_selection:
             ret = self.has_selection[obj]
-            if not as_list:
-                args = [ret]
-                if use_index:
-                    args.append(index)
-                if use_default:
-                    default_instance = self.get_default_instance(obj[1])
-                    if default_instance:
-                        args.append(default_instance)
-                args = ', '.join(args)
-                ret = '((%s)get_single(%s))' % (object_type, args)
+            if as_list:
+                return ret
+            args = [ret]
+            if use_index:
+                args.append(index)
+            if use_default:
+                default_instance = self.get_default_instance(obj[1])
+                if default_instance:
+                    args.append(default_instance)
+            args = ', '.join(args)
+            ret = '((%s)get_single(%s))' % (object_type, args)
             return ret
         else:
             name = self.get_object_list(obj)
@@ -2741,7 +2759,7 @@ class Converter(object):
         return self.get_object_impl(object_type).default_instance
 
     def get_object_list(self, obj, allow_single=False):
-        if self.get_single(obj) is not None and not allow_single:
+        if self.has_single(obj) and not allow_single:
             raise NotImplementedError()
         type_id, is_qual = self.get_object_handle(obj)
         if is_qual:

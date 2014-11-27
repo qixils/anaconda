@@ -658,7 +658,12 @@ class CompareFixedValue(ConditionWriter):
 
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
-        if test_all:
+        if (converter.has_single(obj) or
+                not converter.has_multiple_instances(obj)):
+            obj = converter.get_object(obj)
+            writer.putlnc('if (%s %s %s) %s', obj, comparison, fixed_name,
+                          event_break)
+        elif test_all:
             list_name = converter.create_list(obj, writer)
             with converter.iterate_object(obj, writer, copy=False):
                 writer.putlnc('if (!((*it) %s %s)) it.deselect();', comparison,
@@ -835,7 +840,8 @@ class CreateBase(ActionWriter):
         elif parent_info is not None:
             self.converter.start_object_iteration(parent_info, writer, 'p_it',
                                                   copy=False)
-            writer.putlnc('FrameObject * parent = *p_it;')
+            writer.putlnc('FrameObject * parent = %s;',
+                          self.converter.get_object(parent_info))
             parent = 'parent'
 
         writer.start_brace()
@@ -923,13 +929,9 @@ class SetPosition(ActionWriter):
         y = str(details['y'])
         parent = details.get('parent', None)
 
-        single = self.converter.get_single(object_info)
-        if single:
-            obj = single
-        else:
-            self.converter.start_object_iteration(object_info, writer,
-                                                  copy=False)
-            obj = '(*it)'
+        self.converter.start_object_iteration(object_info, writer,
+                                              copy=False)
+        obj = self.converter.get_object(object_info)
 
         if parent is not None and not is_qualifier(parent[0]):
             parent_writer = self.converter.get_object_writer(parent)
@@ -956,16 +958,15 @@ class SetPosition(ActionWriter):
                 x = 'x_off'
                 y = 'y_off'
             if details.get('use_direction', False):
-                writer.putln('(*it)->set_direction(parent->direction);')
+                writer.putlnc('%s->set_direction(parent->direction);', obj)
             x = 'parent->%s + %s' % (parent_x, x)
             y = 'parent->%s + %s' % (parent_y, y)
         arguments = [x, y]
         writer.putlnc('%s->set_global_position(%s);', obj,
                       ', '.join(arguments))
         writer.put_label(end_name)
-        if not single:
-            self.converter.end_object_iteration(object_info, writer,
-                                                copy=False)
+        self.converter.end_object_iteration(object_info, writer,
+                                            copy=False)
 
 class SwapPosition(ActionWriter):
     custom = True
@@ -1005,17 +1006,48 @@ class LookAt(ActionWriter):
         writer.put('set_direction(get_direction_int(%s->x, %s->y, %s, %s));'
             % (instance, instance, x, y))
 
-class MoveInFront(ActionWriter):
-    def write(self, writer):
-        object_info = (self.parameters[0].loader.objectInfo,
-                       self.parameters[0].loader.objectType)
-        writer.put('move_front(%s);' % (self.converter.get_object(object_info)))
+class LayerAction(ActionWriter):
+    single = False
+    custom = True
 
-class MoveBehind(ActionWriter):
     def write(self, writer):
-        object_info = (self.parameters[0].loader.objectInfo,
-                       self.parameters[0].loader.objectType)
-        writer.put('move_back(%s);' % (self.converter.get_object(object_info)))
+        obj = self.get_object()
+        other = self.get_other()
+
+        single = self.single or self.has_single(obj) or self.has_single(other)
+        if single:
+            obj = self.converter.get_object(obj, use_default=True)
+            other = self.converter.get_object(other)
+            writer.putlnc('%s->%s(%s);', obj, self.func, other)
+            return
+
+        end_label = 'action_%s_end' % self.get_id(self)
+
+        writer.start_brace()
+        other_list = self.converter.create_list(other, writer)
+        iter_type = get_iter_type(other)
+        writer.putlnc('%s other_it(%s);', iter_type, other_list)
+        with self.converter.iterate_object(obj, writer, copy=False):
+            obj = self.converter.get_object(obj)
+            writer.putlnc('if (other_it.end()) goto %s;', end_label)
+            writer.putlnc('%s->%s(*other_it);', obj, self.func)
+            writer.putln('++other_it;')
+        writer.end_brace()
+        writer.put_label(end_label)
+
+    def has_single(self, obj):
+        return (self.converter.has_single(obj) or
+                not self.converter.has_multiple_instances(obj))
+
+    def get_other(self):
+        return (self.parameters[0].loader.objectInfo,
+                self.parameters[0].loader.objectType)
+
+class MoveInFront(LayerAction):
+    func = 'move_front'
+
+class MoveBehind(LayerAction):
+    func = 'move_back'
 
 class Foreach(ActionWriter):
     custom = True
@@ -1485,10 +1517,10 @@ class SampleExpression(ExpressionWriter):
         return '%s(%s)' % (self.value, name)
 
 class GetSamplePosition(SampleExpression):
-    value = 'media->get_sample_position'
+    value = 'media.get_sample_position'
 
 class GetSampleDuration(SampleExpression):
-    value = 'media->get_sample_duration'
+    value = 'media.get_sample_duration'
 
 class CurrentFrame(ExpressionWriter):
     def get_string(self):
@@ -1522,21 +1554,21 @@ actions = make_table(ActionMethodWriter, {
     'Hide' : 'set_visible(false)',
     'Show' : 'set_visible(true)',
     'SetParagraph' : 'set_paragraph(%s-1)',
-    'LockChannel' : 'media->lock(%s-1)',
-    'UnlockChannel' : 'media->unlock(%s-1)',
-    'StopChannel' : 'media->stop_channel(%s-1)',
-    'ResumeChannel' : 'media->resume_channel(%s-1)',
-    'PauseChannel' : 'media->pause_channel(%s-1)',
-    'SetChannelPosition' : 'media->set_channel_position(%s-1, %s)',
-    'SetChannelPan' : 'media->set_channel_pan(%s-1, %s)',
-    'SetChannelVolume' : 'media->set_channel_volume(%s-1, %s)',
-    'PlayLoopingChannelFileSample' : 'media->play(%s, %s-1, %s)',
-    'PlayChannelFileSample' : 'media->play(%s, %s-1)',
-    'PlayChannelSample' : 'media->play_id(%s, %s-1)',
-    'PlayLoopingChannelSample' : 'media->play_id(%s, %s-1, %s)',
-    'PlayLoopingSample' : 'media->play_id(%s, -1, %s)',
-    'PlaySample' : 'media->play_id(%s, -1, 1)',
-    'SetChannelFrequency' : 'media->set_channel_frequency(%s-1, %s) ',
+    'LockChannel' : 'media.lock(%s-1)',
+    'UnlockChannel' : 'media.unlock(%s-1)',
+    'StopChannel' : 'media.stop_channel(%s-1)',
+    'ResumeChannel' : 'media.resume_channel(%s-1)',
+    'PauseChannel' : 'media.pause_channel(%s-1)',
+    'SetChannelPosition' : 'media.set_channel_position(%s-1, %s)',
+    'SetChannelPan' : 'media.set_channel_pan(%s-1, %s)',
+    'SetChannelVolume' : 'media.set_channel_volume(%s-1, %s)',
+    'PlayLoopingChannelFileSample' : 'media.play(%s, %s-1, %s)',
+    'PlayChannelFileSample' : 'media.play(%s, %s-1)',
+    'PlayChannelSample' : 'media.play_id(%s, %s-1)',
+    'PlayLoopingChannelSample' : 'media.play_id(%s, %s-1, %s)',
+    'PlayLoopingSample' : 'media.play_id(%s, -1, %s)',
+    'PlaySample' : 'media.play_id(%s, -1, 1)',
+    'SetChannelFrequency' : 'media.set_channel_frequency(%s-1, %s) ',
     'SetDirection' : 'set_direction',
     'SetRGBCoefficient' : 'set_blend_color',
     'SetAngle' : 'set_angle',
@@ -1589,15 +1621,15 @@ actions = make_table(ActionMethodWriter, {
     'StopAnimation' : 'stop_animation',
     'StartAnimation' : 'start_animation',
     'RestoreSpeed' : 'restore_speed',
-    'SetMainVolume' : 'media->set_main_volume',
-    'StopAllSamples' : 'media->stop_samples',
-    'PauseAllSounds' : 'media->pause_samples',
-    'ResumeAllSounds' : 'media->resume_samples',
-    'StopSample' : 'media->stop_sample(%s)',
-    'SetSamplePan' : 'media->set_sample_volume(%s, %s)',
-    'SetSamplePosition' : 'media->set_sample_position(%s, %s)',
-    'SetSampleVolume' : 'media->set_sample_volume(%s, %s)',
-    'SetSampleFrequency' : 'media->set_sample_frequency(%s, %s)',
+    'SetMainVolume' : 'media.set_main_volume',
+    'StopAllSamples' : 'media.stop_samples',
+    'PauseAllSounds' : 'media.pause_samples',
+    'ResumeAllSounds' : 'media.resume_samples',
+    'StopSample' : 'media.stop_sample(%s)',
+    'SetSamplePan' : 'media.set_sample_volume(%s, %s)',
+    'SetSamplePosition' : 'media.set_sample_position(%s, %s)',
+    'SetSampleVolume' : 'media.set_sample_volume(%s, %s)',
+    'SetSampleFrequency' : 'media.set_sample_frequency(%s, %s)',
     'NextParagraph' : 'next_paragraph',
     'PauseApplication' : 'pause',
     'SetRandomSeed' : 'set_random_seed',
@@ -1683,8 +1715,8 @@ conditions = make_table(ConditionMethodWriter, {
     'GroupActivated' : GroupActivated,
     'NotAlways' : NotAlways,
     'AnimationFrame' : make_comparison('get_frame()'),
-    'ChannelNotPlaying' : '!media->is_channel_playing(%s-1)',
-    'SampleNotPlaying' : '!media->is_sample_playing(%s)',
+    'ChannelNotPlaying' : '!media.is_channel_playing(%s-1)',
+    'SampleNotPlaying' : '!media.is_sample_playing(%s)',
     'Once' : OnceCondition,
     'Every' : TimerEvery,
     'TimerEquals' : TimerEquals,
@@ -1794,13 +1826,13 @@ expressions = make_table(ExpressionMethodWriter, {
     'Round' : 'int_round',
     'AnimationNumber' : 'get_animation()',
     'Ceil' : 'get_ceil',
-    'GetMainVolume' : 'media->get_main_volume()',
-    'GetChannelPosition' : '.media->get_channel_position(-1 +',
+    'GetMainVolume' : 'media.get_main_volume()',
+    'GetChannelPosition' : '.media.get_channel_position(-1 +',
     'GetSamplePosition' : GetSamplePosition,
     'GetSampleDuration' : GetSampleDuration,
-    'GetChannelVolume' : '.media->get_channel_volume(-1 +',
-    'GetChannelDuration' : '.media->get_channel_duration(-1 + ',
-    'GetChannelFrequency' : '.media->get_channel_frequency(-1 + ',
+    'GetChannelVolume' : '.media.get_channel_volume(-1 +',
+    'GetChannelDuration' : '.media.get_channel_duration(-1 + ',
+    'GetChannelFrequency' : '.media.get_channel_frequency(-1 + ',
     'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',

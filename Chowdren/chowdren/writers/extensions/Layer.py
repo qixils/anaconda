@@ -5,6 +5,8 @@ from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ConditionMethodWriter,
     ExpressionMethodWriter, ActionMethodWriter, make_table, ExpressionWriter)
 
+from chowdren.writers.events import system
+
 class Layer(ObjectWriter):
     class_name = 'LayerObject'
 
@@ -18,21 +20,23 @@ def get_layer(converter, name):
         raise NotImplementedError()
     return index, layer
 
-class MoveBehind(ActionMethodWriter):
-    def write(self, writer):
-        obj = (self.parameters[1].loader.objectInfo,
-               self.parameters[1].loader.objectType)
-        writer.putc('move_back(%s);', self.converter.get_object(obj))
+class MoveBehind(system.MoveBehind):
+    single = True
+
+    def get_other(self):
+        return (self.parameters[1].loader.objectInfo,
+                self.parameters[1].loader.objectType)
 
     def get_object(self):
         parameter = self.parameters[0].loader
         return (parameter.objectInfo, parameter.objectType)
 
-class MoveAbove(ActionMethodWriter):
-    def write(self, writer):
-        obj = (self.parameters[1].loader.objectInfo,
-               self.parameters[1].loader.objectType)
-        writer.putc('move_front(%s);', self.converter.get_object(obj))
+class MoveAbove(system.MoveInFront):
+    single = True
+
+    def get_other(self):
+        return (self.parameters[1].loader.objectInfo,
+                self.parameters[1].loader.objectType)
 
     def get_object(self):
         parameter = self.parameters[0].loader

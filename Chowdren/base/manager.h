@@ -11,7 +11,6 @@
 #include "chowconfig.h"
 
 class Frame;
-class Media;
 
 class GameManager
 {
@@ -19,7 +18,6 @@ public:
     Frame * frame;
     GlobalValues * values;
     GlobalStrings * strings;
-    Media * media;
     FPSLimiter fps_limit;
     bool window_created;
     bool fullscreen;

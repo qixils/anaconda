@@ -2287,8 +2287,11 @@ void Active::destroy()
         return;
     }
     clear_movements();
-    restore_animation();
-    force_animation(DISAPPEARING);
+
+    if (forced_animation != DISAPPEARING) {
+        restore_animation();
+        force_animation(DISAPPEARING);
+    }
     flags |= FADEOUT;
     collision->type = NONE_COLLISION;
 }

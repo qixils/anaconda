@@ -342,6 +342,7 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
+    FrameObject * get_selection(int index);
 
     FrameObject * back_selection() const
     {
@@ -477,6 +478,16 @@ inline FrameObject * ObjectList::get_wrapped_selection(int index)
             index--;
         }
     }
+}
+
+inline FrameObject * ObjectList::get_selection(int index)
+{
+    for (ObjectIterator it(*this); !it.end(); ++it) {
+        if (index == 0)
+            return *it;
+        index--;
+    }
+    return NULL;
 }
 
 inline int ObjectList::get_selection_size()
@@ -661,6 +672,7 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
+    FrameObject * get_selection(int index);
 };
 
 class QualifierIterator
@@ -762,6 +774,16 @@ inline FrameObject * QualifierList::get_wrapped_selection(int index)
             index--;
         }
     }
+}
+
+inline FrameObject * QualifierList::get_selection(int index)
+{
+    for (QualifierIterator it(*this); !it.end(); ++it) {
+        if (index == 0)
+            return *it;
+        index--;
+    }
+    return NULL;
 }
 
 // saving selection

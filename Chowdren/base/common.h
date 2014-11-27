@@ -1102,6 +1102,23 @@ inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
     return true;
 }
 
+// FrameObject vs ObjectList
+
+inline bool check_not_overlap(FrameObject * obj, ObjectList & list)
+{
+    CollisionBase * col = obj->collision;
+    if (col == NULL)
+        return true;
+    ObjectList::iterator it;
+    for (it = list.begin(); it != list.end(); ++it) {
+        FrameObject * other = it->obj;
+        if (!obj->overlaps(other))
+            continue;
+        return false;
+    }
+    return true;
+}
+
 // FrameObject vs QualifierList
 
 inline bool check_not_overlap(FrameObject * obj, QualifierList & list)

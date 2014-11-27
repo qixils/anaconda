@@ -324,10 +324,6 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
             return;
     }
 
-    if (get_name() == "Room Info") {
-        std::cout << "Loading data: " << get_name() << " " << new_data << std::endl;
-    }
-
     int e = ini_parse_string(new_data, _parse_handler, this);
     if (e != 0) {
         std::cout << "INI load failed (" << filename << ") with code " << e
@@ -339,10 +335,6 @@ void INI::load_string(const std::string & data, bool merge)
 {
     if (!merge)
         reset(false);
-
-    if (get_name() == "Room Info") {
-        std::cout << "Loading data: " << get_name() << " " << data << std::endl;
-    }
 
     int e = ini_parse_string(data, _parse_handler, this);
     if (e != 0) {

@@ -28,4 +28,6 @@ public:
     void set_border_2(Color color);
 };
 
+extern FrameObject * default_backimages_instance;
+
 #endif // CHOWDREN_SYSTEMBOX_H

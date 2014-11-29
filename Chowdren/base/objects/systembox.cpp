@@ -71,3 +71,18 @@ void SystemBox::set_border_2(Color color)
 {
 
 }
+
+class DefaultInstance : public SystemBox
+{
+public:
+    DefaultInstance()
+    : SystemBox(0, 0, 0)
+    {
+        setup_default_instance(this);
+        collision = new InstanceBox(this);
+        create_alterables();
+    }
+};
+
+static DefaultInstance default_systembox;
+FrameObject * default_systembox_instance = &default_systembox;

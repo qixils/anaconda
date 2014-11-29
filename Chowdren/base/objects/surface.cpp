@@ -54,8 +54,8 @@ void SurfaceObject::draw()
     }
 
     if (!lines.empty()) {
+        std::cout << "ignoring line draw" << std::endl;
         lines.clear();
-        return;
     }
 
     if (display_selected)
@@ -167,19 +167,22 @@ void SurfaceObject::draw()
     }
 
     blend_color.apply();
-    begin_draw();
 
     if (use_image_blit) {
         vector<SurfaceBlit>::const_iterator it;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
+            begin_draw(img.image->width, img.image->height);
             int draw_x = x + img.x + img.image->hotspot_x * img.scale_x;
             int draw_y = y + img.y + img.image->hotspot_y * img.scale_y;
             img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
+            end_draw();
         }
-    } else
+    } else {
+        begin_draw(displayed_image->width, displayed_image->height);
         displayed_image->draw(this, x, y);
-    end_draw();
+        end_draw();
+    }
 }
 
 void SurfaceObject::update()
@@ -267,7 +270,15 @@ void SurfaceObject::set_dest_size(int w, int h)
 void SurfaceObject::scroll(int x, int y, int wrap)
 {
     SurfaceImage * image = selected_image;
-    if (image == NULL || image->handle == NULL)
+    if (use_image_blit) {
+        vector<SurfaceBlit>::iterator it;
+        for (it = blit_images.begin(); it != blit_images.end(); it++) {
+            SurfaceBlit & img = *it;
+            img.x = (img.x + x) % img.image->width;
+            img.y = (img.y + y) % img.image->height;
+        }
+        return;
+    } else if (image == NULL || image->handle == NULL)
         return;
     image->scroll_x = (image->scroll_x + x) % image->handle->width;
     image->scroll_y = (image->scroll_y + y) % image->handle->height;

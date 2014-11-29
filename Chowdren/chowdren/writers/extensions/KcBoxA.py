@@ -60,6 +60,7 @@ class SystemBox(ObjectWriter):
     class_name = 'SystemBox'
     filename = 'systembox'
     use_alterables = True
+    default_instance = 'default_systembox_instance'
 
     def write_init(self, writer):
         data = self.get_data()

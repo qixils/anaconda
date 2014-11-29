@@ -1,25 +1,21 @@
-Anaconda for MMF2
-=================
+Anaconda/Chowdren for Clickteam Fusion
+======================================
 
-Anaconda for MMF2 is a cross-platform, hardware accelerated runtime, with 
-support for Windows, Linux and Mac OS X.
+Anaconda and Chowdren for Clickteam Fusion are cross-platform, hardware
+accelerated runtimes with support for desktop and console platforms.
 
-Downloads
-=========
+Please note that Anaconda is deprecated - only Chowdren is now supported.
 
-Binary builds are a available on the GitHub project page:
-https://github.com/matpow2/anaconda/downloads
+Instructions
+============
+
+For installation and usage, please refer to the thread on the Clickteam forums
+[here](http://community.clickteam.com/threads/74080-Chowdren-Blazingly-fast-Fusion-exporter-for-desktop-amp-consoles).
 
 License FAQ
 ===========
 
-Anaconda is dual-licensed under the GPL and a commercial license. Unless you 
-have explicitly acquired a commercial license from me, Mathias Kaerlev 
-(matpow2 at gmail dot com), you will have to use the runtime under the terms of
-the GPL. 
-
-Under the GPL, you can use Anaconda for both commercial and non-commercial
-purposes and change it to your desire, but you have to either include the
-(potentially modified) Anaconda sources alongside your game/application, or, if
-unmodified, make a *CLEARLY* visible reference to this project page, e.g. in
-the intro of your application/game.
+Anaconda and Chowdren are dual-licensed under the GPL and a commercial license.
+Unless you have explicitly acquired a commercial license from me,
+Mathias Kaerlev (mat at mp2 dot dk), you will have to use the runtimes under
+the terms of the GPL.

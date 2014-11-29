@@ -54,6 +54,10 @@ NATIVE_SHADERS = {
     'OverlayAlpha.fx' : 'overlayalpha_shader',
     'Gradient.fx' : 'gradient_shader',
     'CS_ZoomOffset.fx' : 'zoomoffset_shader',
+    '9G.fx' : 'ninepatch_shader',
+    'PixelOutline_alphacoef support.fx' : 'pixeloutline_shader',
+    'BrightnessSaturationBg.fx' : 'brightsatbg_shader',
+    'BgBlur.fx' : 'bgblur_shader',
 
     # missing effects
     'CRT.fx' : 'dummy_shader',

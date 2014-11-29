@@ -24,8 +24,10 @@ expressions = make_table(ExpressionMethodWriter, {
     1 : '.value.size()',
     9 : 'remove',
     10 : 'replace',
-    29 : '.get_element(-1 + ',
-    30 : 'get_element(0)',
+    24 : 'get_count()',
+    25 : 'set_element',
+    29 : 'get_element',
+    30 : 'get_element(1)',
     31 : 'get_last_element'
 })
 

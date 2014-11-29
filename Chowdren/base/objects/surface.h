@@ -67,6 +67,13 @@ struct SurfaceQuad
     Color color;
 };
 
+struct SurfaceLine
+{
+    SurfacePoint points[2];
+    Color color;
+    int size;
+};
+
 class SurfaceObject : public FrameObject
 {
 public:
@@ -100,6 +107,7 @@ public:
     int vert_index;
     SurfaceQuad quad;
     vector<SurfaceQuad> quads;
+    vector<SurfaceLine> lines;
 
     // Image blit
 
@@ -136,9 +144,11 @@ public:
     void add_image(int w, int h);
     void set_transparent_color(const Color & color, bool replace);
     int get_edit_width();
+    int get_edit_height();
     int get_image_width(int index);
     void scroll(int x, int y, int wrap);
     void resize_source(int w, int h);
+    void draw_line(int x1, int y1, int x2, int y2, Color color, int width);
     void draw_polygon(int x, int y, Color color, int outline_size,
                       Color outline);
     void draw_rect(int x, int y, int w, int h, Color color,

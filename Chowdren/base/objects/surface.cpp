@@ -53,6 +53,11 @@ void SurfaceObject::draw()
         return;
     }
 
+    if (!lines.empty()) {
+        lines.clear();
+        return;
+    }
+
     if (display_selected)
         displayed_image = selected_image;
 
@@ -420,6 +425,13 @@ void SurfaceObject::set_transparent_color(const Color & color, bool replace)
     selected_image->transparent = color;
 }
 
+int SurfaceObject::get_edit_height()
+{
+    if (selected_image == NULL)
+        return 0;
+    return selected_image->height;
+}
+
 int SurfaceObject::get_edit_width()
 {
     if (selected_image == NULL)
@@ -452,6 +464,19 @@ void SurfaceObject::draw_rect(int x, int y, int w, int h, Color color,
     quad.points[3].y = y+h;
     quad.color = color;
     quads.push_back(quad);
+}
+
+void SurfaceObject::draw_line(int x1, int y1, int x2, int y2, Color color,
+                              int width)
+{
+    SurfaceLine line;
+    line.points[0].x = x1;
+    line.points[0].y = y1;
+    line.points[1].x = x2;
+    line.points[1].y = y2;
+    line.color = color;
+    line.size = width;
+    lines.push_back(line);
 }
 
 void SurfaceObject::draw_polygon(int x, int y, Color color,

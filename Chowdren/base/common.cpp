@@ -657,6 +657,10 @@ void FrameData::on_end()
 {
 }
 
+void FrameData::on_app_end()
+{
+}
+
 void FrameData::handle_events()
 {
 }
@@ -691,6 +695,9 @@ void Frame::set_timer(double value)
 void Frame::set_lives(int value)
 {
     manager.lives = value;
+    if (value != 0)
+        return;
+    manager.player_died = true;
 }
 
 void Frame::set_score(int value)
@@ -918,8 +925,8 @@ bool Frame::update()
     update_display_center();
     PROFILE_END();
 
+    manager.player_died = false;
     last_key = -1;
-
     loop_count++;
 
     return !has_quit;
@@ -1377,6 +1384,27 @@ bool FrameObject::outside_playfield()
     int x2 = box[2] + layer->off_x;
     int y2 = box[3] + layer->off_y;
     return x1 < 0 || y1 < 0 || x2 > frame->width || y2 > frame->height;
+}
+
+bool FrameObject::is_near_border(int border)
+{
+    int * box = collision->aabb;
+    int off_x = layer->off_x;
+    int off_y = layer->off_y;
+
+    if (box[0] + off_x <= frame->frame_left() + border)
+        return true;
+
+    if (box[2] + off_x >= frame->frame_right() - border)
+        return true;
+
+    if (box[1] + off_y <= frame->frame_top() + border)
+        return true;
+
+    if (box[3] + off_y >= frame->frame_bottom() - border)
+        return true;
+
+    return false;
 }
 
 int FrameObject::get_box_index(int index)
@@ -2250,27 +2278,6 @@ void Active::flash(float value)
 {
     flash_interval = value;
     flash_time = 0.0f;
-}
-
-bool Active::is_near_border(int border)
-{
-    int * box = sprite_col.aabb;
-    int off_x = layer->off_x;
-    int off_y = layer->off_y;
-
-    if (box[0] + off_x <= frame->frame_left() + border)
-        return true;
-
-    if (box[2] + off_x >= frame->frame_right() - border)
-        return true;
-
-    if (box[1] + off_y <= frame->frame_top() + border)
-        return true;
-
-    if (box[3] + off_y >= frame->frame_bottom() - border)
-        return true;
-
-    return false;
 }
 
 bool Active::is_animation_finished(int anim)
@@ -3927,6 +3934,17 @@ void TextBlitter::set_transparent_color(int v)
 
 void TextBlitter::update()
 {
+    Image * image;
+    if (draw_image == NULL)
+        image = this->image;
+    else
+        image = draw_image;
+
+    if (!replacer.empty()) {
+        draw_image = replacer.apply(image, this->image);
+        draw_image->upload_texture();
+    }
+
     update_flash(flash_interval, flash_time);
 
     if (anim_type != BLITTER_ANIMATION_SINWAVE)
@@ -3981,16 +3999,17 @@ void TextBlitter::set_charmap(const std::string & charmap)
 void TextBlitter::draw()
 {
     callback_line_count = int(lines.size());
-    if (!replacer.empty()) {
-        draw_image = replacer.apply(this->image);
-        draw_image->upload_texture();
-    }
 
     Image * image;
     if (draw_image == NULL)
         image = this->image;
     else
         image = draw_image;
+
+    if (!replacer.empty()) {
+        draw_image = image = replacer.apply(image, this->image);
+        draw_image->upload_texture();
+    }
 
     begin_draw();
 

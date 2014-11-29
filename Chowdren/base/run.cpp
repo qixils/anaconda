@@ -45,23 +45,23 @@ GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
   fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false),
-  last_control_flags(0), control_flags(0)
+  last_control_flags(0), control_flags(0), player_died(true)
 {
 }
+
+static Frames static_frames;
 
 void GameManager::init()
 {
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
 #endif
-    static Frames static_frames;
     frame = &static_frames;
 
 #ifdef CHOWDREN_IS_DEMO
     idle_timer_started = false;
     global_time = show_build_timer = reset_timer = manual_reset_timer = 0.0;
 #endif
-
     platform_init();
     set_window(false);
 
@@ -213,8 +213,7 @@ int GameManager::update_frame()
     bool ret = frame->update();
     if (ret)
         return 1;
-    else
-        return 0;
+    return 0;
 }
 
 void GameManager::set_framerate(int framerate)
@@ -482,6 +481,8 @@ void GameManager::run()
         if (!update())
             break;
     }
+    frame->data->on_end();
+    frame->data->on_app_end();
     media.stop();
     platform_exit();
 #endif

@@ -41,8 +41,36 @@ void StringParser::set(const std::string & v)
     has_split = false;
 }
 
+int StringParser::get_count()
+{
+    split();
+    return int(elements.size());
+}
+
+std::string StringParser::set_element(const std::string & value, int index)
+{
+    if (delimiters.size() <= 0)
+        return value;
+    index--;
+    split();
+    std::string ret;
+    vector<std::string>::const_iterator it;
+
+    for (int i = 0; i < int(elements.size()); i++) {
+        if (i == index)
+            ret += value;
+        else
+            ret += elements[i];
+        // XXX not entirely correct behaviour, but good enough
+        if (i < int(elements.size()) - 1)
+            ret += delimiters[0];
+    }
+    return ret;
+}
+
 const std::string & StringParser::get_element(int i)
 {
+    i--;
     split();
     if (i < 0 || i >= int(elements.size()))
         return empty_string;

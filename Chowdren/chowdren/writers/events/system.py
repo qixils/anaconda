@@ -422,6 +422,15 @@ class PlayerKeyPressed(PlayerKeyCondition):
     pre_event = True
     key_method = 'is_player_pressed_once'
 
+class AnyKeyPressed(ConditionMethodWriter):
+    is_always = True
+    method = 'is_any_key_pressed_once'
+
+class PlayerDied(ConditionMethodWriter):
+    is_always = True
+    post_event = True
+    method = '.manager.player_died'
+
 class TimerEquals(ConditionWriter):
     is_always = True
     custom = True
@@ -674,10 +683,6 @@ class CompareFixedValue(ConditionWriter):
                           converter.event_break)
         else:
             converter.set_object(obj, fixed_name)
-
-class AnyKeyPressed(ConditionMethodWriter):
-    is_always = True
-    method = 'is_any_key_pressed_once'
 
 class FacingInDirection(ConditionWriter):
     def write(self, writer):
@@ -1735,6 +1740,7 @@ conditions = make_table(ConditionMethodWriter, {
     'StartOfFrame' : '.loop_count <= 1',
     'Never' : '.false',
     'NumberOfLives' :  make_comparison('manager.lives'),
+    'PlayerDied' : PlayerDied,
     'AnyKeyPressed' : AnyKeyPressed,
     'Repeat' : RepeatCondition,
     'RestrictFor' : RestrictFor,

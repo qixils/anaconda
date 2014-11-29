@@ -8,7 +8,7 @@ inline int div_ceil(int x, int y)
 }
 
 UniformGrid::UniformGrid()
-: query_id(0), grid(NULL)
+: query_id(0), grid(NULL), width(0), height(0)
 {
 }
 

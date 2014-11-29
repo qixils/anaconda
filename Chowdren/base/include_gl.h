@@ -67,7 +67,6 @@ void glc_end();
 void glc_multi_texcoord_2f(GLenum target, GLfloat s, GLfloat t);
 void glc_texcoord_2f(GLfloat s, GLfloat t);
 void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
-
 void glc_set_global_depth(GLfloat depth);
 void glc_set_depth(GLfloat depth);
 

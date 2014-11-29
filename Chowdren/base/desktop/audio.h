@@ -97,7 +97,7 @@ public:
     boost::recursive_mutex stream_mutex;
     volatile bool closing;
 
-    AudioDevice();
+    void open();
     static void _stream_update(void * data);
     void stream_update();
     void add_stream(SoundStream*);
@@ -105,17 +105,16 @@ public:
     void close();
 };
 
-AudioDevice * global_device = NULL;
+static AudioDevice global_device;
 
 void open_audio()
 {
-    delete global_device;
-    global_device = new AudioDevice;
+    global_device.open();
 }
 
 void close_audio()
 {
-    global_device->close();
+    global_device.close();
 }
 
 ALenum get_format(unsigned int channels)
@@ -224,7 +223,7 @@ public:
         right_gain = right;
         if (samples == NULL)
             return;
-        if (!global_device->sub_buffer_data_ext)
+        if (!global_device.sub_buffer_data_ext)
             // this is bad
             return;
         buffer_data(true);
@@ -295,7 +294,7 @@ public:
         left_gain = right_gain = 1.0;
         pan = 0.0;
         al_check(alGenSources(1, &source));
-        if (global_device->direct_channels_ext)
+        if (global_device.direct_channels_ext)
             al_check(alSourcei(source, AL_DIRECT_CHANNELS_SOFT, AL_TRUE));
         closed = false;
     }
@@ -486,8 +485,8 @@ public:
 };
 
 #define BUFFER_COUNT 3
-#define LOCK_STREAM global_device->stream_mutex.lock
-#define UNLOCK_STREAM global_device->stream_mutex.unlock
+#define LOCK_STREAM global_device.stream_mutex.lock
+#define UNLOCK_STREAM global_device.stream_mutex.unlock
 
 class SoundStream : public SoundBase
 {
@@ -529,7 +528,7 @@ public:
                                          format);
 
         LOCK_STREAM();
-        global_device->add_stream(this);
+        global_device.add_stream(this);
         UNLOCK_STREAM();
     }
 
@@ -541,7 +540,7 @@ public:
         for (int i = 0; i < BUFFER_COUNT; i++)
             delete buffers[i];
 
-        global_device->remove_stream(this);
+        global_device.remove_stream(this);
         UNLOCK_STREAM();
 
         delete file;
@@ -776,9 +775,13 @@ public:
 
 // audio device implementation
 
-AudioDevice::AudioDevice()
-: closing(false), streaming_thread(NULL), device(NULL), context(NULL)
+void AudioDevice::open()
 {
+    closing = false;
+    streaming_thread = NULL;
+    device = NULL;
+    context = NULL;
+
     device = alcOpenDevice(NULL);
     if(!device) {
         std::cerr << "Device open failed" << std::endl;

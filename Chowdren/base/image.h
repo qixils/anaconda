@@ -22,7 +22,8 @@ enum ImageFlags
     IMAGE_USED = 1 << 0,
     IMAGE_FILE = 1 << 1,
     IMAGE_CACHED = 1 << 2,
-    IMAGE_STATIC = 1 << 3
+    IMAGE_STATIC = 1 << 3,
+    IMAGE_KEEP = 1 << 4
 };
 
 class Image
@@ -104,6 +105,10 @@ extern Image dummy_image;
 
 // image replacer
 
+typedef std::pair<Color, Color> Replacement;
+
+#define MAX_COLOR_REPLACE 10
+
 struct ReplacedImage
 {
     Image * src_image;
@@ -116,65 +121,24 @@ struct ReplacedImage
     }
 };
 
-typedef std::pair<Color, Color> Replacement;
-typedef vector<Replacement> Replacements;
-
 class ReplacedImages
 {
 public:
-    Replacements replacements;
+    int index;
+    Replacement colors[MAX_COLOR_REPLACE];
     static vector<ReplacedImage> images;
 
     ReplacedImages()
+    : index(0)
     {
     }
 
     void replace(const Color & from, const Color & to);
-
-    Image * apply(Image * image)
-    {
-        int hash = 0;
-        vector<Replacement>::const_iterator it;
-        int hash_index = 0;
-        for (it = replacements.begin(); it != replacements.end(); ++it) {
-            const Color & first = it->first;
-            const Color & second = it->second;
-            hash += first.r * (++hash_index);
-            hash += first.g * (++hash_index);
-            hash += first.b * (++hash_index);
-            hash += second.r * (++hash_index);
-            hash += second.g * (++hash_index);
-            hash += second.b * (++hash_index);
-        }
-
-        vector<ReplacedImage>::const_iterator it2;
-        for (it2 = images.begin(); it2 != images.end(); ++it2) {
-            const ReplacedImage & img = *it2;
-            if (img.hash == hash && img.src_image == image) {
-                return img.image;
-            }
-        }
-
-        std::cout << "Replacement with hash: " << hash << " "
-            << replacements.size() << std::endl;
-
-        Image * new_image = image->copy();
-        for (it = replacements.begin(); it != replacements.end(); ++it) {
-            std::cout << "Replace: " <<
-                int(it->first.r) << " " << int(it->first.g) << " " << int(it->first.b)
-                << " -> " <<
-                int(it->second.r) << " " << int(it->second.g) << " " << int(it->second.b)
-                << std::endl;
-            new_image->replace(it->first, it->second);
-        }
-
-        images.push_back(ReplacedImage(image, new_image, hash));
-        return new_image;
-    }
+    Image * apply(Image * image, Image * src_image);
 
     bool empty()
     {
-        return replacements.empty();
+        return index <= 0;
     }
 };
 

@@ -215,13 +215,6 @@ public:
     void stop_animation();
     void start_animation();
     void flash(float value);
-    void enable_flag(int index);
-    void disable_flag(int index);
-    void toggle_flag(int index);
-    bool is_flag_on(int index);
-    bool is_flag_off(int index);
-    int get_flag(int index);
-    bool is_near_border(int border);
     bool is_animation_finished(int anim);
     void destroy();
     bool has_animation(int anim);

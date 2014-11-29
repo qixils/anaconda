@@ -226,6 +226,10 @@ void Image::upload_texture()
 #endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    if (flags & IMAGE_KEEP)
+        return;
+
     // for memory reasons, we delete the image and access the alpha or
     // the texture directly
     stbi_image_free(image);
@@ -531,31 +535,52 @@ void preload_images()
 
 Image dummy_image;
 
-inline bool compare_color(const Color & color1, const Color & color2)
-{
-    return color1.r == color2.r &&
-           color1.g == color2.g &&
-           color1.b == color2.b;
-}
-
 void ReplacedImages::replace(const Color & from, const Color & to)
 {
-    Replacements::iterator it = replacements.begin();
-
-    while (it != replacements.end()) {
-        Color & first = it->first;
-        Color & second = it->second;
-        if (compare_color(first, from) && compare_color(second, to)) {
-            it = replacements.erase(it);
-            continue;
-        }
-        if (compare_color(second, from) && compare_color(first, to)) {
-            it = replacements.erase(it);
-            continue;
-        }
-        ++it;
+    if (index >= MAX_COLOR_REPLACE) {
+        std::cout << "Max color replacements reached" << std::endl;
+        return;
     }
-    replacements.push_back(Replacement(from, to));
+    colors[index++] = Replacement(from, to);
+}
+
+Image * ReplacedImages::apply(Image * image, Image * src_image)
+{
+    int count = index;
+    index = 0;
+
+    int hash = 0;
+    int hash_index = 0;
+
+    for (int i = 0; i < count; i++) {
+        const Color & first = colors[i].first;
+        const Color & second = colors[i].second;
+        hash += first.r * (++hash_index);
+        hash += first.g * (++hash_index);
+        hash += first.b * (++hash_index);
+        hash += second.r * (++hash_index);
+        hash += second.g * (++hash_index);
+        hash += second.b * (++hash_index);
+    }
+
+    vector<ReplacedImage>::const_iterator it2;
+    for (it2 = images.begin(); it2 != images.end(); ++it2) {
+        const ReplacedImage & img = *it2;
+        if (img.hash == hash && img.src_image == src_image) {
+            return img.image;
+        }
+    }
+
+    Image * new_image = image->copy();
+    for (int i = 0; i < count; i++) {
+        const Color & first = colors[i].first;
+        const Color & second = colors[i].second;
+        new_image->replace(first, second);
+    }
+
+    images.push_back(ReplacedImage(src_image, new_image, hash));
+    new_image->flags |= IMAGE_KEEP;
+    return new_image;
 }
 
 vector<ReplacedImage> ReplacedImages::images;

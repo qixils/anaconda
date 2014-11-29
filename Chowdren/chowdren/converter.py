@@ -277,6 +277,7 @@ class EventGroup(object):
     data_hash = None
     in_place = False
     pre_event = False
+    post_event = False
 
     def __init__(self, converter, conditions, actions, container, global_id,
                  or_index, not_always, or_type):
@@ -317,11 +318,16 @@ class EventGroup(object):
             return
         first_group = None
         last_group = None
+        cond = None
+        if self.or_generated:
+            cond = self.conditions[0].data
+
         for group in groups:
-            if group.or_generated == self.or_generated:
-                if first_group is None:
-                    first_group = group
-                last_group = group
+            if group.or_generated != self.or_generated:
+                continue
+            if first_group is None:
+                first_group = group
+            last_group = group
         if last_group is first_group:
             self.name = 'event_or_%s' % self.unique_id
             return
@@ -768,11 +774,12 @@ class Converter(object):
                 # ignore alias
                 continue
             update_calls.append(func_name)
-            event_file.putmeth('void %s' % func_name)
+            event_file.putln('static void %s(Frames * frame)' % func_name)
             event_file.start_brace()
             event_file.putln('ObjectList::iterator it;')
             list_name = self.get_object_list(handle)
-            event_file.putlnc('for (it = %s.begin(); it != %s.end(); ++it) {',
+            event_file.putlnc('for (it = frame->%s.begin(); '
+                              'it != frame->%s.end(); ++it) {',
                               list_name, list_name)
             event_file.indent()
             event_file.putln('FrameObject * instance = it->obj;')
@@ -796,11 +803,10 @@ class Converter(object):
                 event_file.dedent()
             event_file.end_brace()
             event_file.end_brace()
-            event_file.end_brace()
 
         event_file.putmeth('void update_objects')
         for call in update_calls:
-            event_file.putlnc('%s();', call)
+            event_file.putlnc('%s(this);', call)
         event_file.end_brace()
 
         self.processed_frames = []
@@ -1290,6 +1296,8 @@ class Converter(object):
             new_always_groups = []
             all_groups = []
             for or_index, conditions in enumerate(condition_groups):
+                if not conditions:
+                    continue
                 first_writer = conditions[0]
                 first_condition = first_writer.data
 
@@ -1317,6 +1325,7 @@ class Converter(object):
                 new_group.set_or_generated(not is_always)
                 new_group.in_place = first_writer.in_place
                 new_group.pre_event = first_writer.pre_event
+                new_group.post_event = first_writer.post_event
 
                 if is_always or force_always:
                     new_always_groups.append(new_group)
@@ -1340,8 +1349,8 @@ class Converter(object):
             new_always_groups.sort(key=lambda x: x.global_id)
             always_groups.extend(new_always_groups)
 
-            for group in all_groups:
-                group.set_groups(self, all_groups)
+            # for group in all_groups:
+            #     group.set_groups(self, all_groups)
 
         for k, v in containers.iteritems():
             if k in changed_containers:
@@ -1489,6 +1498,16 @@ class Converter(object):
             frame_file.putlnc('%sreset();', events_ref)
             frame_file.end_brace()
 
+        app_end_groups = generated_groups.pop('EndOfApplication', None)
+        if app_end_groups:
+            end_name = 'on_app_%s_end' % (frame_index + 1)
+            end_name = self.write_generated(end_name, event_file,
+                                            app_end_groups)
+
+            frame_file.putmeth('void on_app_end')
+            frame_file.putlnc('%s%s();', events_ref, end_name)
+            frame_file.end_brace()
+
         # write event callbacks
         frame_file.putmeth('void event_callback', 'int id')
         if self.event_callbacks:
@@ -1507,6 +1526,7 @@ class Converter(object):
         group_index = 0
         call_groups = []
         first_groups = []
+        last_groups = []
         pre_groups = []
 
         while True:
@@ -1519,6 +1539,8 @@ class Converter(object):
                     group.in_place):
                 if group.pre_event:
                     pre_groups.append(group)
+                elif group.post_event:
+                    last_groups.append(group)
                 else:
                     first_groups.append(group)
             else:
@@ -1553,7 +1575,7 @@ class Converter(object):
 
         end_markers = []
 
-        call_groups = first_groups + call_groups
+        call_groups = first_groups + call_groups + last_groups
 
         for group in call_groups:
             if group.is_container_mark:
@@ -1578,6 +1600,7 @@ class Converter(object):
 
         event_file.end_brace()
 
+        # pre-events
         handle_name = 'handle_frame_%s_pre_events' % (frame_index+1)
         frame_file.putmeth('void handle_pre_events')
         frame_file.putlnc('%s%s();', events_ref, handle_name)
@@ -1590,7 +1613,7 @@ class Converter(object):
 
         event_file.end_brace()
 
-
+        # start of frame
         event_start_name = None
         start_groups = generated_groups.pop('StartOfFrame', None)
         if start_groups:
@@ -1599,6 +1622,8 @@ class Converter(object):
             event_start_name = self.write_generated(event_start_name,
                                                     event_file,
                                                     start_groups)
+
+
 
         # write any added defaults
         for name, default in self.frame_initializers.iteritems():
@@ -2137,6 +2162,10 @@ class Converter(object):
         return event_hash
 
     def write_event(self, writer, group, triggered=False):
+        """
+        XXX deprecated, use write_events instead (for OR groups)
+        """
+        self.current_groups = [group]
         data = self.get_event_code(group, triggered)
         group.data_hash = self.get_event_hash(data)
         group.fire_write_callbacks()
@@ -2146,6 +2175,7 @@ class Converter(object):
             writer.putln(line)
 
     def write_event_function(self, writer, groups, triggered=False):
+        self.current_groups = groups
         data = ''
         for group in groups:
             data += self.get_event_code(group, triggered)
@@ -2212,6 +2242,7 @@ class Converter(object):
                                  post_calls)
 
     def get_event_code(self, group, triggered=False):
+        group.set_groups(self, self.current_groups)
         self.current_group = group
         self.current_event_id = group.global_id
         self.event_settings = {}
@@ -2286,15 +2317,12 @@ class Converter(object):
                         writer.put('%s::' % self.get_object_class(
                             object_type, star = False))
                 elif condition_writer.iterate_objects is not False:
-                    if condition_writer.negate:
-                        writer.put('!')
                     if has_multiple:
                         obj = '((%s)%s)' % (self.get_object_class(
                             object_type), object_name)
                     else:
                         obj = object_name
-                    if condition_writer.dereference:
-                        obj += '->'
+                    obj += '->'
                     writer.put(obj)
                 condition_writer.write(writer)
                 if negated:

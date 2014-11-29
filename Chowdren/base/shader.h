@@ -82,6 +82,10 @@ extern Shader * gradient_shader;
 extern Shader * overlayalpha_shader;
 extern Shader * lens_shader;
 extern Shader * coldirblur_shader;
+extern Shader * ninepatch_shader;
+extern Shader * pixeloutline_shader;
+extern Shader * brightsatbg_shader;
+extern Shader * bgblur_shader;
 
 // extension shaders
 extern Shader * perspective_shader;

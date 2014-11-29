@@ -28,6 +28,7 @@ public:
     float fade_value;
     int score;
     int lives;
+    bool player_died;
     float dt;
     float timer_mul;
 #if CHOWDREN_IS_DEMO

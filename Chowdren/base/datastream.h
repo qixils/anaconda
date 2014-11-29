@@ -4,6 +4,7 @@
 #include <sstream>
 #include "platform.h"
 #include <string.h>
+#include <algorithm>
 
 class BaseStream
 {

@@ -228,6 +228,7 @@ public:
     virtual void set_backdrop_offset(int dx, int dy);
     void get_screen_aabb(int box[4]);
     void update_inactive();
+    bool is_near_border(int border);
 
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables & get_extra_alterables()

@@ -129,6 +129,7 @@ public:
     virtual void event_callback(int id);
     virtual void on_start();
     virtual void on_end();
+    virtual void on_app_end();
     virtual void handle_events();
     virtual void handle_pre_events();
 };

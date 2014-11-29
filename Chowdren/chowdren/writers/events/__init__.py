@@ -53,12 +53,10 @@ class ActionWriter(ACBase):
         pass
 
 class ConditionWriter(ACBase):
-    negate = False
     is_always = None
-    limit_once = False
-    dereference = True
     in_place = False
-    pre_event = False
+    pre_event = None
+    post_event = None
 
     def write(self, writer):
         raise NotImplementedError()

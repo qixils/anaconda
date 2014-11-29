@@ -694,6 +694,114 @@ public:
     }
 };
 
+class NinePatchShader : public GLSLShader
+{
+public:
+    int x_scale, y_scale;
+    int color_1, alpha_1, color_2, alpha_2;
+    int coeff, offset, fade;
+
+    NinePatchShader()
+    : GLSLShader(SHADER_9G, SHADER_HAS_TEX_SIZE)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        x_scale = get_uniform("x_scale");
+        y_scale = get_uniform("y_scale");
+        color_1 = get_uniform("color_1");
+        alpha_1 = get_uniform("alpha_1");
+        color_2 = get_uniform("color_2");
+        alpha_2 = get_uniform("alpha_2");
+        coeff = get_uniform("coeff");
+        offset = get_uniform("offset");
+        fade = get_uniform("fade");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "xScale", x_scale);
+        set_float(instance, "yScale", y_scale);
+        set_vec4(instance, "fArgb", color_1);
+        set_float(instance, "fAa", alpha_1);
+        set_vec4(instance, "fBrgb", color_2);
+        set_float(instance, "fBa", alpha_2);
+        set_float(instance, "fCoeff", coeff);
+        set_float(instance, "fOffset", offset);
+        set_float(instance, "fFade", fade);
+    }
+};
+
+class PixelOutlineShader : public GLSLShader
+{
+public:
+    int color;
+
+    PixelOutlineShader()
+    : GLSLShader(SHADER_PIXELOUTLINE, SHADER_HAS_TEX_SIZE)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        color = get_uniform("color");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_vec4(instance, "color", color);
+    }
+};
+
+class BrightSatBgShader : public GLSLShader
+{
+public:
+    int brightness, saturation;
+
+    BrightSatBgShader()
+    : GLSLShader(SHADER_BRIGHTSATBG, SHADER_HAS_BACK)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        brightness = get_uniform("brightness");
+        saturation = get_uniform("saturation");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "Brightness", brightness);
+        set_float(instance, "Saturation", saturation);
+    }
+};
+
+class BgBlurShader : public GLSLShader
+{
+public:
+    int x, y, alpha;
+
+    BgBlurShader()
+    : GLSLShader(SHADER_BGBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    {
+    }
+
+    void initialize_parameters()
+    {
+        x = get_uniform("x");
+        y = get_uniform("y");
+        alpha = get_uniform("alpha");
+    }
+
+    void set_parameters(FrameObject * instance)
+    {
+        set_float(instance, "fX", x);
+        set_float(instance, "fY", y);
+        set_float(instance, "fA", alpha);
+    }
+};
+
 #ifndef CHOWDREN_USE_GL
 class BasicShader : public GLSLShader
 {
@@ -714,6 +822,7 @@ public:
 };
 #endif
 
+// XXX make these static variables
 Shader * subtract_shader;
 Shader * additive_shader;
 Shader * monochrome_shader;
@@ -741,6 +850,10 @@ Shader * gradient_shader;
 Shader * overlayalpha_shader;
 Shader * lens_shader;
 Shader * coldirblur_shader;
+Shader * ninepatch_shader;
+Shader * pixeloutline_shader;
+Shader * brightsatbg_shader;
+Shader * bgblur_shader;
 
 // extension shaders
 Shader * perspective_shader;
@@ -781,6 +894,10 @@ void init_shaders()
     lens_shader = new LensShader;
     coldirblur_shader = new ColDirBlurShader;
     perspective_shader = new PerspectiveShader;
+    ninepatch_shader = new NinePatchShader;
+    pixeloutline_shader = new PixelOutlineShader;
+    brightsatbg_shader = new BrightSatBgShader;
+    bgblur_shader = new BgBlurShader;
 #ifndef CHOWDREN_USE_GL
     basic_shader = new BasicShader;
     texture_shader = new TextureShader;

@@ -57,9 +57,11 @@ class MoveObject(ActionMethodWriter):
         items = self.parameters[1].loader.items
 
         # hacks for HFA
-        last_exp = items[2]
-        if last_exp.getName() == 'Multiply':
+        if items[2].getName() == 'Multiply':
             self.multiply_case(writer)
+            return
+        elif items[3].getName() == 'Minus':
+            self.minus_case(writer)
             return
         elif items[0].getName() == 'Min':
             self.min_case(writer)
@@ -69,6 +71,32 @@ class MoveObject(ActionMethodWriter):
         code.interact(local=locals())
         raise NotImplementedError()
 
+    def minus_case(self, writer):
+        converter = self.converter
+        items = self.parameters[1].loader.items
+
+        obj1 = items[1]
+        if obj1.getName() != 'FixedValue':
+            raise NotImplementedError()
+
+        if items[2].getName() != 'EndParenthesis':
+            raise NotImplementedError()
+
+        minus_exp = items[3]
+        if minus_exp.getName() != 'Minus':
+            raise NotImplementedError()
+
+        value_exp = items[4]
+        if value_exp.getName() != 'Long':
+            raise NotImplementedError()
+
+        offset = -value_exp.loader.value
+
+        obj1 = converter.get_object((obj1.objectInfo,
+                                     obj1.objectType))
+        with converter.iterate_object(self.get_object(), writer, copy=False):
+            set_obj = converter.get_object(self.get_object())
+            writer.putlnc('%s->move_relative(%s, %s);', set_obj, obj1, offset)
 
     def min_case(self, writer):
         converter = self.converter

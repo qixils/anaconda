@@ -83,6 +83,14 @@ class ReverseColor(ExpressionMethodWriter):
     has_object = False
     method = 'reverse_color'
 
+class LoadSuccess(ConditionMethodWriter):
+    is_always = True
+    method = '.load_failed'
+    in_place = True
+
+    def is_negated(self):
+        return not ConditionMethodWriter.is_negated(self)
+
 class LoadFailed(ConditionMethodWriter):
     is_always = True
     method = '.load_failed'
@@ -93,6 +101,7 @@ actions = make_table(ActionMethodWriter, {
     3 : 'clear',
     4 : 'create_alpha',
     6 : 'clear_alpha',
+    10 : 'draw_line',
     13 : 'resize',
     15 : 'load',
     14 : 'save',
@@ -122,11 +131,13 @@ actions = make_table(ActionMethodWriter, {
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    2 : LoadFailed
+    2 : LoadFailed,
+    4 : LoadSuccess
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    5 : 'get_edit_width()',
+    4 : 'get_edit_width()',
+    5 : 'get_edit_height()',
     15 : 'get_image_width',
     25 : ReverseColor
 })

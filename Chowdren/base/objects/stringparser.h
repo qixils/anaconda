@@ -19,9 +19,11 @@ public:
     void set(const std::string & value);
     void add_delimiter(const std::string & delim);
     const std::string & get_element(int index);
+    std::string set_element(const std::string & value, int index);
     const std::string & get_last_element();
     std::string replace(const std::string & from, const std::string & to);
     std::string remove(const std::string & sub);
+    int get_count();
 };
 
 #endif // CHOWDREN_STRINGPARSER_H

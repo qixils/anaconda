@@ -19,6 +19,8 @@ public:
 class StringReplace : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(StringReplace)
+
     vector<StringReplacement> replacements;
 
     StringReplace(int x, int y, int id);

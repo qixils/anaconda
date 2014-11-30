@@ -6,6 +6,8 @@
 class ColorizerObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(ColorizerObject)
+
     float r, g, b;
 
     ColorizerObject(int x, int y, int type_id);

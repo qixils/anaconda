@@ -7,6 +7,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class StringTokenizer(ObjectWriter):
     class_name = 'StringTokenizer'
+    filename = 'stringtokenizer'
 
 actions = make_table(ActionMethodWriter, {
     0 : 'split'

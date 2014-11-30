@@ -13,6 +13,8 @@ typedef struct _object PyObject;
 class PythonInterpreter : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(PythonInterpreter)
+
     static PyObject * main_module;
     static PyObject * interface_module;
     static PyObject * functions_module;

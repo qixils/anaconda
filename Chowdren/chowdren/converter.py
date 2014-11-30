@@ -583,7 +583,7 @@ class Converter(object):
         self.event_wrappers = {}
         self.objs_to_qualifier = {}
         self.event_frame_initializers = defaultdict(list)
-        self.pools = set()
+        self.class_names = set()
         self.defines = set()
         self.current_group = None
 
@@ -738,10 +738,8 @@ class Converter(object):
 
         self.max_type_id = self.type_ids.next()
 
-        for (class_name, pool) in self.pools:
-            pool_type = 'ObjectPool<%s>' % class_name
-            objects_header.putlnc('extern %s %s;', pool_type, pool)
-            objects_file.putlnc('%s %s;', pool_type, pool)
+        for class_name in self.class_names:
+            objects_file.putlnc('FRAMEOBJECT_IMPL(%s)', class_name)
 
         objects_header.close_guard('CHOWDREN_OBJECTS_H')
         objects_file.close()
@@ -1406,10 +1404,11 @@ class Converter(object):
             virtual_bottom = 0x7FFFF000
         virtual_width = virtual_right - frame.left
         virtual_height = virtual_bottom - frame.top
-        if virtual_width not in (0x7FFFF000, frame_width):
-            raise NotImplementedError()
-        if virtual_height not in (0x7FFFF000, frame_height):
-            raise NotImplementedError()
+        # if virtual_width not in (0x7FFFF000, frame_width):
+        #     raise NotImplementedError()
+        # if virtual_height not in (0x7FFFF000, frame_height):
+        #     print virtual_height, frame_height
+        #     raise NotImplementedError()
         start_writer.putlnc('index = %s;', frame_index)
         start_writer.putlnc('width = %s;', frame_width)
         start_writer.putlnc('height = %s;', frame_height)
@@ -1739,16 +1738,15 @@ class Converter(object):
 
             objects_header.putln('FrameObject * %s(int x, int y);'
                                  % object_func)
-            pool = object_writer.get_pool()
             objects_file.putmeth('FrameObject * %s' % object_func,
                                  'int x', 'int y')
-            objects_file.putlnc('return new (%s.create()) %s(x, y);',
-                                pool, class_name)
+            objects_file.putlnc('return new (%s::pool.create()) %s(x, y);',
+                                object_writer.class_name, class_name)
             objects_file.end_brace()
 
             objects_file.next()
 
-            self.pools.add((object_writer.class_name, pool))
+            self.class_names.add(object_writer.class_name)
 
     def write_object(self, object_writer):
         class_name = object_writer.new_class_name
@@ -1841,24 +1839,28 @@ class Converter(object):
             values = frameitem.items
             if shader_data.parameters is not None:
                 for index, parameter in enumerate(shader_data.parameters):
-                    reader = values[index]
-                    reader.seek(0)
-                    if parameter.type == INT:
-                        value = reader.readInt()
-                    elif parameter.type == FLOAT:
-                        value = reader.readFloat()
-                    elif parameter.type == INT_FLOAT4:
-                        value = make_color((reader.readByte(True),
-                            reader.readByte(True),
-                            reader.readByte(True),
-                            reader.readByte(True)))
-                    elif parameter.type == IMAGE:
-                        value = self.get_image(reader.readShort(), False)
-                    else:
-                        print 'shader parameter type not supported:',
-                        print parameter.type
-                        continue
-                        raise NotImplementedError
+                    try:
+                        reader = values[index]
+                        reader.seek(0)
+                        if parameter.type == INT:
+                            value = reader.readInt()
+                        elif parameter.type == FLOAT:
+                            value = reader.readFloat()
+                        elif parameter.type == INT_FLOAT4:
+                            value = make_color((reader.readByte(True),
+                                reader.readByte(True),
+                                reader.readByte(True),
+                                reader.readByte(True)))
+                        elif parameter.type == IMAGE:
+                            value = self.get_image(reader.readShort(), False)
+                        else:
+                            print 'shader parameter type not supported:',
+                            print parameter.type
+                            continue
+                            raise NotImplementedError
+                    except IndexError:
+                        # happens for e.g. DropShadow.fx
+                        value = 0
                     parameters[parameter.name].value = value
             for name, value in parameters.iteritems():
                 objects_file.putln(to_c('set_shader_parameter(%r, %s);',
@@ -1893,11 +1895,6 @@ class Converter(object):
                                     class_name)
                 objects_file.putlnc('%s::update();', subclass)
                 objects_file.end_brace()
-
-        objects_file.putmeth('void dealloc')
-        objects_file.putlnc('%s::~%s();', subclass, subclass)
-        objects_file.putlnc('%s.destroy(this);', object_writer.get_pool())
-        objects_file.end_brace()
 
         depth = self.config.get_object_depth(object_writer)
         if depth is not None or PROFILE:
@@ -2788,6 +2785,7 @@ class Converter(object):
 
     def get_object_list(self, obj, allow_single=False):
         if self.has_single(obj) and not allow_single:
+            print 'single exception:', self.get_single(obj)
             raise NotImplementedError()
         type_id, is_qual = self.get_object_handle(obj)
         if is_qual:

@@ -481,8 +481,8 @@ void GameManager::run()
         if (!update())
             break;
     }
-    frame->data->on_end();
     frame->data->on_app_end();
+    frame->data->on_end();
     media.stop();
     platform_exit();
 #endif

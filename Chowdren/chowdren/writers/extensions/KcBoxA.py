@@ -102,9 +102,11 @@ class SystemBox(ObjectWriter):
             raise NotImplementedError()
 
         if self.image == -1:
-            raise NotImplementedError()
-
-        writer.putln('image = %s;' % self.converter.get_image(self.image))
+            print 'system box with no image not supported'
+            writer.putln('image = NULL;')
+            # raise NotImplementedError()
+        else:
+            writer.putln('image = %s;' % self.converter.get_image(self.image))
         data.skipBytes(2) # rData_wFree
         text_color = read_system_color(data)
         margin_left = data.readShort()
@@ -145,7 +147,9 @@ class SystemBox(ObjectWriter):
         hyperlink_color = read_system_color(data)
 
     def get_images(self):
-        return [self.image]
+        if self.image == -1:
+            return ()
+        return (self.image,)
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_size',

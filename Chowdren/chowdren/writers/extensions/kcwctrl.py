@@ -8,6 +8,7 @@ from chowdren.writers.events import (StaticActionWriter, StaticConditionWriter,
 
 class WindowControl(ObjectWriter):
     class_name = 'WindowControl'
+    filename = 'windowcontrol'
     use_alterables = True
 
 class WindowWidth(ExpressionMethodWriter):

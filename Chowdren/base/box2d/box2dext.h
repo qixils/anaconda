@@ -60,6 +60,8 @@ struct RayResult
 class Box2D : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(Box2D)
+
     int maxBodies;
     int maxJoints;
     int maxBodyDefs;

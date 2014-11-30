@@ -7,6 +7,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class Viewport(ObjectWriter):
     class_name = 'Viewport'
+    filename = 'viewport'
     defines = ['CHOWDREN_USE_VIEWPORT']
     use_alterables = True
 

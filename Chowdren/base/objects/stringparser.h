@@ -8,6 +8,8 @@
 class StringParser : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(StringParser)
+
     vector<std::string> elements;
     std::string delimiters;
     std::string value;

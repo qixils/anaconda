@@ -40,6 +40,8 @@ public:
 class AssociateArray : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(AssociateArray)
+
     Blowfish cipher;
 
     ArrayMap * map;

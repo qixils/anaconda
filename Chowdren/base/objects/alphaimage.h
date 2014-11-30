@@ -21,6 +21,8 @@ struct AlphaImage
 class AlphaImageObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(AlphaImageObject)
+
     int image_count;
     AlphaImage * images;
 

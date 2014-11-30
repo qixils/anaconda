@@ -7,6 +7,8 @@
 class SubApplication : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(SubApplication)
+
     static SubApplication * current;
     Frames subapp_frame;
     int frame_offset;

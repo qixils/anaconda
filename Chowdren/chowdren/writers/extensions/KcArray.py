@@ -8,6 +8,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class KcArray(ObjectWriter):
     class_name = 'ArrayObject'
+    filename = 'arrayext'
 
     def write_init(self, writer):
         data = self.get_data()

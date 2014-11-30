@@ -10,6 +10,7 @@ from mmfparser.data.font import LogFont
 
 class KcList(ObjectWriter):
     class_name = 'ListObject'
+    filename = 'listext'
 
     def write_init(self, writer):
         data = self.get_data()

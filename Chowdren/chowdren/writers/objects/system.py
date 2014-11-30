@@ -53,6 +53,7 @@ class Active(ObjectWriter):
     use_alterables = True
     update = True
     default_instance = 'default_active_instance'
+    filename = 'active'
 
     def write_init(self, writer):
         common = self.common
@@ -189,6 +190,7 @@ class Active(ObjectWriter):
 
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'
+    filename = 'backdrop'
 
     def initialize(self):
         obstacle = self.common.getObstacleType()
@@ -222,6 +224,7 @@ class Backdrop(ObjectWriter):
 class QuickBackdrop(ObjectWriter):
     class_name = 'QuickBackdrop'
     border = 0
+    filename = 'quickbackdrop'
 
     def initialize(self):
         obstacle = self.common.getObstacleType()
@@ -294,6 +297,7 @@ class Text(ObjectWriter):
     class_name = 'Text'
     use_alterables = True
     has_color = True
+    filename = 'text'
 
     def initialize(self):
         pass
@@ -332,6 +336,7 @@ class Text(ObjectWriter):
 
 class RTFText(ObjectWriter):
     class_name = 'Text'
+    filename = 'text'
 
     def initialize(self):
         pass
@@ -353,6 +358,7 @@ class RTFText(ObjectWriter):
 
 class Counter(ObjectWriter):
     class_name = 'Counter'
+    filename = 'counter'
 
     def write_init(self, writer):
         common = self.common
@@ -463,6 +469,7 @@ class Counter(ObjectWriter):
 class Lives(ObjectWriter):
     class_name = 'Lives'
     update = True
+    filename = 'lives'
 
     def write_init(self, writer):
         common = self.common

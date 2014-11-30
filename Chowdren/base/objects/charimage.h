@@ -54,6 +54,8 @@ struct CharacterImageAlias
 class CharacterImageObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(CharacterImageObject)
+
     CharacterImageAlias * aliases;
     std::string text;
     std::string unformatted;

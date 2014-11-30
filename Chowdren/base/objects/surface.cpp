@@ -1,4 +1,5 @@
 #include "objects/surface.h"
+#include "objects/active.h"
 #include "include_gl.h"
 #include "collision.h"
 #include <iostream>
@@ -54,7 +55,6 @@ void SurfaceObject::draw()
     }
 
     if (!lines.empty()) {
-        std::cout << "ignoring line draw" << std::endl;
         lines.clear();
     }
 

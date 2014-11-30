@@ -17,6 +17,8 @@ typedef ini_map<std::string, OptionMap> SectionMap;
 class INI : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(INI)
+
     static hash_map<std::string, SectionMap> global_data;
     std::string current_group;
     std::string current_item;

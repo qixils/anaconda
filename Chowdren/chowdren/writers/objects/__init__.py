@@ -226,9 +226,6 @@ class ObjectWriter(BaseWriter):
         if is_global:
             writer.end_brace()
 
-    def get_pool(self):
-        return '%s_pool' % get_method_name(self.class_name)
-
     def get_base_filename(self):
         if '/' in self.filename:
             return self.filename

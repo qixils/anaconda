@@ -77,6 +77,8 @@ struct SurfaceLine
 class SurfaceObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(SurfaceObject)
+
     // Edit-time flags
     bool display_selected;
     bool use_abs_coords;

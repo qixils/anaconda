@@ -567,7 +567,8 @@ class NumberOfObjects(ComparisonWriter):
 
     def get_comparison_value(self):
         obj = (self.data.objectInfo, self.data.objectType)
-        return '%s.size()' % self.converter.get_object_list(obj)
+        return '%s.size()' % self.converter.get_object_list(obj,
+                                                            allow_single=True)
 
 class CompareObjectsInZone(ComparisonWriter):
     has_object = False

@@ -9,6 +9,8 @@ typedef void (*PlatformOverlapCallback)();
 class PlatformObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(PlatformObject)
+
     FrameObject * instance;
     bool left, right;
     bool paused;

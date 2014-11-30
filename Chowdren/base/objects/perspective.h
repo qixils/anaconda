@@ -6,6 +6,8 @@
 class PerspectiveObject : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(PerspectiveObject)
+
 	GLuint texture;
 
     PerspectiveObject(int x, int y, int type_id);

@@ -131,12 +131,6 @@ inline FrameObject * get_qualifier(QualifierList & list, int index,
     return list[index];
 }
 
-extern FrameObject * default_active_instance;
-extern FrameObject * default_picture_instance;
-#ifdef CHOWDREN_USE_BLITTER
-extern FrameObject * default_blitter_instance;
-#endif
-
 extern GameManager manager;
 
 #endif // CHOWDREN_MANAGER_H

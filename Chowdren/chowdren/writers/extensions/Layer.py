@@ -9,6 +9,7 @@ from chowdren.writers.events import system
 
 class Layer(ObjectWriter):
     class_name = 'LayerObject'
+    filename = 'layerext'
 
 def get_layer(converter, name):
     frame = converter.current_frame

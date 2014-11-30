@@ -63,6 +63,8 @@ NATIVE_SHADERS = {
     'CRT.fx' : 'dummy_shader',
     'FlipY.fx' : 'dummy_shader',
     'ChannelBlurAdd.fx' : 'dummy_shader',
+    'DualGlow.fx' : 'dummy_shader',
+    'DropShadow.fx' : 'dummy_shader',
 
     # unsupported in HWA
     'XOR' : 'dummy_shader',

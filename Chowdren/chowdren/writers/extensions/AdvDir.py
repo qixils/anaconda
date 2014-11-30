@@ -7,6 +7,7 @@ from chowdren.writers.events import (ActionMethodWriter, ConditionMethodWriter,
 
 class AdvancedDirection(ObjectWriter):
     class_name = 'AdvancedDirection'
+    filename = 'advdir'
 
     def write_init(self, writer):
         pass

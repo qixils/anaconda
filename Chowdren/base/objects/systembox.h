@@ -12,6 +12,8 @@
 class SystemBox : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(SystemBox)
+
     Image * image;
     int type;
     std::string text;
@@ -28,6 +30,6 @@ public:
     void set_border_2(Color color);
 };
 
-extern FrameObject * default_backimages_instance;
+extern FrameObject * default_systembox_instance;
 
 #endif // CHOWDREN_SYSTEMBOX_H

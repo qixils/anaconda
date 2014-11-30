@@ -6,6 +6,7 @@ from mmfparser.bitdict import BitDict
 
 class ActivePicture(ObjectWriter):
     class_name = 'ActivePicture'
+    filename = 'picture'
     use_alterables = True
     default_instance = 'default_picture_instance'
 

@@ -7,6 +7,7 @@ from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
 
 class BinaryObject(ObjectWriter):
     class_name = 'BinaryObject'
+    filename = 'binaryext'
 
     def write_init(self, writer):
         pass

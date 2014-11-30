@@ -11,6 +11,8 @@ the storage of some values.
 class MaskedText : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(MaskedText)
+
     std::string text;
 
     MaskedText(int x, int y, int type_id);

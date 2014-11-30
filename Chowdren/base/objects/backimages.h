@@ -11,6 +11,8 @@ the storage of some values.
 class BackImages : public FrameObject
 {
 public:
+    FRAMEOBJECT_HEAD(BackImages)
+
     int x_off, y_off;
     bool pattern;
 

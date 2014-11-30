@@ -56,6 +56,7 @@ class TextBlitter(ObjectWriter):
     update = True
     defines = ['CHOWDREN_USE_BLITTER']
     default_instance = 'default_blitter_instance'
+    filename = 'textblitter'
 
     def write_init(self, writer):
         data = self.get_data()

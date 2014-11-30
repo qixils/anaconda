@@ -72,6 +72,26 @@ enum ObjectFlags
     INACTIVE = (1 << 6)
 };
 
+enum AnimationIndex
+{
+    STOPPED = 0,
+    WALKING = 1,
+    RUNNING = 2,
+    APPEARING = 3,
+    DISAPPEARING = 4,
+    BOUNCING = 5,
+    SHOOTING = 6,
+    JUMPING = 7,
+    FALLING = 8,
+    CLIMBING = 9,
+    CROUCH = 10,
+    STAND = 11,
+    USER_DEFINED_1 = 12,
+    USER_DEFINED_2 = 13,
+    USER_DEFINED_3 = 14,
+    USER_DEFINED_4 = 15
+};
+
 #ifdef CHOWDREN_USE_VALUEADD
 
 int hash_extra_key(const std::string & value);
@@ -128,9 +148,10 @@ public:
 typedef boost::intrusive::link_mode<boost::intrusive::normal_link> LinkMode;
 typedef boost::intrusive::list_member_hook<LinkMode> LayerPos;
 
-#define FRAMEOBJECT_HEAD(x) static ObjectPool<x> pool; \
-                            static X * alloc() {(X*)pool.create()} \
-                            static void dealloc(X * p) {pool.destroy(p)}
+#define FRAMEOBJECT_HEAD(X) static ObjectPool<X> pool; \
+                            void dealloc() {X::~X(); pool.destroy(this);}
+
+#define FRAMEOBJECT_IMPL(X) ObjectPool<X> X::pool;
 
 class FrameObject
 {
@@ -163,10 +184,15 @@ public:
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables * extra_alterables;
 #endif
+    static ObjectPool<FrameObject> pool;
+    virtual void dealloc()
+    {
+        FrameObject::~FrameObject();
+        pool.destroy(this);
+    }
 
     FrameObject(int x, int y, int type_id);
     virtual ~FrameObject();
-    virtual void dealloc();
     void set_position(int x, int y);
     void set_global_position(int x, int y);
     int get_x();

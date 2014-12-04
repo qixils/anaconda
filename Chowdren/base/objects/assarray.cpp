@@ -233,6 +233,10 @@ void AssociateArray::save(BaseStream & stream, int method)
 void AssociateArray::save(const std::string & path, int method)
 {
     FSFile fp(path.c_str(), "w");
+    if (!fp.is_open()) {
+        std::cout << "Could not save associate array: " << path << std::endl;
+        return;
+    }
     FileStream stream(fp);
     save(stream, method);
     fp.close();

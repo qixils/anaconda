@@ -116,8 +116,11 @@ static double ease_out(int function, double step, const EaseVars & vars)
     return 1.0-ease_function(function, 1.0-step, vars);
 }
 
-double EasingObject::ease_out(int a, int b, int function, double step)
+float EasingObject::ease_out(int a, int b, int function, double step)
 {
     EaseVars vars = {1.5f, 1.05f, 0.4f}; // default
-    return a + (b-a)*::ease_out(function, step, vars);
+    float ease = ::ease_out(function, float(step), vars);
+    if (ease <= 0.000001f)
+        return a;
+    return a + (b-a)*ease;
 }

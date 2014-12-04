@@ -27,8 +27,8 @@ void main()
     Gx = texture_coordinate.x;
     Gy = texture_coordinate.y;
     if(iF) {
-        Gx = 1-Gx;
-        Gy = 1-Gy;
+        Gx = 1.0-Gx;
+        Gy = 1.0-Gy;
     }
     if(iR) {
         Temp = Gy;
@@ -44,7 +44,7 @@ void main()
     }
     if(iT==1) {
         if(iR)
-            Temp = 1-Gx;
+            Temp = 1.0-Gx;
         else
             Temp = Gx;
         Gcol = fArgb+(fBrgb-fArgb)*(Gy*Temp+fOffset)*fCoeff;

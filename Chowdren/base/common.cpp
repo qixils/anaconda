@@ -6,7 +6,7 @@
 #include <iterator>
 #include <iomanip>
 #include "md5.h"
-#include "strings.cpp"
+#include "intern.cpp"
 
 #ifdef CHOWDREN_USE_VALUEADD
 #include "extra_keys.cpp"
@@ -201,7 +201,7 @@ Layer::Layer(const Layer & layer)
     reset();
 }
 
-Layer & Layer::operator=(Layer & other)
+Layer & Layer::operator=(const Layer & other)
 {
     // this should never be called, but need to make vector::resize happy
     return *this;
@@ -1333,7 +1333,7 @@ bool FrameObject::outside_playfield()
     int y1 = box[1] + layer->off_y;
     int x2 = box[2] + layer->off_x;
     int y2 = box[3] + layer->off_y;
-    return x1 < 0 || y1 < 0 || x2 > frame->width || y2 > frame->height;
+    return x1 > frame->width || y1 > frame->height || x2 < 0 || y2 < 0;
 }
 
 bool FrameObject::is_near_border(int border)

@@ -10,6 +10,6 @@ void main()
 {
     float height = fBase+texture2D(texture,texture_coordinate0).r*gl_Color.r*fCoeff;
     vec2 In = texture_coordinate1;
-    In += (height-1.0f)/2.0;
-    gl_FragColor = texture2D(background_texture, mod(In / height, 1));
+    In += (height-1.0)/2.0;
+    gl_FragColor = texture2D(background_texture, mod(In / height, 1.0));
 }

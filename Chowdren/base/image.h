@@ -17,18 +17,24 @@ void initialize_images();
 extern const float normal_texcoords[8];
 extern const float back_texcoords[8];
 
-enum ImageFlags
-{
-    IMAGE_USED = 1 << 0,
-    IMAGE_FILE = 1 << 1,
-    IMAGE_CACHED = 1 << 2,
-    IMAGE_STATIC = 1 << 3,
-    IMAGE_KEEP = 1 << 4
-};
-
 class Image
 {
 public:
+    enum Flags
+    {
+        USED = 1 << 0,
+        FILE = 1 << 1,
+        CACHED = 1 << 2,
+        STATIC = 1 << 3,
+        KEEP = 1 << 4,
+        LINEAR_FILTER = 1 << 5,
+#ifdef CHOWDREN_QUICK_SCALE
+        DEFAULT_FLAGS = 0
+#else
+        DEFAULT_FLAGS = LINEAR_FILTER
+#endif
+    };
+
     unsigned short handle;
     unsigned short flags;
     short hotspot_x, hotspot_y, action_x, action_y;
@@ -62,6 +68,7 @@ public:
     void draw(int x, int y, int src_x, int src_y, int w, int h);
     bool is_valid();
     void unload();
+    void set_filter(bool linear);
 
     // inline methods
 

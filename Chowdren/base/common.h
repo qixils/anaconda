@@ -34,7 +34,7 @@
 #include "utility.h"
 #include "input.h"
 #include "movement.h"
-#include "strings.h"
+#include "intern.h"
 
 extern std::string newline_character;
 // string helpers

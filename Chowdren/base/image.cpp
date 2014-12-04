@@ -38,19 +38,19 @@ void open_image_file()
 
 // dummy constructor
 Image::Image()
-: handle(0), flags(0), tex(0), image(NULL), width(0), height(0),
+: handle(0), flags(DEFAULT_FLAGS), tex(0), image(NULL), width(0), height(0),
   hotspot_x(0), hotspot_y(0), action_x(0), action_y(0)
 {
 }
 
 Image::Image(int hot_x, int hot_y, int act_x, int act_y)
-: handle(0), flags(0), tex(0), image(NULL), width(0), height(0),
+: handle(0), flags(DEFAULT_FLAGS), tex(0), image(NULL), width(0), height(0),
   hotspot_x(hot_x), hotspot_y(hot_y), action_x(act_x), action_y(act_y)
 {
 }
 
 Image::Image(int handle)
-: handle(handle), tex(0), image(NULL), flags(0)
+: handle(handle), tex(0), image(NULL), flags(DEFAULT_FLAGS)
 {
 }
 
@@ -61,7 +61,7 @@ Image::~Image()
 
 void Image::destroy()
 {
-    if (flags & IMAGE_CACHED)
+    if (flags & CACHED)
         return;
     delete this;
 }
@@ -70,7 +70,7 @@ Image * Image::copy()
 {
     Image * new_image;
     if (image == NULL) {
-        if (flags & IMAGE_FILE) {
+        if (flags & FILE) {
             FileImage * image = (FileImage*)this;
             new_image = new FileImage(image->filename,
                                       image->hotspot_x, image->hotspot_y,
@@ -94,17 +94,17 @@ Image * Image::copy()
 
 void Image::set_static()
 {
-    flags |= IMAGE_STATIC;
+    flags |= STATIC;
 }
 
 void Image::load()
 {
-    flags |= IMAGE_USED;
+    flags |= USED;
 
     if (tex != 0 || image != NULL)
         return;
 
-    if (flags & IMAGE_FILE) {
+    if (flags & FILE) {
         ((FileImage*)this)->load_file();
         return;
     }
@@ -217,23 +217,45 @@ void Image::upload_texture()
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gl_width, gl_height, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, image);
-#ifdef CHOWDREN_QUICK_SCALE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-#else
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-#endif
+
+    if (flags & LINEAR_FILTER) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    if (flags & IMAGE_KEEP)
+    if (flags & KEEP)
         return;
 
     // for memory reasons, we delete the image and access the alpha or
     // the texture directly
     stbi_image_free(image);
     image = NULL;
+}
+
+void Image::set_filter(bool linear)
+{
+    if (((flags & LINEAR_FILTER) != 0) == linear)
+        return;
+    if (linear)
+        flags |= LINEAR_FILTER;
+    else
+        flags &= ~LINEAR_FILTER;
+    if (tex == 0)
+        return;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    if (linear) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    }
+
 }
 
 const float flipped_texcoords[8] = {
@@ -408,7 +430,7 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
                      int act_x, int act_y, TransparentColor color)
 : filename(filename), transparent(color), Image(hot_x, hot_y, act_x, act_y)
 {
-    flags |= IMAGE_FILE;
+    flags |= FILE;
 }
 
 void FileImage::load_file()
@@ -459,7 +481,7 @@ Image * get_internal_image(unsigned int i)
 {
     if (internal_images[i] == NULL) {
         internal_images[i] = new Image(i);
-        internal_images[i]->flags |= IMAGE_CACHED;
+        internal_images[i]->flags |= Image::CACHED;
     }
 
     Image * image = internal_images[i];
@@ -475,7 +497,7 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
     ImageCache::const_iterator it = image_cache.find(filename);
     if (it == image_cache.end()) {
         image = new FileImage(filename, 0, 0, 0, 0, color);
-        image->flags |= IMAGE_USED;
+        image->flags |= Image::USED;
         image->load();
         if (!image->is_valid()) {
             delete image;
@@ -495,7 +517,7 @@ void reset_image_cache()
         Image * image = internal_images[i];
         if (image == NULL)
             continue;
-        image->flags &= ~IMAGE_USED;
+        image->flags &= ~USED;
     }
 #endif
 }
@@ -505,7 +527,7 @@ void flush_image_cache()
 #ifdef CHOWDREN_TEXTURE_GC
     for (int i = 0; i < IMAGE_COUNT; i++) {
         Image * image = internal_images[i];
-        if (image == NULL || image->flags & (IMAGE_USED | IMAGE_STATIC))
+        if (image == NULL || image->flags & (USED | STATIC))
             continue;
         image->unload();
     }
@@ -579,7 +601,7 @@ Image * ReplacedImages::apply(Image * image, Image * src_image)
     }
 
     images.push_back(ReplacedImage(src_image, new_image, hash));
-    new_image->flags |= IMAGE_KEEP;
+    new_image->flags |= Image::KEEP;
     return new_image;
 }
 

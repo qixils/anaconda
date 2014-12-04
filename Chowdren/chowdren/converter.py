@@ -583,7 +583,7 @@ class Converter(object):
         self.event_wrappers = {}
         self.objs_to_qualifier = {}
         self.event_frame_initializers = defaultdict(list)
-        self.class_names = set()
+        self.class_names = set(['FrameObject'])
         self.defines = set()
         self.current_group = None
 
@@ -913,8 +913,8 @@ class Converter(object):
 
         frames_file.close()
 
-        strings_file = self.open_code('strings.cpp')
-        strings_header = self.open_code('strings.h')
+        strings_file = self.open_code('intern.cpp')
+        strings_header = self.open_code('intern.h')
         strings_header.start_guard('CHOWDREN_STRINGS_H')
         strings_header.putln('#include <string>')
         for value, name in self.strings.iteritems():
@@ -1092,6 +1092,7 @@ class Converter(object):
 
         shader_path = os.path.join(self.base_path, 'shaders')
         for shader in get_shader_programs():
+            print 'Adding shader', shader
             vert_path = os.path.join(shader_path, '%s.vert' % shader)
             frag_path = os.path.join(shader_path, '%s.frag' % shader)
 
@@ -2582,6 +2583,8 @@ class Converter(object):
             elif parameter_name == 'Zone':
                 return repr((loader.x1, loader.y1, loader.x2, loader.y2))
             elif parameter_name == 'Time':
+                return repr(loader.timer)
+            elif parameter_name == 'CompareTime':
                 return repr(loader.timer)
             elif parameter_name == 'Every':
                 return repr(loader.delay)

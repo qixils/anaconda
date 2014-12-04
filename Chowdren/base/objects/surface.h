@@ -47,6 +47,7 @@ struct SurfaceImage
 struct SurfaceBlit
 {
     int x, y;
+    int scroll_x, scroll_y;
     double scale_x, scale_y;
     Image * image;
     int effect;

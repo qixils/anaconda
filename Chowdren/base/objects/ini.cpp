@@ -390,6 +390,10 @@ void INI::save_file(const std::string & fn, bool force)
     }
 
     FSFile fp(filename.c_str(), "w");
+    if (!fp.is_open()) {
+        std::cout << "Could not save INI file: " << filename << std::endl;
+        return;
+    }
     fp.write(&outs[0], outs.size());
     fp.close();
 }

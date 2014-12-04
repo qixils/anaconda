@@ -10,7 +10,7 @@
 #define LEFTRIGHTTOPBOTTOM false
 #define RIGHTLEFTBOTTOMTOP true
 #define delta (3.141592/180.0)
-#define wave_increment (sine_waves * 360.0f)
+#define wave_increment (float(sine_waves) * 360.0)
 
 varying vec2 texture_coordinate;
 uniform sampler2D texture;
@@ -24,21 +24,21 @@ void main()
 {
     float v;
     vec2 In = texture_coordinate;
-    
+
     // What to use as input
     float pixel = (direction == VERTICAL) ? texture_size.y : texture_size.x;
     float i = ((direction == VERTICAL) ? In.x : In.y);
-    
+
     // Effect
     if (effect == SINEOFFSET)
-       v = sin((i * wave_increment - offset) * delta) * zoom; 
-    
+       v = sin((i * wave_increment - offset) * delta) * zoom;
+
     // What to use as output
     if (direction == VERTICAL) In.y += v*pixel;
     else In.x += v*pixel;
-    
+
     vec4 col;
-    if (In.x < 0 || In.x > 1 || In.y < 0|| In.y > 1)
+    if (In.x < 0.0 || In.x > 1.0 || In.y < 0.0|| In.y > 1.0)
        col = vec4(0,0,0,1);
     else
        col = texture2D(texture, In);

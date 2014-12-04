@@ -17,12 +17,12 @@ uniform float fade;
 void main()
 {
     vec4 color;
-    float orig_width = (1/texture_size[0]) / x_scale;
-    float orig_height = (1/texture_size[1]) / y_scale;
+    float orig_width = (1.0/texture_size[0]) / x_scale;
+    float orig_height = (1.0/texture_size[1]) / y_scale;
     float chunk_width = orig_width / 3.0;
     float chunk_height = orig_height / 3.0;
-    float width = (1/texture_size[0]);
-    float height = (1/texture_size[1]);
+    float width = (1.0/texture_size[0]);
+    float height = (1.0/texture_size[1]);
 
     vec2 pos;
     pos.x = texture_coordinate.x * width;
@@ -34,7 +34,7 @@ void main()
 
     float dx = (orig_width - chunk_width + pos.x - (width-chunk_width));
     float dy = (orig_height - chunk_height + pos.y - (height-chunk_height));
-    vec2 slice_pos = vec2((texture_coordinate.x+1)/3, (texture_coordinate.y+1)/3);
+    vec2 slice_pos = vec2((texture_coordinate.x+1.0)/3.0, (texture_coordinate.y+1.0)/3.0);
 
     // top
     if (pos.y < chunk_height) {
@@ -60,8 +60,8 @@ void main()
 
     // Output pixel
     vec4 gradient = vec4(0.0);
-    float f = (texture_coordinate.x*(1-texture_coordinate.y));
-    f = max(0, min(1, f+offset));
+    float f = (texture_coordinate.x*(1.0-texture_coordinate.y));
+    f = max(0.0, min(1.0, f+offset));
     gradient.a = alpha_1 + (alpha_2 - alpha_1) * f;
     gradient.rgb = mix(color_1, color_2, f).rgb;
     color.a *= gradient.a;

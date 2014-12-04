@@ -9,8 +9,8 @@ uniform float rr, rg, rb, gr, gg, gb, br, bg, bb, fAngle, fCoeff;
 void main()
 {
     // Directional vector of blur kernel
-    vec2 v = vec2(cos(fAngle*0.01745f), sin(fAngle*0.01745f)) * fCoeff;
-    vec2 v2 = vec2(cos((fAngle+90)*0.01745f), sin((fAngle+90)*0.01745f)) * fCoeff;
+    vec2 v = vec2(cos(fAngle*0.01745), sin(fAngle*0.01745)) * fCoeff;
+    vec2 v2 = vec2(cos((fAngle+90.0)*0.01745), sin((fAngle+90.0)*0.01745)) * fCoeff;
 
     // Input foreground (for colorizer)
     vec2 In = texture_coordinate0;

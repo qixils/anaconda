@@ -591,7 +591,7 @@ class PickCondition(ConditionWriter):
 
     def write(self, writer):
         objs = set()
-        for action in self.converter.current_group.actions:
+        for action in self.converter.current_groups[-1].actions:
             obj = action.get_object()
             if obj in objs:
                 continue
@@ -1452,7 +1452,11 @@ class AlterableValueExpression(ExpressionWriter):
 
 class AlterableValueIndexExpression(ExpressionWriter):
     def get_string(self):
-        return 'alterables->values.get('
+        if self.converter.config.use_alterable_int(self):
+            func = 'alterables->values.get_int'
+        else:
+            func = 'alterables->values.get'
+        return '%s(' % func
 
 class AlterableStringExpression(ExpressionWriter):
     def get_string(self):

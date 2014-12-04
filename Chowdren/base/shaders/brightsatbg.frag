@@ -8,7 +8,7 @@ uniform float brightness, saturation;
 void main()
 {
     vec4 color = texture2D(background_texture, texture_coordinate1);
-    float f = (color.r+color.g+color.b)/3;
-    color.rgb = brightness+f*(1.0f-saturation)+color.rgb * saturation;
+    float f = (color.r+color.g+color.b)/3.0;
+    color.rgb = brightness+f*(1.0-saturation)+color.rgb * saturation;
     gl_FragColor = color;
 }

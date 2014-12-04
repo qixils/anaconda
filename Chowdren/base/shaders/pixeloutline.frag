@@ -6,31 +6,43 @@ uniform sampler2D texture;
 
 uniform vec4 color;
 
-const vec2 dirs[8] = vec2[8](
-    vec2(1.0, 0.0),
-    vec2(1.0, 1.0),
-    vec2(0.0, 1.0),
-    vec2(-1.0, 1.0),
-    vec2(-1.0, 0.0),
-    vec2(-1.0, -1.0),
-    vec2(0.0, -1.0),
-    vec2(1.0, -1.0)
-);
+// const vec2 dirs[8] = vec2[8](
+//     vec2(1.0, 0.0),
+//     vec2(1.0, 1.0),
+//     vec2(0.0, 1.0),
+//     vec2(-1.0, 1.0),
+//     vec2(-1.0, 0.0),
+//     vec2(-1.0, -1.0),
+//     vec2(0.0, -1.0),
+//     vec2(1.0, -1.0)
+// );
+
+#define SET_SOLID(dir) \
+            col.a = texture2D(texture, texture_coordinate + \
+                              dir * texture_size).a; \
+            if (col.a > 0.0) \
+                return col;
+
+vec4 getter(vec4 src)
+{
+    if (src.a != 0.0)
+        return src;
+    vec4 col;
+    col.rgb = color.rgb;
+    SET_SOLID(vec2(1.0, 0.0))
+    SET_SOLID(vec2(1.0, 1.0))
+    SET_SOLID(vec2(0.0, 1.0))
+    SET_SOLID(vec2(-1.0, 1.0))
+    SET_SOLID(vec2(-1.0, 0.0))
+    SET_SOLID(vec2(-1.0, -1.0))
+    SET_SOLID(vec2(0.0, -1.0))
+    SET_SOLID(vec2(1.0, -1.0))
+    return src;
+}
 
 void main()
 {
     vec4 src = texture2D(texture, texture_coordinate) * gl_Color;
-
-    if (src.a == 0.0) {
-        src.rgb = color.rgb;
-        float solid = 0.0;
-        for (int i=0; i<8 && solid == 0.0; i++) {
-            solid = texture2D(texture, texture_coordinate +
-                                       dirs[i] * texture_size).a;
-            if (solid > 0.0)
-                src.a = solid;
-        }
-    }
-
+    src = getter(src);
     gl_FragColor = src;
 }

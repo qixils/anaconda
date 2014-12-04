@@ -355,8 +355,8 @@ void TextBlitter::draw()
 
     vector<LineReference>::const_iterator it;
 
-    glEnable(GL_SCISSOR_TEST);
-    glc_scissor_world(x, y, width, height);
+    // glEnable(GL_SCISSOR_TEST);
+    // glc_scissor_world(x, y, width, height);
 
     for (it = lines.begin(); it != lines.end(); ++it) {
         const LineReference & line = *it;
@@ -409,7 +409,7 @@ void TextBlitter::draw()
     }
 
     glDisable(GL_TEXTURE_2D);
-    glDisable(GL_SCISSOR_TEST);
+    // glDisable(GL_SCISSOR_TEST);
 
     end_draw();
 }

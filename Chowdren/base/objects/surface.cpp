@@ -169,19 +169,41 @@ void SurfaceObject::draw()
     blend_color.apply();
 
     if (use_image_blit) {
+        int wrap_draws = 0;
         vector<SurfaceBlit>::const_iterator it;
+        int display_width = displayed_image->width;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
+
+            // XXX this is a hack, generalize it
+            if (shader == subpx_shader)
+                img.image->set_filter(true);
+
             begin_draw(img.image->width, img.image->height);
-            int draw_x = x + img.x + img.image->hotspot_x * img.scale_x;
-            int draw_y = y + img.y + img.image->hotspot_y * img.scale_y;
-            img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
+            int off_x = x + img.image->hotspot_x * img.scale_x;
+            int off_y = y + img.image->hotspot_x * img.scale_x;
+            int draw_x = img.x + img.scroll_x;
+            int draw_y = img.y + img.scroll_y;
+
+            img.image->draw(draw_x + off_x, draw_y + off_y, 0.0,
+                            img.scale_x, img.scale_y);
+
+            for (int i = -1; i <= 1; i += 2) {
+                int x1 = draw_x + display_width * i;
+                int y1 = draw_y;
+                int x2 = x1 + img.image->width;
+                if (x1 >= 0 && x2 <= display_width)
+                    continue;
+                if (x1 >= display_width || x2 <= 0)
+                    continue;
+                img.image->draw(x1 + off_x, y1 + off_y, 0.0,
+                                img.scale_x, img.scale_y);
+                wrap_draws++;
+            }
             end_draw();
         }
     } else {
-        begin_draw(displayed_image->width, displayed_image->height);
         displayed_image->draw(this, x, y);
-        end_draw();
     }
 }
 
@@ -267,22 +289,33 @@ void SurfaceObject::set_dest_size(int w, int h)
     dest_height = h;
 }
 
+inline void wrap_pos(int & scroll, int pos, int size1, int size2)
+{
+    pos += scroll;
+    if (pos >= size2)
+        scroll -= size2;
+    else if (pos + size1 <= 0)
+        scroll += size2;
+}
+
 void SurfaceObject::scroll(int x, int y, int wrap)
 {
     SurfaceImage * image = selected_image;
+    image->wrap = wrap != 0;
     if (use_image_blit) {
         vector<SurfaceBlit>::iterator it;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             SurfaceBlit & img = *it;
-            img.x = (img.x + x) % img.image->width;
-            img.y = (img.y + y) % img.image->height;
+            img.scroll_x += x;
+            img.scroll_y += y;
+            wrap_pos(img.scroll_x, img.x, img.image->width, image->width);
+            wrap_pos(img.scroll_y, img.y, img.image->height, image->height);
         }
         return;
     } else if (image == NULL || image->handle == NULL)
         return;
     image->scroll_x = (image->scroll_x + x) % image->handle->width;
     image->scroll_y = (image->scroll_y + y) % image->handle->height;
-    image->wrap = wrap != 0;
 }
 
 void SurfaceObject::blit(Active * obj)
@@ -303,6 +336,8 @@ void SurfaceObject::blit(Active * obj)
     dest_height *= scale_y;
     blit_images[index].scale_x = dest_width / double(img->width);
     blit_images[index].scale_y = dest_height / double(img->height);
+    blit_images[index].scroll_x = 0;
+    blit_images[index].scroll_y = 0;
 
     if (effect != 1 && effect != 11) {
         std::cout << "Unsupported blit effect: " << effect << std::endl;
@@ -393,6 +428,8 @@ void SurfaceObject::blit_image(int image)
     blit_images[index].scale_x = dest_width / double(img->width);
     blit_images[index].scale_y = dest_height / double(img->height);
     blit_images[index].image = img;
+    blit_images[index].scroll_x = 0;
+    blit_images[index].scroll_y = 0;
 }
 
 void SurfaceObject::apply_matrix(double div, double offset, double iterations,

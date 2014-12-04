@@ -63,7 +63,7 @@ public:
           bool wrap_x, bool wrap_y);
     ~Layer();
     Layer(const Layer & layer);
-    Layer & operator=(Layer &);
+    Layer & operator=(const Layer &);
     void init(int index, double scroll_x, double scroll_y, bool visible,
               bool wrap_x, bool wrap_y);
     void reset();

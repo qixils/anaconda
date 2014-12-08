@@ -3,6 +3,7 @@ import sys
 sys.path.append('..')
 sys.path.append('../..')
 from chowdren.common import call, makedirs
+from chowdren.converter import Converter
 
 CMAKE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                           'CMake', 'bin', 'cmake.exe'))
@@ -11,16 +12,40 @@ DISTRO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'MinGW'))
 MAKE_PATH = os.path.join(DISTRO_PATH, 'bin', 'make.exe')
 LIB_PATH = os.path.join(DISTRO_PATH, 'lib')
 
+class Arguments(object):
+    def __init__(self, args):
+        self.__dict__ = args
+
 class Builder(object):
     def __init__(self, src, src_dir):
         self.src = src
-        self.src_dir = src_dir
-        self.build_dir = os.path.join(src_dir, 'build')
+        self.src_dir = os.path.abspath(src_dir)
+        self.build_dir = os.path.join(self.src_dir, 'build')
 
     def run(self):
+        self.convert()
         self.set_environment()
         self.create_project()
         self.build_project()
+        self.run_project()
+
+    def convert(self):
+        args = {
+            'outdir': self.src_dir,
+            'dlls': False,
+            'filenames': [self.src],
+            'platform': 'generic',
+            'config': None,
+            'skipassets': False,
+            'ico': None,
+            'icns': None,
+            'copyright': None,
+            'company': None,
+            'author': None,
+            'version': None
+        }
+
+        Converter(Arguments(args))
 
     def create_project(self):
         cwd = os.getcwd()
@@ -34,6 +59,13 @@ class Builder(object):
         cwd = os.getcwd()
         os.chdir(self.build_dir)
         call([MAKE_PATH, '-j4'])
+        os.chdir(cwd)
+
+    def run_project(self):
+        cwd = os.getcwd()
+        os.chdir(self.src_dir)
+        exe = os.path.join(self.build_dir, 'Chowdren.exe')
+        call([exe])
         os.chdir(cwd)
 
     def set_environment(self):

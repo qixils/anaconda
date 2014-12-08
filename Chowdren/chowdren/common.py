@@ -1,6 +1,7 @@
 import string
 import os
 import subprocess
+import sys
 from mmfparser.bytereader import ByteReader
 
 def get_base_path():

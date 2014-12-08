@@ -149,7 +149,11 @@ typedef boost::intrusive::link_mode<boost::intrusive::normal_link> LinkMode;
 typedef boost::intrusive::list_member_hook<LinkMode> LayerPos;
 
 #define FRAMEOBJECT_HEAD(X) static ObjectPool<X> pool; \
-                            void dealloc() {X::~X(); pool.destroy(this);}
+                            void dealloc() \
+                            { \
+                                this->X::~X(); \
+                                pool.destroy(this); \
+                            };
 
 #define FRAMEOBJECT_IMPL(X) ObjectPool<X> X::pool;
 
@@ -185,14 +189,14 @@ public:
     ExtraAlterables * extra_alterables;
 #endif
     static ObjectPool<FrameObject> pool;
+    virtual ~FrameObject();
     virtual void dealloc()
     {
-        FrameObject::~FrameObject();
+        this->FrameObject::~FrameObject();
         pool.destroy(this);
     }
 
     FrameObject(int x, int y, int type_id);
-    virtual ~FrameObject();
     void set_position(int x, int y);
     void set_global_position(int x, int y);
     int get_x();

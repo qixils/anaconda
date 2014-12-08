@@ -862,7 +862,8 @@ class Converter(object):
                 event_file.putmeth('void load_frame_%s_images'
                                    % (frame_index + 1))
                 for image in images:
-                    event_file.putlnc('get_internal_image(%s);', image)
+                    event_file.putlnc('get_internal_image(%s)->'
+                                      'upload_texture();', image)
                 event_file.end_brace()
 
             self.assets.write_preload(handles)

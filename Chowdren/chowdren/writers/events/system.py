@@ -661,15 +661,17 @@ class CompareFixedValue(ConditionWriter):
 
         fixed_name = 'fixed_test_%s' % self.get_id(self)
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
-        if is_equal:
+        is_single = (converter.has_single(obj) or
+                     not converter.has_multiple_instances(obj))
+
+        if is_equal or is_single:
             event_break = converter.event_break
         else:
             event_break = 'goto %s;' % end_label
 
         if not is_instance:
             writer.putln('if (%s == NULL) %s' % (fixed_name, event_break))
-        if (converter.has_single(obj) or
-                not converter.has_multiple_instances(obj)):
+        if is_single:
             obj = converter.get_object(obj)
             writer.putlnc('if (%s %s %s) %s', obj, comparison, fixed_name,
                           event_break)

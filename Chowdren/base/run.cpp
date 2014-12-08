@@ -76,7 +76,9 @@ void GameManager::init()
 
     fps_limit.set(FRAMERATE);
 
-#if defined(CHOWDREN_IS_HFA)
+#if defined(CHOWDREN_IS_AVGN)
+    set_frame(0);
+#elif defined(CHOWDREN_IS_HFA)
     set_frame(0);
 #elif defined(CHOWDREN_IS_FP)
     set_frame(20);
@@ -230,7 +232,6 @@ void GameManager::draw()
 {
     if (!window_created)
         return;
-
     int window_width, window_height;
     platform_get_size(&window_width, &window_height);
     if (window_width <= 0 || window_height <= 0)
@@ -384,15 +385,50 @@ void GameManager::set_fade(const Color & color, float fade_dir)
 
 static int get_player_control_flags(int player);
 
+#ifndef NDEBUG
+struct InstanceCount
+{
+    int id;
+    int count;
+};
+
+static bool sort_count(const InstanceCount & a, const InstanceCount & b)
+{
+    return a.count > b.count;
+}
+
+static InstanceCount counts[MAX_OBJECT_ID];
+
+static void print_instance_stats()
+{
+    int count = 0;
+    for (int i = 0; i < MAX_OBJECT_ID; i++) {
+        int instance_count = manager.frame->instances.items[i].size();
+        count += instance_count;
+        counts[i].id = i;
+        counts[i].count = instance_count;
+    }
+    std::cout << "Instance count: " << count << std::endl;
+
+    std::sort(counts, counts + MAX_OBJECT_ID, sort_count);
+    for (int i = 0; i < std::min<int>(5, MAX_OBJECT_ID); i++) {
+        std::cout << counts[i].id << " has " << counts[i].count
+            << " instances" << std::endl;
+    }
+}
+#endif
+
 bool GameManager::update()
 {
+#ifndef NDEBUG
+    bool show_stats = false;
     static int measure_time = 0;
     measure_time -= 1;
-    bool show_stats = false;
     if (measure_time <= 0) {
         measure_time = 200;
         show_stats = true;
     }
+#endif
 
     // update input
     keyboard.update();
@@ -408,9 +444,11 @@ bool GameManager::update()
     // update mouse position
     platform_get_mouse_pos(&mouse_x, &mouse_y);
 
+#ifndef NDEBUG
     if (show_stats)
         std::cout << "Framerate: " << fps_limit.current_framerate
             << std::endl;
+#endif
 
     if (platform_has_error()) {
         if (platform_display_closed())
@@ -420,9 +458,11 @@ bool GameManager::update()
 
         int ret = update_frame();
 
+#ifndef NDEBUG
         if (show_stats)
             std::cout << "Event update took " <<
                 platform_get_time() - event_update_time << std::endl;
+#endif
 
         if (ret == 0)
             return false;
@@ -437,16 +477,14 @@ bool GameManager::update()
 
     draw();
 
+#ifndef NDEBUG
     if (show_stats) {
         std::cout << "Draw took " << platform_get_time() - draw_time
             << std::endl;
-        int count = 0;
-        for (int i = 0; i < MAX_OBJECT_ID; i++) {
-            count += frame->instances.items[i].size();
-        }
-        std::cout << "Instance count: " << count << std::endl;
+        print_instance_stats();
         platform_print_stats();
     }
+#endif
 
     fps_limit.finish();
 
@@ -737,9 +775,12 @@ int main(int argc, char *argv[])
     CONSOLE_SCREEN_BUFFER_INFO coninfo;
     GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &coninfo);
 
-    outHandle = _open_osfhandle((long)GetStdHandle(STD_OUTPUT_HANDLE), _O_TEXT);
-    errHandle = _open_osfhandle((long)GetStdHandle(STD_ERROR_HANDLE), _O_TEXT);
-    inHandle = _open_osfhandle((long)GetStdHandle(STD_INPUT_HANDLE), _O_TEXT);
+    outHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_OUTPUT_HANDLE),
+                                _O_TEXT);
+    errHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_ERROR_HANDLE),
+                                _O_TEXT);
+    inHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_INPUT_HANDLE),
+                               _O_TEXT);
 
     outFile = _fdopen(outHandle, "w" );
     errFile = _fdopen(errHandle, "w");

@@ -227,6 +227,7 @@ class QuickBackdrop(ObjectWriter):
     filename = 'quickbackdrop'
 
     def initialize(self):
+        self.image = None
         obstacle = self.common.getObstacleType()
         if obstacle not in ('Solid', 'None', 'Ladder'):
             print 'obstacle type', obstacle, 'not supported'
@@ -274,6 +275,7 @@ class QuickBackdrop(ObjectWriter):
                 writer.putln('gradient_type = VERTICAL_GRADIENT;')
             writer.putln('color2 = %s;' % make_color(color2))
         elif fill == 'Motif':
+            self.image = shape.image
             writer.putlnc('image = %s;',
                           self.converter.get_image(shape.image))
         elif color2 is not None:
@@ -292,6 +294,11 @@ class QuickBackdrop(ObjectWriter):
         writer.putln('collision = new InstanceBox(this);')
         if obstacle_type == LADDER_OBSTACLE:
             writer.putln('collision->flags |= LADDER_OBSTACLE;')
+
+    def get_images(self):
+        if self.image is None:
+            return ()
+        return (self.image,)
 
 class Text(ObjectWriter):
     class_name = 'Text'

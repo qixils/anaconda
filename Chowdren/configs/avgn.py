@@ -17,6 +17,7 @@ def init(converter):
     converter.add_define('CHOWDREN_WIIU_USE_COMMON')
     converter.add_define('CHOWDREN_SCREEN2_WIDTH', 240)
     converter.add_define('CHOWDREN_SCREEN2_HEIGHT', 180)
+    converter.add_define('CHOWDREN_IS_AVGN')
 
     if converter.platform_name == 'wiiu':
         converter.add_define('CHOWDREN_PRELOAD_ALL')
@@ -57,6 +58,8 @@ def use_image_preload(converter):
 def get_depth(converter, layer):
     if converter.platform_name != '3ds':
         return None
+    if converter.current_frame.name in ('Intro', 'Ending'):
+        return 0.0
     if layer.name in ('HUD', 'Untitled', 'Foreground Parallax'):
         return 0.0
 

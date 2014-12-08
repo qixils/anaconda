@@ -2,6 +2,7 @@
 #include "collision.h"
 #include "image.h"
 #include "common.h"
+#include "chowconfig.h"
 
 // QuickBackdrop
 

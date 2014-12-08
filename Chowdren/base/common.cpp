@@ -160,11 +160,13 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                        collision_type, color));
 }
 
-void Background::draw()
+void Background::draw(int v[4])
 {
     BackgroundItems::const_iterator it;
     for (it = items.begin(); it != items.end(); ++it) {
         BackgroundItem * item = *it;
+        if (!collides(item->aabb, v))
+            continue;
         item->draw();
     }
 }
@@ -621,7 +623,7 @@ void Layer::draw(int off_x, int off_y)
 
     // draw pasted items
     if (back != NULL)
-        back->draw();
+        back->draw(v);
 
     PROFILE_END();
 
@@ -1823,7 +1825,7 @@ FTTextureFont * get_font(int size)
 }
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color & color, Color & color2, float alpha)
+                   Color & color, Color & color2, int alpha)
 {
     glDisable(GL_TEXTURE_2D);
     glBegin(GL_QUADS);

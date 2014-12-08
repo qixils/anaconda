@@ -1,4 +1,6 @@
 #include "objects/lives.h"
+#include "collision.h"
+#include "manager.h"
 
 // Lives
 

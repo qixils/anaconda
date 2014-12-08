@@ -491,7 +491,7 @@ Image * get_internal_image(unsigned int i)
 }
 
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                            int act_x, int act_y, TransparentColor color)
+                        int act_x, int act_y, TransparentColor color)
 {
     FileImage * image;
     ImageCache::const_iterator it = image_cache.find(filename);
@@ -517,7 +517,7 @@ void reset_image_cache()
         Image * image = internal_images[i];
         if (image == NULL)
             continue;
-        image->flags &= ~USED;
+        image->flags &= ~Image::USED;
     }
 #endif
 }
@@ -527,7 +527,7 @@ void flush_image_cache()
 #ifdef CHOWDREN_TEXTURE_GC
     for (int i = 0; i < IMAGE_COUNT; i++) {
         Image * image = internal_images[i];
-        if (image == NULL || image->flags & (USED | STATIC))
+        if (image == NULL || image->flags & (Image::USED | Image::STATIC))
             continue;
         image->unload();
     }

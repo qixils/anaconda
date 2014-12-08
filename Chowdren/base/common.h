@@ -128,7 +128,7 @@ bool init_font();
 #define HORIZONTAL_GRADIENT 2
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color & color, Color & color2, float alpha);
+                   Color & color, Color & color2, int alpha);
 
 class File
 {

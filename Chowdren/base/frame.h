@@ -31,7 +31,7 @@ public:
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
                int collision_type, const Color & color);
-    void draw();
+    void draw(int v[4]);
     CollisionBase * collide(CollisionBase * a);
 };
 

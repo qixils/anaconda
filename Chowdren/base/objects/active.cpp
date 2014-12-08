@@ -433,7 +433,11 @@ void Active::paste(int collision_type)
 
 bool Active::test_animation(int value)
 {
-    return value == get_animation();
+    if (value != get_animation())
+        return false;
+    if (loop_count == 0)
+        return false;
+    return true;
 }
 
 void Active::stop_animation()

@@ -866,6 +866,10 @@ Shader * texture_shader;
 
 void init_shaders()
 {
+#ifndef CHOWDREN_USE_GL
+    basic_shader = new BasicShader;
+    texture_shader = new TextureShader;
+#endif
     subtract_shader = new SubtractShader;
     additive_shader = new AdditiveShader;
     monochrome_shader = new MonochromeShader;
@@ -898,8 +902,4 @@ void init_shaders()
     pixeloutline_shader = new PixelOutlineShader;
     brightsatbg_shader = new BrightSatBgShader;
     bgblur_shader = new BgBlurShader;
-#ifndef CHOWDREN_USE_GL
-    basic_shader = new BasicShader;
-    texture_shader = new TextureShader;
-#endif
 }

@@ -1,4 +1,5 @@
 #include "objects/advdir.h"
+#include "mathcommon.h"
 
 // AdvancedDirection
 

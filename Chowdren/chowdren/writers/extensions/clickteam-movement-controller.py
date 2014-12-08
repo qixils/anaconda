@@ -7,7 +7,7 @@ from chowdren.writers.events import (StaticConditionWriter,
 
 class AdvancedDirection(ObjectWriter):
     class_name = 'AdvancedDirection'
-    static = True
+    filename = 'advdir'
 
 actions = make_table(StaticActionWriter, {
 })

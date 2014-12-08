@@ -169,8 +169,12 @@ if (EMULATE_WIIU)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
-        ${CMAKE_LIBRARY_PATH})
+    if (MINGW)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} imm32 version)
+    else()
+        set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
+            ${CMAKE_LIBRARY_PATH})
+    endif()
     set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/win32"
         ${CMAKE_INCLUDE_PATH})
     set(SRCS ${SRCS} resource.rc)

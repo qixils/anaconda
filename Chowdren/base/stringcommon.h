@@ -11,6 +11,7 @@
 
 double fast_atof(const char * p, const char * end);
 std::string fast_itoa(int value);
+std::string fast_lltoa(long long value);
 std::string fast_dtoa(double value);
 
 extern std::string empty_string;
@@ -65,6 +66,11 @@ inline std::string number_to_string(int value)
 inline std::string number_to_string(size_t value)
 {
     return fast_itoa(value);
+}
+
+inline std::string number_to_string(long long value)
+{
+    return fast_lltoa(value);
 }
 
 inline void to_lower(std::string & str)

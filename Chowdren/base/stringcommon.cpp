@@ -130,6 +130,43 @@ std::string fast_itoa(int value)
     return std::string(buffer_end, buffer - buffer_end + BUFFER_SIZE - 1);
 }
 
+std::string fast_lltoa(long long value)
+{
+    enum {BUFFER_SIZE = 24};
+    char buffer[BUFFER_SIZE];
+    char *str;
+
+    unsigned long long abs_value = static_cast<unsigned long long>(value);
+    bool negative = value < 0;
+    if (negative)
+      abs_value = 0 - abs_value;
+
+    char *buffer_end = buffer + BUFFER_SIZE - 1;
+    while (abs_value >= 100) {
+        // Integer division is slow so do it for a group of two digits instead
+        // of for every digit. The idea comes from the talk by Alexandrescu
+        // "Three Optimization Tips for C++". See speed-test for a comparison.
+        unsigned index = (abs_value % 100) * 2;
+        abs_value /= 100;
+        *--buffer_end = DIGITS[index + 1];
+        *--buffer_end = DIGITS[index];
+    }
+    if (abs_value < 10) {
+      *--buffer_end = static_cast<char>('0' + abs_value);
+    } else {
+        unsigned index = static_cast<unsigned>(abs_value * 2);
+        *--buffer_end = DIGITS[index + 1];
+        *--buffer_end = DIGITS[index];
+    }
+
+    str = buffer_end;
+
+    if (negative)
+      *--buffer_end = '-';
+
+    return std::string(buffer_end, buffer - buffer_end + BUFFER_SIZE - 1);
+}
+
 std::string fast_dtoa(double value)
 {
     char buffer[16];

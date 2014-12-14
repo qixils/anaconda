@@ -747,26 +747,6 @@ void Frame::update_display_center()
     off_y = new_off_y;
 }
 
-int Frame::frame_left()
-{
-    return new_off_x;
-}
-
-int Frame::frame_right()
-{
-    return new_off_x + WINDOW_WIDTH;
-}
-
-int Frame::frame_top()
-{
-    return new_off_y;
-}
-
-int Frame::frame_bottom()
-{
-    return new_off_y + WINDOW_HEIGHT;
-}
-
 void Frame::set_width(int width, bool adjust)
 {
     std::cout << "Set frame width: " << width << " " << adjust << std::endl;
@@ -1311,11 +1291,18 @@ bool FrameObject::overlaps_background()
 {
     if (flags & DESTROYING || collision == NULL)
         return false;
-    if (layer->back != NULL && layer->back->collide(collision))
+    if (flags & HAS_COLLISION_CACHE)
+        return (flags & HAS_COLLISION) != 0;
+    flags |= HAS_COLLISION_CACHE;
+    if (layer->back != NULL && layer->back->collide(collision)) {
+        flags |= HAS_COLLISION;
         return true;
+    }
     BackgroundOverlapCallback callback(collision);
-    if (!layer->broadphase.query_static(collision->proxy, callback))
+    if (!layer->broadphase.query_static(collision->proxy, callback)) {
+        flags |= HAS_COLLISION;
         return true;
+    }
     return false;
 }
 

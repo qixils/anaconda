@@ -135,6 +135,8 @@ class Assets(object):
         self.header.close()
 
     def add_shader(self, name, data):
+        if self.skip:
+            return
         if name in self.shader_names:
             return
         self.shader_names.add(name)

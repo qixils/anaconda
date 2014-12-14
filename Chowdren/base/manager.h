@@ -69,9 +69,7 @@ public:
 
 inline FrameObject * get_instance(ObjectList & list)
 {
-    if (list.empty())
-        return NULL;
-    return list.back();
+    return list.back_obj;
 }
 
 inline FrameObject * get_instance(ObjectList & list, int index)
@@ -85,9 +83,9 @@ inline FrameObject * get_instance(ObjectList & list, int index)
 
 inline FrameObject * get_instance(ObjectList & list, FrameObject * def)
 {
-    if (list.empty())
+    if (list.back_obj == NULL)
         return def;
-    return list.back();
+    return list.back_obj;
 }
 
 inline FrameObject * get_instance(ObjectList & list, int index,

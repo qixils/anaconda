@@ -174,10 +174,6 @@ public:
     void set_score(int score);
     void set_display_center(int x = -1, int y = -1);
     void update_display_center();
-    int frame_left();
-    int frame_right();
-    int frame_top();
-    int frame_bottom();
     void set_background_color(const Color & color);
     void get_mouse_pos(int * x, int * y);
     int get_mouse_x();
@@ -196,6 +192,28 @@ public:
 
     virtual void set_index(int index) = 0;
     virtual void load_static_images();
+
+    // inline functions
+
+    int frame_left()
+    {
+        return new_off_x;
+    }
+
+    int frame_right()
+    {
+        return new_off_x + WINDOW_WIDTH;
+    }
+
+    int frame_top()
+    {
+        return new_off_y;
+    }
+
+    int frame_bottom()
+    {
+        return new_off_y + WINDOW_HEIGHT;
+    }
 
     void event_callback(int id)
     {

@@ -12,14 +12,24 @@ DISTRO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'MinGW'))
 MAKE_PATH = os.path.join(DISTRO_PATH, 'bin', 'make.exe')
 LIB_PATH = os.path.join(DISTRO_PATH, 'lib')
 
+BUILD_TYPES = {
+    0: 'win',
+    1: 'winsrc',
+    2: 'src'
+}
+
 class Arguments(object):
     def __init__(self, args):
         self.__dict__ = args
 
 class Builder(object):
-    def __init__(self, src, src_dir):
+    def __init__(self, build_type, src, target):
+        self.build_type = BUILD_TYPES[build_type]
         self.src = src
-        self.src_dir = os.path.abspath(src_dir)
+
+        if self.build_type == 'win':
+
+        self.target = os.path.abspath(src_dir)
         self.build_dir = os.path.join(self.src_dir, 'build')
 
     def run(self):
@@ -27,7 +37,9 @@ class Builder(object):
         self.set_environment()
         self.create_project()
         self.build_project()
-        self.run_project()
+        if self.build_type == 'src':
+            return
+        self.copy_project()
 
     def convert(self):
         args = {
@@ -68,6 +80,8 @@ class Builder(object):
         call([exe])
         os.chdir(cwd)
 
+    def copy_exec
+
     def set_environment(self):
         os.environ['X_DISTRO'] = 'nuwen'
         includes = (os.path.join(DISTRO_PATH, 'include'),
@@ -82,7 +96,7 @@ class Builder(object):
         os.environ['SDL2DIR'] = LIB_PATH
 
 def main():
-    builder = Builder(sys.argv[1], sys.argv[2])
+    builder = Builder(int(sys.argv[1]), sys.argv[2], sys.argv[3])
     builder.run()
 
 if __name__ == '__main__':

@@ -128,18 +128,29 @@ void INI::set_item(const std::string & name)
 
 inline std::string trim_spaces(const std::string & value)
 {
-    return boost::algorithm::trim_copy_if(value,
-                                          boost::algorithm::is_any_of(" "));
+    int i;
+    for (i = 0; i < int(value.size()); ++i) {
+        if (value[i] != ' ')
+            break;
+    }
+    return value.substr(i);
+}
+
+inline bool can_trim(const std::string & value)
+{
+    return !value.empty() && value[0] == ' ';
 }
 
 const std::string & INI::get_string_default(const std::string & group,
                                             const std::string & item,
                                             const std::string & def)
 {
-    SectionMap::const_iterator it = data->find(trim_spaces(group));
+    if (can_trim(group) || can_trim(item))
+        return get_string_default(trim_spaces(group), trim_spaces(item), def);
+    SectionMap::const_iterator it = data->find(group);
     if (it == data->end())
         return def;
-    OptionMap::const_iterator new_it = (*it).second.find(trim_spaces(item));
+    OptionMap::const_iterator new_it = (*it).second.find(item);
     if (new_it == (*it).second.end())
         return def;
     return (*new_it).second;
@@ -228,7 +239,7 @@ double INI::get_value(const std::string & group, const std::string & item,
     OptionMap::const_iterator new_it = (*it).second.find(item);
     if (new_it == (*it).second.end())
         return def;
-    return string_to_double((*new_it).second, def);
+    return string_to_double((*new_it).second);
 }
 
 double INI::get_value(const std::string & item, double def)
@@ -245,7 +256,7 @@ double INI::get_value_index(const std::string & group, unsigned int index)
     int current_index = 0;
     while (new_it != (*it).second.end()) {
         if (current_index == index)
-            return string_to_double((*new_it).second, 0.0);
+            return string_to_double((*new_it).second);
         ++new_it;
         current_index++;
     }
@@ -394,7 +405,8 @@ void INI::save_file(const std::string & fn, bool force)
         std::cout << "Could not save INI file: " << filename << std::endl;
         return;
     }
-    fp.write(&outs[0], outs.size());
+	if (!outs.empty())
+        fp.write(&outs[0], outs.size());
     fp.close();
 }
 

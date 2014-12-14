@@ -2,6 +2,7 @@ from chowdren.writers.objects import ObjectWriter
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
     ConditionMethodWriter, ExpressionMethodWriter, make_table)
+from chowdren.stringhash import get_string_int_map
 
 class ValueAdd(ObjectWriter):
     class_name = 'ValueAdd'
@@ -14,13 +15,10 @@ class ValueAdd(ObjectWriter):
     @staticmethod
     def write_application(converter):
         writer = converter.open_code('extra_keys.cpp')
-        writer.putmeth('int hash_extra_key', 'const std::string & value')
-        for key, value in hashed_keys.iteritems():
-            writer.putlnc('if (value.compare(0, %s, %r) == 0) return %s;',
-                          len(key), key, value, cpp=False)
-        writer.putln('return -1;')
-        writer.end_brace()
+        writer.putln(get_string_int_map('hash_extra_key', 'hash_extra_string',
+                                        hashed_keys, False))
         writer.close()
+        converter.add_define('CHOWDREN_VALUEADD_COUNT', len(hashed_keys))
 
 
 hashed_keys = {}

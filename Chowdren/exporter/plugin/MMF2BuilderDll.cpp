@@ -20,27 +20,29 @@
 #include <stdio.h>
 #include <string>
 
-#define BUILDER_ID 0x30000000
+#define BUILDER_ID 0x20000000
 
 LPCWSTR BUILD_NAMES[] = {
     L"Chowdren (Windows)",
-    L"Chowdren (Linux/Mac)"
+    L"Chowdren (Windows + Source)",
+    L"Chowdren (Source)"
 };
 
 LPCWSTR BUILD_FILTERS[] = {
     L"EXE (Windows)|*.exe|All files|*.*||",
-    L"ZIP (Mac OS X)|*.zip|All files|*.*||",
-    L"ZIP (Linux)|*.zip|All files|*.*||"
+    L"EXE (Windows)|*.exe|All files|*.*||",
+    L"ZIP (Source)|*.zip|All files|*.*||"
 };
 
 LPCWSTR SELECTOR_TITLES[] = {
     L"Save as Chowdren (Windows)",
-    L"Save as Chowdren (Linux/Mac)"
+    L"Save as Chowdren (Windows + Source)",
+    L"Save as Chowdren (Source)"
 };
 
 LPCWSTR DEFAULT_EXTENSIONS[] = {
     L".exe",
-    L".zip",
+    L".exe",
     L".zip"
 };
 
@@ -63,7 +65,7 @@ BOOL APIENTRY DllMain( HANDLE hModule,
 // Return the number of build types added by the dll
 int WINAPI GetNumberOfBuildTypes()
 {
-	return 1;
+	return 3;
 }
 
 // Return the name of a given build type
@@ -136,7 +138,7 @@ BOOL WINAPI Build (LPCWSTR pTargetPathname, LPCWSTR pCCNPathname, int idx, DWORD
     wchar_t directory[MAX_PATH];
     swprintf(directory, L"%s%s", tempdirectory, L"\\Data\\Runtime\\Chowdren\\");
     wchar_t exe_path[MAX_PATH];
-    swprintf(exe_path, L"%s%s", directory, L"make.exe");
+    swprintf(exe_path, L"%s%s", directory, L"run.exe");
     // setting error mode to prevent "no disk" errors
     unsigned int error_mode = SetErrorMode(SEM_NOOPENFILEERRORBOX | SEM_FAILCRITICALERRORS);
     bool status = CreateProcessW(exe_path, commandline, 0, 0, FALSE,

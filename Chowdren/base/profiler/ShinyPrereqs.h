@@ -81,7 +81,7 @@ extern "C" {
 /*---------------------------------------------------------------------------*/
 
 #if SHINY_COMPILER == SHINY_COMPILER_GNUC
-#include <sys/types.h>
+// #include <sys/types.h>
 #include <stdint.h>
 #endif
 

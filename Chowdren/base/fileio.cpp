@@ -192,7 +192,8 @@ bool read_file(const char * filename, std::string & dst, bool binary)
         dst.resize(size);
     else
         dst.resize(size + 1);
-    fp.read(&dst[0], size);
+    if (size > 0)
+        fp.read(&dst[0], size);
     fp.close();
     if (!binary)
         dst[size] = 0;

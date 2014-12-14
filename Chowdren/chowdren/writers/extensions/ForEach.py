@@ -22,13 +22,21 @@ class StartForObject(ActionWriter):
         obj = (obj_param.objectInfo, obj_param.objectType)
         obj = self.converter.filter_object_type(obj)
         object_class = self.converter.get_object_class(obj[1])
+        foreach = self.converter.get_object_writer(self.get_object())
+        loop_names = foreach.loop_names
         name = None
         try:
             exp, = self.parameters[0].loader.items[:-1]
             real_name = exp.loader.value
+            if real_name not in loop_names:
+                print 'invalid foreach loop:', real_name, loop_names
+                writer.end_brace()
+                return
             name = get_method_name(real_name)
-            func_call = 'foreach_%s(' % name
+            func_call = 'foreach_%s_%d(' % (name,
+                                            self.converter.current_frame_index)
         except ValueError:
+            raise NotImplementedError()
             writer.putln('std::string name = %s;' % eval_name)
             func_call = 'call_dynamic_foreach(name, '
             object_class = 'FrameObject*'
@@ -81,6 +89,7 @@ class ForEach(ObjectWriter):
         for real_name, groups in loops.iteritems():
             obj = loop_objects[real_name]
             name = get_method_name(real_name)
+            name = '%s_%s' % (name, self.converter.current_frame_index)
             object_class = self.converter.get_object_class(obj[1])
             writer.putmeth('bool foreach_%s' % name, 'FrameObject * selected')
             for group in groups:
@@ -89,15 +98,19 @@ class ForEach(ObjectWriter):
             writer.putln('return true;')
             writer.end_brace()
 
-        writer.putmeth('bool call_dynamic_foreach', 'const std::string & name',
-            'FrameObject * selected')
-        for name in loops.keys():
-            obj = loop_objects[name]
-            object_class = self.converter.get_object_class(obj[1])
-            writer.putlnc('if (name == %r) return foreach_%s((%s)selected);',
-                          name, get_method_name(name), object_class)
-        writer.putln('return false;')
-        writer.end_brace()
+        # writer.putmeth('bool call_dynamic_foreach', 'const std::string & name',
+        #     'FrameObject * selected')
+        # for real_name in loops.keys():
+        #     obj = loop_objects[real_name]
+        #     name = get_method_name(real_name)
+        #     name = '%s_%s' % (name, self.converter.current_frame_index)
+        #     object_class = self.converter.get_object_class(obj[1])
+        #     writer.putlnc('if (name == %r) return foreach_%s((%s)selected);',
+        #                   real_name, name, object_class)
+        # writer.putln('return false;')
+        # writer.end_brace()
+
+        self.loop_names = set(loops.iterkeys())
 
 class GetForeachFixed(ExpressionMethodWriter):
     def get_string(self):

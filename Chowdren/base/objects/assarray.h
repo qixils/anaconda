@@ -18,6 +18,10 @@ public:
     }
 };
 
+// #include <boost/container/flat_map.hpp>
+// typedef boost::container::flat_map<std::string, AssociateArrayItem> ArrayMap;
+
+//// XXX is this faster?
 typedef hash_map<std::string, AssociateArrayItem> ArrayMap;
 
 class ArrayAddress
@@ -47,6 +51,8 @@ public:
     ArrayMap * map;
     static ArrayMap global_map;
 
+    AssociateArrayItem * store[CHOWDREN_ASSARRAY_STORE];
+
     AssociateArray(int x, int y, int type_id);
     ~AssociateArray();
     void load_encrypted(const std::string & filename, int method);
@@ -70,6 +76,16 @@ public:
     void save(BaseStream & stream, int method);
     void save(const std::string & filename, int method);
     void save_encrypted(const std::string & filename, int method);
+
+    // set/get with store
+    int get_value(int store, const std::string & key);
+    void set_value(int store, const std::string & key, int value);
+    void add_value(int store, const std::string & key, int value);
+    void sub_value(int store, const std::string & key, int value);
+    const std::string & get_string(int store, const std::string & key);
+    void set_string(int store, const std::string & key,
+                    const std::string & value);
+    bool has_key(int store, const std::string & key);
 };
 
 #endif // CHOWDREN_ASSARRAY_H

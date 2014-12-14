@@ -80,7 +80,6 @@ public:
     void flash(float value);
     std::string get_line(int index);
     int get_line_count();
-    const std::string & get_text();
     std::string get_map_char(int index);
     void replace_color(int from, int to);
     void set_transparent_color(int color);
@@ -88,6 +87,11 @@ public:
     void set_animation_type(int value);
     void set_charmap(const std::string & charmap);
     const std::string & get_charmap();
+
+    const std::string & get_text()
+    {
+        return text;
+    }
 };
 
 extern FrameObject * default_blitter_instance;

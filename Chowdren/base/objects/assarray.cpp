@@ -7,7 +7,7 @@
 #define ARRAY_MAGIC "ASSBF1.0"
 
 AssociateArray::AssociateArray(int x, int y, int type_id)
-: FrameObject(x, y, type_id)
+: FrameObject(x, y, type_id), store()
 {
 }
 
@@ -139,6 +139,8 @@ const std::string & AssociateArray::get_string(const std::string & key)
 
 void AssociateArray::clear()
 {
+    for (int i = 0; i < CHOWDREN_ASSARRAY_STORE; ++i)
+        store[i] = NULL;
     map->clear();
 }
 
@@ -166,7 +168,17 @@ int AssociateArray::count_prefix(const std::string & key)
 
 void AssociateArray::remove_key(const std::string & key)
 {
-    map->erase(key);
+    ArrayMap::iterator it = map->find(key);
+    if (it == map->end())
+        return;
+    AssociateArrayItem * search = &it->second;
+    for (int i = 0; i < CHOWDREN_ASSARRAY_STORE; i++) {
+        if (store[i] != search)
+            continue;
+        store[i] = NULL;
+        break;
+    }
+    map->erase(it);
 }
 
 ArrayAddress AssociateArray::get_first()
@@ -254,6 +266,85 @@ void AssociateArray::save_encrypted(const std::string & path, int method)
     FSFile fp(path.c_str(), "w");
     fp.write(&dst[0], dst.size());
     fp.close();
+}
+
+// set/get with store
+
+void AssociateArray::set_value(int index, const std::string & key, int value)
+{
+    AssociateArrayItem * item = store[index];
+    if (item == NULL) {
+        item = &((*map)[key]);
+        store[index] = item;
+    }
+    item->value = value;
+}
+
+void AssociateArray::add_value(int index, const std::string & key, int value)
+{
+    AssociateArrayItem * item = store[index];
+    if (item == NULL) {
+        item = &((*map)[key]);
+        store[index] = item;
+    }
+    item->value += value;
+}
+
+void AssociateArray::sub_value(int index, const std::string & key, int value)
+{
+    AssociateArrayItem * item = store[index];
+    if (item == NULL) {
+        item = &((*map)[key]);
+        store[index] = item;
+    }
+    item->value -= value;
+}
+
+void AssociateArray::set_string(int index, const std::string & key,
+                                const std::string & value)
+{
+    AssociateArrayItem * item = store[index];
+    if (item == NULL) {
+        item = &((*map)[key]);
+        store[index] = item;
+    }
+    item->string = value;
+}
+
+int AssociateArray::get_value(int index, const std::string & key)
+{
+    AssociateArrayItem * item = store[index];
+    if (item != NULL)
+        return item->value;
+    ArrayMap::iterator it = map->find(key);
+    if (it == map->end())
+        return 0;
+    store[index] = &it->second;
+    return it->second.value;
+}
+
+const std::string & AssociateArray::get_string(int index,
+                                               const std::string & key)
+{
+    AssociateArrayItem * item = store[index];
+    if (item != NULL)
+        return item->string;
+    ArrayMap::iterator it = map->find(key);
+    if (it == map->end())
+        return empty_string;
+    store[index] = &it->second;
+    return it->second.string;
+}
+
+bool AssociateArray::has_key(int index, const std::string & key)
+{
+    if (store[index] != NULL)
+        return true;
+    ArrayMap::iterator it = map->find(key);
+    if (it == map->end())
+        return false;
+    store[index] = &it->second;
+    return true;
 }
 
 ArrayMap AssociateArray::global_map;

@@ -26,6 +26,7 @@ THE SOFTWARE.
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #if SHINY_IS_COMPILED == TRUE
 
@@ -425,7 +426,8 @@ void ShinyManager_outputToStream(ShinyManager *self, FILE *a_stream) {
 #endif
 }
 
-void ShinyManager_outputToFile(ShinyManager *self, FSFile * a_stream) {
+void ShinyManager_outputToFile(ShinyManager *self, void * in_stream) {
+	FSFile * a_stream = (FSFile*)in_stream;
 	const char *error = ShinyManager_getOutputErrorString(self);
 
 	if (error) {

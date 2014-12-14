@@ -1,4 +1,5 @@
 #include "objects/stringtokenizer.h"
+#include "stringcommon.h"
 
 // StringTokenizer
 

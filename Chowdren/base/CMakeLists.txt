@@ -88,6 +88,7 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/fpslimit.cpp
     ${CHOWDREN_BASE_DIR}/broadphase.cpp
     ${CHOWDREN_BASE_DIR}/profiler.cpp
+    ${CHOWDREN_BASE_DIR}/stringcommon.cpp
     ${PLATFORM_SRCS}
     ${FRAMESRCS}
     ${EVENTSRCS}

@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include "ShinyNode.h"
 #include "ShinyZone.h"
 
+#include <stdlib.h>
 
 #if SHINY_IS_COMPILED == TRUE
 

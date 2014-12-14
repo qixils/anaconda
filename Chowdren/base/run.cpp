@@ -79,7 +79,7 @@ void GameManager::init()
 #if defined(CHOWDREN_IS_AVGN)
     set_frame(0);
 #elif defined(CHOWDREN_IS_HFA)
-    set_frame(0);
+    set_frame(60);
 #elif defined(CHOWDREN_IS_FP)
     set_frame(20);
 #else
@@ -232,6 +232,7 @@ void GameManager::draw()
 {
     if (!window_created)
         return;
+
     int window_width, window_height;
     platform_get_size(&window_width, &window_height);
     if (window_width <= 0 || window_height <= 0)
@@ -420,7 +421,7 @@ static void print_instance_stats()
 
 bool GameManager::update()
 {
-#ifndef NDEBUG
+// #ifndef NDEBUG
     bool show_stats = false;
     static int measure_time = 0;
     measure_time -= 1;
@@ -428,7 +429,7 @@ bool GameManager::update()
         measure_time = 200;
         show_stats = true;
     }
-#endif
+// #endif
 
     // update input
     keyboard.update();
@@ -444,11 +445,11 @@ bool GameManager::update()
     // update mouse position
     platform_get_mouse_pos(&mouse_x, &mouse_y);
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
     if (show_stats)
         std::cout << "Framerate: " << fps_limit.current_framerate
             << std::endl;
-#endif
+// #endif
 
     if (platform_has_error()) {
         if (platform_display_closed())
@@ -458,11 +459,11 @@ bool GameManager::update()
 
         int ret = update_frame();
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
         if (show_stats)
             std::cout << "Event update took " <<
                 platform_get_time() - event_update_time << std::endl;
-#endif
+// #endif
 
         if (ret == 0)
             return false;
@@ -477,14 +478,14 @@ bool GameManager::update()
 
     draw();
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
     if (show_stats) {
         std::cout << "Draw took " << platform_get_time() - draw_time
             << std::endl;
-        print_instance_stats();
+        // print_instance_stats();
         platform_print_stats();
     }
-#endif
+// #endif
 
     fps_limit.finish();
 
@@ -494,7 +495,7 @@ bool GameManager::update()
     if (profile_time <= 0) {
         profile_time += 500;
         PROFILE_UPDATE();
-        PROFILE_OUTPUT("./profile.txt");
+        PROFILE_OUTPUT("data:/profile.txt");
     }
 #endif
 

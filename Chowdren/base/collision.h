@@ -122,6 +122,7 @@ public:
 
     void update_proxy()
     {
+        instance->flags &= ~(HAS_COLLISION_CACHE | HAS_COLLISION);
         if (proxy == -1)
             return;
         instance->layer->broadphase.move(proxy, aabb);

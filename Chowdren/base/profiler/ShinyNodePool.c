@@ -25,6 +25,8 @@ THE SOFTWARE.
 #include "ShinyNodePool.h"
 #include "ShinyTools.h"
 
+#include <stdlib.h>
+
 #if SHINY_IS_COMPILED == TRUE
 
 

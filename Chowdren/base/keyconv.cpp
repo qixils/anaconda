@@ -133,122 +133,313 @@ int translate_vk_to_key(int vk)
     return -1;
 }
 
-int translate_string_to_key(const std::string & in_name)
+inline unsigned int
+get_key_string_hash (register const char *str, register unsigned int len)
 {
-    std::string name = in_name;
-    to_lower(name);
-    if (name.compare(0, 10, "mouse left") == 0) return SDL_BUTTON_LEFT;
-    if (name.compare(0, 11, "mouse right") == 0) return SDL_BUTTON_RIGHT;
-    if (name.compare(0, 12, "mouse middle") == 0) return SDL_BUTTON_MIDDLE;
-    if (name.compare(0, 8, "mouse x1") == 0) return SDL_BUTTON_X1;
-    if (name.compare(0, 8, "mouse x2") == 0) return SDL_BUTTON_X2;
-    if (name.compare(0, 9, "backspace") == 0) return SDLK_BACKSPACE;
-    if (name.compare(0, 3, "tab") == 0) return SDLK_TAB;
-    if (name.compare(0, 5, "clear") == 0) return SDLK_CLEAR;
-    if (name.compare(0, 6, "return") == 0) return SDLK_RETURN;
-    if (name.compare(0, 5, "shift") == 0) return SDLK_LSHIFT;
-    if (name.compare(0, 7, "control") == 0) return SDLK_LCTRL;
-    if (name.compare(0, 3, "alt") == 0) return SDLK_RALT;
-    if (name.compare(0, 5, "break") == 0) return SDLK_PAUSE;
-    if (name.compare(0, 8, "capslock") == 0) return SDLK_CAPSLOCK;
-    if (name.compare(0, 6, "escape") == 0) return SDLK_ESCAPE;
-    if (name.compare(0, 5, "space") == 0) return SDLK_SPACE;
-    if (name.compare(0, 7, "page up") == 0) return SDLK_PAGEUP;
-    if (name.compare(0, 9, "page down") == 0) return SDLK_PAGEDOWN;
-    if (name.compare(0, 3, "end") == 0) return SDLK_END;
-    if (name.compare(0, 4, "home") == 0) return SDLK_HOME;
-    if (name.compare(0, 4, "left") == 0) return SDLK_LEFT;
-    if (name.compare(0, 2, "up") == 0) return SDLK_UP;
-    if (name.compare(0, 5, "right") == 0) return SDLK_RIGHT;
-    if (name.compare(0, 4, "down") == 0) return SDLK_DOWN;
-    if (name.compare(0, 6, "insert") == 0) return SDLK_INSERT;
-    if (name.compare(0, 6, "delete") == 0) return SDLK_DELETE;
-    if (name.compare(0, 1, "0") == 0) return SDLK_0;
-    if (name.compare(0, 1, "1") == 0) return SDLK_1;
-    if (name.compare(0, 1, "2") == 0) return SDLK_2;
-    if (name.compare(0, 1, "3") == 0) return SDLK_3;
-    if (name.compare(0, 1, "4") == 0) return SDLK_4;
-    if (name.compare(0, 1, "5") == 0) return SDLK_5;
-    if (name.compare(0, 1, "6") == 0) return SDLK_6;
-    if (name.compare(0, 1, "7") == 0) return SDLK_7;
-    if (name.compare(0, 1, "8") == 0) return SDLK_8;
-    if (name.compare(0, 1, "9") == 0) return SDLK_9;
-    if (name.compare(0, 1, "a") == 0) return SDLK_a;
-    if (name.compare(0, 1, "b") == 0) return SDLK_b;
-    if (name.compare(0, 1, "c") == 0) return SDLK_c;
-    if (name.compare(0, 1, "d") == 0) return SDLK_d;
-    if (name.compare(0, 1, "e") == 0) return SDLK_e;
-    if (name.compare(0, 1, "f") == 0) return SDLK_f;
-    if (name.compare(0, 1, "g") == 0) return SDLK_g;
-    if (name.compare(0, 1, "h") == 0) return SDLK_h;
-    if (name.compare(0, 1, "i") == 0) return SDLK_i;
-    if (name.compare(0, 1, "j") == 0) return SDLK_j;
-    if (name.compare(0, 1, "k") == 0) return SDLK_k;
-    if (name.compare(0, 1, "l") == 0) return SDLK_l;
-    if (name.compare(0, 1, "m") == 0) return SDLK_m;
-    if (name.compare(0, 1, "n") == 0) return SDLK_n;
-    if (name.compare(0, 1, "o") == 0) return SDLK_o;
-    if (name.compare(0, 1, "p") == 0) return SDLK_p;
-    if (name.compare(0, 1, "q") == 0) return SDLK_q;
-    if (name.compare(0, 1, "r") == 0) return SDLK_r;
-    if (name.compare(0, 1, "s") == 0) return SDLK_s;
-    if (name.compare(0, 1, "t") == 0) return SDLK_t;
-    if (name.compare(0, 1, "u") == 0) return SDLK_u;
-    if (name.compare(0, 1, "v") == 0) return SDLK_v;
-    if (name.compare(0, 1, "w") == 0) return SDLK_w;
-    if (name.compare(0, 1, "x") == 0) return SDLK_x;
-    if (name.compare(0, 1, "y") == 0) return SDLK_y;
-    if (name.compare(0, 1, "z") == 0) return SDLK_z;
-    if (name.compare(0, 11, "left window") == 0) return SDLK_LGUI;
-    if (name.compare(0, 12, "right window") == 0) return SDLK_RGUI;
-    if (name.compare(0, 4, "menu") == 0) return SDLK_MENU;
-    if (name.compare(0, 9, "0 numeric") == 0) return SDLK_KP_0;
-    if (name.compare(0, 9, "1 numeric") == 0) return SDLK_KP_1;
-    if (name.compare(0, 9, "2 numeric") == 0) return SDLK_KP_2;
-    if (name.compare(0, 9, "3 numeric") == 0) return SDLK_KP_3;
-    if (name.compare(0, 9, "4 numeric") == 0) return SDLK_KP_4;
-    if (name.compare(0, 9, "5 numeric") == 0) return SDLK_KP_5;
-    if (name.compare(0, 9, "6 numeric") == 0) return SDLK_KP_6;
-    if (name.compare(0, 9, "7 numeric") == 0) return SDLK_KP_7;
-    if (name.compare(0, 9, "8 numeric") == 0) return SDLK_KP_8;
-    if (name.compare(0, 9, "9 numeric") == 0) return SDLK_KP_9;
-    if (name.compare(0, 1, "*") == 0) return SDLK_KP_MULTIPLY;
-    if (name.compare(0, 1, "+") == 0) return SDLK_KP_PLUS;
-    if (name.compare(0, 1, "-") == 0) return SDLK_KP_MINUS;
-    if (name.compare(0, 7, "decimal") == 0) return SDLK_KP_DECIMAL;
-    if (name.compare(0, 1, "/") == 0) return SDLK_KP_DIVIDE;
-    if (name.compare(0, 2, "f1") == 0) return SDLK_F1;
-    if (name.compare(0, 2, "f2") == 0) return SDLK_F2;
-    if (name.compare(0, 2, "f3") == 0) return SDLK_F3;
-    if (name.compare(0, 2, "f4") == 0) return SDLK_F4;
-    if (name.compare(0, 2, "f5") == 0) return SDLK_F5;
-    if (name.compare(0, 2, "f6") == 0) return SDLK_F6;
-    if (name.compare(0, 2, "f7") == 0) return SDLK_F7;
-    if (name.compare(0, 2, "f8") == 0) return SDLK_F8;
-    if (name.compare(0, 2, "f9") == 0) return SDLK_F9;
-    if (name.compare(0, 3, "f10") == 0) return SDLK_F10;
-    if (name.compare(0, 3, "f11") == 0) return SDLK_F11;
-    if (name.compare(0, 3, "f12") == 0) return SDLK_F12;
-    if (name.compare(0, 3, "f13") == 0) return SDLK_F13;
-    if (name.compare(0, 3, "f14") == 0) return SDLK_F14;
-    if (name.compare(0, 3, "f15") == 0) return SDLK_F15;
-    if (name.compare(0, 3, "f16") == 0) return SDLK_F16;
-    if (name.compare(0, 3, "f17") == 0) return SDLK_F17;
-    if (name.compare(0, 3, "f18") == 0) return SDLK_F18;
-    if (name.compare(0, 3, "f19") == 0) return SDLK_F19;
-    if (name.compare(0, 3, "f20") == 0) return SDLK_F20;
-    if (name.compare(0, 3, "f21") == 0) return SDLK_F21;
-    if (name.compare(0, 3, "f22") == 0) return SDLK_F22;
-    if (name.compare(0, 3, "f23") == 0) return SDLK_F23;
-    if (name.compare(0, 3, "f24") == 0) return SDLK_F24;
-    if (name.compare(0, 7, "numlock") == 0) return SDLK_NUMLOCKCLEAR;
-    if (name.compare(0, 9, "scrollock") == 0) return SDLK_SCROLLLOCK;
-    if (name.compare(0, 10, "shift left") == 0) return SDLK_LSHIFT;
-    if (name.compare(0, 11, "shift right") == 0) return SDLK_RSHIFT;
-    if (name.compare(0, 12, "control left") == 0) return SDLK_LCTRL;
-    if (name.compare(0, 13, "control right") == 0) return SDLK_RCTRL;
-    if (name.compare(0, 8, "alt left") == 0) return SDLK_LALT;
-    if (name.compare(0, 9, "alt right") == 0) return SDLK_RALT;
+  static unsigned char asso_values[] =
+    {
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255,   0, 255, 255, 255,
+      255, 255, 112, 107, 255, 102, 255,  97,  27,  25,
+       15,  75,  50,   5,   0,   7, 125, 120,   0,   0,
+        5,   0, 255, 255, 255, 100,  17,  40,  70,  60,
+       10,  37,  42,  80,  92,  32,  45,  30,  95,  87,
+       90,  82,  65,  20,  35, 115,  62,  85,  77,   2,
+       72, 255, 255, 255, 255, 255, 255, 100,  17,  40,
+       70,  60,  10,  37,  42,  80,  92,  32,  45,  30,
+       95,  87,  90,  82,  65,  20,  35, 115,  62,  85,
+       77,   2,  72, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255
+    };
+  register int hval = len;
+
+  switch (hval)
+    {
+      default:
+        hval += asso_values[(unsigned char)str[1]+4];
+      /*FALLTHROUGH*/
+      case 1:
+        hval += asso_values[(unsigned char)str[0]];
+        break;
+    }
+  return hval + asso_values[(unsigned char)str[len - 1]];
+}
+
+
+int translate_string_to_key(const std::string & in)
+{
+    unsigned int hash = get_key_string_hash(&in[0], in.size());
+    switch (hash) {
+        case 0: return -1;
+        case 1: return SDLK_6;
+        case 2: return -1;
+        case 3: return -1;
+        case 4: return -1;
+        case 5: return SDLK_y;
+        case 6: return -1;
+        case 7: return -1;
+        case 8: return -1;
+        case 9: return -1;
+        case 10: return -1;
+        case 11: return SDLK_5;
+        case 12: return SDLK_F6;
+        case 13: return -1;
+        case 14: return -1;
+        case 15: return SDLK_7;
+        case 16: return -1;
+        case 17: return -1;
+        case 18: return SDLK_F16;
+        case 19: return SDLK_F7;
+        case 20: return -1;
+        case 21: return SDLK_f;
+        case 22: return -1;
+        case 23: return SDLK_F15;
+        case 24: return -1;
+        case 25: return SDLK_F17;
+        case 26: return -1;
+        case 27: return SDLK_F2;
+        case 28: return SDLK_F22;
+        case 29: return -1;
+        case 30: return -1;
+        case 31: return SDLK_2;
+        case 32: return -1;
+        case 33: return SDLK_F12;
+        case 34: return -1;
+        case 35: return SDLK_b;
+        case 36: return -1;
+        case 37: return -1;
+        case 38: return SDLK_F21;
+        case 39: return -1;
+        case 40: return SDLK_F20;
+        case 41: return SDLK_s;
+        case 42: return SDLK_F1;
+        case 43: return SDLK_F11;
+        case 44: return -1;
+        case 45: return SDLK_F10;
+        case 46: return -1;
+        case 47: return -1;
+        case 48: return -1;
+        case 49: return SDLK_KP_6;
+        case 50: return -1;
+        case 51: return SDLK_1;
+        case 52: return -1;
+        case 53: return -1;
+        case 54: return SDLK_KP_5;
+        case 55: return SDLK_0;
+        case 56: return SDLK_KP_7;
+        case 57: return -1;
+        case 58: return -1;
+        case 59: return -1;
+        case 60: return -1;
+        case 61: return SDLK_m;
+        case 62: return -1;
+        case 63: return SDLK_F24;
+        case 64: return SDLK_KP_2;
+        case 65: return SDLK_k;
+        case 66: return -1;
+        case 67: return -1;
+        case 68: return SDLK_F14;
+        case 69: return -1;
+        case 70: return -1;
+        case 71: return SDLK_t;
+        case 72: return -1;
+        case 73: return SDL_BUTTON_X2;
+        case 74: return SDLK_KP_1;
+        case 75: return SDLK_g;
+        case 76: return SDLK_KP_0;
+        case 77: return -1;
+        case 78: return -1;
+        case 79: return -1;
+        case 80: return -1;
+        case 81: return SDLK_c;
+        case 82: return -1;
+        case 83: return SDL_BUTTON_X1;
+        case 84: return -1;
+        case 85: return SDLK_h;
+        case 86: return -1;
+        case 87: return -1;
+        case 88: return SDLK_F23;
+        case 89: return -1;
+        case 90: return -1;
+        case 91: return SDLK_l;
+        case 92: return -1;
+        case 93: return SDLK_F13;
+        case 94: return SDLK_F3;
+        case 95: return SDL_BUTTON_LEFT;
+        case 96: return SDL_BUTTON_RIGHT;
+        case 97: return -1;
+        case 98: return SDLK_SCROLLLOCK;
+        case 99: return SDLK_KP_4;
+        case 100: return -1;
+        case 101: return SDLK_4;
+        case 102: return -1;
+        case 103: return -1;
+        case 104: return -1;
+        case 105: return SDLK_LSHIFT;
+        case 106: return -1;
+        case 107: return SDLK_LCTRL;
+        case 108: return SDLK_RCTRL;
+        case 109: return -1;
+        case 110: return SDLK_LSHIFT;
+        case 111: return SDLK_RSHIFT;
+        case 112: return SDLK_LCTRL;
+        case 113: return -1;
+        case 114: return -1;
+        case 115: return SDLK_TAB;
+        case 116: return SDLK_PAUSE;
+        case 117: return -1;
+        case 118: return -1;
+        case 119: return -1;
+        case 120: return SDLK_SPACE;
+        case 121: return SDLK_e;
+        case 122: return SDL_BUTTON_MIDDLE;
+        case 123: return -1;
+        case 124: return SDLK_KP_3;
+        case 125: return SDLK_v;
+        case 126: return SDLK_HOME;
+        case 127: return -1;
+        case 128: return -1;
+        case 129: return -1;
+        case 130: return -1;
+        case 131: return SDLK_r;
+        case 132: return SDLK_F9;
+        case 133: return -1;
+        case 134: return -1;
+        case 135: return SDLK_RIGHT;
+        case 136: return SDLK_NUMLOCKCLEAR;
+        case 137: return SDLK_F5;
+        case 138: return SDLK_F19;
+        case 139: return -1;
+        case 140: return SDLK_CAPSLOCK;
+        case 141: return SDLK_d;
+        case 142: return SDLK_F8;
+        case 143: return SDLK_F18;
+        case 144: return -1;
+        case 145: return SDLK_z;
+        case 146: return SDLK_BACKSPACE;
+        case 147: return -1;
+        case 148: return -1;
+        case 149: return -1;
+        case 150: return -1;
+        case 151: return SDLK_3;
+        case 152: return -1;
+        case 153: return -1;
+        case 154: return -1;
+        case 155: return SDLK_x;
+        case 156: return -1;
+        case 157: return -1;
+        case 158: return -1;
+        case 159: return -1;
+        case 160: return -1;
+        case 161: return SDLK_i;
+        case 162: return -1;
+        case 163: return -1;
+        case 164: return SDLK_LEFT;
+        case 165: return SDLK_q;
+        case 166: return -1;
+        case 167: return -1;
+        case 168: return -1;
+        case 169: return SDLK_KP_9;
+        case 170: return -1;
+        case 171: return SDLK_w;
+        case 172: return -1;
+        case 173: return -1;
+        case 174: return SDLK_KP_8;
+        case 175: return SDLK_o;
+        case 176: return -1;
+        case 177: return -1;
+        case 178: return -1;
+        case 179: return -1;
+        case 180: return -1;
+        case 181: return SDLK_p;
+        case 182: return -1;
+        case 183: return -1;
+        case 184: return -1;
+        case 185: return SDLK_j;
+        case 186: return SDLK_INSERT;
+        case 187: return SDLK_F4;
+        case 188: return -1;
+        case 189: return SDLK_DOWN;
+        case 190: return -1;
+        case 191: return SDLK_n;
+        case 192: return SDLK_RGUI;
+        case 193: return -1;
+        case 194: return -1;
+        case 195: return SDLK_KP_DIVIDE;
+        case 196: return -1;
+        case 197: return -1;
+        case 198: return SDLK_END;
+        case 199: return -1;
+        case 200: return SDLK_CLEAR;
+        case 201: return SDLK_a;
+        case 202: return SDLK_KP_DECIMAL;
+        case 203: return -1;
+        case 204: return -1;
+        case 205: return SDLK_KP_MINUS;
+        case 206: return -1;
+        case 207: return -1;
+        case 208: return -1;
+        case 209: return -1;
+        case 210: return -1;
+        case 211: return SDLK_ESCAPE;
+        case 212: return -1;
+        case 213: return -1;
+        case 214: return -1;
+        case 215: return SDLK_KP_PLUS;
+        case 216: return SDLK_DELETE;
+        case 217: return -1;
+        case 218: return -1;
+        case 219: return -1;
+        case 220: return -1;
+        case 221: return SDLK_LGUI;
+        case 222: return -1;
+        case 223: return -1;
+        case 224: return -1;
+        case 225: return SDLK_KP_MULTIPLY;
+        case 226: return -1;
+        case 227: return -1;
+        case 228: return SDLK_RALT;
+        case 229: return SDLK_MENU;
+        case 230: return -1;
+        case 231: return SDLK_u;
+        case 232: return -1;
+        case 233: return SDLK_LALT;
+        case 234: return SDLK_RALT;
+        case 235: return -1;
+        case 236: return -1;
+        case 237: return -1;
+        case 238: return -1;
+        case 239: return -1;
+        case 240: return -1;
+        case 241: return SDLK_9;
+        case 242: return SDLK_UP;
+        case 243: return -1;
+        case 244: return -1;
+        case 245: return -1;
+        case 246: return SDLK_RETURN;
+        case 247: return SDLK_PAGEUP;
+        case 248: return -1;
+        case 249: return -1;
+        case 250: return -1;
+        case 251: return SDLK_8;
+        case 252: return -1;
+        case 253: return -1;
+        case 254: return SDLK_PAGEDOWN;
+    }
     return -1;
 }
 

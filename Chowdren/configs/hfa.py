@@ -1,3 +1,9 @@
+# turn off debug stuff in HFA
+deactivate_containers = [
+    'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE',
+    'DEBUG -- turn off!'
+]
+
 def init(converter):
     converter.add_define('CHOWDREN_QUICK_SCALE')
     converter.add_define('CHOWDREN_STARTUP_WINDOW')
@@ -9,6 +15,7 @@ def init(converter):
     converter.add_define('CHOWDREN_VSYNC')
     converter.add_define('CHOWDREN_IS_HFA')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
+    converter.add_define('CHOWDREN_DISABLE_DISPLAY0_EXT')
 
     # hack to turn on high-resolution lighting system images
     values = converter.game.globalValues.items
@@ -17,11 +24,12 @@ def init(converter):
     values[195] = 1 # lights min resolution
     values[196] = 1 # force small images off
 
-# turn off debug stuff in HFA
-deactivate_containers = [
-    'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE',
-    'DEBUG -- turn off!'
-]
+    if converter.platform_name == '3ds':
+        deactivate_containers.extend([
+            'Dynamic Lighting System (no qualifiers) hwa',
+            'New Lights',
+            'Enemies'
+        ])
 
 def init_container(converter, container):
     for name in deactivate_containers:
@@ -99,11 +107,11 @@ def get_fonts(converter):
 def get_frames(converter, game, frames):
     new_frames = {}
     if game.index == 0:
-        indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-                   31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-                   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-                   63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
-        # indexes = (0, 4, 25)
+        # indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        #            31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        #            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+        #            63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
+        indexes = (60,)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6, 7)
     for index in indexes:

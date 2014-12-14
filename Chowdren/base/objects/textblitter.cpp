@@ -222,11 +222,6 @@ void TextBlitter::update_lines()
     }
 }
 
-const std::string & TextBlitter::get_text()
-{
-    return text;
-}
-
 
 int TextBlitter::get_line_count()
 {

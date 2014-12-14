@@ -193,10 +193,8 @@ SHINY_INLINE void ShinyManager_sortZones(ShinyManager *self) {
 
 SHINY_API const char* ShinyManager_getOutputErrorString(ShinyManager *self);
 
-class FSFile;
-
 SHINY_API int ShinyManager_output(ShinyManager *self, const char *a_filename);
-SHINY_API void ShinyManager_outputToFile(ShinyManager *self, FSFile *stream);
+SHINY_API void ShinyManager_outputToFile(ShinyManager *self, void *stream);
 SHINY_API void ShinyManager_outputToStream(ShinyManager *self, FILE *stream);
 
 

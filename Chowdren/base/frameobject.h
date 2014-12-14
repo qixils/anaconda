@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <boost/intrusive/list.hpp>
 #include "pool.h"
+#include "stringcommon.h"
 
 class InstanceCollision;
 class Shader;
@@ -69,7 +70,9 @@ enum ObjectFlags
     FADEOUT = (1 << 3),
     BACKGROUND = (1 << 4),
     GLOBAL = (1 << 5),
-    INACTIVE = (1 << 6)
+    INACTIVE = (1 << 6),
+    HAS_COLLISION_CACHE = (1 << 7),
+    HAS_COLLISION = (1 << 8)
 };
 
 enum AnimationIndex
@@ -100,46 +103,80 @@ class ExtraAlterables
 {
 public:
     int & flags;
-    hash_map<int, double> values;
-    hash_map<int, std::string> strings;
+    vector<double> values;
+    vector<std::string> strings;
+    unsigned char value_offsets[CHOWDREN_VALUEADD_COUNT];
+    unsigned char string_offsets[CHOWDREN_VALUEADD_COUNT];
 
     ExtraAlterables(int & flags)
-    : flags(flags)
+    : flags(flags), value_offsets(), string_offsets()
     {
     }
 
     double get_value(int key)
     {
-        return values[key];
+        int offset = value_offsets[key];
+        if (offset == 0)
+            return 0.0;
+        return values[offset - 1];
     }
 
     double get_value(const std::string & key)
     {
-        return get_value(hash_extra_key(key));
+        int hash = hash_extra_key(key);
+#ifndef NDEBUG
+        if (hash == -1) {
+            std::cout << "Invalid value key: " << key;
+            return 0.0;
+        }
+#endif
+        return get_value(hash);
     }
 
     const std::string & get_string(int key)
     {
-        return strings[key];
+        int offset = string_offsets[key];
+        if (offset == 0)
+            return empty_string;
+        return strings[offset - 1];
     }
 
     const std::string & get_string(const std::string & key)
     {
-        return get_string(hash_extra_key(key));
+        int hash = hash_extra_key(key);
+#ifndef NDEBUG
+        if (hash == -1) {
+            std::cout << "Invalid value key: " << key;
+            return empty_string;
+        }
+#endif
+        return get_string(hash);
     }
 
     void set_value(int key, double value)
     {
         if (flags & (DESTROYING | FADEOUT))
             return;
-        values[key] = value;
+        int offset = value_offsets[key];
+        if (offset != 0) {
+            values[offset - 1] = value;
+            return;
+        }
+        values.push_back(value);
+        value_offsets[key] = values.size();
     }
 
     void set_string(int key, const std::string & value)
     {
         if (flags & (DESTROYING | FADEOUT))
             return;
-        strings[key] = value;
+        int offset = string_offsets[key];
+        if (offset != 0) {
+            strings[offset - 1] = value;
+            return;
+        }
+        strings.push_back(value);
+        string_offsets[key] = strings.size();
     }
 };
 
@@ -308,6 +345,7 @@ is met. The first item is then always the last item pointed to by another item.
 class ObjectList
 {
 public:
+    FrameObject * back_obj;
     unsigned int saved_start;
     vector<int> saved_items;
 
@@ -315,6 +353,7 @@ public:
     typedef ObjectListItems::iterator iterator;
 
     ObjectList()
+    : back_obj(NULL)
     {
         items.resize(1);
         ObjectListItem & item = items[0];
@@ -341,6 +380,7 @@ public:
         ObjectListItem & item = items[i];
         item.obj = obj;
         obj->index = i;
+        back_obj = obj;
     }
 
     void add_back()
@@ -384,7 +424,7 @@ public:
 
     FrameObject * back() const
     {
-        return items.back().obj;
+        return back_obj;
     }
 
     int size() const
@@ -409,12 +449,14 @@ public:
 
     void clear()
     {
+        back_obj = NULL;
         items.resize(1);
         items[0].next = LAST_SELECTED;
     }
 
     void copy(ObjectList & other)
     {
+        back_obj = other.back_obj;
         items = other.items;
     }
 
@@ -426,6 +468,7 @@ public:
         }
 
         items.resize(items.size()-1);
+        back_obj = items.back().obj;
     }
 
     void select_single(FrameObject * obj)
@@ -543,17 +586,10 @@ public:
         // for copies
     }
 
-    QualifierList(int n, ...)
+    void set(int count, ObjectList ** items)
     {
-        count = n;
-        items = new ObjectList*[count+1];
-        va_list arguments;
-        va_start(arguments, n);
-        for (int i = 0; i < n; i++) {
-            items[i] = va_arg(arguments, ObjectList*);
-        }
-        va_end(arguments);
-        items[count] = NULL;
+        this->items = items;
+        this->count = count;
         last = items[count-1];
     }
 
@@ -611,8 +647,10 @@ public:
     FrameObject * back()
     {
         for (int i = 0; i < count; i++) {
-            if (!items[i]->empty())
-                return items[i]->back();
+            FrameObject * back_obj = items[i]->back_obj;
+            if (back_obj == NULL)
+                continue;
+            return back_obj;
         }
         return NULL;
     }

@@ -9,19 +9,24 @@
 #include "dynnum.h"
 #include <boost/algorithm/string/replace.hpp>
 
+double fast_atof(const char * p, const char * end);
+std::string fast_itoa(int value);
+std::string fast_dtoa(double value);
+
 extern std::string empty_string;
 
-inline double string_to_double(const std::string & in, double def = 0.0)
+inline double string_to_double(const std::string & in)
 {
-    std::istringstream input(in);
-    double value;
-    if (!(input >> value))
-        return def;
-    return value;
+    if (in.empty())
+        return 0.0;
+    const char * start = &in[0];
+    const char * end = start + in.size();
+    return fast_atof(start, end);
 }
 
 inline int string_to_int(const std::string & in, int def = 0)
 {
+    // only used in assarray/charimage, OK to be slow
     std::istringstream input(in);
     int value;
     if (!(input >> value))
@@ -29,16 +34,16 @@ inline int string_to_int(const std::string & in, int def = 0)
     return value;
 }
 
-inline DynamicNumber string_to_number(const std::string & in, double def = 0.0)
+inline DynamicNumber string_to_number(const std::string & in)
 {
-    double ret = string_to_double(in, def);
 #ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+    double ret = string_to_double(in);
     int int_ret = int(ret);
     if (int_ret == ret)
         return DynamicNumber(int_ret);
     return DynamicNumber(ret);
 #else
-    return ret;
+    return string_to_double(in);
 #endif
 }
 
@@ -47,12 +52,19 @@ inline const std::string & number_to_string(const std::string & value)
     return value;
 }
 
-template <class T>
-inline std::string number_to_string(T value)
+inline std::string number_to_string(double value)
 {
-    std::ostringstream input;
-    input << value;
-    return input.str();
+    return fast_dtoa(value);
+}
+
+inline std::string number_to_string(int value)
+{
+    return fast_itoa(value);
+}
+
+inline std::string number_to_string(size_t value)
+{
+    return fast_itoa(value);
 }
 
 inline void to_lower(std::string & str)

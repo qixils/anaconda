@@ -51,6 +51,10 @@ import cPickle
 
 WRITE_SOUNDS = True
 PROFILE = False
+PROFILE_GROUPS = PROFILE and True
+PROFILE_DRAW = PROFILE and False
+PROFILE_EVENTS = PROFILE and False
+PROFILE_OBJECTS = PROFILE and False
 
 # enabled for porting
 NATIVE_EXTENSIONS = True
@@ -224,6 +228,7 @@ class EventContainer(object):
         names = get_method_name(names)
         converter.container_ids[names] += 1
         container_id = converter.container_ids[names]
+        self.container_id = container_id
 
         self.code_name = 'group_%s_%s' % (names, container_id)
         self.inactive = inactive
@@ -756,6 +761,7 @@ class Converter(object):
 
         # write object updates
         update_calls = []
+        updaters = {}
         for handle, writer in self.all_objects.iteritems():
             self.game_index = handle[2]
             self.game = self.games[self.game_index]
@@ -767,18 +773,28 @@ class Converter(object):
             has_sleep = writer.has_sleep()
             if not has_updates and not has_movements:
                 continue
-            func_name = 'update_%s' % writer.new_class_name.lower()
-            if func_name in update_calls:
-                # ignore alias
+            func_name = 'update_%s_%s' % (writer.class_name.lower(),
+                                          len(updaters))
+            key = (writer.class_name, has_updates, has_movements, has_sleep)
+            func_name = updaters.get(key, None)
+            has_func = func_name is not None
+            if not has_func:
+                func_name = 'update_%s_%s' % (writer.class_name.lower(),
+                                              len(updaters))
+
+            list_name = self.get_object_list(handle)
+            update_calls.append('%s(%s)' % (func_name, list_name))
+
+            if has_func:
                 continue
-            update_calls.append(func_name)
-            event_file.putln('static void %s(Frames * frame)' % func_name)
+
+            updaters[key] = func_name
+
+            event_file.putln('static void %s(ObjectList & list)' % func_name)
             event_file.start_brace()
             event_file.putln('ObjectList::iterator it;')
-            list_name = self.get_object_list(handle)
-            event_file.putlnc('for (it = frame->%s.begin(); '
-                              'it != frame->%s.end(); ++it) {',
-                              list_name, list_name)
+            event_file.putlnc('for (it = list.begin(); '
+                              'it != list.end(); ++it) {')
             event_file.indent()
             event_file.putln('FrameObject * instance = it->obj;')
             event_file.putln('if (instance->flags & DESTROYING)')
@@ -804,7 +820,7 @@ class Converter(object):
 
         event_file.putmeth('void update_objects')
         for call in update_calls:
-            event_file.putlnc('%s(this);', call)
+            event_file.putlnc('%s;', call)
         event_file.end_brace()
 
         self.processed_frames = []
@@ -821,12 +837,7 @@ class Converter(object):
                 self.write_frame(frame.offset_index, frame, event_file,
                                  lists_file, lists_header)
 
-        init_list = ['Frame()']
-        for instances, qualifier in self.objs_to_qualifier.iteritems():
-            count = len(instances)
-            instances = ', '.join(instances)
-            init_list.append('%s(%s, %s)' % (qualifier, count, instances))
-        event_file.putmeth('Frames', init_list=init_list)
+        event_file.putmeth('Frames', init_list=['Frame()'])
         event_file.end_brace()
 
         event_file.putmeth('void set_index', 'int index')
@@ -997,10 +1008,12 @@ class Converter(object):
         self.info_dict['event_srcs'] = event_file.sources
         self.info_dict['frame_srcs'] = self.frame_srcs
         self.info_dict['object_srcs'] = objects_file.sources
-        self.write_config(self.info_dict, 'config.py')
-        self.assets.write_header()
-        self.assets.close()
-        self.platform.install()
+
+        if not self.assets.skip:
+            self.write_config(self.info_dict, 'config.py')
+            self.assets.write_header()
+            self.assets.close()
+            self.platform.install()
 
         # post-mortem stats
         print ''
@@ -1133,6 +1146,7 @@ class Converter(object):
 
         startup_instances = []
         self.multiple_instances = set()
+        all_startup_infos = set()
         startup_set = set()
         self.static_instances = {}
         object_writers = []
@@ -1143,6 +1157,7 @@ class Converter(object):
         for instance in getattr(frame.instances, 'items', ()):
             frameitem = instance.getObjectInfo(self.game.frameItems)
             obj = (frameitem.handle, frameitem.objectType)
+            all_startup_infos.add(obj)
             try:
                 object_writer = self.get_object_writer(obj)
                 if object_writer not in object_writers:
@@ -1174,6 +1189,7 @@ class Converter(object):
         self.qualifier_names = {}
         self.qualifiers = {}
         self.qualifier_types = {}
+        qualifier_setup = {}
         for qualifier in events.qualifier_list:
             qual_obj = (qualifier.objectInfo, qualifier.type)
             object_infos = qualifier.resolve_objects(self.game.frameItems)
@@ -1183,8 +1199,12 @@ class Converter(object):
             self.qualifier_types[qual_obj] = qualifier.type
 
             instances = set()
+            setup_instances = set()
             for obj in object_infos:
-                instances.add('&' + self.get_object_list(obj))
+                obj_list = '&' + self.get_object_list(obj)
+                instances.add(obj_list)
+                if obj in all_startup_infos:
+                    setup_instances.add(obj_list)
             instances = list(instances)
             instances.sort()
             instances = tuple(instances)
@@ -1196,6 +1216,7 @@ class Converter(object):
                 self.objs_to_qualifier[instances] = name
                 event_file.add_member('QualifierList %s' % name)
 
+            qualifier_setup[name] = setup_instances
             self.qualifier_names[qual_obj] = name
 
         generated_groups = self.generated_groups = defaultdict(list)
@@ -1466,6 +1487,14 @@ class Converter(object):
                                 depth)
         start_writer.putraw('#endif')
 
+        # set up qualifiers
+        for name, instances in qualifier_setup.iteritems():
+            start_writer.putlnc('static ObjectList* '
+                                '%s_instances[] = {%s, NULL};',
+                                name, ', '.join(instances))
+            start_writer.putlnc('%s.set(%s, &%s_instances[0]);', name,
+                                len(instances), name)
+
         startup_instances = self.config.get_startup_instances(
             startup_instances)
         self.startup_instances = startup_instances
@@ -1578,12 +1607,21 @@ class Converter(object):
 
         call_groups = first_groups + call_groups + last_groups
 
+        if PROFILE_GROUPS:
+            prof_ids = defaultdict(int)
+
         for group in call_groups:
             if group.is_container_mark:
                 container = group.container
                 if container.is_static:
                     continue
                 if group.mark == 'NewGroup':
+                    if PROFILE_GROUPS:
+                        prof = get_method_name(container.name)
+                        prof_ids[prof] += 1
+                        prof = '%s_%s' % (prof, prof_ids[prof])
+                        event_file.putlnc('PROFILE_BEGIN(%s);', prof)
+
                     event_file.putln('if (!%s) goto %s;' % (
                         container.code_name, container.end_label))
                     end_markers.insert(0, container.end_label)
@@ -1592,6 +1630,9 @@ class Converter(object):
                     end_markers.remove(container.end_label)
                     event_file.put_label(container.end_label)
                     self.container_tree.remove(container)
+
+                    if PROFILE_GROUPS:
+                        event_file.putlnc('PROFILE_END();')
                 continue
             event_file.putlnc('%s();', group.event_name)
         for end_marker in end_markers:
@@ -1890,7 +1931,7 @@ class Converter(object):
             object_writer.write_dtor(objects_file)
             objects_file.end_brace()
 
-        if PROFILE:
+        if PROFILE_OBJECTS:
             if object_writer.update:
                 objects_file.putmeth('void update')
                 objects_file.putlnc('PROFILE_BLOCK(%s_update);',
@@ -1899,7 +1940,7 @@ class Converter(object):
                 objects_file.end_brace()
 
         depth = self.config.get_object_depth(object_writer)
-        if depth is not None or PROFILE:
+        if depth is not None or PROFILE_DRAW:
             objects_file.putmeth('void draw')
             if PROFILE:
                 objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
@@ -2265,7 +2306,7 @@ class Converter(object):
 
         writer.start_brace() # new scope
 
-        if PROFILE:
+        if PROFILE_EVENTS:
             writer.putlnc('PROFILE_BLOCK(event_%s);', group.global_id)
 
         self.config.write_pre(writer, group)
@@ -2275,12 +2316,16 @@ class Converter(object):
                 writer.putln('if (!(%s)) %s' % (condition, event_break))
             elif container:
                 writer.putln('// group: %s' % container.name)
-            for condition_index, condition_writer in enumerate(conditions):
+
+            condition_index = -1
+            while condition_index < len(conditions) - 1:
+                condition_index += 1
+                condition_writer = conditions[condition_index]
+
                 if condition_writer.custom:
                     condition_writer.write(writer)
                     continue
                 condition_writer.write_pre(writer)
-                negated = not condition_writer.is_negated()
                 object_name = None
                 has_multiple = False
                 obj = condition_writer.get_object()
@@ -2291,12 +2336,29 @@ class Converter(object):
                         object_name = self.get_object(obj)
                     except KeyError:
                         pass
+                write_conditions = [condition_writer]
                 if obj in self.has_single_selection:
                     object_name = self.has_single_selection[obj]
                     self.set_iterator(obj, None, object_name)
                 elif object_name is not None and self.has_multiple_instances(
                         obj):
                     if condition_writer.iterate_objects is not False:
+                        # OPTIMIZATION: merge similar conditions into one
+                        # iteration
+                        start_index = condition_index
+                        while condition_index < len(conditions) - 1:
+                            next_cond = conditions[condition_index+1]
+                            if next_cond.get_object() != obj:
+                                break
+                            if next_cond.custom:
+                                break
+                            if next_cond.iterate_objects is False:
+                                break
+                            condition_index += 1
+
+                        write_conditions = conditions[start_index:
+                                                      condition_index+1]
+
                         selected_name = self.create_list(obj, writer)
                         has_multiple = True
                         self.set_iterator(obj, selected_name)
@@ -2305,29 +2367,35 @@ class Converter(object):
                                       '++it) {', iter_type, selected_name)
                         writer.indent()
                         object_name = '(*it)'
-                writer.putindent()
-                if negated:
-                    writer.put('if (!(')
-                else:
-                    writer.put('if (')
-                writer.put(condition_writer.prefix)
-                if object_name is None:
-                    if condition_writer.static:
-                        writer.put('%s::' % self.get_object_class(
-                            object_type, star = False))
-                elif condition_writer.iterate_objects is not False:
-                    if has_multiple:
-                        obj = '((%s)%s)' % (self.get_object_class(
-                            object_type), object_name)
+
+                for write_condition in write_conditions:
+                    negated = not write_condition.is_negated()
+                    writer.putindent()
+                    if negated:
+                        writer.put('if (!(')
                     else:
-                        obj = object_name
-                    obj += '->'
-                    writer.put(obj)
-                condition_writer.write(writer)
-                if negated:
-                    writer.put(')')
+                        writer.put('if (')
+                    writer.put(write_condition.prefix)
+                    if object_name is None:
+                        if write_condition.static:
+                            writer.put('%s::' % self.get_object_class(
+                                object_type, star = False))
+                    elif write_condition.iterate_objects is not False:
+                        if has_multiple:
+                            obj = '((%s)%s)' % (self.get_object_class(
+                                object_type), object_name)
+                        else:
+                            obj = object_name
+                        obj += '->'
+                        writer.put(obj)
+
+                    write_condition.write(writer)
+                    if negated:
+                        writer.put(')')
+                    if has_multiple:
+                        writer.put(') it.deselect();\n')
+
                 if has_multiple:
-                    writer.put(') it.deselect();\n')
                     writer.end_brace()
                     writer.indented = False
                     writer.putln('if (!%s.has_selection()) %s' % (selected_name,
@@ -2374,7 +2442,10 @@ class Converter(object):
 
         self.in_actions = True
 
-        for action_writer in actions:
+        action_index = -1
+        while action_index < len(actions) - 1:
+            action_index += 1
+            action_writer = actions[action_index]
             if action_writer.custom:
                 action_writer.write(writer)
                 continue
@@ -2399,9 +2470,24 @@ class Converter(object):
                 has_multiple = False
                 object_info = None
             object_name = None
+            write_actions = [action_writer]
             if has_single:
                 object_name = self.has_single_selection[obj]
             elif has_multiple:
+                # OPTIMIZATION: merge similar actions into one iteration
+                start_index = action_index
+                while action_index < len(actions) - 1:
+                    next_action = actions[action_index+1]
+                    if next_action.get_object() != obj:
+                        break
+                    if next_action.custom:
+                        break
+                    if next_action.iterate_objects is False:
+                        break
+                    action_index += 1
+
+                write_actions = actions[start_index:action_index+1]
+
                 list_name = self.create_list(obj, writer)
                 iter_type = get_iter_type(obj)
                 writer.putlnc('for (%s it(%s); !it.end(); '
@@ -2417,15 +2503,19 @@ class Converter(object):
                     star = False))
             else:
                 writer.putindent()
-            if object_name is not None:
-                writer.putindent()
-                writer.put('((%s)%s)->' % (self.get_object_class(
-                    object_type), object_name))
-            action_writer.write(writer)
-            writer.put('\n')
+
+            for write_action in write_actions:
+                if object_name is not None:
+                    writer.putindent()
+                    writer.put('((%s)%s)->' % (self.get_object_class(
+                        object_type), object_name))
+                write_action.write(writer)
+                writer.put('\n')
+
             if has_multiple:
                 writer.end_brace()
                 self.set_iterator(None)
+
         for action_writer in actions:
             action_writer.write_post(writer)
         # if group.or_exit:
@@ -2638,6 +2728,11 @@ class Converter(object):
             filtered = out[end+1:]
             out = out[:end+1]
             # print 'too many end-clauses, filtered', filtered
+
+        # fix for extranous comma in Odallus
+        if out.endswith(', '):
+            out = out[:-2]
+
         return out
 
     def intern_string(self, value):

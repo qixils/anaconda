@@ -382,8 +382,11 @@ def convert_key(value):
 
 def main():
     # generate key definition files
+    import sys
+    sys.path.append('..')
     from chowdren.codewriter import CodeWriter
     from chowdren.common import get_base_path
+    from chowdren.stringhash import get_string_int_map
     import os
 
     writer = CodeWriter(os.path.join(get_base_path(), 'keyconv.cpp'))
@@ -404,20 +407,16 @@ def main():
     writer.end_brace()
     writer.putln('')
 
-    writer.putmeth('int translate_string_to_key',
-                   'const std::string & in_name')
-    writer.putln('std::string name = in_name;')
-    writer.putln('to_lower(name);')
+    string_map = {}
     for vk, name in VK_TO_SDL.iteritems():
         string_name = VK_TO_NAME.get(vk, None)
         if string_name is None:
             continue
-        string_name = string_name.lower()
-        writer.putlnc('if (name.compare(0, %s, %r) == 0) return %s;',
-                      len(string_name), string_name, name[0], cpp=False)
-    writer.putln('return -1;')
-    writer.end_brace()
-    writer.putln('')
+        string_map[string_name] = name[0]
+
+    writer.putln(get_string_int_map('translate_string_to_key',
+                                    'get_key_string_hash',
+                                    string_map, False))
 
     writer.putmeth('std::string translate_vk_to_string',
                    'int vk')

@@ -1744,7 +1744,7 @@ FixedValue::operator std::string() const
     return number_to_string(object->x) + "&" + number_to_string(object->y);
 #else
     intptr_t val = intptr_t(object);
-    return number_to_string(val);
+    return number_to_string((long long)val);
 #endif
 }
 

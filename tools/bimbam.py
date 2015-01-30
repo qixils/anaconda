@@ -28,8 +28,8 @@ import sys
 import os
 
 def main():
-    print 'MMF2 EXE->MFA translator by Mathias Kaerlev'
-    print '(only for internal use)'
+    print 'Bimbam tool by Mathias Kaerlev'
+    print 'ONLY for use on your own applications.'
     print ''
 
     input = sys.argv[1]

@@ -37,15 +37,16 @@ GameManager manager;
 #define CHOWDREN_DEBUG
 #endif
 
-#ifdef CHOWDREN_DEBUG
+// #ifdef CHOWDREN_DEBUG
 #define CHOWDREN_SHOW_DEBUGGER
-#endif
+// #endif
 
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
   x_size(WINDOW_WIDTH), y_size(WINDOW_HEIGHT), values(NULL), strings(NULL),
   fade_value(0.0f), fade_dir(0.0f), lives(0), ignore_controls(false),
-  last_control_flags(0), control_flags(0), player_died(true)
+  player_press_flags(0), player_flags(0), joystick_press_flags(0),
+  joystick_release_flags(0), joystick_flags(0), player_died(true)
 {
 }
 
@@ -79,9 +80,11 @@ void GameManager::init()
 #if defined(CHOWDREN_IS_AVGN)
     set_frame(0);
 #elif defined(CHOWDREN_IS_HFA)
-    set_frame(60);
+    set_frame(25);
 #elif defined(CHOWDREN_IS_FP)
-    set_frame(20);
+    player_died = false;
+    lives = 3;
+    set_frame(39);
 #else
     set_frame(0);
 #endif
@@ -98,9 +101,11 @@ void GameManager::reset_globals()
 
 void GameManager::set_window(bool fullscreen)
 {
-    if (window_created)
-        return;
     this->fullscreen = fullscreen;
+    if (window_created) {
+        platform_set_fullscreen(fullscreen);
+        return;
+    }
     window_created = true;
 
     platform_create_display(fullscreen);
@@ -120,7 +125,9 @@ void GameManager::set_window(bool fullscreen)
 
 void GameManager::set_window_scale(int scale)
 {
-    std::cout << "Set window scale: " << scale << std::endl;
+#ifdef CHOWDREN_IS_DESKTOP
+    platform_set_display_scale(scale);
+#endif
 }
 
 bool GameManager::is_fullscreen()
@@ -140,8 +147,7 @@ void GameManager::on_key(int key, bool state)
         bool alt = keyboard.is_pressed(SDLK_LALT) ||
                    keyboard.is_pressed(SDLK_RALT);
         if (alt) {
-            fullscreen = !fullscreen;
-            platform_set_fullscreen(fullscreen);
+            set_window(!fullscreen);
             return;
         }
     }
@@ -211,7 +217,6 @@ int GameManager::update_frame()
             show_build_timer = 3.0;
     }
 #endif
-
     bool ret = frame->update();
     if (ret)
         return 1;
@@ -385,6 +390,7 @@ void GameManager::set_fade(const Color & color, float fade_dir)
 }
 
 static int get_player_control_flags(int player);
+static int get_joystick_control_flags(int player);
 
 #ifndef NDEBUG
 struct InstanceCount
@@ -419,9 +425,11 @@ static void print_instance_stats()
 }
 #endif
 
+// #define SHOW_STATS
+
 bool GameManager::update()
 {
-// #ifndef NDEBUG
+#ifdef SHOW_STATS
     bool show_stats = false;
     static int measure_time = 0;
     measure_time -= 1;
@@ -429,15 +437,22 @@ bool GameManager::update()
         measure_time = 200;
         show_stats = true;
     }
-// #endif
+#endif
 
     // update input
     keyboard.update();
     mouse.update();
 
+    // player controls
     int new_control = get_player_control_flags(1);
-    control_flags = new_control & ~(last_control_flags);
-    last_control_flags = new_control;
+    player_press_flags = new_control & ~(player_flags);
+    player_flags = new_control;
+
+    // joystick controls
+    new_control = get_joystick_control_flags(1);
+    joystick_press_flags = new_control & ~(joystick_flags);
+    joystick_release_flags = joystick_flags & ~(new_control);
+    joystick_flags = new_control;
 
     fps_limit.start();
     platform_poll_events();
@@ -445,11 +460,11 @@ bool GameManager::update()
     // update mouse position
     platform_get_mouse_pos(&mouse_x, &mouse_y);
 
-// #ifndef NDEBUG
+#ifdef SHOW_STATS
     if (show_stats)
         std::cout << "Framerate: " << fps_limit.current_framerate
             << std::endl;
-// #endif
+#endif
 
     if (platform_has_error()) {
         if (platform_display_closed())
@@ -459,11 +474,11 @@ bool GameManager::update()
 
         int ret = update_frame();
 
-// #ifndef NDEBUG
+#ifdef SHOW_STATS
         if (show_stats)
             std::cout << "Event update took " <<
                 platform_get_time() - event_update_time << std::endl;
-// #endif
+#endif
 
         if (ret == 0)
             return false;
@@ -478,14 +493,16 @@ bool GameManager::update()
 
     draw();
 
-// #ifndef NDEBUG
+#ifdef SHOW_STATS
     if (show_stats) {
         std::cout << "Draw took " << platform_get_time() - draw_time
             << std::endl;
-        // print_instance_stats();
+#ifndef NDEBUG
+        print_instance_stats();
+#endif
         platform_print_stats();
     }
-// #endif
+#endif
 
     fps_limit.finish();
 
@@ -745,24 +762,74 @@ static int get_player_control_flags(int player)
     return flags;
 }
 
+inline int get_joystick_flag(int n, int button)
+{
+    if (!is_joystick_pressed(n, button))
+        return 0;
+    return 8 << button;
+}
+
+static int get_joystick_control_flags(int n)
+{
+    int flags = 0;
+    flags |= get_joystick_direction_flags(n);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_A);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_B);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_X);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_Y);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_BACK);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_GUIDE);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_START);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_LEFTSTICK);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_RIGHTSTICK);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_LEFTSHOULDER);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_RIGHTSHOULDER);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_UP);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_DOWN);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_LEFT);
+    flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_RIGHT);
+    return flags;
+}
+
+bool is_joystick_pressed_once(int n, int button)
+{
+    if (n != 1)
+        return false;
+    int flags = 8 << button;
+    return (manager.joystick_press_flags & flags) != 0;
+}
+
+bool is_joystick_released_once(int n, int button)
+{
+    if (n != 1)
+        return false;
+    int flags = 8 << button;
+    return (manager.joystick_release_flags & flags) != 0;
+}
+
+bool any_joystick_pressed_once(int n)
+{
+    if (n != 1)
+        return false;
+    return (manager.joystick_press_flags >> 4) != 0;
+}
+
 bool is_player_pressed(int player, int flags)
 {
-    GameManager & m = manager;
-    if (m.ignore_controls)
+    if (manager.ignore_controls)
         return false;
     if (flags == 0)
-        return m.last_control_flags == 0;
-    return (m.last_control_flags & flags) == flags;
+        return manager.player_flags == 0;
+    return (manager.player_flags & flags) == flags;
 }
 
 bool is_player_pressed_once(int player, int flags)
 {
-    GameManager & m = manager;
-    if (m.ignore_controls)
+    if (manager.ignore_controls)
         return false;
     if (flags == 0)
-        return m.control_flags == 0;
-    return (m.control_flags & flags) == flags;
+        return manager.player_press_flags == 0;
+    return (manager.player_press_flags & flags) == flags;
 }
 
 // main function

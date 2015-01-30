@@ -29,9 +29,9 @@ enum CollisionFlags
 class CollisionBase
 {
 public:
-    CollisionType type;
-    int flags;
     int aabb[4];
+    int flags;
+    CollisionType type;
 
     CollisionBase(CollisionType type, int flags)
     : flags(flags), type(type)
@@ -434,16 +434,12 @@ public:
     int dest_x, dest_y, src_x, src_y, src_width, src_height;
     Color color;
     Image * image;
-    int collision_type;
-
-    unsigned int col;
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
-                   int src_width, int src_height, int type,
-                   const Color & color)
+                   int src_width, int src_height, const Color & color)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
-      src_width(src_width), src_height(src_height), collision_type(type),
-      image(img), color(color), CollisionBase(BACKGROUND_ITEM, 0)
+      src_width(src_width), src_height(src_height), image(img), color(color),
+      CollisionBase(BACKGROUND_ITEM, 0)
     {
         aabb[0] = dest_x;
         aabb[1] = dest_y;
@@ -563,9 +559,10 @@ inline bool collide_sprite_backdrop(CollisionBase * a, CollisionBase * b,
     return false;
 }
 
-inline bool collide(CollisionBase * a, CollisionBase * b)
+inline bool collide_direct(CollisionBase * a, CollisionBase * b, int * aabb_2)
 {
-    if (!collides(a->aabb, b->aabb))
+    int * aabb_1 = a->aabb;
+    if (!collides(aabb_1, aabb_2))
         return false;
 
     if ((a->flags & BOX_COLLISION) && (b->flags & BOX_COLLISION))
@@ -573,15 +570,15 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
 
     // calculate the overlapping area
     int x1, y1, x2, y2;
-    intersect(a->aabb[0], a->aabb[1], a->aabb[2], a->aabb[3],
-              b->aabb[0], b->aabb[1], b->aabb[2], b->aabb[3],
+    intersect(aabb_1[0], aabb_1[1], aabb_1[2], aabb_1[3],
+              aabb_2[0], aabb_2[1], aabb_2[2], aabb_2[3],
               x1, y1, x2, y2);
 
     // figure out the offsets of the overlapping area in each
-    int offx1 = x1 - a->aabb[0];
-    int offy1 = y1 - a->aabb[1];
-    int offx2 = x1 - b->aabb[0];
-    int offy2 = y1 - b->aabb[1];
+    int offx1 = x1 - aabb_1[0];
+    int offy1 = y1 - aabb_1[1];
+    int offx2 = x1 - aabb_2[0];
+    int offy2 = y1 - aabb_2[1];
 
     int w = x2 - x1;
     int h = y2 - y1;
@@ -632,6 +629,11 @@ inline bool collide(CollisionBase * a, CollisionBase * b)
     }
 }
 
+inline bool collide(CollisionBase * a, CollisionBase * b)
+{
+    return collide_direct(a, b, b->aabb);
+}
+
 inline bool collide_box(FrameObject * a, int v[4])
 {
     CollisionBase * col = a->collision;
@@ -644,5 +646,43 @@ inline bool collide_box(FrameObject * a, int v[4])
     }
     return collides(col->aabb, v);
 }
+
+// #include <boost/container/flat_set.hpp>
+
+// class CollisionPairs
+// {
+// public:
+//     struct CollisionPair
+//     {
+//         FrameObject * a;
+//         FrameObject * b;
+
+//         CollisionPair(FrameObject * a, FrameObject * b)
+//         : a(a), b(b)
+//         {
+//         }
+//     };
+
+//     flat_set<CollisionPair> pairs;
+
+//     CollisionPairs()
+//     {
+//     }
+
+//     bool add_pair(FrameObject * a, FrameObject * b)
+//     {
+//         // returns true if insertion took place
+//         return pairs.emplace(a, b).second;
+//     }
+
+//     void remove_pair(FrameObject * a, FrameObject * b)
+//     {
+//         pairs.erase(CollisionPair(a, b));
+//     }
+
+//     void update_pairs()
+//     {
+//     }
+// };
 
 #endif // CHOWDREN_COLLISION_H

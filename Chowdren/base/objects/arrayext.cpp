@@ -8,19 +8,19 @@
 // ArrayObject
 
 ArrayObject::ArrayObject(int x, int y, int type_id)
-: FrameObject(x, y, type_id), array(NULL), strings(NULL)
+: FrameObject(x, y, type_id), global_data(NULL)
 {
 
 }
 
 void ArrayObject::initialize(bool numeric, int offset, int x, int y, int z)
 {
-    this->offset = offset;
-    is_numeric = numeric;
-    x_size = x;
-    y_size = y;
-    z_size = z;
-    x_pos = y_pos = z_pos = offset;
+    data.offset = offset;
+    data.is_numeric = numeric;
+    data.x_size = x;
+    data.y_size = y;
+    data.z_size = z;
+    data.x_pos = data.y_pos = data.z_pos = offset;
     clear();
 }
 
@@ -36,7 +36,7 @@ void ArrayObject::load(const std::string & filename)
 {
     FSFile fp(convert_path(filename).c_str(), "r");
     if (!fp.is_open()) {
-        std::cout << "Could not load array " << filename << std::endl;
+        std::cout << "Could not load data.array " << filename << std::endl;
         return;
     }
 
@@ -45,8 +45,10 @@ void ArrayObject::load(const std::string & filename)
     std::string magic;
     stream.read_string(magic, sizeof(CT_ARRAY_MAGIC));
 
-    if (magic != CT_ARRAY_MAGIC) {
-        std::cout << "Invalid CT_ARRAY_MAGIC" << std::endl;
+    if (magic.compare(0, sizeof(CT_ARRAY_MAGIC),
+                      CT_ARRAY_MAGIC, sizeof(CT_ARRAY_MAGIC)) != 0) {
+        std::cout << "Invalid CT_ARRAY_MAGIC: " << filename << std::endl;
+        std::cout << magic << " " << CT_ARRAY_MAGIC << std::endl;
         return;
     }
 
@@ -60,25 +62,25 @@ void ArrayObject::load(const std::string & filename)
         return;
     }
 
-    x_size = stream.read_int32();
-    y_size = stream.read_int32();
-    z_size = stream.read_int32();
+    data.x_size = stream.read_int32();
+    data.y_size = stream.read_int32();
+    data.z_size = stream.read_int32();
 
     int flags = stream.read_int32();
-    is_numeric = (flags & NUMERIC_FLAG) != 0;
-    offset = int((flags & BASE1_FLAG) != 0);
+    data.is_numeric = (flags & NUMERIC_FLAG) != 0;
+    data.offset = int((flags & BASE1_FLAG) != 0);
 
-    delete[] array;
-    delete[] strings;
-    array = NULL;
-    strings = NULL;
+    delete[] data.array;
+    delete[] data.strings;
+    data.array = NULL;
+    data.strings = NULL;
     clear();
 
-    for (int i = 0; i < x_size * y_size * z_size; i++) {
-        if (is_numeric) {
-            array[i] = double(stream.read_int32());
+    for (int i = 0; i < data.x_size * data.y_size * data.z_size; i++) {
+        if (data.is_numeric) {
+            data.array[i] = ArrayNumber(stream.read_int32());
         } else {
-            stream.read_string(strings[i], stream.read_int32());
+            stream.read_string(data.strings[i], stream.read_int32());
         }
     }
 
@@ -87,16 +89,43 @@ void ArrayObject::load(const std::string & filename)
 
 void ArrayObject::save(const std::string & filename)
 {
-    std::cout << "Array object save not implemented: " << filename
-        << std::endl;
+    FSFile fp(convert_path(filename).c_str(), "w");
+    FileStream stream(fp);
+
+    stream.write(CT_ARRAY_MAGIC, sizeof(CT_ARRAY_MAGIC));
+    stream.write_int16(ARRAY_MAJOR_VERSION);
+    stream.write_int16(ARRAY_MINOR_VERSION);
+    stream.write_int32(data.x_size);
+    stream.write_int32(data.y_size);
+    stream.write_int32(data.z_size);
+
+    int flags = 0;
+    if (data.is_numeric)
+        flags |= NUMERIC_FLAG;
+    if (data.offset != 0)
+        flags |= BASE1_FLAG;
+    stream.write_int32(flags);
+
+    for (int i = 0; i < data.x_size * data.y_size * data.z_size; i++) {
+        if (data.is_numeric) {
+            stream.write_int32(int(data.array[i]));
+        } else {
+            stream.write_int32(data.strings[i].size());
+            stream.write_string(data.strings[i]);
+        }
+    }
+
+    fp.close();
+
+    std::cout << "saved: " << filename << std::endl;
 }
 
-double ArrayObject::get_value(int x, int y, int z)
+ArrayNumber ArrayObject::get_value(int x, int y, int z)
 {
     adjust_pos(x, y, z);
     if (!is_valid(x, y, z))
         return 0;
-    return array[get_index(x, y, z)];
+    return data.array[get_index(x, y, z)];
 }
 
 const std::string & ArrayObject::get_string(int x, int y, int z)
@@ -104,68 +133,68 @@ const std::string & ArrayObject::get_string(int x, int y, int z)
     adjust_pos(x, y, z);
     if (!is_valid(x, y, z))
         return empty_string;
-    return strings[get_index(x, y, z)];
+    return data.strings[get_index(x, y, z)];
 }
 
-void ArrayObject::set_value(double value, int x, int y, int z)
+void ArrayObject::set_value(ArrayNumber value, int x, int y, int z)
 {
     adjust_pos(x, y, z);
     expand(x, y, z);
-    array[get_index(x, y, z)] = value;
+    data.array[get_index(x, y, z)] = value;
 }
 
 void ArrayObject::set_string(const std::string & value, int x, int y, int z)
 {
     adjust_pos(x, y, z);
     expand(x, y, z);
-    strings[get_index(x, y, z)] = value;
+    data.strings[get_index(x, y, z)] = value;
 }
 
 void ArrayObject::expand(int x, int y, int z)
 {
-    x = std::max(x+1, x_size);
-    y = std::max(y+1, y_size);
-    z = std::max(z+1, z_size);
-    if (x == x_size && y == y_size && z == z_size)
+    x = std::max(x+1, data.x_size);
+    y = std::max(y+1, data.y_size);
+    z = std::max(z+1, data.z_size);
+    if (x == data.x_size && y == data.y_size && z == data.z_size)
         return;
 
 #ifndef NDEBUG
     // probably good to signify that something should be preallocated
     std::cout << "Expanding " << get_name() << "from " <<
-        "(" << x_size << ", " << y_size << ", " << z_size << ")" <<
+        "(" << data.x_size << ", " << data.y_size << ", " << data.z_size << ")" <<
         " to" <<
         "(" << x << ", " << y << ", " << z << ")" << std::endl;
 #endif
 
-    int old_x = x_size;
-    int old_y = y_size;
-    int old_z = z_size;
+    int old_x = data.x_size;
+    int old_y = data.y_size;
+    int old_z = data.z_size;
 
-    x_size = x;
-    y_size = y;
-    z_size = z;
+    data.x_size = x;
+    data.y_size = y;
+    data.z_size = z;
 
-    if (is_numeric) {
-        double * old_array = array;
-        array = NULL;
+    if (data.is_numeric) {
+        ArrayNumber * old_array = data.array;
+        data.array = NULL;
         clear();
         for (int x = 0; x < old_x; x++)
         for (int y = 0; y < old_y; y++)
         for (int z = 0; z < old_z; z++) {
-            double value = old_array[x + y * old_x + z * old_x * old_y];
-            array[get_index(x, y, z)] = value;
+            ArrayNumber value = old_array[x + y * old_x + z * old_x * old_y];
+            data.array[get_index(x, y, z)] = value;
         }
         delete[] old_array;
     } else {
-        std::string * old_array = strings;
-        strings = NULL;
+        std::string * old_array = data.strings;
+        data.strings = NULL;
         clear();
         for (int x = 0; x < old_x; x++)
         for (int y = 0; y < old_y; y++)
         for (int z = 0; z < old_z; z++) {
             const std::string & value = old_array[x + y * old_x +
                                                   z * old_x * old_y];
-            strings[get_index(x, y, z)] = value;
+            data.strings[get_index(x, y, z)] = value;
         }
         delete[] old_array;
     }
@@ -173,19 +202,27 @@ void ArrayObject::expand(int x, int y, int z)
 
 ArrayObject::~ArrayObject()
 {
-    if (is_numeric)
-        delete[] array;
+    if (global_data) {
+        *global_data = data;
+        return;
+    }
+    if (data.is_numeric)
+        delete[] data.array;
     else
-        delete[] strings;
+        delete[] data.strings;
 }
 
 void ArrayObject::clear()
 {
-    if (is_numeric) {
-        delete[] array;
-        array = new double[x_size * y_size * z_size]();
+    if (data.is_numeric) {
+        delete[] data.array;
+        data.array = new ArrayNumber[data.x_size *
+                                     data.y_size *
+                                     data.z_size]();
     } else {
-        delete[] strings;
-        strings = new std::string[x_size * y_size * z_size];
+        delete[] data.strings;
+        data.strings = new std::string[data.x_size *
+                                       data.y_size *
+                                       data.z_size];
     }
 }

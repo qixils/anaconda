@@ -15,6 +15,7 @@
 #include <boost/intrusive/list.hpp>
 #include "pool.h"
 #include "stringcommon.h"
+#include "shaderparam.h"
 
 class InstanceCollision;
 class Shader;
@@ -23,8 +24,6 @@ class Image;
 class FrameObject;
 class Movement;
 class Layer;
-
-typedef hash_map<std::string, double> ShaderParameters;
 
 class FixedValue
 {
@@ -35,6 +34,7 @@ public:
     operator double() const;
     operator std::string() const;
     operator FrameObject*() const;
+    unsigned int get_uint() const;
 #ifdef CHOWDREN_USE_DYNAMIC_NUMBER
     operator DynamicNumber() const;
 #endif
@@ -58,7 +58,7 @@ inline bool operator==(double a, FixedValue b)
 inline bool operator!=(double a, FixedValue b)
 {
     return !(a == b);
-}
+}   
 
 #define BACKGROUND_TYPE 1
 
@@ -72,7 +72,9 @@ enum ObjectFlags
     GLOBAL = (1 << 5),
     INACTIVE = (1 << 6),
     HAS_COLLISION_CACHE = (1 << 7),
-    HAS_COLLISION = (1 << 8)
+    HAS_COLLISION = (1 << 8),
+    DEFER_COLLISIONS = (1 << 9),
+    REPEAT_BACK_COLLISION = (1 << 10)
 };
 
 enum AnimationIndex
@@ -121,36 +123,12 @@ public:
         return values[offset - 1];
     }
 
-    double get_value(const std::string & key)
-    {
-        int hash = hash_extra_key(key);
-#ifndef NDEBUG
-        if (hash == -1) {
-            std::cout << "Invalid value key: " << key;
-            return 0.0;
-        }
-#endif
-        return get_value(hash);
-    }
-
     const std::string & get_string(int key)
     {
         int offset = string_offsets[key];
         if (offset == 0)
             return empty_string;
         return strings[offset - 1];
-    }
-
-    const std::string & get_string(const std::string & key)
-    {
-        int hash = hash_extra_key(key);
-#ifndef NDEBUG
-        if (hash == -1) {
-            std::cout << "Invalid value key: " << key;
-            return empty_string;
-        }
-#endif
-        return get_string(hash);
     }
 
     void set_value(int key, double value)
@@ -178,6 +156,55 @@ public:
         strings.push_back(value);
         string_offsets[key] = strings.size();
     }
+
+    // slow paths
+    double get_value(const std::string & key)
+    {
+        int hash = hash_extra_key(key);
+        if (hash == -1) {
+#ifndef NDEBUG
+            std::cout << "Invalid value key: " << key << std::endl;
+#endif
+            return 0.0;
+        }
+        return get_value(hash);
+    }
+
+    const std::string & get_string(const std::string & key)
+    {
+        int hash = hash_extra_key(key);
+        if (hash == -1) {
+#ifndef NDEBUG
+            std::cout << "Invalid value key: " << key << std::endl;
+#endif
+            return empty_string;
+        }
+        return get_string(hash);
+    }
+
+    void set_value(const std::string & key, double value)
+    {
+        int hash = hash_extra_key(key);
+        if (hash == -1) {
+#ifndef NDEBUG
+            std::cout << "Invalid value key: " << key << std::endl;
+#endif
+            return;
+        }
+        set_value(hash, value);
+    }
+
+    void set_string(const std::string & key, const std::string & value)
+    {
+        int hash = hash_extra_key(key);
+        if (hash == -1) {
+#ifndef NDEBUG
+            std::cout << "Invalid value key: " << key << std::endl;
+#endif
+            return;
+        }
+        set_string(hash, value);
+    }
 };
 
 #endif
@@ -194,30 +221,40 @@ typedef boost::intrusive::list_member_hook<LinkMode> LayerPos;
 
 #define FRAMEOBJECT_IMPL(X) ObjectPool<X> X::pool;
 
+
+struct ShaderParameter
+{
+    int hash;
+    double value;
+};
+
+typedef vector<ShaderParameter> ShaderParameters;
+
 class FrameObject
 {
 public:
 #ifndef NDEBUG
     std::string name;
 #endif
-    int index;
-    unsigned int depth;
     int x, y;
+    Layer * layer;
+    int flags;
+    Alterables * alterables;
+    InstanceCollision * collision;
+    unsigned int depth;
+    LayerPos layer_pos;
+    int index;
     int width, height;
     int direction;
     int id;
-    int flags;
-    Alterables * alterables;
     Color blend_color;
     Frame * frame;
-    Layer * layer;
-    LayerPos layer_pos;
     Shader * shader;
     ShaderParameters * shader_parameters;
     int movement_count;
     Movement ** movements;
     Movement * movement;
-    InstanceCollision * collision;
+    int collision_flags;
 #ifdef CHOWDREN_USE_BOX2D
     int body;
 #endif
@@ -248,9 +285,11 @@ public:
     void set_visible(bool value);
     void set_blend_color(int color);
     virtual void draw();
+#ifndef CHOWDREN_USE_DIRECT_RENDERER
     void draw_image(Image * img, int x, int y, float angle = 0.0f,
                     float scale_x = 1.0f, float scale_y = 1.0f,
-                    bool flip_x = false, bool flip_y = false);
+                    bool flip_x = false);
+#endif
     void begin_draw(int width, int height);
     void begin_draw();
     void end_draw();
@@ -265,7 +304,6 @@ public:
     void set_shader_parameter(const std::string & name, const Color & color);
     void set_shader_parameter(const std::string & name,
                               const std::string & path);
-    double get_shader_parameter(const std::string & name);
     int get_level();
     void set_level(int index);
     void move_relative(FrameObject * other, int disp);
@@ -297,6 +335,40 @@ public:
     void update_inactive();
     bool is_near_border(int border);
 
+    ShaderParameter * find_shader_parameter(unsigned int hash)
+    {
+        ShaderParameters::const_iterator it;
+        for (it = shader_parameters->begin(); it != shader_parameters->end();
+             ++it)
+        {
+            if (it->hash != hash)
+                continue;
+            return &(*it);
+        }
+        return NULL;
+    }
+
+    double get_shader_parameter(unsigned int hash)
+    {
+        if (shader_parameters == NULL)
+            return 0.0;
+        ShaderParameter * param = find_shader_parameter(hash);
+        if (param == NULL)
+            return 0.0;
+        return param->value;
+    }
+
+    double get_shader_parameter(const std::string & name)
+    {
+        if (shader_parameters == NULL)
+            return 0.0;
+        unsigned int hash = hash_shader_parameter(&name[0], name.size());
+        ShaderParameter * param = find_shader_parameter(hash);
+        if (param == NULL)
+            return 0.0;
+        return param->value;
+    }
+
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables & get_extra_alterables()
     {
@@ -304,6 +376,14 @@ public:
             extra_alterables = new ExtraAlterables(flags);
         return *extra_alterables;
     }
+#endif
+
+#ifdef CHOWDREN_USE_DIRECT_RENDERER
+    void draw_image(Image * img, int x, int y);
+    void draw_image(Image * img, int x, int y, float angle,
+                    float x_scale, float y_scale);
+    void draw_image(Image * img, int x, int y, float angle,
+                    float x_scale, float y_scale, bool flip_x);
 #endif
 };
 

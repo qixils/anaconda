@@ -298,7 +298,8 @@ actions = make_table(ActionMethodWriter, {
     27 : 'sort_alt_decreasing',
     31 : 'show_layer(%s-1)',
     32 : 'hide_layer(%s-1)',
-    50 : SetAlphaByName,
+    47 : 'set_rgb(%s-1, %s)',
+    50 : SetAlphaByName
 })
 
 conditions = make_table(ConditionMethodWriter, {
@@ -308,6 +309,7 @@ conditions = make_table(ConditionMethodWriter, {
 expressions = make_table(ExpressionMethodWriter, {
     6 : GetObjectLevel,
     8 : '.get_x(-1 + ',
+    9 : '.get_y(-1 + ',
     12 : GetLayerCount,
     14 : GetIndexByName,
     10 : GetXByName,

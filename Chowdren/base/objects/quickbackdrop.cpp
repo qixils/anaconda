@@ -47,10 +47,10 @@ void QuickBackdrop::draw()
         // this is a cheap implementation of the wrap feature.
         // we expect objects to extend on either the X or Y axis.
         if (layer->wrap_x) {
-            x = frame->off_x * layer->scroll_x + x_offset - image->width;
+            x = frame->off_x * layer->coeff_x + x_offset - image->width;
             width = WINDOW_WIDTH + image->width * 2;
         } else if (layer->wrap_y) {
-            y = frame->off_y * layer->scroll_y + y_offset - image->height;
+            y = frame->off_y * layer->coeff_y + y_offset - image->height;
             height = WINDOW_HEIGHT + image->height * 2;
         }
 #endif

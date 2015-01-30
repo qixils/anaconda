@@ -43,6 +43,11 @@ public:
     void calculate_box();
     void update();
     void flash(float value);
+
+    int get_int()
+    {
+        return int(value);
+    }
 };
 
 #endif // CHOWDREN_COUNTER_H

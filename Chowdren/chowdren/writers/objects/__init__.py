@@ -15,6 +15,7 @@ class ObjectWriter(BaseWriter):
     update = False
     movement_count = 0
     default_instance = None
+    has_collision_events = False
 
     def __init__(self, *arg, **kw):
         self.event_callbacks = {}
@@ -67,8 +68,15 @@ class ObjectWriter(BaseWriter):
     def has_sleep(self):
         try:
             if self.common.flags['ManualSleep']:
-                if not self.common.flags['NeverSleep']:
+                if self.common.flags['NeverSleep']:
+                    return False
+                else:
                     return True
+            else:
+                # (OnBackgroundCollision && LEF_TOTALCOLMASK) ||
+                # (OnCollision || IsOverlapping || LeavingPlayfield ||
+                #  EnteringPlayfield)
+                return not self.has_collision_events
         except AttributeError:
             pass
         return False
@@ -177,6 +185,9 @@ class ObjectWriter(BaseWriter):
             return False
         return True
 
+    def has_autodestruct(self):
+        return False
+
     def write_dtor(self, writer):
         if not self.is_global():
             return
@@ -199,7 +210,6 @@ class ObjectWriter(BaseWriter):
             if single:
                 writer.putlnc('flags |= GLOBAL;')
                 writer.putln('alterables = &global_alterables;')
-                writer.putln('has_saved_alterables = true;')
                 writer.putln('if (!has_saved_alterables) {')
             else:
                 writer.putln('if (has_saved_alterables) {')
@@ -224,6 +234,8 @@ class ObjectWriter(BaseWriter):
                 writer.putlnc('alterables->strings.set(%s, %s);', index, value)
 
         if is_global:
+            if single:
+                writer.putln('has_saved_alterables = true;')
             writer.end_brace()
 
     def get_base_filename(self):

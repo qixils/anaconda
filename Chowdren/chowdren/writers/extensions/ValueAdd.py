@@ -55,7 +55,7 @@ class SetAction(ActionMethodWriter):
         key = self.parameters[1].loader.items
         key = self.converter.convert_static_expression(key)
         if key is None:
-            key = 'hash_extra_key(%s)' % self.convert_index(1)
+            key = self.convert_index(1)
         else:
             key = hash_key(key)
         value = self.convert_index(2)

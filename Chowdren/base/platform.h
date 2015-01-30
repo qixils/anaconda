@@ -59,12 +59,13 @@ void joystick_vibrate(int n, int l, int r, int d);
 float get_joystick_axis(int n, int axis);
 int get_joystick_last_press(int n);
 
-// path
+// desktop
+void platform_set_display_scale(int scale);
 
+// path
 std::string convert_path(const std::string & value);
 
 // glc
-
 void glc_init();
 void glc_copy_color_buffer_rect(unsigned int tex, int x1, int y1, int x2,
                                      int y2);

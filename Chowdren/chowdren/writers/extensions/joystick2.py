@@ -29,10 +29,10 @@ conditions = make_table(GlobalConditionWriter, {
     1 : 'any_joystick_pressed',
     2 : 'is_joystick_attached',
     3 : FalseCondition, # how does this work exactly
-    4 : 'is_joystick_pressed',
-    5 : 'is_joystick_pressed', # once
-    6 : 'is_joystick_released',
-    7 : 'any_joystick_pressed',
+    4 : 'is_joystick_pressed_once',
+    5 : 'is_joystick_pressed_once', # once
+    6 : 'is_joystick_released_once',
+    7 : 'any_joystick_pressed_once',
     17 : 'compare_joystick_direction',
     27 : 'is_joystick_direction_changed',
     33 : TrueCondition, # is xbox controller

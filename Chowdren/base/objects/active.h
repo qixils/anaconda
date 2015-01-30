@@ -30,6 +30,10 @@ class Active : public FrameObject
 public:
     FRAMEOBJECT_HEAD(Active)
 
+#ifdef CHOWDREN_DEFER_COLLISIONS
+    int old_aabb[4];
+#endif
+
     Animations * animations;
 
     int animation;
@@ -71,7 +75,7 @@ public:
     int get_action_y();
     void set_angle(float angle, int quality = 0);
     float get_angle();
-    int & get_frame();
+    int get_frame();
     int get_speed();
     Direction * get_direction_data();
     int get_animation();

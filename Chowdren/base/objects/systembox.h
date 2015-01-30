@@ -28,6 +28,7 @@ public:
     void hide_fill();
     void set_border_1(Color color);
     void set_border_2(Color color);
+    void set_fill(Color color);
 };
 
 extern FrameObject * default_systembox_instance;

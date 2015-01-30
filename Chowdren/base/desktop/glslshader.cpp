@@ -177,23 +177,20 @@ void GLSLShader::end(FrameObject * instance)
     glUseProgram(0);
 }
 
-void GLSLShader::set_int(FrameObject * instance, const std::string & name,
-                           int uniform)
+void GLSLShader::set_int(FrameObject * instance, int src, int uniform)
 {
-    int val = (int)(*instance->shader_parameters)[name];
+    int val = (int)instance->get_shader_parameter(src);
     glUniform1i((GLint)uniform, val);
 }
 
-void GLSLShader::set_float(FrameObject * instance, const std::string & name,
-                           int uniform)
+void GLSLShader::set_float(FrameObject * instance, int src, int uniform)
 {
-    glUniform1f((GLint)uniform, (*instance->shader_parameters)[name]);
+    glUniform1f((GLint)uniform, instance->get_shader_parameter(src));
 }
 
-void GLSLShader::set_vec4(FrameObject * instance, const std::string & name,
-                          int uniform)
+void GLSLShader::set_vec4(FrameObject * instance, int src, int uniform)
 {
-    int val = (int)(*instance->shader_parameters)[name];
+    int val = (int)instance->get_shader_parameter(src);
     float a, b, c, d;
     convert_vec4(val, a, b, c, d);
     glUniform4f((GLint)uniform, a, b, c, d);

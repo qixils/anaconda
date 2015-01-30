@@ -4,6 +4,9 @@
 #include "frameobject.h"
 #include "assetfile.h"
 
+#include "shaderparam.cpp"
+#include "shaderparam.h"
+
 void convert_vec4(int val, float & a, float & b, float & c, float & d)
 {
     a = (val & 0xFF) / 255.0f;
@@ -28,10 +31,10 @@ public:
 
 #include "glslshader.h"
 
-void GLSLShader::set_image(FrameObject * instance, const std::string & name)
+void GLSLShader::set_image(FrameObject * instance, int src)
 {
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, (GLuint)(*instance->shader_parameters)[name]);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)instance->get_shader_parameter(src));
     glActiveTexture(GL_TEXTURE0);
 }
 
@@ -96,9 +99,9 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_vec4(instance, "r", r);
-        set_vec4(instance, "g", g);
-        set_vec4(instance, "b", b);
+        set_vec4(instance, SHADER_PARAM_R, r);
+        set_vec4(instance, SHADER_PARAM_G, g);
+        set_vec4(instance, SHADER_PARAM_B, b);
     }
 };
 
@@ -115,7 +118,7 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fHue", hue);
+        set_float(instance, SHADER_PARAM_FHUE, hue);
     }
 
     void initialize_parameters()
@@ -144,8 +147,8 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "width", width);
-        set_float(instance, "height", height);
+        set_float(instance, SHADER_PARAM_WIDTH, width);
+        set_float(instance, SHADER_PARAM_HEIGHT, height);
     }
 };
 
@@ -179,8 +182,8 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "vertical", vertical);
-        set_float(instance, "radius", radius);
+        set_float(instance, SHADER_PARAM_VERTICAL, vertical);
+        set_float(instance, SHADER_PARAM_RADIUS, radius);
     }
 };
 
@@ -210,13 +213,13 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fStrength", strength);
-        set_float(instance, "fSeed", seed);
-        set_int(instance, "iInvert", invert);
-        set_int(instance, "iR", r);
-        set_int(instance, "iG", g);
-        set_int(instance, "iB", b);
-        set_int(instance, "iA", a);
+        set_float(instance, SHADER_PARAM_FSTRENGTH, strength);
+        set_float(instance, SHADER_PARAM_FSEED, seed);
+        set_int(instance, SHADER_PARAM_IINVERT, invert);
+        set_int(instance, SHADER_PARAM_IR, r);
+        set_int(instance, SHADER_PARAM_IG, g);
+        set_int(instance, SHADER_PARAM_IB, b);
+        set_int(instance, SHADER_PARAM_IA, a);
     }
 };
 
@@ -260,9 +263,9 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_vec4(instance, "fTintColor", tint_color);
-        set_float(instance, "fTintPower", tint_power);
-        set_float(instance, "fOriginalPower", original_power);
+        set_vec4(instance, SHADER_PARAM_FTINTCOLOR, tint_color);
+        set_float(instance, SHADER_PARAM_FTINTPOWER, tint_power);
+        set_float(instance, SHADER_PARAM_FORIGINALPOWER, original_power);
     }
 };
 
@@ -288,11 +291,11 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fCoeff", coeff);
-        set_int(instance, "iR", r);
-        set_int(instance, "iG", g);
-        set_int(instance, "iB", b);
-        set_int(instance, "iA", a);
+        set_float(instance, SHADER_PARAM_FCOEFF, coeff);
+        set_int(instance, SHADER_PARAM_IR, r);
+        set_int(instance, SHADER_PARAM_IG, g);
+        set_int(instance, SHADER_PARAM_IB, b);
+        set_int(instance, SHADER_PARAM_IA, a);
     }
 };
 
@@ -317,9 +320,9 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "coeff", coeff);
-        set_float(instance, "exponent", exponent);
-        set_float(instance, "radius", radius);
+        set_float(instance, SHADER_PARAM_COEFF, coeff);
+        set_float(instance, SHADER_PARAM_EXPONENT, exponent);
+        set_float(instance, SHADER_PARAM_RADIUS, radius);
     }
 };
 
@@ -352,13 +355,13 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fBlur", blur);
-        set_float(instance, "fAmplitudeX", amplitudeX);
-        set_float(instance, "fPeriodsX", periodsX);
-        set_float(instance, "fFreqX", freqX);
-        set_float(instance, "fAmplitudeY", amplitudeY);
-        set_float(instance, "fPeriodsY", periodsY);
-        set_float(instance, "fFreqY", freqY);
+        set_float(instance, SHADER_PARAM_FBLUR, blur);
+        set_float(instance, SHADER_PARAM_FAMPLITUDEX, amplitudeX);
+        set_float(instance, SHADER_PARAM_FPERIODSX, periodsX);
+        set_float(instance, SHADER_PARAM_FFREQX, freqX);
+        set_float(instance, SHADER_PARAM_FAMPLITUDEY, amplitudeY);
+        set_float(instance, SHADER_PARAM_FPERIODSY, periodsY);
+        set_float(instance, SHADER_PARAM_FFREQY, freqY);
     }
 };
 
@@ -383,11 +386,11 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fA", angle);
-        set_float(instance, "fX", x);
-        set_float(instance, "fY", y);
-        set_float(instance, "fSx", shift_x);
-        set_float(instance, "fSy", shift_y);
+        set_float(instance, SHADER_PARAM_FA, angle);
+        set_float(instance, SHADER_PARAM_FX, x);
+        set_float(instance, SHADER_PARAM_FY, y);
+        set_float(instance, SHADER_PARAM_FSX, shift_x);
+        set_float(instance, SHADER_PARAM_FSY, shift_y);
     }
 };
 
@@ -409,8 +412,8 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fFade", fade);
-        set_vec4(instance, "fC", color);
+        set_float(instance, SHADER_PARAM_FFADE, fade);
+        set_vec4(instance, SHADER_PARAM_FC, color);
     }
 };
 
@@ -435,10 +438,10 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "width", width);
-        set_float(instance, "height", height);
-        set_float(instance, "xoff", x_offset);
-        set_float(instance, "yoff", y_offset);
+        set_float(instance, SHADER_PARAM_WIDTH, width);
+        set_float(instance, SHADER_PARAM_HEIGHT, height);
+        set_float(instance, SHADER_PARAM_XOFF, x_offset);
+        set_float(instance, SHADER_PARAM_YOFF, y_offset);
     }
 };
 
@@ -464,12 +467,12 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_image(instance, "pattern");
-        set_float(instance, "width", width);
-        set_float(instance, "height", height);
-        set_float(instance, "x", x);
-        set_float(instance, "y", y);
-        set_float(instance, "alpha", alpha);
+        set_image(instance, SHADER_PARAM_PATTERN);
+        set_float(instance, SHADER_PARAM_WIDTH, width);
+        set_float(instance, SHADER_PARAM_HEIGHT, height);
+        set_float(instance, SHADER_PARAM_X, x);
+        set_float(instance, SHADER_PARAM_Y, y);
+        set_float(instance, SHADER_PARAM_ALPHA, alpha);
     }
 };
 
@@ -492,9 +495,9 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_int(instance, "limit", limit);
-        set_float(instance, "x", x);
-        set_float(instance, "y", y);
+        set_int(instance, SHADER_PARAM_LIMIT, limit);
+        set_float(instance, SHADER_PARAM_X, x);
+        set_float(instance, SHADER_PARAM_Y, y);
     }
 };
 
@@ -521,12 +524,12 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fX", x);
-        set_float(instance, "fY", y);
-        set_float(instance, "fZoomX", zoom_x);
-        set_float(instance, "fZoomY", zoom_y);
-        set_float(instance, "fWidth", width);
-        set_float(instance, "fHeight", height);
+        set_float(instance, SHADER_PARAM_FX, x);
+        set_float(instance, SHADER_PARAM_FY, y);
+        set_float(instance, SHADER_PARAM_FZOOMX, zoom_x);
+        set_float(instance, SHADER_PARAM_FZOOMY, zoom_y);
+        set_float(instance, SHADER_PARAM_FWIDTH, width);
+        set_float(instance, SHADER_PARAM_FHEIGHT, height);
     }
 };
 
@@ -560,17 +563,17 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_vec4(instance, "fArgb", a_rgb);
-        set_float(instance, "fAa", a_a);
-        set_vec4(instance, "fBrgb", b_rgb);
-        set_float(instance, "fBa", b_a);
-        set_float(instance, "fCoeff", coeff);
-        set_float(instance, "fOffset", offset);
-        set_float(instance, "fFade", fade);
-        set_int(instance, "iT", t);
-        set_int(instance, "iF", f);
-        set_int(instance, "iR", r);
-        set_int(instance, "iMask", mask);
+        set_vec4(instance, SHADER_PARAM_FARGB, a_rgb);
+        set_float(instance, SHADER_PARAM_FAA, a_a);
+        set_vec4(instance, SHADER_PARAM_FBRGB, b_rgb);
+        set_float(instance, SHADER_PARAM_FBA, b_a);
+        set_float(instance, SHADER_PARAM_FCOEFF, coeff);
+        set_float(instance, SHADER_PARAM_FOFFSET, offset);
+        set_float(instance, SHADER_PARAM_FFADE, fade);
+        set_int(instance, SHADER_PARAM_IT, t);
+        set_int(instance, SHADER_PARAM_IF, f);
+        set_int(instance, SHADER_PARAM_IR, r);
+        set_int(instance, SHADER_PARAM_IMASK, mask);
     }
 };
 
@@ -591,7 +594,7 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "bgA", alpha);
+        set_float(instance, SHADER_PARAM_BGA, alpha);
     }
 };
 
@@ -613,8 +616,8 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fCoeff", coeff);
-        set_float(instance, "fBase", base);
+        set_float(instance, SHADER_PARAM_FCOEFF, coeff);
+        set_float(instance, SHADER_PARAM_FBASE, base);
     }
 };
 
@@ -646,17 +649,17 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "rr", rr);
-        set_float(instance, "rg", rg);
-        set_float(instance, "rb", rb);
-        set_float(instance, "gr", gr);
-        set_float(instance, "gg", gg);
-        set_float(instance, "gb", gb);
-        set_float(instance, "br", br);
-        set_float(instance, "bg", bg);
-        set_float(instance, "bb", bb);
-        set_float(instance, "fAngle", angle);
-        set_float(instance, "fCoeff", coeff);
+        set_float(instance, SHADER_PARAM_RR, rr);
+        set_float(instance, SHADER_PARAM_RG, rg);
+        set_float(instance, SHADER_PARAM_RB, rb);
+        set_float(instance, SHADER_PARAM_GR, gr);
+        set_float(instance, SHADER_PARAM_GG, gg);
+        set_float(instance, SHADER_PARAM_GB, gb);
+        set_float(instance, SHADER_PARAM_BR, br);
+        set_float(instance, SHADER_PARAM_BG, bg);
+        set_float(instance, SHADER_PARAM_BB, bb);
+        set_float(instance, SHADER_PARAM_FANGLE, angle);
+        set_float(instance, SHADER_PARAM_FCOEFF, coeff);
     }
 };
 
@@ -677,7 +680,7 @@ public:
     {
         effect = get_uniform("effect");
         direction = get_uniform("direction");
-        perspective_dir = get_uniform("perspective_dir");
+        // perspective_dir = get_uniform("perspective_dir");
         zoom = get_uniform("zoom");
         offset = get_uniform("offset");
         sine_waves = get_uniform("sine_waves");
@@ -685,12 +688,12 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_int(instance, "effect", effect);
-        set_int(instance, "direction", direction);
-        set_int(instance, "perspective_dir", perspective_dir);
-        set_float(instance, "zoom", zoom);
-        set_float(instance, "offset", offset);
-        set_int(instance, "sine_waves", sine_waves);
+        set_int(instance, SHADER_PARAM_EFFECT, effect);
+        set_int(instance, SHADER_PARAM_DIRECTION, direction);
+        // set_int(instance, SHADER_PARAM_PERSPECTIVE_DIR, perspective_dir);
+        set_float(instance, SHADER_PARAM_ZOOM, zoom);
+        set_float(instance, SHADER_PARAM_OFFSET, offset);
+        set_int(instance, SHADER_PARAM_SINE_WAVES, sine_waves);
     }
 };
 
@@ -714,22 +717,22 @@ public:
         alpha_1 = get_uniform("alpha_1");
         color_2 = get_uniform("color_2");
         alpha_2 = get_uniform("alpha_2");
-        coeff = get_uniform("coeff");
         offset = get_uniform("offset");
-        fade = get_uniform("fade");
+        // coeff = get_uniform("coeff");
+        // fade = get_uniform("fade");
     }
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "xScale", x_scale);
-        set_float(instance, "yScale", y_scale);
-        set_vec4(instance, "fArgb", color_1);
-        set_float(instance, "fAa", alpha_1);
-        set_vec4(instance, "fBrgb", color_2);
-        set_float(instance, "fBa", alpha_2);
-        set_float(instance, "fCoeff", coeff);
-        set_float(instance, "fOffset", offset);
-        set_float(instance, "fFade", fade);
+        set_float(instance, SHADER_PARAM_XSCALE, x_scale);
+        set_float(instance, SHADER_PARAM_YSCALE, y_scale);
+        set_vec4(instance, SHADER_PARAM_FARGB, color_1);
+        set_float(instance, SHADER_PARAM_FAA, alpha_1);
+        set_vec4(instance, SHADER_PARAM_FBRGB, color_2);
+        set_float(instance, SHADER_PARAM_FBA, alpha_2);
+        set_float(instance, SHADER_PARAM_FOFFSET, offset);
+        // set_float(instance, SHADER_PARAM_FCOEFF, coeff);
+        // set_float(instance, SHADER_PARAM_FFADE, fade);
     }
 };
 
@@ -750,7 +753,7 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_vec4(instance, "color", color);
+        set_vec4(instance, SHADER_PARAM_COLOR, color);
     }
 };
 
@@ -772,8 +775,8 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "Brightness", brightness);
-        set_float(instance, "Saturation", saturation);
+        set_float(instance, SHADER_PARAM_BRIGHTNESS, brightness);
+        set_float(instance, SHADER_PARAM_SATURATION, saturation);
     }
 };
 
@@ -796,9 +799,9 @@ public:
 
     void set_parameters(FrameObject * instance)
     {
-        set_float(instance, "fX", x);
-        set_float(instance, "fY", y);
-        set_float(instance, "fA", alpha);
+        set_float(instance, SHADER_PARAM_FX, x);
+        set_float(instance, SHADER_PARAM_FY, y);
+        set_float(instance, SHADER_PARAM_FA, alpha);
     }
 };
 

@@ -44,9 +44,12 @@ public:
 
     // player controls
     int up, down, left, right, button1, button2, button3, button4;
-    int last_control_flags, control_flags;
+    int player_flags, player_press_flags;
     int control_type;
     bool ignore_controls;
+
+    // joystick controls
+    int joystick_flags, joystick_press_flags, joystick_release_flags;
 
     GameManager();
     void init();

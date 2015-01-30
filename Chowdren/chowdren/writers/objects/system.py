@@ -54,6 +54,7 @@ class Active(ObjectWriter):
     update = True
     default_instance = 'default_active_instance'
     filename = 'active'
+    destruct = False
 
     def write_init(self, writer):
         common = self.common
@@ -76,11 +77,14 @@ class Active(ObjectWriter):
             writer.putln('forced_animation = APPEARING;')
         if len(animations) == 1 and DISAPPEARING in animations:
             writer.putln('flags |= FADEOUT;')
+            self.destruct = True
 
         writer.putln('initialize_active();')
 
     def has_updates(self):
         if not self.converter.config.use_update_filtering():
+            return True
+        if self.converter.config.use_deferred_collisions():
             return True
         animations = self.common.animations.loadedAnimations
         if len(animations) > 1:
@@ -187,6 +191,9 @@ class Active(ObjectWriter):
             for direction in directions.values():
                 images.update(direction.frames)
         return images
+
+    def has_autodestruct(self):
+        return self.destruct
 
 class Backdrop(ObjectWriter):
     class_name = 'Backdrop'

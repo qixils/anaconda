@@ -94,6 +94,12 @@ void Movement::set_gravity(int value)
 
 }
 
+
+void Movement::look_at(int x, int y)
+{
+
+}
+
 void Movement::set_max_speed(int v)
 {
     max_speed = v;
@@ -321,7 +327,7 @@ StaticMovement::StaticMovement(FrameObject * instance)
 // BallMovement
 
 BallMovement::BallMovement(FrameObject * instance)
-: Movement(instance)
+: Movement(instance), speed_change(0.0)
 {
 
 }
@@ -332,6 +338,10 @@ void BallMovement::update()
     get_dir(instance->direction, add_x, add_y);
     double m = get_pixels(speed) * instance->frame->timer_mul;
     move(add_x * m, add_y * m);
+    speed_change -= get_accelerator(deceleration) * instance->frame->timer_mul;
+    int change = (int)speed_change;
+    speed_change -= change;
+    set_speed(int_max(0, speed + change));
 }
 
 void BallMovement::bounce(bool collision)
@@ -363,6 +373,40 @@ void BallMovement::bounce(bool collision)
         angle -= 2.0 * CHOW_PI;
 
     instance->set_direction(deg(angle) / 11.25f, false);
+}
+
+void BallMovement::set_deceleration(int value)
+{
+    deceleration = value;
+}
+
+// VectorMovement
+
+VectorMovement::VectorMovement(FrameObject * instance)
+: Movement(instance), angle(0.0)
+{
+
+}
+
+void VectorMovement::update()
+{
+    if (speed <= 0)
+        return;
+
+    float vel_x = speed * cos_deg(angle) * instance->frame->timer_mul;
+    float vel_y = speed * sin_deg(angle) * instance->frame->timer_mul;
+
+    // XXX implement
+    // vel_x += mul * acc_x;
+    // vel_y += mul * acc_y;
+
+    move(vel_x * 0.01f, vel_y * 0.01f);
+    instance->set_animation(WALKING);
+}
+
+void VectorMovement::look_at(int x, int y)
+{
+    angle = get_angle(instance->get_x(), instance->get_y(), x, y);
 }
 
 // PathMovement

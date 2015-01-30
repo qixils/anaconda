@@ -33,7 +33,7 @@ class AGMIBank(DataLoader):
             for _ in xrange(256)]
         count = reader.readInt()
         for _ in xrange(count):
-            item = self.new(ImageItem, reader, debug = True)
+            item = self.new(ImageItem, reader, debug=True)
             self.items.append(item)
             self.itemDict[item.handle] = item
     

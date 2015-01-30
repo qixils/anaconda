@@ -6,7 +6,6 @@
 #include "huffman.h"
 #include "fileio.h"
 #include "frame.h"
-#include <boost/algorithm/string.hpp>
 
 // #define CHOWDREN_AUTOSAVE_ON_CHANGE
 
@@ -340,6 +339,13 @@ void INI::load_file(const std::string & fn, bool read_only, bool merge,
         std::cout << "INI load failed (" << filename << ") with code " << e
             << std::endl;
     }
+}
+
+void INI::load_file(TempPath path)
+{
+    std::string data;
+    path.read(data);
+    load_string(data, false);
 }
 
 void INI::load_string(const std::string & data, bool merge)

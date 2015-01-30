@@ -87,6 +87,24 @@ public:
         write(&v, 1);
     }
 
+    void write_uint8(unsigned char v)
+    {
+        write_int8(char(v));
+    }
+
+    void write_int16(short v)
+    {
+        unsigned char data[2];
+        data[0] = v & 0xFF;
+        data[1] = (v >> 8) & 0xFF;
+        write((char*)&data[0], 2);
+    }
+
+    void write_uint16(unsigned short v)
+    {
+        write_int16(short(v));
+    }
+
     void write_int32(int v)
     {
         unsigned char data[4];
@@ -102,10 +120,6 @@ public:
         write_int32(int(v));
     }
 
-    void write_uint8(unsigned char v)
-    {
-        write_int8(char(v));
-    }
 
     void write_string(const std::string & str)
     {

@@ -1,5 +1,6 @@
 def init(converter):
     name = converter.info_dict.get('name').lower()
+    converter.add_define('CHOWDREN_ARRAYEXT_DOUBLES')
 
     if 'japan' in name:
         converter.add_define('CHOWDREN_TEXT_USE_UTF8')

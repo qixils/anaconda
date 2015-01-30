@@ -92,3 +92,10 @@ void LayerObject::sort_alt_decreasing(int index, double def)
     layer->instances.sort(sort_func);
     layer->reset_depth();
 }
+
+void LayerObject::set_rgb(int index, Color color)
+{
+    std::cout << "Set layer RGB not implemented: " << index << " " <<
+        color.r << " " << color.g << " " << color.b << " " << color.a
+        << std::endl;
+}

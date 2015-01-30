@@ -38,6 +38,7 @@ public:
     virtual bool is_path_finished();
     virtual bool is_node_reached();
     virtual void set_direction(int value);
+    virtual void look_at(int x, int y);
     void set_directions(unsigned int directions);
     void move(double add_x, double add_y);
     bool test_direction(int dir, int displacement);
@@ -127,9 +128,23 @@ public:
 class BallMovement : public Movement
 {
 public:
+    int deceleration;
+    double speed_change;
+
     BallMovement(FrameObject * instance);
     void update();
     void bounce(bool collision);
+    void set_deceleration(int value);
+};
+
+class VectorMovement : public Movement
+{
+public:
+    float angle;
+
+    VectorMovement(FrameObject * instance);
+    void update();
+    void look_at(int x, int y);
 };
 
 class ShootMovement : public Movement

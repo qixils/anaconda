@@ -77,14 +77,13 @@ void Active::force_frame(int value)
 {
     if (flags & FADEOUT)
         return;
-    forced_frame = value;
+    int frame_count = direction_data->frame_count;
+    forced_frame = int_max(0, int_min(value, frame_count - 1));
     update_frame();
 }
 
 void Active::force_speed(int value)
 {
-    if (flags & FADEOUT)
-        return;
     int delta = direction_data->max_speed - direction_data->min_speed;
     if (delta != 0) {
         value = (value * delta) / 100 + direction_data->min_speed;
@@ -134,10 +133,6 @@ void Active::restore_speed()
 
 void Active::update_frame()
 {
-    int frame_count = direction_data->frame_count;
-    int & current_frame = get_frame();
-    current_frame = int_max(0, int_min(current_frame, frame_count - 1));
-
     Image * new_image = get_image();
     if (new_image == image)
         return;
@@ -151,8 +146,17 @@ void Active::update_direction(Direction * dir)
 {
     if (dir == NULL)
         dir = get_direction_data();
+
     direction_data = dir;
     loop_count = direction_data->loop_count;
+
+    // make sure frame is still in range
+    int frame_count = direction_data->frame_count;
+    if (forced_frame != -1 && forced_frame >= frame_count)
+        forced_frame = -1;
+    if (forced_frame == -1 && animation_frame >= frame_count)
+        animation_frame = 0;
+
     update_frame();
 }
 
@@ -166,6 +170,11 @@ void Active::update_action_point()
 
 void Active::update()
 {
+#ifdef CHOWDREN_DEFER_COLLISIONS
+    flags |= DEFER_COLLISIONS;
+    memcpy(old_aabb, sprite_col.aabb, sizeof(old_aabb));
+#endif
+
     if (flags & FADEOUT && animation_finished == DISAPPEARING) {
         FrameObject::destroy();
         return;
@@ -196,9 +205,11 @@ void Active::update()
         animation_frame--;
 
         if (forced_animation >= 0 && (flags & FADEOUT) == 0) {
-            forced_animation = -2;
-            if (forced_frame == -1)
+            if (forced_animation != animation)
                 animation_frame = 0;
+            forced_animation = -2;
+            forced_frame = -1;
+            forced_direction = -1;
             update_direction();
         }
         return;
@@ -259,7 +270,7 @@ void Active::draw()
     bool blend = transparent || blend_color.a < 255 || shader != NULL;
     if (!blend)
         glDisable(GL_BLEND);
-    draw_image(image, x, y, angle, x_scale, y_scale, false, false);
+    draw_image(image, x, y, angle, x_scale, y_scale);
     if (!blend)
         glEnable(GL_BLEND);
 }
@@ -294,7 +305,7 @@ float Active::get_angle()
     return angle;
 }
 
-int & Active::get_frame()
+int Active::get_frame()
 {
     if (forced_frame != -1)
         return forced_frame;

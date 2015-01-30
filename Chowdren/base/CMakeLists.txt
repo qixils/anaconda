@@ -242,27 +242,29 @@ if(APPLE)
 endif()
 
 add_definitions(-DBOOST_ALL_NO_LIB)
+add_definitions(-DBOOST_NO_EXCEPTIONS)
+add_definitions(-DBOOST_EXCEPTION_DISABLE)
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
+include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
+if (NOT NO_STATIC_OGG)
+    # libogg
+    file(GLOB LIBOGG_C
+         "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
+    file(GLOB LIBVORBIS_C
+         "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
+    set(VORBIS_INCLUDE_DIR
+        "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
+    set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
+endif()
+
 if (CMAKE_CROSSCOMPILING)
-    include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
-    if (NOT NO_STATIC_OGG)
-        # libogg
-        file(GLOB LIBOGG_C
-             "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
-        file(GLOB LIBVORBIS_C
-             "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
-        set(VORBIS_INCLUDE_DIR
-            "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
-        set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
-    endif()
     find_package(Boost REQUIRED)
 else()
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)
-    find_package(Vorbis REQUIRED)
     if (USE_GL)
         find_package(OpenGL REQUIRED)
     else()
@@ -277,9 +279,9 @@ add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
     ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
-    ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${VORBIS_LIBRARIES}
-    ${PLATFORM_LIBRARIES} ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES}
-    ${EGL_LIBRARIES} ${Boost_LIBRARIES})
+    ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES}
+    ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES}
+    ${Boost_LIBRARIES})
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
 

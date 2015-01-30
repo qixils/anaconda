@@ -75,12 +75,24 @@ inline float get_distance(float x1, float y1, float x2, float y2)
 {
     float dx = x2 - x1;
     float dy = y2 - y1;
-    return get_length(dx, dy);
+    return sqrt(dx * dx + dy * dy);
+}
+
+inline int get_distance_int(int x1, int y1, int x2, int y2)
+{
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    return int(sqrt(dx * dx + dy * dy));
 }
 
 inline double get_angle(int x1, int y1, int x2, int y2)
 {
     return atan2_deg(y2 - y1, x2 - x1);
+}
+
+inline int get_angle_int(int x, int y)
+{
+    return int(atan2_deg(-y, x));
 }
 
 inline double get_direction(int x1, int y1, int x2, int y2)
@@ -175,14 +187,20 @@ inline double get_exp(T v)
 }
 
 template <class T>
+inline double get_ln(T v)
+{
+    return log(double(v));
+}
+
+template <class T>
 inline double get_log10(T v)
 {
     return log10(double(v));
 }
 
-inline int get_floor(int v)
+inline double get_floor(int v)
 {
-    return v;
+    return double(v);
 }
 
 inline float get_floor(float v)

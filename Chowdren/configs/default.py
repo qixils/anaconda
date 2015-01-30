@@ -28,6 +28,9 @@ def use_global_int(converter, expression):
 def use_alterable_int(converter, expression):
     return False
 
+def use_counter_int(converter, expression):
+    return False
+
 def use_safe_division(converter):
     return True
 
@@ -41,6 +44,12 @@ def use_global_instances(converter):
     return True
 
 def use_update_filtering(converter):
+    return False
+
+def use_deferred_collisions(converter):
+    return False
+
+def use_generated_collisions(converter):
     return False
 
 def use_image_flush(converter, frame):
@@ -60,6 +69,9 @@ def get_depth(converter, layer):
 
 def get_object_depth(converter, obj):
     return None
+
+def use_loop_selection_clear(converter):
+    return True
 
 def get_loop_name(converter, parameter):
     return None

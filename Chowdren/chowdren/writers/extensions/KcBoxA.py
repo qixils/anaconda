@@ -157,6 +157,8 @@ actions = make_table(ActionMethodWriter, {
     6 : 'hide_fill',
     22 : 'hide_border_1',
     31 : 'hide_border_2',
+    # actually system colors
+    51 : 'set_fill(Color(%s))',
     52 : 'set_border_1(Color(%s))',
     53 : 'set_border_2(Color(%s))',
     54 : EmptyAction, # set text color, other

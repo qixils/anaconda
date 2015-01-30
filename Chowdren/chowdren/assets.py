@@ -6,6 +6,7 @@ IMAGE_COUNT offsets for each image
 SOUND_COUNT offsets for each sound
 FONT_COUNT offsets for each font
 SHADER_COUNT offsets for each shader
+FILE_COUNT offsets for each internal file
 
 Images:
     X, Y hotspot (short)
@@ -22,6 +23,10 @@ Fonts:
 
 Shaders:
     data (could be uint32 vert + data, uint32 frag + data)
+
+Files:
+    uint32 size
+    data
 """
 
 NONE_TYPE, WAV_TYPE, OGG_TYPE, NATIVE_TYPE = xrange(4)
@@ -33,7 +38,8 @@ AUDIO_TYPES = {
 
 import os
 from chowdren.shader import get_shader_programs
-from chowdren.common import get_method_name
+from chowdren.common import get_method_name, get_sized_data
+from chowdren.stringhash import get_string_int_map
 from mmfparser.bytereader import ByteReader
 
 def get_asset_name(typ, name, index=None):
@@ -52,13 +58,17 @@ class Assets(object):
         self.header = converter.open_code('assets.h')
         self.header.start_guard('CHOWDREN_ASSETS_H')
 
+        self.packfiles = converter.open_code('packfiles.cpp')
+
         self.images = []
         self.sounds = []
         self.fonts = []
         self.shaders = []
+        self.files = []
         self.shader_names = set()
 
         self.sound_ids = {}
+        self.file_ids = {}
 
         self.path = self.converter.get_filename('Assets.dat')
 
@@ -67,8 +77,9 @@ class Assets(object):
     def write_data(self):
         header = ByteReader()
         data = ByteReader()
-        header_size = (len(self.images) + len(self.sounds) + len(self.fonts) +
-                       len(self.shaders)) * 4 + len(self.images) * 2
+        header_size = ((len(self.images) + len(self.sounds) + len(self.fonts) +
+                       len(self.shaders) + len(self.files)) * 4
+                      + len(self.images) * 2)
 
         # image preload
         self.use_count_offset = header.tell()
@@ -91,6 +102,10 @@ class Assets(object):
             header.writeInt(data.tell() + header_size, True)
             data.write(shader)
 
+        for packfile in self.files:
+            header.writeInt(data.tell() + header_size, True)
+            data.write(packfile)
+
         self.fp.write(str(header))
         self.fp.write(str(data))
 
@@ -98,8 +113,10 @@ class Assets(object):
         self.sound_count = len(self.sounds)
         self.font_count = len(self.fonts)
         self.shader_count = len(self.shaders)
+        self.file_count = len(self.files)
 
         self.sounds = self.images = self.fonts = self.shaders = None
+        self.files = None
 
     def write_cache(self, cache):
         cache['sound_ids'] = self.sound_ids
@@ -123,7 +140,7 @@ class Assets(object):
             return
         self.fp.close()
 
-    def write_header(self):
+    def write_code(self):
         if self.skip:
             return
         self.header.putln('')
@@ -131,8 +148,24 @@ class Assets(object):
         self.header.putdefine('SOUND_COUNT', self.sound_count)
         self.header.putdefine('FONT_COUNT', self.font_count)
         self.header.putdefine('SHADER_COUNT', self.shader_count)
+        self.header.putdefine('FILE_COUNT', self.file_count)
         self.header.close_guard('CHOWDREN_ASSETS_H')
         self.header.close()
+
+        data = get_string_int_map('get_file_id', 'get_file_hash',
+                                  self.file_ids, False)
+        self.packfiles.putln(data)
+        self.packfiles.close()
+
+    def add_file(self, name, data):
+        if self.skip:
+            return
+        index = len(self.files)
+        file_id = get_asset_name('FILE', name, index)
+        self.file_ids[name.lower()] = file_id
+        self.header.putdefine(file_id, index)
+
+        self.files.append(get_sized_data(data))
 
     def add_shader(self, name, data):
         if self.skip:

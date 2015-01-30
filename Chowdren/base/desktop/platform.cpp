@@ -20,6 +20,8 @@
 
 using boost::uintmax_t;
 
+#define CHOWDREN_EXTRA_BILINEAR
+
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;
 static SDL_GLContext global_context = NULL;
@@ -153,14 +155,15 @@ static void set_resources_dir()
 
 void platform_init()
 {
-    unsigned int flags = SDL_INIT_VIDEO | SDL_INIT_JOYSTICK |
-                         SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC |
-                         SDL_INIT_NOPARACHUTE;
+    unsigned int flags = SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER |
+                         SDL_INIT_HAPTIC | SDL_INIT_NOPARACHUTE;
     if (SDL_Init(flags) < 0) {
         std::cout << "SDL could not be initialized: " << SDL_GetError()
             << std::endl;
         return;
     }
+    SDL_EventState(SDL_MOUSEMOTION, SDL_DISABLE);
+    SDL_EventState(SDL_WINDOWEVENT, SDL_DISABLE);
 #ifdef __APPLE__
     set_resources_dir();
 #endif
@@ -443,6 +446,11 @@ void platform_set_fullscreen(bool value)
         flags = 0;
 #endif
     SDL_SetWindowFullscreen(global_window, flags);
+    if (value)
+        return;
+    SDL_SetWindowPosition(global_window,
+                          SDL_WINDOWPOS_CENTERED,
+                          SDL_WINDOWPOS_CENTERED);
 }
 
 void platform_begin_draw()
@@ -457,15 +465,20 @@ void platform_swap_buffers()
     bool resize = window_width != WINDOW_WIDTH ||
                   window_height != WINDOW_HEIGHT;
 
+    float real_aspect;
+
     if (resize) {
         // aspect-aware resize
         float aspect_width = window_width / float(WINDOW_WIDTH);
         float aspect_height = window_height / float(WINDOW_HEIGHT);
 
-        float aspect = std::min(aspect_width, aspect_height);
+        real_aspect = std::min(aspect_width, aspect_height);
 
 #ifdef CHOWDREN_QUICK_SCALE
-        aspect = std::max(std::min(1.0f, aspect), float(floor(aspect)));
+        float aspect = std::max(std::min(1.0f, real_aspect),
+                                float(floor(real_aspect)));
+#else
+        float aspect = real_aspect;
 #endif
         draw_x_size = aspect * WINDOW_WIDTH;
         draw_y_size = aspect * WINDOW_HEIGHT;
@@ -510,6 +523,63 @@ void platform_swap_buffers()
     glEnable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
 
+#ifdef CHOWDREN_QUICK_SCALE
+    if (draw_x_off != 0 || draw_y_off != 0) {
+        int draw_x_size2 = real_aspect * WINDOW_WIDTH;
+        int draw_y_size2 = real_aspect * WINDOW_HEIGHT;
+
+        int draw_x_off2 = (window_width - draw_x_size2) / 2;
+        int draw_y_off2 = (window_height - draw_y_size2) / 2;
+
+        x2 = draw_x_off2 + draw_x_size2;
+        y2 = draw_y_off2 + draw_y_size2;
+
+        static bool init_bilinear = false;
+        static GLuint scaletex;
+        if (!init_bilinear) {
+            init_bilinear = true;
+            glGenTextures(1, &scaletex);
+            glBindTexture(GL_TEXTURE_2D, scaletex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+                            GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                            GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                            GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                            GL_CLAMP_TO_EDGE);
+        } else {
+            glBindTexture(GL_TEXTURE_2D, scaletex);
+        }
+        glEnable(GL_TEXTURE_2D);
+        static int last_x = -1;
+        static int last_y = -1;
+        if (last_x != draw_x_size || last_y != draw_y_size) {
+            last_x = draw_x_size;
+            last_y = draw_y_size;
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, draw_x_size, draw_y_size,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        }
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, draw_x_off, draw_y_off,
+                            draw_x_size, draw_y_size);
+
+        glColor4f(1.0, 1.0, 1.0, 1.0);
+        glDisable(GL_BLEND);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 1.0);
+        glVertex2i(draw_x_off2, draw_y_off2);
+        glTexCoord2f(1.0, 1.0);
+        glVertex2i(x2, draw_y_off2);
+        glTexCoord2f(1.0, 0.0);
+        glVertex2i(x2, y2);
+        glTexCoord2f(0.0, 0.0);
+        glVertex2i(draw_x_off2, y2);
+        glEnd();
+        glEnable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
+    }
+#endif
+
     SDL_GL_SwapWindow(global_window);
 }
 
@@ -526,6 +596,16 @@ void platform_get_screen_size(int * width, int * height)
     SDL_GetDisplayBounds(display_index, &bounds);
     *width = bounds.w;
     *height = bounds.h;
+}
+
+void platform_set_display_scale(int scale)
+{
+    SDL_SetWindowSize(global_window,
+                      WINDOW_WIDTH * scale,
+                      WINDOW_HEIGHT * scale);
+    SDL_SetWindowPosition(global_window,
+                          SDL_WINDOWPOS_CENTERED,
+                          SDL_WINDOWPOS_CENTERED);
 }
 
 bool platform_has_focus()
@@ -847,8 +927,10 @@ bool any_joystick_pressed(int n)
         return false;
     JoystickData & joy = get_joy(n);
     for (unsigned int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
-        if (joy.get_button(i))
+        if (joy.get_button(i)) {
+            std::cout << "pressed: " << i << std::endl;
             return true;
+        }
     }
     return false;
 }

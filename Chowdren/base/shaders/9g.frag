@@ -10,9 +10,9 @@ uniform vec4 color_1;
 uniform float alpha_1;
 uniform vec4 color_2;
 uniform float alpha_2;
-uniform float coeff;
 uniform float offset;
-uniform float fade;
+// uniform float coeff;
+// uniform float fade;
 
 void main()
 {

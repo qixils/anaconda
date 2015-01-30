@@ -122,14 +122,30 @@ native_extension_cache = {}
 MMF_BASE = ''
 
 if sys.platform == 'win32':
-    try:
-        import _winreg
-        reg_name = ('Software\\Clickteam\\Multimedia Fusion Developer 2\\'
-                    'Settings')
-        reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
-        MMF_BASE = _winreg.QueryValueEx(reg_key, 'ProPath')[0].strip()
-    except (ImportError, WindowsError):
-        pass
+    def get_install_path():
+        try:
+            import _winreg
+        except ImportError:
+            return None
+        for (name, utf16) in (('Multimedia Fusion Developer 2', False),
+                              ('Fusion Developer 2.5', True)):
+            reg_name = 'Software\\Clickteam\\%s\\Settings' % name
+            try:
+                reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, reg_name)
+            except WindowsError:
+                continue
+            data = _winreg.QueryValueEx(reg_key, 'ObjLibs')[0]
+            if utf16:
+                pos = 35
+                size = ord(data[35]) * 2
+                path = data[36:36+size].decode('utf-16')
+            else:
+                size = ord(data[16])
+                path = data[17:17+size]
+            return os.path.realpath(os.path.join(path, '..', '..'))
+        return None
+
+    MMF_BASE = get_install_path() or ''
 
 MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
 MMF_EXT = '.mfx'
@@ -157,6 +173,7 @@ def load_native_extension(name):
     library = loadLibrary(os.path.join(MMF_PATH, name + MMF_EXT))
     os.chdir(cwd)
     if library is None:
+        print 'could not load', name
         native_extension_cache[name] = None
         return None
     print 'Loading', name
@@ -580,7 +597,6 @@ class Converter(object):
         self.has_selection = {}
         self.container_tree = []
         self.collision_objects = set()
-        self.current_object = None
         self.iterated_index = self.iterated_object = self.iterated_name = None
         self.in_actions = False
         self.strings = {}
@@ -591,6 +607,7 @@ class Converter(object):
         self.class_names = set(['FrameObject'])
         self.defines = set()
         self.current_group = None
+        self.event_settings = {}
 
         self.games = []
 
@@ -759,8 +776,22 @@ class Converter(object):
 
         event_file = EventFileWriter(self)
 
+        self.processed_frames = []
+        self.frame_srcs = []
+
+        for game in self.games:
+            self.frame_index_offset = game.frame_offset
+            self.game = game
+            self.game_index = game.index
+            frame_dict = dict(enumerate(game.frames))
+            frame_dict = self.config.get_frames(game, frame_dict)
+            for frame in frame_dict.itervalues():
+                self.write_frame(frame.offset_index, frame, event_file,
+                                 lists_file, lists_header)
+
         # write object updates
-        update_calls = []
+        update_calls = defaultdict(list)
+        updated_objs = set()
         updaters = {}
         for handle, writer in self.all_objects.iteritems():
             self.game_index = handle[2]
@@ -768,6 +799,11 @@ class Converter(object):
             handle = handle[:-1]
             if not self.is_valid_object(handle):
                 continue
+            list_name = self.get_object_list(handle)
+            if list_name in updated_objs:
+                continue
+            updated_objs.add(list_name)
+
             has_updates = writer.has_updates()
             has_movements = writer.has_movements()
             has_sleep = writer.has_sleep()
@@ -782,17 +818,20 @@ class Converter(object):
                 func_name = 'update_%s_%s' % (writer.class_name.lower(),
                                               len(updaters))
 
-            list_name = self.get_object_list(handle)
-            update_calls.append('%s(%s)' % (func_name, list_name))
+            update_calls[func_name].append(list_name)
 
             if has_func:
                 continue
 
             updaters[key] = func_name
 
-            event_file.putln('static void %s(ObjectList & list)' % func_name)
+            event_file.putlnc('static void %s(ObjectList ** lists, int count)',
+                              func_name)
             event_file.start_brace()
             event_file.putln('ObjectList::iterator it;')
+            event_file.putlnc('for (int i = 0; i < count; i++) {')
+            event_file.indent()
+            event_file.putln('ObjectList & list = *lists[i];')
             event_file.putlnc('for (it = list.begin(); '
                               'it != list.end(); ++it) {')
             event_file.indent()
@@ -818,26 +857,22 @@ class Converter(object):
             event_file.end_brace()
             event_file.end_brace()
 
+            event_file.end_brace()
+
         event_file.putmeth('void update_objects')
-        for call in update_calls:
-            event_file.putlnc('%s;', call)
+        for func_name, lists in update_calls.iteritems():
+            event_file.add_member('ObjectList * %s_list[%s]' % (func_name,
+                                                                len(lists)))
+            event_file.putlnc('%s(%s_list, %s);', func_name, func_name,
+                              len(lists))
         event_file.end_brace()
 
-        self.processed_frames = []
-
-        self.frame_srcs = []
-
-        for game in self.games:
-            self.frame_index_offset = game.frame_offset
-            self.game = game
-            self.game_index = game.index
-            frame_dict = dict(enumerate(game.frames))
-            frame_dict = self.config.get_frames(game, frame_dict)
-            for frame in frame_dict.itervalues():
-                self.write_frame(frame.offset_index, frame, event_file,
-                                 lists_file, lists_header)
-
         event_file.putmeth('Frames', init_list=['Frame()'])
+        for func_name, lists in update_calls.iteritems():
+            lists_name = '%s_list' % func_name
+            for list_index, list_name in enumerate(lists):
+                event_file.putlnc('%s[%s] = &%s;', lists_name, list_index,
+                                  list_name)
         event_file.end_brace()
 
         event_file.putmeth('void set_index', 'int index')
@@ -972,6 +1007,8 @@ class Converter(object):
             config_file.putdefine('CHOWDREN_ITER_INDEX')
         if self.config.use_image_preload():
             config_file.putdefine('CHOWDREN_PRELOAD_IMAGES')
+        if self.config.use_deferred_collisions():
+            config_file.putdefine('CHOWDREN_DEFER_COLLISIONS')
 
         for (name, value) in self.defines:
             config_file.putdefine(name, value or '')
@@ -1008,10 +1045,11 @@ class Converter(object):
         self.info_dict['event_srcs'] = event_file.sources
         self.info_dict['frame_srcs'] = self.frame_srcs
         self.info_dict['object_srcs'] = objects_file.sources
+        self.info_dict['ext_srcs'] = list(self.extension_sources)
 
         if not self.assets.skip:
             self.write_config(self.info_dict, 'config.py')
-            self.assets.write_header()
+            self.assets.write_code()
             self.assets.close()
             self.platform.install()
 
@@ -1104,6 +1142,18 @@ class Converter(object):
                 new_extension = os.path.splitext(filename)[1].lower()[1:]
                 self.assets.add_sound(sound.name, new_extension, data)
 
+        # files
+        for game in self.games:
+            files = game.files
+            if not files:
+                continue
+            for packfile in files.items:
+                data = str(packfile.data)
+                name = os.path.basename(packfile.name)
+                print 'filename:', name
+                self.assets.add_file(name, data)
+
+        # shaders
         shader_path = os.path.join(self.base_path, 'shaders')
         for shader in get_shader_programs():
             print 'Adding shader', shader
@@ -1183,6 +1233,8 @@ class Converter(object):
                 startup_instances.append((instance, frameitem))
             if not create_startup:
                 self.multiple_instances.add(obj)
+            if object_writer.has_autodestruct():
+                self.multiple_instances.add(obj)
 
         events = frame.events
 
@@ -1199,12 +1251,13 @@ class Converter(object):
             self.qualifier_types[qual_obj] = qualifier.type
 
             instances = set()
-            setup_instances = set()
+            setup_instances = []
             for obj in object_infos:
                 obj_list = '&' + self.get_object_list(obj)
                 instances.add(obj_list)
-                if obj in all_startup_infos:
-                    setup_instances.add(obj_list)
+                if obj not in all_startup_infos:
+                    continue
+                setup_instances.append(obj_list)
             instances = list(instances)
             instances.sort()
             instances = tuple(instances)
@@ -1370,9 +1423,6 @@ class Converter(object):
             new_always_groups.sort(key=lambda x: x.global_id)
             always_groups.extend(new_always_groups)
 
-            # for group in all_groups:
-            #     group.set_groups(self, all_groups)
-
         for k, v in containers.iteritems():
             if k in changed_containers:
                 v.is_static = False
@@ -1523,10 +1573,11 @@ class Converter(object):
             end_name = self.write_generated(end_name, event_file,
                                             frame_end_groups)
 
-            frame_file.putmeth('void on_end')
+        frame_file.putmeth('void on_end')
+        if frame_end_groups:
             frame_file.putlnc('%s%s();', events_ref, end_name)
-            frame_file.putlnc('%sreset();', events_ref)
-            frame_file.end_brace()
+        frame_file.putlnc('%sreset();', events_ref)
+        frame_file.end_brace()
 
         app_end_groups = generated_groups.pop('EndOfApplication', None)
         if app_end_groups:
@@ -1602,6 +1653,7 @@ class Converter(object):
         frame_file.end_brace()
 
         event_file.putmeth('void %s' % handle_name)
+        event_file.putlnc('test_collisions_%s();', frame_index)
 
         end_markers = []
 
@@ -2033,6 +2085,27 @@ class Converter(object):
         writer.end_brace()
         self.set_iterator(None)
 
+    def start_flat_iteration(self, object_info, writer, name='it'):
+        if (self.has_single(object_info)
+                or not self.has_multiple_instances(object_info)):
+            writer.start_brace()
+            return
+        
+        list_name = self.get_object_list(object_info)
+        is_qual = is_qualifier(object_info[0])
+        if is_qual:
+            writer.putlnc('for (int i = 0; i < %s.count; i++)', list_name)
+            list_name = '(*%s.items[i])' % list_name
+        writer.putlnc('for (ObjectList::iterator %s = %s.begin(); '
+                      '%s != %s.end(); ++%s) {',
+                      name, list_name, name, list_name, name)
+        self.set_iterator(object_info, list_name, '%s->obj' % name)
+        writer.indent()
+
+    def end_flat_iteration(self, object_info, writer, name='it'):
+        writer.end_brace()
+        self.set_iterator(None)
+
     def set_iterator(self, object_info, object_list=None, name='*it'):
         self.iterated_object = object_info
         # self.iterated_list = object_list
@@ -2098,6 +2171,7 @@ class Converter(object):
             writer.putlnc('movement_count = %s;', count)
             writer.putlnc('movements = new Movement*[%s];', count)
         has_init = False
+        move_start = True
         for movement_index, movement in enumerate(movements):
             def set_start_dir(direction):
                 if movement_index != 0 or not direction:
@@ -2107,13 +2181,16 @@ class Converter(object):
 
             movement_name = movement.getName()
             if movement_name == 'Extension':
-                movement_name = movement.loader.name
+                movement_name = movement.loader.name.lower()
+            elif movement_index == 0:
+                move_start = movement.movingAtStart != 0
             set_start_dir(movement.directionAtStart)
             sets = {}
             extra = []
             if movement_name == 'Ball':
                 movement_class = 'BallMovement'
                 sets['max_speed'] = movement.loader.speed
+                sets['deceleration'] = movement.loader.deceleration
             elif movement_name == 'Path':
                 movement_class = 'PathMovement'
                 path = movement.loader
@@ -2146,7 +2223,7 @@ class Converter(object):
                 sets['max_speed'] = movement.loader.speed
                 sets['deceleration'] = movement.loader.deceleration
                 sets['acceleration'] = movement.loader.acceleration
-            elif movement_name.lower() == 'pinball':
+            elif movement_name == 'pinball':
                 movement_class = 'PinballMovement'
                 data = movement.loader.data
                 data.skipBytes(1)
@@ -2158,9 +2235,22 @@ class Converter(object):
                 sets['max_speed'] = speed
                 sets['deceleration'] = deceleration
                 sets['gravity'] = gravity
+            elif movement_name == 'clickteam-vector':
+                movement_class = 'VectorMovement'
+                data = movement.loader.data
+                data.skipBytes(1)
+
+                flags = data.readInt(True)
+                stopped = (flags & 1) == 0
+                handle_direction = (flags & 2) != 0
+                speed = data.readInt(True)
+                angle = data.readInt(True)
+                gravity = data.readInt(True)
+                gravity_angle = data.readInt(True)
             else:
                 if movement_name != 'Static':
-                    print 'movement', movement_name, 'not implemented'
+                    print 'movement', movement_name, 'not implemented for',
+                    print obj.data.name
                 if not has_list:
                     break
                 movement_class = 'StaticMovement'
@@ -2176,10 +2266,12 @@ class Converter(object):
                 writer.putlnc('%s->set_%s(%s);', name, k, v)
             for line in extra:
                 writer.putlnc('%s->%s;', name, line)
+
+        # XXX: we don't support "move at start == false" for multi movements
         if has_init:
             if has_list:
                 writer.putlnc('set_movement(0);')
-            else:
+            elif move_start:
                 writer.putlnc('movement->start();')
             obj.movement_count = count
         else:
@@ -2215,9 +2307,11 @@ class Converter(object):
             writer.putln(line)
 
     def write_event_function(self, writer, groups, triggered=False):
+        selections = self.has_single_selection
         self.current_groups = groups
         data = ''
         for group in groups:
+            self.has_single_selection = selections.copy()
             data += self.get_event_code(group, triggered)
 
         event_hash = self.get_event_hash(data)
@@ -2254,8 +2348,9 @@ class Converter(object):
     def write_events(self, name, writer, groups, triggered=False,
                      pre_calls=None, post_calls=None):
         names = pre_calls or []
-
+        selections = self.has_single_selection
         for new_groups in self.iterate_groups(groups):
+            self.has_single_selection = selections
             names.append(self.write_event_function(writer, new_groups,
                                                    triggered))
 
@@ -2285,7 +2380,6 @@ class Converter(object):
         group.set_groups(self, self.current_groups)
         self.current_group = group
         self.current_event_id = group.global_id
-        self.event_settings = {}
         actions = group.actions
         conditions = group.conditions
         container = group.container
@@ -2330,7 +2424,6 @@ class Converter(object):
                 has_multiple = False
                 obj = condition_writer.get_object()
                 object_info, object_type = obj
-                self.current_object = obj
                 if object_info is not None:
                     try:
                         object_name = self.get_object(obj)
@@ -2393,7 +2486,7 @@ class Converter(object):
                     if negated:
                         writer.put(')')
                     if has_multiple:
-                        writer.put(') it.deselect();\n')
+                        writer.put(') { it.deselect(); continue; }\n')
 
                 if has_multiple:
                     writer.end_brace()
@@ -2458,7 +2551,6 @@ class Converter(object):
                 is_static = self.get_object_writer(obj).static
                 if is_static and action_writer.ignore_static:
                     continue
-            self.current_object = obj
             if object_info is not None:
                 if obj in self.has_single_selection:
                     has_single = True
@@ -2536,10 +2628,10 @@ class Converter(object):
         if group.or_save:
             self.write_instance_save(group, writer)
 
+        self.set_iterator(None)
         self.has_single_selection = {}
         self.has_selection = {}
         self.collision_objects = set()
-        self.current_object = None
         self.current_group = None
         self.current_event_id = None
 
@@ -2607,13 +2699,14 @@ class Converter(object):
                 expression_writer = self.get_expression_writer(item)
                 obj = expression_writer.get_object()
                 object_info, object_type = obj
-                self.current_object = obj
                 if expression_writer.static:
                     out += '%s::' % self.get_object_class(object_type,
                         star = False)
                 elif object_info is not None:
+                    use_def = expression_writer.use_default
                     try:
-                        out += '%s->' % self.get_object(obj, use_default=True)
+                        out += '%s->' % self.get_object(obj,
+                                                        use_default=use_def)
                     except KeyError:
                         pass
                 self.last_out = out
@@ -2840,10 +2933,11 @@ class Converter(object):
         if self.iterated_object == obj:
             return '((%s)%s)' % (object_type, self.iterated_name)
 
-        if not self.has_multiple_instances(obj):
+        multi = self.has_multiple_instances(obj)
+        if not multi:
             use_index = use_default = False
 
-        if obj in self.has_selection:
+        if obj in self.has_selection and multi:
             ret = self.has_selection[obj]
             if as_list:
                 return ret

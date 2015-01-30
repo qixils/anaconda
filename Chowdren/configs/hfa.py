@@ -25,6 +25,7 @@ def init(converter):
     values[196] = 1 # force small images off
 
     if converter.platform_name == '3ds':
+        # converter.add_define('CHOWDREN_BACKGROUND_FBO')
         deactivate_containers.extend([
             'Dynamic Lighting System (no qualifiers) hwa',
             'New Lights',
@@ -107,11 +108,11 @@ def get_fonts(converter):
 def get_frames(converter, game, frames):
     new_frames = {}
     if game.index == 0:
-        # indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-        #            31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-        #            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-        #            63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
-        indexes = (60,)
+        indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                   31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+                   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+                   63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
+        # indexes = (60, 61)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6, 7)
     for index in indexes:

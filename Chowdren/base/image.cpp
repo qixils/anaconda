@@ -169,12 +169,15 @@ void Image::upload_texture()
         return;
 
 #ifndef CHOWDREN_IS_WIIU
+    // std::cout << "creating alpha: " << (width * height) << std::endl;
     // create alpha mask
     alpha.resize(width * height);
+    // std::cout << "resized" << std::endl;
     for (int i = 0; i < width * height; i++) {
         unsigned char c = ((unsigned char*)(((unsigned int*)image) + i))[3];
         alpha.set(i, c != 0);
     }
+    // std::cout << "created alpha" << std::endl;
 #endif
 
     int gl_width, gl_height;
@@ -184,7 +187,7 @@ void Image::upload_texture()
     pot_h = std::max(8, round_pow2(height));
 
     if (pot_w >= 1024 || pot_h >= 1024) {
-        std::cout << "Image size too large" << std::endl;
+        // std::cout << "Image size too large" << std::endl;
         pot_w = std::min<short>(1024, pot_w);
         pot_h = std::min<short>(1024, pot_h);
     }
@@ -193,6 +196,7 @@ void Image::upload_texture()
     gl_height = pot_h;
 
     if (pot_w != width || pot_h != height) {
+        // std::cout << "resize to pot" << std::endl;
         unsigned int * old_image =(unsigned int*)image;
         image = (unsigned char*)malloc(pot_w * pot_h * 4);
         unsigned int * image_arr = (unsigned int*)image;
@@ -207,6 +211,8 @@ void Image::upload_texture()
         }
 
         stbi_image_free(old_image);
+
+        // std::cout << "done" << std::endl;
     }
 #else
     gl_width = width;
@@ -217,6 +223,8 @@ void Image::upload_texture()
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gl_width, gl_height, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, image);
+
+    // std::cout << "texed" << std::endl;
 
     if (flags & LINEAR_FILTER) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -291,8 +299,7 @@ const float back_texcoords[8] = {
 #endif
 
 void Image::draw(int x, int y, float angle, float scale_x, float scale_y,
-                 bool flip_x, bool flip_y, GLuint background,
-                 bool has_tex_param)
+                 bool flip_x, GLuint background, bool has_tex_param)
 {
     if (tex == 0) {
         upload_texture();
@@ -329,17 +336,17 @@ void Image::draw(int x, int y, float angle, float scale_x, float scale_y,
     glBegin(GL_QUADS);
 
 #ifdef CHOWDREN_NO_NPOT
+    const float * src_tc;
+    if (flip_x)
+        src_tc = flipped_texcoords;
+    else
+        src_tc = normal_texcoords;
     float tex_coords[8];
-    if (flip_x) {
-        memcpy(tex_coords, flipped_texcoords, sizeof(tex_coords));
-    } else {
-        memcpy(tex_coords, normal_texcoords, sizeof(tex_coords));
-    }
     float u = float(width) / float(pot_w);
     float v = float(height) / float(pot_h);
     for (int i = 0; i < 8; i += 2) {
-        tex_coords[i] *= u;
-        tex_coords[i+1] *= v;
+        tex_coords[i] = src_tc[i] * u;
+        tex_coords[i+1] = src_tc[i+1] * v;
     }
 #else
     const float * tex_coords;

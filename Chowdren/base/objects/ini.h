@@ -3,6 +3,7 @@
 
 #include "frameobject.h"
 #include "types.h"
+#include "assetfile.h"
 
 #ifdef CHOWDREN_INI_KEEP_ORDER
 #include <boost/container/flat_map.hpp>
@@ -74,6 +75,7 @@ public:
     void load_file(const std::string & fn, bool read_only = false,
                    bool merge = false, bool overwrite = false);
     void load_string(const std::string & data, bool merge);
+    void load_file(TempPath path);
     void merge_file(const std::string & fn, bool overwrite);
     void get_data(std::stringstream & out);
     void save_file(const std::string & fn, bool force = true);

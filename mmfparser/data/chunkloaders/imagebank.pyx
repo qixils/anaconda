@@ -398,6 +398,12 @@ cdef class ImageItem(DataLoader):
             self.transparent = (0, 0, 0)
         else:
             self.transparent = newReader.readColor()
+
+        cdef int decompressed
+        if debug and self.settings.get('unicode', False):
+            decompressed = newReader.readInt()
+            newReader = ByteReader(zlib.decompress(newReader.read()))
+
         self.load(newReader, size)
     
     def write(self, reader):
@@ -564,7 +570,7 @@ cdef class ImageBank(DataLoader):
         cdef int i
         if not java:
             if self.settings.get('debug', False):
-                path = reader.readString()
+                path = self.readString(reader)
                 newReader = ByteReader(open(path, 'rb'))
                 newReader.skipBytes(4)
                 bank = self.new(AGMIBank, newReader)

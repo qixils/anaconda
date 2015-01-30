@@ -33,6 +33,7 @@ actions = make_table(ActionMethodWriter, {
     10 : 'set_string',
     12 : 'delete_item',
     11 : 'delete_item',
+    13 : 'delete_group',
     6 : 'load_file',
     8 : 'set_value',
     0 : 'set_group'

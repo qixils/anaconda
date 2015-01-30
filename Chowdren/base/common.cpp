@@ -12,6 +12,16 @@
 #include "extra_keys.cpp"
 #endif
 
+#ifdef BOOST_NO_EXCEPTIONS
+namespace boost
+{
+    void throw_exception(std::exception const & e)
+    {
+        std::cout << "Exception thrown" << std::endl;
+    }
+}
+#endif
+
 std::string newline_character("\r\n");
 std::string empty_string("");
 
@@ -134,6 +144,7 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     // collision types:
     // 0: not an obstacle
     // 1: obstacle
+    // 3: ladder
     // 4: no effect on collisions
     src_width = std::min<int>(img->width, src_x + src_width) - src_x;
     src_height = std::min<int>(img->height, src_y + src_height) - src_y;
@@ -141,11 +152,14 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     if (src_width <= 0 || src_height <= 0)
         return;
 
-    if (collision_type == 1) {
-        col_items.push_back(new BackgroundItem(img, dest_x, dest_y,
-                                               src_x, src_y,
-                                               src_width, src_height,
-                                               collision_type, color));
+    if (collision_type == 1 || collision_type == 3) {
+        BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
+                                                   src_x, src_y,
+                                                   src_width, src_height,
+                                                   color);
+        if (collision_type == 3)
+            item->flags |= (LADDER_OBSTACLE | BOX_COLLISION);
+        col_items.push_back(item);
 #ifndef CHOWDREN_OBSTACLE_IMAGE
         return;
 #endif
@@ -157,7 +171,7 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     items.push_back(new BackgroundItem(img, dest_x, dest_y,
                                        src_x, src_y,
                                        src_width, src_height,
-                                       collision_type, color));
+                                       color));
 }
 
 void Background::draw(int v[4])
@@ -182,6 +196,19 @@ CollisionBase * Background::collide(CollisionBase * a)
     return NULL;
 }
 
+CollisionBase * Background::overlaps(CollisionBase * a)
+{
+    BackgroundItems::iterator it;
+    for (it = col_items.begin(); it != col_items.end(); ++it) {
+        BackgroundItem * item = *it;
+        if (item->flags & LADDER_OBSTACLE)
+            continue;
+        if (::collide(a, item))
+            return item;
+    }
+    return NULL;
+}
+
 // Layer
 
 static Layer default_layer(0, 1.0, 1.0, false, false, false);
@@ -191,10 +218,10 @@ Layer::Layer()
     reset();
 }
 
-Layer::Layer(int index, double scroll_x, double scroll_y, bool visible,
+Layer::Layer(int index, double coeff_x, double coeff_y, bool visible,
              bool wrap_x, bool wrap_y)
 {
-    init(index, scroll_x, scroll_y, visible, wrap_x, wrap_y);
+    init(index, coeff_x, coeff_y, visible, wrap_x, wrap_y);
 }
 
 Layer::Layer(const Layer & layer)
@@ -213,6 +240,7 @@ void Layer::reset()
 {
     x = y = 0;
     off_x = off_y = 0;
+    scroll_x = scroll_y = 0;
     back = NULL;
 
 #ifdef CHOWDREN_IS_3DS
@@ -220,7 +248,7 @@ void Layer::reset()
 #endif
 }
 
-void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
+void Layer::init(int index, double coeff_x, double coeff_y, bool visible,
                  bool wrap_x, bool wrap_y)
 {
     reset();
@@ -230,18 +258,24 @@ void Layer::init(int index, double scroll_x, double scroll_y, bool visible,
 #endif
 
     this->index = index;
-    this->scroll_x = scroll_x;
-    this->scroll_y = scroll_y;
+    this->coeff_x = coeff_x;
+    this->coeff_y = coeff_y;
     this->visible = visible;
     this->wrap_x = wrap_x;
     this->wrap_y = wrap_y;
 
-    scroll_active = scroll_x != 1.0 || scroll_y != 1.0;
+    scroll_active = coeff_x != 1.0 || coeff_y != 1.0;
 
     if (this == &default_layer)
         return;
 
     broadphase.init();
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    fbo_pos[0] = fbo_pos[1] = fbo_pos[2] = fbo_pos[3] = 0;
+    background_count = 0;
+    background_fbo_init = false;
+#endif
 }
 
 Layer::~Layer()
@@ -257,10 +291,11 @@ Layer::~Layer()
     }
 }
 
-void Layer::scroll(int off_x, int off_y, int dx, int dy)
+void Layer::scroll(int scroll_x, int scroll_y, int dx, int dy)
 {
-    this->off_x = off_x;
-    this->off_y = off_y;
+    this->scroll_x = scroll_x;
+    this->scroll_y = scroll_y;
+    update_position();
 
     LayerInstances::iterator it;
     for (it = instances.begin(); it != instances.end(); ++it) {
@@ -281,53 +316,69 @@ void Layer::scroll(int off_x, int off_y, int dx, int dy)
     for (it2 = background_instances.begin(); it2 != background_instances.end();
          ++it2) {
         FrameObject * object = *it2;
-        object->set_position(object->x + dx, object->y + dy);
+        // object->set_position(object->x + dx, object->y + dy);
         object->set_backdrop_offset(-dx, -dy);
     }
 #endif
+
 }
 
 void Layer::set_position(int x, int y)
 {
     int dx = x - this->x;
     int dy = y - this->y;
-
     this->x = x;
     this->y = y;
+    update_position();
+
     LayerInstances::iterator it;
 
     for (it = instances.begin(); it != instances.end(); ++it) {
         FrameObject * object = &*it;
         if (object->flags & SCROLL)
             continue;
-        object->set_position(object->x + dx, object->y + dy);
+        object->set_position(object->x - dx, object->y - dy);
     }
 
-    FlatObjectList::const_iterator it2;
-    for (it2 = background_instances.begin(); it2 != background_instances.end();
-         ++it2) {
-        FrameObject * item = *it2;
 #ifdef CHOWDREN_LAYER_WRAP
-        if (wrap_x) {
-            item->set_backdrop_offset(dx, 0);
-            continue;
+    if (wrap_x || wrap_y) {
+        FlatObjectList::const_iterator it2;
+        for (it2 = background_instances.begin();
+             it2 != background_instances.end(); ++it2)
+        {
+            FrameObject * item = *it2;
+            if (wrap_x) {
+                item->set_backdrop_offset(dx, 0);
+                continue;
+            }
+            if (wrap_y) {
+                item->set_backdrop_offset(0, dy);
+                continue;
+            }
         }
-        if (wrap_y) {
-            item->set_backdrop_offset(0, dy);
-            continue;
-        }
-#endif
-        item->set_position(item->x + dx, item->y + dy);
     }
+#endif
+
+}
+
+void Layer::update_position()
+{
+    off_x = scroll_x + x;
+    off_y = scroll_y + y;
 }
 
 void Layer::add_background_object(FrameObject * instance)
 {
-    static int depth = 0;
-    instance->depth = depth;
-    depth++;
-    // instance->depth = background_instances.size();
+    if (background_instances.empty())
+        instance->depth = 0;
+    else
+        instance->depth = background_instances.back()->depth + 1;
     background_instances.push_back(instance);
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    if (instance->id == BACKGROUND_TYPE)
+        background_count++;
+#endif
 }
 
 void Layer::remove_background_object(FrameObject * instance)
@@ -525,7 +576,9 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
                   int src_x, int src_y, int src_width, int src_height,
                   int collision_type, const Color & color)
 {
-    if (collision_type != 0 && collision_type != 1 && collision_type != 4) {
+    if (collision_type != 0 && collision_type != 1 && collision_type != 3 &&
+        collision_type != 4)
+    {
         std::cout << "Collision type " << collision_type << " not supported"
             << std::endl;
     }
@@ -548,6 +601,12 @@ struct DrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
+#ifdef CHOWDREN_BACKGROUND_FBO
+        // if (item->id == BACKGROUND_TYPE)
+        //     return true;
+        if (item->flags & BACKGROUND)
+            return true;
+#endif
         if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
             return true;
         if (!collide_box(item, aabb))
@@ -556,6 +615,34 @@ struct DrawCallback
         return true;
     }
 };
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+struct BackgroundDrawCallback
+{
+    FlatObjectList & list;
+    int * aabb;
+
+    BackgroundDrawCallback(FlatObjectList & list, int v[4])
+    : list(list), aabb(v)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * item = (FrameObject*)data;
+        // if (item->id != BACKGROUND_TYPE)
+        //     return true;
+        if (!(item->flags & BACKGROUND))
+            return true;
+        if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
+            return true;
+        if (!collide_box(item, aabb))
+            return true;
+        list.push_back(item);
+        return true;
+    }
+};
+#endif
 
 inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 {
@@ -571,24 +658,38 @@ inline void sort_depth(FlatObjectList & list)
     std::sort(list.begin(), list.end(), sort_depth_comp);
 }
 
-void Layer::draw(int off_x, int off_y)
+inline bool sort_back_comp(FrameObject * obj1, FrameObject * obj2)
+{
+    return obj1->depth < obj2->depth;
+}
+
+inline void sort_back(FlatObjectList & list)
+{
+    std::sort(list.begin(), list.end(), sort_back_comp);
+}
+
+void Layer::draw(int display_x, int display_y)
 {
     if (!visible)
         return;
+
+    glLoadIdentity();
+    glTranslatef(-floor(display_x * coeff_x - x),
+                 -floor(display_y * coeff_y - y), 0.0);
+
 #ifdef CHOWDREN_IS_3DS
     glc_set_global_depth(depth);
 #endif
 
     // draw backgrounds
-    int x1 = off_x * scroll_x;
-    int y1 = off_y * scroll_y;
+    int x1 = display_x * coeff_x - x;
+    int y1 = display_y * coeff_y - y;
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
+
     PROFILE_BEGIN(Layer_draw_instances);
 
-    static FlatObjectList draw_list;
-    draw_list.clear();
 #ifdef CHOWDREN_USE_VIEWPORT
     int v[4];
     Viewport * view = Viewport::instance;
@@ -605,6 +706,115 @@ void Layer::draw(int off_x, int off_y)
     }
 #else
     int v[4] = {x1, y1, x2, y2};
+#endif
+
+    static FlatObjectList draw_list;
+    draw_list.clear();
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    if (background_count > 25) {
+        if (v[0] < fbo_pos[0] || v[1] < fbo_pos[1] ||
+            v[2] > fbo_pos[2] || v[3] > fbo_pos[3])
+        {
+            glc_flush();
+            fbo_pos[0] = v[0] - FBO_BORDER;
+            fbo_pos[1] = v[1] - FBO_BORDER;
+            fbo_pos[2] = v[2] + FBO_BORDER;
+            fbo_pos[3] = v[3] + FBO_BORDER;
+
+            BackgroundDrawCallback callback(draw_list, fbo_pos);
+            broadphase.query(fbo_pos, callback);
+            // sort_back(draw_list);
+
+            if (!background_fbo_init) {
+                std::cout << "init back fbo: " << BACKGROUND_FBO_WIDTH
+                    << " " << BACKGROUND_FBO_HEIGHT << std::endl;
+                background_fbo.init(BACKGROUND_FBO_WIDTH,
+                                    BACKGROUND_FBO_HEIGHT);
+                background_fbo_init = true;
+            }
+            background_fbo.bind();
+            glViewport(0, 0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT);
+
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT, 0, -1, 1);
+
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
+
+            float t_x = -floor(off_x * coeff_x);
+            float t_y = -floor(off_y * coeff_y);
+            t_x += v[0] - fbo_pos[0];
+            t_y += v[1] - fbo_pos[1];
+            glTranslatef(t_x, t_y, 0.0f);
+
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            FlatObjectList::const_iterator it;
+            for (it = draw_list.begin(); it != draw_list.end(); ++it) {
+                FrameObject * obj = *it;
+                (*it)->draw();
+            }
+
+            glc_flush();
+
+            background_fbo.unbind();
+            glPopMatrix();
+
+            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            glPopMatrix();
+        }
+
+        glPushMatrix();
+        glLoadIdentity();
+
+        glEnable(GL_TEXTURE_2D);
+
+        float back_x1 = fbo_pos[0] - v[0];
+        float back_y1 = fbo_pos[1] - v[1];
+        float back_x2 = back_x1 + fbo_pos[2] - fbo_pos[0];
+        float back_y2 = back_y1 + fbo_pos[3] - fbo_pos[1];
+
+        glBindTexture(GL_TEXTURE_2D, background_fbo.get_tex());
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, background_fbo.v);
+        glVertex2f(back_x1, back_y1);
+        glTexCoord2f(background_fbo.u, background_fbo.v);
+        glVertex2f(back_x2, back_y1);
+        glTexCoord2f(background_fbo.u, 0.0f);
+        glVertex2f(back_x2, back_y2);
+        glTexCoord2f(0.0f, 0.0f);
+        glVertex2f(back_x1, back_y2);
+        glEnd();
+
+        glc_flush();
+
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+
+        glPopMatrix();
+    } else {
+        BackgroundDrawCallback callback(draw_list, v);
+        broadphase.query(v, callback);
+        sort_back(draw_list);
+
+        FlatObjectList::const_iterator it;
+        for (it = draw_list.begin(); it != draw_list.end(); ++it) {
+            FrameObject * obj = *it;
+            (*it)->draw();
+        }
+    }
+
+    draw_list.clear();
 #endif
     DrawCallback callback(draw_list, v);
     broadphase.query(v, callback);
@@ -734,10 +944,10 @@ void Frame::update_display_center()
     vector<Layer>::iterator it;
     for (it = layers.begin(); it != layers.end(); ++it) {
         Layer & layer = *it;
-        int x1 = off_x * layer.scroll_x;
-        int y1 = off_y * layer.scroll_y;
-        int x2 = new_off_x * layer.scroll_x;
-        int y2 = new_off_y * layer.scroll_y;
+        int x1 = off_x * layer.coeff_x;
+        int y1 = off_y * layer.coeff_y;
+        int x2 = new_off_x * layer.coeff_x;
+        int y2 = new_off_y * layer.coeff_y;
         int layer_off_x = new_off_x - x2;
         int layer_off_y = new_off_y - y2;
         layer.scroll(layer_off_x, layer_off_y, x2 - x1, y2 - y1);
@@ -959,10 +1169,6 @@ void Frame::draw(int remote)
                 continue;
         }
 #endif
-
-        glLoadIdentity();
-        glTranslatef(-floor(off_x * layer.scroll_x),
-                     -floor(off_y * layer.scroll_y), 0.0);
         layer.draw(off_x, off_y);
     }
 
@@ -1070,7 +1276,8 @@ void Frame::reset()
 FrameObject::FrameObject(int x, int y, int type_id)
 : x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), shader(NULL),
   alterables(NULL), shader_parameters(NULL), direction(0),
-  movement(NULL), movements(NULL), movement_count(0), collision(NULL)
+  movement(NULL), movements(NULL), movement_count(0), collision(NULL),
+  collision_flags(0)
 {
 #ifdef CHOWDREN_USE_BOX2D
     body = -1;
@@ -1100,9 +1307,9 @@ FrameObject::~FrameObject()
 #endif
 }
 
+#ifndef CHOWDREN_USE_DIRECT_RENDERER
 void FrameObject::draw_image(Image * img, int x, int y, float angle,
-                             float x_scale, float y_scale, bool flip_x,
-                             bool flip_y)
+                             float x_scale, float y_scale, bool flip_x)
 {
     GLuint back_tex = 0;
     bool has_tex_param = false;
@@ -1113,12 +1320,13 @@ void FrameObject::draw_image(Image * img, int x, int y, float angle,
         has_tex_param = shader->has_texture_param();
     }
 
-    img->draw(x, y, angle, x_scale, y_scale, flip_x, flip_y, back_tex,
+    img->draw(x, y, angle, x_scale, y_scale, flip_x, back_tex,
               has_tex_param);
 
     if (shader != NULL)
         shader->end(this);
 }
+#endif
 
 void FrameObject::begin_draw(int width, int height)
 {
@@ -1255,11 +1463,21 @@ bool FrameObject::overlaps(FrameObject * other)
         return false;
     if (collision->type == NONE_COLLISION)
         return false;
-    if (other->collision->type == NONE_COLLISION)
+    CollisionBase * other_col = other->collision;
+    if (other_col->type == NONE_COLLISION)
         return false;
     if (other->layer != layer)
         return false;
-    return collide(collision, other->collision);
+#ifdef CHOWDREN_DEFER_COLLISIONS
+    int * other_aabb;
+    if (other->flags & DEFER_COLLISIONS)
+        other_aabb = ((Active*)other)->old_aabb;
+    else
+        other_aabb = other_col->aabb;
+    return collide_direct(collision, other_col, other_aabb);
+#else
+    return collide(collision, other_col);
+#endif
 }
 
 struct BackgroundOverlapCallback
@@ -1294,7 +1512,7 @@ bool FrameObject::overlaps_background()
     if (flags & HAS_COLLISION_CACHE)
         return (flags & HAS_COLLISION) != 0;
     flags |= HAS_COLLISION_CACHE;
-    if (layer->back != NULL && layer->back->collide(collision)) {
+    if (layer->back != NULL && layer->back->overlaps(collision)) {
         flags |= HAS_COLLISION;
         return true;
     }
@@ -1382,13 +1600,24 @@ void FrameObject::set_shader(Shader * value)
 
 void FrameObject::set_shader_parameter(const std::string & name, double value)
 {
+    if (name.empty())
+        return;
     if (shader_parameters == NULL)
         shader_parameters = new ShaderParameters;
-    (*shader_parameters)[name] = value;
+    unsigned int hash = hash_shader_parameter(&name[0], name.size());
+    ShaderParameter * param = find_shader_parameter(hash);
+    if (param == NULL) {
+        shader_parameters->emplace_back();
+        param = &shader_parameters->back();
+        param->hash = hash;
+    }
+    param->value = value;
 }
 
 void FrameObject::set_shader_parameter(const std::string & name, Image & img)
 {
+    if (name.empty())
+        return;
     img.upload_texture();
     set_shader_parameter(name, (double)img.tex);
 }
@@ -1396,6 +1625,8 @@ void FrameObject::set_shader_parameter(const std::string & name, Image & img)
 void FrameObject::set_shader_parameter(const std::string & name,
                                        const std::string & path)
 {
+    if (name.empty())
+        return;
     Image * img = get_image_cache(path, 0, 0, 0, 0, TransparentColor());
     set_shader_parameter(name, *img);
 }
@@ -1403,14 +1634,9 @@ void FrameObject::set_shader_parameter(const std::string & name,
 void FrameObject::set_shader_parameter(const std::string & name,
                                        const Color & color)
 {
+    if (name.empty())
+        return;
     set_shader_parameter(name, (double)color.get_int());
-}
-
-double FrameObject::get_shader_parameter(const std::string & name)
-{
-    if (shader_parameters == NULL)
-        return 0.0;
-    return (*shader_parameters)[name];
 }
 
 void FrameObject::destroy()
@@ -1753,6 +1979,12 @@ FixedValue::operator FrameObject*() const
     return object;
 }
 
+unsigned int FixedValue::get_uint() const
+{
+    intptr_t val = intptr_t(object);
+    return (unsigned int)val;
+}
+
 #ifdef CHOWDREN_USE_DYNAMIC_NUMBER
 FixedValue::operator DynamicNumber() const
 {
@@ -2005,38 +2237,39 @@ float get_joystick_dummy(int n)
     return 0.0f;
 }
 
-float get_joystick_dpad_degrees(int n)
+int get_joystick_dpad_degrees(int n)
 {
     int dir = get_joystick_dpad(n);
     if (dir == 8)
         return -1;
-    return dir * 45.0f;
+    return dir * 45;
 }
 
-float get_joystick_degrees(int n)
+int get_joystick_degrees(int n)
 {
+    // XXX actually extract degrees
     int dir = get_joystick_direction(n);
     if (dir == 8)
         return -1;
-    return dir * 45.0f;
+    return dir * 45;
 }
 
-float get_joystick_rt(int n)
+int get_joystick_rt(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERRIGHT) * 100.0f;
 }
 
-float get_joystick_lt(int n)
+int get_joystick_lt(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERLEFT) * 100.0f;
 }
 
-float get_joystick_x(int n)
+int get_joystick_x(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTX) * 1000.0f;
 }
 
-float get_joystick_y(int n)
+int get_joystick_y(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
 }

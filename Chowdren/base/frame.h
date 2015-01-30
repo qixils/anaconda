@@ -13,6 +13,10 @@
 #include "color.h"
 #include "instancemap.h"
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#include "fbo.h"
+#endif
+
 class BackgroundItem;
 class CollisionBase;
 
@@ -33,23 +37,31 @@ public:
                int collision_type, const Color & color);
     void draw(int v[4]);
     CollisionBase * collide(CollisionBase * a);
+    CollisionBase * overlaps(CollisionBase * a);
 };
 
 typedef boost::intrusive::member_hook<FrameObject, LayerPos,
                                       &FrameObject::layer_pos> LayerHook;
 typedef boost::intrusive::list<FrameObject, LayerHook> LayerInstances;
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#define FBO_BORDER 32
+#define BACKGROUND_FBO_WIDTH (WINDOW_WIDTH + FBO_BORDER * 2)
+#define BACKGROUND_FBO_HEIGHT (WINDOW_HEIGHT + FBO_BORDER * 2)
+#endif
+
 class Layer
 {
 public:
+    int off_x, off_y;
+    int scroll_x, scroll_y;
     LayerInstances instances;
     FlatObjectList background_instances;
     bool visible;
-    double scroll_x, scroll_y;
+    double coeff_x, coeff_y;
     Background * back;
     int index;
     bool scroll_active;
-    int off_x, off_y;
     int x, y;
     Broadphase broadphase;
     bool wrap_x, wrap_y;
@@ -58,17 +70,25 @@ public:
     float depth;
 #endif
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+    int background_count;
+    int fbo_pos[4];
+    bool background_fbo_init;
+    Framebuffer background_fbo;
+#endif
+
     Layer();
-    Layer(int index, double scroll_x, double scroll_y, bool visible,
+    Layer(int index, double coeff_x, double coeff_y, bool visible,
           bool wrap_x, bool wrap_y);
     ~Layer();
     Layer(const Layer & layer);
     Layer & operator=(const Layer &);
-    void init(int index, double scroll_x, double scroll_y, bool visible,
+    void init(int index, double coeff_x, double coeff_y, bool visible,
               bool wrap_x, bool wrap_y);
     void reset();
     void scroll(int off_x, int off_y, int dx, int dy);
     void set_position(int x, int y);
+    void update_position();
     void add_background_object(FrameObject * instance);
     void remove_background_object(FrameObject * instance);
     void add_object(FrameObject * instance);
@@ -134,9 +154,12 @@ public:
     virtual void handle_pre_events();
 };
 
+
 class Frame
 {
 public:
+    typedef void (Frame::*EventFunction)();
+
     int width, height;
     int virtual_width, virtual_height;
     int index;
@@ -156,6 +179,9 @@ public:
     double frame_time;
     int timer_base;
     float timer_mul;
+
+    FrameObject * col_instance_1;
+    FrameObject * col_instance_2;
 
     Frame();
     void reset();

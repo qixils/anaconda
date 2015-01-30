@@ -2,6 +2,7 @@
 #define CHOWDREN_LAYEREXT_H
 
 #include "frameobject.h"
+#include "color.h"
 #include <string>
 
 class LayerObject : public FrameObject
@@ -27,6 +28,7 @@ public:
     static double get_alterable(const FrameObject & instance);
     static bool sort_func(const FrameObject & a, const FrameObject & b);
     void sort_alt_decreasing(int index, double def);
+    void set_rgb(int index, Color color);
 };
 
 #endif // CHOWDREN_LAYEREXT_H

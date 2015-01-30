@@ -68,6 +68,8 @@ class ConditionWriter(ACBase):
         return COMPARISONS[self.parameters[-1].loader.comparison]
 
 class ExpressionWriter(EventWriter):
+    use_default = True
+
     def get_string(self):
         raise NotImplementedError()
 

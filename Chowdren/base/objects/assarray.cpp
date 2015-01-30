@@ -36,7 +36,8 @@ void AssociateArray::load_encrypted(const std::string & filename,
 
     cipher.decrypt(&dst, src);
 
-    if (dst.compare(0, sizeof(ARRAY_MAGIC)-1, ARRAY_MAGIC) != 0) {
+    if (dst.compare(0, sizeof(ARRAY_MAGIC)-1,
+                    ARRAY_MAGIC, sizeof(ARRAY_MAGIC)-1) != 0) {
         std::cout << "Invalid magic for " << filename << std::endl;
         return;
     }

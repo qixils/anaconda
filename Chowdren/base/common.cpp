@@ -7,6 +7,7 @@
 #include <iomanip>
 #include "md5.h"
 #include "intern.cpp"
+#include "overlap.cpp"
 
 #ifdef CHOWDREN_USE_VALUEADD
 #include "extra_keys.cpp"
@@ -333,14 +334,8 @@ void Layer::set_position(int x, int y)
 
     LayerInstances::iterator it;
 
-    for (it = instances.begin(); it != instances.end(); ++it) {
-        FrameObject * object = &*it;
-        if (object->flags & SCROLL)
-            continue;
-        object->set_position(object->x - dx, object->y - dy);
-    }
-
 #ifdef CHOWDREN_LAYER_WRAP
+    // XXX this is stupid
     if (wrap_x || wrap_y) {
         FlatObjectList::const_iterator it2;
         for (it2 = background_instances.begin();
@@ -357,14 +352,29 @@ void Layer::set_position(int x, int y)
             }
         }
     }
+
+    dx = -dx;
+    dy = -dy;
 #endif
 
+    for (it = instances.begin(); it != instances.end(); ++it) {
+        FrameObject * object = &*it;
+        if (object->flags & SCROLL)
+            continue;
+        object->set_position(object->x - dx, object->y - dy);
+    }
 }
 
 void Layer::update_position()
 {
+#ifdef CHOWDREN_LAYER_WRAP
+    // XXX this is stupid
+    off_x = scroll_x;
+    off_y = scroll_y;
+#else
     off_x = scroll_x + x;
     off_y = scroll_y + y;
+#endif
 }
 
 void Layer::add_background_object(FrameObject * instance)
@@ -464,7 +474,7 @@ void Layer::insert_object(FrameObject * instance, int index)
     unsigned int prev = it->depth;
     ++it;
     unsigned int next = it->depth;
-    unsigned int new_depth = (prev + next) / 2;
+    unsigned int new_depth = prev + (next - prev) / 2;
     instance->depth = new_depth;
     instances.insert(it, *instance);
 
@@ -496,10 +506,11 @@ void Layer::set_level(FrameObject * instance, int new_index)
     if (instance->flags & BACKGROUND)
         return;
     remove_object(instance);
-    if (new_index == -1 || new_index >= int(instances.size()))
+    if (new_index == -1 || new_index >= int(instances.size())) {
         add_object(instance);
-    else
+    } else {
         insert_object(instance, new_index);
+    }
 }
 
 int Layer::get_level(FrameObject * instance)
@@ -673,6 +684,11 @@ void Layer::draw(int display_x, int display_y)
     if (!visible)
         return;
 
+#ifdef CHOWDREN_LAYER_WRAP
+    int x, y;
+    x = y = 0;
+#endif
+
     glLoadIdentity();
     glTranslatef(-floor(display_x * coeff_x - x),
                  -floor(display_y * coeff_y - y), 0.0);
@@ -841,6 +857,19 @@ void Layer::draw(int display_x, int display_y)
         (*it)->draw();
     }
 
+    if (blend_color.r != 255 || blend_color.g != 255 || blend_color.b != 255) {
+        glLoadIdentity();
+        blend_color.apply();
+        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        glBegin(GL_QUADS);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(WINDOW_WIDTH, 0.0f);
+        glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+        glVertex2f(0.0f, WINDOW_HEIGHT);
+        glEnd();
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
     PROFILE_END();
 }
 
@@ -957,13 +986,15 @@ void Frame::update_display_center()
     off_y = new_off_y;
 }
 
-void Frame::set_width(int width, bool adjust)
+void Frame::set_width(int w, bool adjust)
 {
+    virtual_width = width = w;
     std::cout << "Set frame width: " << width << " " << adjust << std::endl;
 }
 
-void Frame::set_height(int height, bool adjust)
+void Frame::set_height(int h, bool adjust)
 {
+    virtual_height = height = h;
     std::cout << "Set frame height: " << height << " " << adjust << std::endl;
 }
 
@@ -1106,11 +1137,12 @@ bool Frame::update()
     update_objects();
     PROFILE_END();
 
-    if (loop_count > 0) {
-        PROFILE_BEGIN(clean_instances);
-        clean_instances();
-        PROFILE_END();
-    }
+    PROFILE_BEGIN(clean_instances);
+    clean_instances();
+    PROFILE_END();
+
+    if (loop_count == 0)
+        on_start();
 
     PROFILE_BEGIN(handle_events);
     data->handle_events();
@@ -1651,13 +1683,19 @@ void FrameObject::destroy()
 
 void FrameObject::set_level(int index)
 {
-    index = int_max(0, index);
+#ifndef NDEBUG
+    std::cout << "Using slow path set_level() for " << get_name() << std::endl;
+#endif
+    index = std::max(0, index - 1);
     layer->set_level(this, index);
 }
 
 int FrameObject::get_level()
 {
-    return depth;
+#ifndef NDEBUG
+    std::cout << "Using slow path get_level() for " << get_name() << std::endl;
+#endif
+    return layer->get_level(this) + 1;
 }
 
 void FrameObject::move_back()
@@ -1949,6 +1987,9 @@ void FrameObject::update_inactive()
     }
 }
 
+int SavedSelection::offset = 0;
+FrameObject * SavedSelection::buffer[1024];
+
 // FixedValue
 
 FixedValue::FixedValue(FrameObject * object)
@@ -1959,8 +2000,11 @@ FixedValue::FixedValue(FrameObject * object)
 
 FixedValue::operator double() const
 {
-    double v2 = 0.0;
-    memcpy(&v2, &object, sizeof(FrameObject*));
+    uint64_t value = 0;
+    memcpy(&value, &object, sizeof(FrameObject*));
+    value ^= FIXED_ENCODE_XOR;
+    double v2;
+    memcpy(&v2, &value, sizeof(FrameObject*));
     return v2;
 }
 
@@ -1981,6 +2025,7 @@ FixedValue::operator FrameObject*() const
 
 unsigned int FixedValue::get_uint() const
 {
+    // return (object->id << 16) | (object->index & 0xFFFF);
     intptr_t val = intptr_t(object);
     return (unsigned int)val;
 }
@@ -2113,6 +2158,17 @@ void File::delete_file(const std::string & path)
 {
     if (platform_remove_file(path))
         return;
+}
+
+bool File::copy_file(const std::string & src, const std::string & dst)
+{
+    std::string data;
+    if (!read_file(src.c_str(), data))
+        return false;
+    FSFile fp(dst.c_str(), "w");
+    fp.write(&data[0], data.size());
+    fp.close();
+    return true;
 }
 
 // MathHelper
@@ -2273,7 +2329,3 @@ int get_joystick_y(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
 }
-
-// for checking overlap
-
-vector<int> int_temp;

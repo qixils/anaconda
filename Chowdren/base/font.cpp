@@ -23,7 +23,7 @@ bool load_fonts(FontList & fonts)
             fonts.push_back(font);
         }
     }
-    return true;
+    return fonts.size() > 0;
 }
 
 // unicode support

@@ -8,6 +8,7 @@ class AssociateArray(ObjectWriter):
     key_count = 0
     class_name = 'AssociateArray'
     filename = 'assarray'
+    default_instance = 'default_assarray_instance'
 
     def write_init(self, writer):
         data = self.get_data()

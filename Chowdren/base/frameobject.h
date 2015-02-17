@@ -50,9 +50,36 @@ inline bool operator!=(FixedValue a, FixedValue b)
     return !(a == b);
 }
 
+inline bool double_equals_exact(double a, double b)
+{
+    return memcmp(&a, &b, sizeof(double)) == 0;
+}
+
+#define FIXED_ENCODE_XOR 0x7800000000000000L
+
+inline FrameObject * get_object_from_fixed(double fixed)
+{
+    // -1 as a double is
+    // 00 00 00 00 00 00 F0 BF
+    // which is quite unlikely to be a memory address
+    if (double_equals_exact(fixed, 0.0) || double_equals_exact(fixed, -1.0))
+        return NULL;
+    uint64_t value;
+    memcpy(&value, &fixed, sizeof(uint64_t));
+    value ^= FIXED_ENCODE_XOR;
+    FrameObject * p;
+    memcpy(&p, &value, sizeof(FrameObject*));
+    return p;
+}
+
+inline FrameObject * get_object_from_fixed(FixedValue fixed)
+{
+    return fixed.object;
+}
+
 inline bool operator==(double a, FixedValue b)
 {
-    return memcmp(&a, &b.object, sizeof(FrameObject*)) == 0;
+    return get_object_from_fixed(a) == b.object;
 }
 
 inline bool operator!=(double a, FixedValue b)
@@ -426,11 +453,10 @@ class ObjectList
 {
 public:
     FrameObject * back_obj;
-    unsigned int saved_start;
-    vector<int> saved_items;
-
     ObjectListItems items;
     typedef ObjectListItems::iterator iterator;
+    unsigned int saved_start;
+    vector<int> saved_items;
 
     ObjectList()
     : back_obj(NULL)
@@ -493,12 +519,11 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
-    FrameObject * get_selection(int index);
 
     FrameObject * back_selection() const
     {
         if (!has_selection())
-            return NULL;
+            return back_obj;
         return items[items[0].next].obj;
     }
 
@@ -534,12 +559,6 @@ public:
         items[0].next = LAST_SELECTED;
     }
 
-    void copy(ObjectList & other)
-    {
-        back_obj = other.back_obj;
-        items = other.items;
-    }
-
     void remove(FrameObject * obj)
     {
         for (int i = obj->index+1; i < int(items.size()); i++) {
@@ -560,12 +579,13 @@ public:
     void save_selection();
     void restore_selection();
     void clear_saved_selection();
+    void copy(FlatObjectList & other);
 };
 
 class ObjectIterator
 {
 public:
-    ObjectList & list;
+    ObjectListItem * items;
     int index;
     int last;
     bool selected;
@@ -575,7 +595,7 @@ public:
 #endif
 
     ObjectIterator(ObjectList & list)
-    : list(list), index(list.items[0].next), last(0), selected(true)
+    : items(&list.items[0]), index(list.items[0].next), last(0), selected(true)
     {
 #ifdef CHOWDREN_ITER_INDEX
         current_index = 0;
@@ -584,7 +604,7 @@ public:
 
     FrameObject* operator*() const
     {
-        return list.items[index].obj;
+        return items[index].obj;
     }
 
     void operator++()
@@ -594,7 +614,7 @@ public:
 #endif
 
         last = selected ? index : last;
-        index = list.items[index].next;
+        index = items[index].next;
         selected = true;
     }
 
@@ -606,7 +626,7 @@ public:
     void deselect()
     {
         selected = false;
-        list.items[last].next = list.items[index].next;
+        items[last].next = items[index].next;
     }
 
     bool end() const
@@ -616,15 +636,19 @@ public:
 
     void select_single()
     {
-        list.items[0].next = index;
-        list.items[index].next = LAST_SELECTED;
+        items[0].next = index;
+        items[index].next = LAST_SELECTED;
     }
 };
 
 inline FrameObject * ObjectList::get_wrapped_selection(int index)
 {
-    if (!has_selection())
-        return NULL;
+    if (!has_selection()) {
+        int size = items.size()-1;
+        if (size == 0)
+            return NULL;
+        return items[(size - 1) - (index % size) + 1].obj;
+    }
     while (true) {
         for (ObjectIterator it(*this); !it.end(); ++it) {
             if (index == 0)
@@ -634,22 +658,11 @@ inline FrameObject * ObjectList::get_wrapped_selection(int index)
     }
 }
 
-inline FrameObject * ObjectList::get_selection(int index)
-{
-    for (ObjectIterator it(*this); !it.end(); ++it) {
-        if (index == 0)
-            return *it;
-        index--;
-    }
-    return NULL;
-}
-
 inline int ObjectList::get_selection_size()
 {
     int size = 0;
-    for (ObjectIterator it(*this); !it.end(); ++it) {
+    for (ObjectIterator it(*this); !it.end(); ++it)
         size++;
-    }
     return size;
 }
 
@@ -676,18 +689,16 @@ public:
     int size()
     {
         int size = 0;
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count; i++)
             size += items[i]->size();
-        }
         return size;
     }
 
     int get_selection_size()
     {
         int size = 0;
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count; i++)
             size += items[i]->get_selection_size();
-        }
         return size;
     }
 
@@ -737,11 +748,16 @@ public:
 
     FrameObject * back_selection() const
     {
+        FrameObject * back_obj = NULL;
         for (int i = 0; i < count; i++) {
-            if (items[i]->has_selection())
-                return items[i]->back_selection();
+            ObjectList & list = *items[i];
+            if (back_obj == NULL)
+                back_obj = list.back_obj;
+            if (!list.has_selection())
+                continue;
+            return list.items[list.items[0].next].obj;
         }
-        return NULL;
+        return back_obj;
     }
 
     FrameObject * operator[](int index)
@@ -779,26 +795,6 @@ public:
         }
     }
 
-    void copy(QualifierList & list)
-    {
-        if (items == NULL) {
-            // XXX this currently leaks, but we always declare copied lists
-            // as static variables, so we should never have to free anything
-            // anyway
-            count = list.count;
-            items = new ObjectList*[count+1];
-            for (int i = 0; i < count; i++) {
-                items[i] = new ObjectList;
-            }
-            items[count] = NULL;
-            last = items[count-1];
-        }
-
-        for (int i = 0; i < count; i++) {
-            items[i]->copy(*list.items[i]);
-        }
-    }
-
     void clear_saved_selection()
     {
         for (int i = 0; i < count; i++) {
@@ -821,14 +817,14 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
-    FrameObject * get_selection(int index);
+    void copy(FlatObjectList & list);
 };
 
 class QualifierIterator
 {
 public:
     ObjectList ** lists;
-    ObjectList * list;
+    ObjectListItem * items;
     int list_index;
     int index;
     int last;
@@ -849,16 +845,19 @@ public:
 
     FrameObject* operator*() const
     {
-        return list->items[index].obj;
+        return items[index].obj;
     }
 
     void next_list()
     {
         while (true) {
-            list = lists[list_index];
-            if (list == NULL)
+            ObjectList * list = lists[list_index];
+            if (list == NULL) {
+                items = NULL;
                 break;
-            index = list->items[0].next;
+            }
+            items = &list->items[0];
+            index = items[0].next;
             if (index != LAST_SELECTED)
                 break;
             list_index++;
@@ -871,7 +870,7 @@ public:
         current_index++;
 #endif
         last = selected ? index : last;
-        index = list->items[index].next;
+        index = items[index].next;
         selected = true;
         if (index != LAST_SELECTED)
             return;
@@ -888,12 +887,12 @@ public:
     void deselect()
     {
         selected = false;
-        list->items[last].next = list->items[index].next;
+        items[last].next = items[index].next;
     }
 
     bool end()
     {
-        return list == NULL;
+        return items == NULL;
     }
 
     void select_single()
@@ -903,19 +902,33 @@ public:
             ObjectList * iter = lists[n];
             if (iter == NULL)
                 break;
-            if (iter != list)
+            if (n != list_index)
                 iter->empty_selection();
             n++;
         }
-        list->items[0].next = index;
-        list->items[index].next = LAST_SELECTED;
+        items[0].next = index;
+        items[index].next = LAST_SELECTED;
     }
 };
 
 inline FrameObject * QualifierList::get_wrapped_selection(int index)
 {
-    if (!has_selection())
-        return NULL;
+    int size = 0;
+    bool has_select = false;
+    for (int i = 0; i < count; i++) {
+        size += items[i]->size();
+        if (!items[i]->has_selection())
+            continue;
+        has_select = true;
+        break;
+    }
+
+    if (!has_select) {
+        if (size == 0)
+            return NULL;
+        return (*this)[(size - 1) - (index % size)];
+    }
+
     while (true) {
         for (QualifierIterator it(*this); !it.end(); ++it) {
             if (index == 0)
@@ -925,14 +938,15 @@ inline FrameObject * QualifierList::get_wrapped_selection(int index)
     }
 }
 
-inline FrameObject * QualifierList::get_selection(int index)
+inline void QualifierList::copy(FlatObjectList & list)
 {
+    list.resize(size());
+    int index = 0;
     for (QualifierIterator it(*this); !it.end(); ++it) {
-        if (index == 0)
-            return *it;
-        index--;
+        list[index] = *it;
+        index++;
     }
-    return NULL;
+    list.resize(index);
 }
 
 // saving selection
@@ -980,5 +994,74 @@ inline int FrameObject::get_y()
 {
     return y + layer->off_y;
 }
+
+class SavedSelection
+{
+public:
+    static int offset;
+    static FrameObject * buffer[1024];
+
+    int count;
+    FrameObject ** items;
+
+    SavedSelection(ObjectList & list)
+    : count(0), items(&buffer[offset])
+    {
+        for (ObjectIterator it(list); !it.end(); ++it) {
+            items[count] = *it;
+            count++;
+        }
+        offset += count;
+        assert(offset <= 512);
+    }
+
+    SavedSelection(QualifierList & list)
+    : count(0), items(&buffer[offset])
+    {
+        for (QualifierIterator it(list); !it.end(); ++it) {
+            items[count] = *it;
+            count++;
+        }
+        offset += count;
+        assert(offset <= 512);
+    }
+
+    ~SavedSelection()
+    {
+        offset -= count;
+    }
+};
+
+class SavedIterator
+{
+public:
+    int current_index;
+    SavedSelection & selection;
+
+    SavedIterator(SavedSelection & selection)
+    : selection(selection), current_index(0)
+    {
+    }
+
+    bool end()
+    {
+        return current_index >= selection.count;
+    }
+
+    void operator++()
+    {
+        ++current_index;
+    }
+
+    void operator++(int)
+    {
+        ++*this;
+    }
+
+    FrameObject* operator*() const
+    {
+        return selection.items[current_index];
+    }
+};
 
 #endif // CHOWDREN_FRAMEOBJECT_H

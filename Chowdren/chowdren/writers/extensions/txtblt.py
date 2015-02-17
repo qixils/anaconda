@@ -119,8 +119,6 @@ class TextBlitter(ObjectWriter):
             writer.putlnc('wave_freq = %s;', param[1])
             writer.putlnc('wave_height = %s;', param[2])
 
-        real_width = image_size[0]
-
         writer.putln('width = %s;' % width)
         writer.putln('height = %s;' % height)
         writer.putln('char_width = %s;' % char_size[0])
@@ -212,6 +210,7 @@ expressions = make_table(ExpressionMethodWriter, {
     9 : 'get_x_align()',
     10 : 'get_y_align()',
     16 : '.y_scroll',
+    17 : '.x_spacing',
     18 : '.y_spacing',
     21 : '.width',
     22 : '.height',

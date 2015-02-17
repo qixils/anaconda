@@ -141,7 +141,7 @@ cdef class ByteReader:
         else:
             self.pos += value
 
-    cdef bint _read(self, void * value, int size):
+    cdef bint _read(self, void * value, int size) except False:
         cdef size_t read_bytes
         if self.fp != NULL:
             read_bytes = fread(value, 1, size, self.fp)

@@ -172,6 +172,8 @@ endif()
 if(WIN32)
     if (MINGW)
         set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} imm32 version)
+        set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
+            ${CMAKE_LIBRARY_PATH})
     else()
         set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
             ${CMAKE_LIBRARY_PATH})
@@ -190,6 +192,14 @@ elseif(APPLE)
 endif()
 
 if(MSVC)
+    if(MSVC11)
+        SET(CMAKE_GENERATOR_TOOLSET "v110_xp" CACHE STRING
+            "Name of generator toolset." FORCE)
+    elseif(MSVC12)
+        SET(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING
+            "Name of generator toolset." FORCE)
+    endif()
+
     # /bigobj is required for MSVC because objects.cpp can get too big on
     # some applications
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
@@ -260,9 +270,8 @@ if (NOT NO_STATIC_OGG)
     set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
 endif()
 
-if (CMAKE_CROSSCOMPILING)
-    find_package(Boost REQUIRED)
-else()
+find_package(Boost REQUIRED)
+if (NOT CMAKE_CROSSCOMPILING)
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)
     if (USE_GL)
@@ -270,7 +279,6 @@ else()
     else()
         find_package(OpenGLES2 REQUIRED)
     endif()
-    find_package(Boost REQUIRED COMPONENTS filesystem system thread chrono)
 endif()
 
 set(EXE_NAME "Chowdren")
@@ -280,8 +288,7 @@ include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
     ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES}
-    ${Boost_LIBRARIES})
+    ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES})
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
 

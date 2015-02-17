@@ -1,5 +1,5 @@
 def init(converter):
-    pass
+    converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
 
 def init_container(converter, container):
     pass
@@ -49,7 +49,7 @@ def use_update_filtering(converter):
 def use_deferred_collisions(converter):
     return False
 
-def use_generated_collisions(converter):
+def use_repeated_collisions(converter):
     return False
 
 def use_image_flush(converter, frame):
@@ -80,4 +80,16 @@ def get_loop_call_names(converter, name):
     return None
 
 def get_fonts(converter):
-    return ()
+    return ('SmallFonts',)
+
+def use_edit_obj(converter):
+    return True
+
+def reorder_foreach(converter):
+    return False
+
+def use_webp(converter):
+    return False
+
+def use_condition_expression_iterator(converter):
+    return True

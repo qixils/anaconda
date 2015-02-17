@@ -6,8 +6,7 @@
 #include "huffman.h"
 #include "fileio.h"
 #include "frame.h"
-
-// #define CHOWDREN_AUTOSAVE_ON_CHANGE
+#include "path.h"
 
 inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
@@ -304,13 +303,17 @@ void INI::set_string(const std::string & item, const std::string & value)
 void INI::load_file(const std::string & fn, bool read_only, bool merge,
                     bool overwrite)
 {
+#ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
+    if (auto_save)
+        save_file(false);
+#endif
     this->read_only = read_only;
     filename = convert_path(fn);
     if (!merge)
         reset(false);
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
-    platform_create_directories(filename);
+    platform_create_directories(get_path_dirname(filename));
 
     std::string new_data;
     if (!encrypt_key.empty() || use_compression) {
@@ -350,6 +353,10 @@ void INI::load_file(TempPath path)
 
 void INI::load_string(const std::string & data, bool merge)
 {
+#ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
+    if (auto_save)
+        save_file(false);
+#endif
     if (!merge)
         reset(false);
 
@@ -393,7 +400,7 @@ void INI::save_file(const std::string & fn, bool force)
     if (fn.empty() || (read_only && !force))
         return;
     filename = convert_path(fn);
-    platform_create_directories(filename);
+    platform_create_directories(get_path_dirname(filename));
     std::stringstream out;
     get_data(out);
     std::string outs = out.str();

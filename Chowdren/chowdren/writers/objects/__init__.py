@@ -253,6 +253,12 @@ class ObjectWriter(BaseWriter):
             return []
         return ['%s.cpp' % self.get_base_filename()]
 
+    def get_list_id(self):
+        list_id = (self.data.name, self.class_name, self.has_updates(),
+                   self.has_movements(), self.has_sleep())
+        list_id = list_id + tuple(self.get_qualifiers())
+        return list_id
+
     @staticmethod
     def write_application(converter):
         pass

@@ -1,8 +1,4 @@
-# turn off debug stuff in HFA
-deactivate_containers = [
-    'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE',
-    'DEBUG -- turn off!'
-]
+deactivate_containers = []
 
 def init(converter):
     converter.add_define('CHOWDREN_QUICK_SCALE')
@@ -16,6 +12,7 @@ def init(converter):
     converter.add_define('CHOWDREN_IS_HFA')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
     converter.add_define('CHOWDREN_DISABLE_DISPLAY0_EXT')
+    converter.add_define('CHOWDREN_AUTOSAVE_ON_CHANGE') # this is stupid
 
     # hack to turn on high-resolution lighting system images
     values = converter.game.globalValues.items
@@ -32,11 +29,28 @@ def init(converter):
             'Enemies'
         ])
 
+    if converter.platform_name != 'generic':
+        # turn off tester stuff
+        deactivate_containers.extend([
+            'BETA TESTER SHIT -- TURN OFF WITH FINAL RELEASE',
+            'DEBUG -- turn off!'
+        ])
+
+    if converter.platform_name == 'ps4':
+        converter.add_define('CHOWDREN_PRELOAD_ALL')
+
 def init_container(converter, container):
     for name in deactivate_containers:
         if container.name == name:
             container.inactive = True
             return
+
+def use_image_flush(converter, frame):
+    return False
+
+def use_image_preload(converter):
+    return False
+    return converter.platform_name in ('ps4',)
 
 global_objects = [
     'Scrolling',
@@ -60,7 +74,9 @@ alterable_int_objects = [
     'MapMainObject',
     'CellFG',
     'CellBG',
-    'Treasurebox'
+    'Treasurebox',
+    'Confirmtext_',
+    'Loadslots_'
 ]
 
 def use_alterable_int(converter, expression):
@@ -112,7 +128,9 @@ def get_frames(converter, game, frames):
                    31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
                    48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
                    63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
-        # indexes = (60, 61)
+        if converter.platform_name == 'generic':
+            indexes = indexes + (77,)
+        # indexes = (0, 4, 21, 22,)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6, 7)
     for index in indexes:

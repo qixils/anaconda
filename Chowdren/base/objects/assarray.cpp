@@ -349,3 +349,24 @@ bool AssociateArray::has_key(int index, const std::string & key)
 }
 
 ArrayMap AssociateArray::global_map;
+
+static ArrayMap default_map;
+
+class DefaultArray : public AssociateArray
+{
+public:
+    DefaultArray()
+    : AssociateArray(0, 0, 0)
+    {
+        map = &default_map;
+        setup_default_instance(this);
+    }
+
+    ~DefaultArray()
+    {
+        map = &global_map;
+    }
+};
+
+static DefaultArray default_assarray;
+FrameObject * default_assarray_instance = &default_assarray;

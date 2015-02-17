@@ -171,6 +171,15 @@ void Channel::set_frequency(double value)
     sound->set_frequency(value);
 }
 
+double Channel::get_frequency()
+{
+    if (frequency != 0)
+        return frequency;
+    if (is_invalid())
+        return 0.0;
+    return sound->get_sample_rate();
+}
+
 void Channel::set_position(double value)
 {
     if (is_invalid())
@@ -435,7 +444,7 @@ double Media::get_channel_frequency(unsigned int channel)
 {
     if (!is_channel_valid(channel))
         return 0.0;
-    return channels[channel].frequency;
+    return channels[channel].get_frequency();
 }
 
 void Media::set_channel_position(unsigned int channel, double pos)
@@ -457,6 +466,13 @@ double Media::get_channel_volume(unsigned int channel)
     if (!is_channel_valid(channel))
         return 0.0;
     return channels[channel].volume;
+}
+
+double Media::get_channel_pan(unsigned int channel)
+{
+    if (!is_channel_valid(channel))
+        return 0.0;
+    return channels[channel].pan;
 }
 
 bool Media::is_channel_playing(unsigned int channel)

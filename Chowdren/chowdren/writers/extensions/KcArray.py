@@ -70,6 +70,7 @@ expressions = make_table(ExpressionMethodWriter, {
     6 : 'get_value',
     7 : 'get_value', # xyz
     8 : 'get_string',
+    9 : 'get_string', # xy
     10 : 'get_string' # with xyz
 })
 

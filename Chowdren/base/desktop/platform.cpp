@@ -17,8 +17,7 @@
 #include <SDL.h>
 #include <time.h>
 #include <boost/cstdint.hpp>
-
-using boost::uintmax_t;
+#include "path.h"
 
 #define CHOWDREN_EXTRA_BILINEAR
 
@@ -100,7 +99,26 @@ static void on_key(SDL_KeyboardEvent & e)
 {
     if (e.repeat != 0)
         return;
-    manager.on_key(e.keysym.sym, e.state == SDL_PRESSED);
+    bool state = e.state == SDL_PRESSED;
+    int key = e.keysym.sym;
+
+    if (state && key == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT)) {
+        manager.set_window(!manager.fullscreen);
+        return;
+    }
+
+#ifdef CHOWDREN_USE_EDITOBJ
+    if (state && key == SDLK_v && (SDL_GetModState() & KMOD_CTRL) &&
+        SDL_HasClipboardText())
+    {
+        char * text = SDL_GetClipboardText();
+        manager.input += text;
+        SDL_free(text);
+        return;
+    }
+#endif
+
+    manager.on_key(key, state);
 }
 
 static void on_mouse(SDL_MouseButtonEvent & e)
@@ -186,6 +204,10 @@ void platform_exit()
 
 void platform_poll_events()
 {
+#ifdef CHOWDREN_USE_EDITOBJ
+    manager.input.clear();
+#endif
+
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -208,6 +230,11 @@ void platform_poll_events()
                 on_joystick_button(e.cbutton.which, e.cbutton.button,
                                    e.cbutton.state == SDL_PRESSED);
                 break;
+#ifdef CHOWDREN_USE_EDITOBJ
+            case SDL_TEXTINPUT:
+                manager.input += e.text.text;
+                break;
+#endif
             case SDL_QUIT:
                 has_closed = true;
                 break;
@@ -421,6 +448,20 @@ void platform_set_vsync(bool value)
         return;
 
     std::cout << "Set vsync failed: " << SDL_GetError() << std::endl;
+}
+
+bool platform_get_vsync()
+{
+    int vsync = SDL_GL_GetSwapInterval();
+    if (vsync != -1)
+        return vsync == 1;
+    switch (vsync_value) {
+        case 1:
+        case -1:
+            return true;
+        default:
+            return false;
+    }
 }
 
 #define CHOWDREN_DESKTOP_FULLSCREEN
@@ -647,43 +688,104 @@ const std::string & platform_get_language()
 // filesystem stuff
 
 #include <sys/stat.h>
-#include <boost/filesystem.hpp>
 
 size_t platform_get_file_size(const char * filename)
 {
-    boost::system::error_code err;
-    uintmax_t ret = boost::filesystem::file_size(filename, err);
-    if (ret == uintmax_t(-1))
+#ifndef _WIN32
+    struct stat path_stat;
+    if (stat(p.c_str(), &path_stat) != 0)
         return 0;
-    return ret;
+    if (!S_ISREG(path_stat.st_mode))
+        return 0;
+    return path_stat.st_size;
+#else
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+
+    if (GetFileAttributesExA(filename, GetFileExInfoStandard, &fad) == 0)
+        return 0;
+
+    if ((fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return 0;
+
+    size_t size = (uint64_t(fad.nFileSizeHigh) << (sizeof(fad.nFileSizeLow)*8))
+                  + fad.nFileSizeLow;
+    return size;
+#endif
+}
+
+enum FileType
+{
+    NoneFile,
+    RegularFile,
+    Directory
+};
+
+static FileType get_file_type(const char * filename)
+{
+#ifndef _WIN32
+    struct stat path_stat;
+    if (stat(filename, &path_stat) != 0)
+        return NoneFile;
+    if (S_ISDIR(path_stat.st_mode))
+        return Directory;
+    if (S_ISREG(path_stat.st_mode))
+        return RegularFile;
+    return NoneFile;
+#else
+
+    DWORD attr(GetFileAttributesA(filename));
+    if (attr == 0xFFFFFFFF)
+        return NoneFile;
+    if (attr & FILE_ATTRIBUTE_DIRECTORY)
+        return Directory;
+    else
+        return RegularFile;
+#endif
 }
 
 bool platform_path_exists(const std::string & value)
 {
-    boost::system::error_code err;
-    return boost::filesystem::exists(value, err);
+    return get_file_type(value.c_str()) != NoneFile;
 }
 
 bool platform_is_directory(const std::string & value)
 {
-    boost::system::error_code err;
-    return boost::filesystem::is_directory(value, err);
+    return get_file_type(value.c_str()) == Directory;
 }
 
 bool platform_is_file(const std::string & value)
 {
-    boost::system::error_code err;
-    return boost::filesystem::is_regular_file(value, err);
+    return get_file_type(value.c_str()) == RegularFile;
+}
+
+static bool create_dirs(const std::string & directory)
+{
+    if (directory.empty())
+        return true;
+
+    if (get_file_type(directory.c_str()) != NoneFile)
+        return true;
+
+    size_t slash = directory.find_last_of(PATH_SEP);
+    if (slash != std::string::npos) {
+        if (!create_dirs(directory.substr(0, slash)))
+            return false;
+    }
+
+#ifdef _WIN32
+    BOOL result = CreateDirectoryA(directory.c_str(), NULL);
+    if (CreateDirectoryA(directory.c_str(), NULL) == FALSE)
+        return false;
+#else
+    if (mkdir(directory.c_str(), S_IRWXU|S_IRWXG|S_IRWXO) != 0)
+        return false;
+#endif
+    return true;
 }
 
 void platform_create_directories(const std::string & value)
 {
-    boost::filesystem::path path(value);
-    if (path.has_filename())
-        path.remove_filename();
-
-    boost::system::error_code err;
-    boost::filesystem::create_directories(path, err);
+    create_dirs(value);
 }
 
 #ifdef _WIN32
@@ -786,6 +888,8 @@ public:
 
     float get_axis(SDL_GameControllerAxis n)
     {
+        if (n <= SDL_CONTROLLER_AXIS_INVALID || n >= SDL_CONTROLLER_AXIS_MAX)
+            return 0.0f;
         return float(SDL_GameControllerGetAxis(controller, n)) / float(0x7FFF);
     }
 
@@ -796,6 +900,9 @@ public:
 
     bool get_button(int b)
     {
+        if (b <= SDL_CONTROLLER_BUTTON_INVALID ||
+            b >= SDL_CONTROLLER_BUTTON_MAX)
+            return false;
         return get_button((SDL_GameControllerButton)b);
     }
 
@@ -903,7 +1010,18 @@ int get_joystick_last_press(int n)
 {
     if (!is_joystick_attached(n))
         return CHOWDREN_BUTTON_INVALID;
-    return remap_button(get_joy(n).last_press+1);
+    return remap_button(get_joy(n).last_press + 1);
+}
+
+extern std::string empty_string;
+
+const std::string & get_joystick_name(int n)
+{
+    if (!is_joystick_attached(n))
+        return empty_string;
+    static std::string ret;
+    ret = SDL_GameControllerName(get_joy(n).controller);
+    return ret;
 }
 
 bool is_joystick_attached(int n)
@@ -928,7 +1046,6 @@ bool any_joystick_pressed(int n)
     JoystickData & joy = get_joy(n);
     for (unsigned int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
         if (joy.get_button(i)) {
-            std::cout << "pressed: " << i << std::endl;
             return true;
         }
     }

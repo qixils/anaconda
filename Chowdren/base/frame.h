@@ -65,6 +65,7 @@ public:
     int x, y;
     Broadphase broadphase;
     bool wrap_x, wrap_y;
+    Color blend_color;
 
 #ifdef CHOWDREN_IS_3DS
     float depth;
@@ -190,7 +191,7 @@ public:
     void pause();
     void restart();
     void draw(int remote);
-    FrameObject * add_object(FrameObject * object, int layer_indcex);
+    FrameObject * add_object(FrameObject * object, int layer_index);
     FrameObject * add_object(FrameObject * object, Layer * layer);
     void add_background_object(FrameObject * object, int layer_index);
     void set_object_layer(FrameObject * object, int new_layer);
@@ -215,6 +216,17 @@ public:
     int get_instance_count();
     void set_width(int width, bool adjust);
     void set_height(int height, bool adjust);
+
+    void test_collisions(ObjectList & a, ObjectList & b,
+                         int flag1, int flag2, EventFunction e);
+    void test_collisions(QualifierList & a, ObjectList & b,
+                         int flag1, int flag2, EventFunction e);
+    void test_collisions(QualifierList & a, QualifierList & b,
+                         int flag1, int flag2, EventFunction e);
+    void test_collisions_save(ObjectList & a, ObjectList & b,
+                              int flag1, int flag2, EventFunction e);
+    void test_collisions_save(QualifierList & a, ObjectList & b,
+                              int flag1, int flag2, EventFunction e);
 
     virtual void set_index(int index) = 0;
     virtual void load_static_images();

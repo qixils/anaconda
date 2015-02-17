@@ -135,16 +135,6 @@ def is_qualifier(handle):
 def get_qualifier(handle):
     return handle & 2047
 
-def get_iter_type(obj):
-    if is_qualifier(obj[0]):
-        return 'QualifierIterator'
-    return 'ObjectIterator'
-
-def get_list_type(obj):
-    if is_qualifier(obj[0]):
-        return 'QualifierList'
-    return 'ObjectList'
-
 def get_directions(value):
     directions = []
     for i in xrange(32):

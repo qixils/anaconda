@@ -74,7 +74,9 @@ class Active(ObjectWriter):
         writer.putlnc('transparent = %s;', self.get_transparent())
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
-            writer.putln('forced_animation = APPEARING;')
+            writer.putln('forced_animation = current_animation = APPEARING;')
+        else:
+            writer.putln('current_animation = animation;')
         if len(animations) == 1 and DISAPPEARING in animations:
             writer.putln('flags |= FADEOUT;')
             self.destruct = True
@@ -507,6 +509,9 @@ class SubApplication(ObjectWriter):
     update = True
     filename = 'subapp'
     defines = ['CHOWDREN_USE_SUBAPP']
+
+    def has_sleep(self):
+        return False
 
     def write_init(self, writer):
         data = self.common.subApplication

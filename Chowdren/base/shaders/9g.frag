@@ -64,7 +64,7 @@ void main()
     f = max(0.0, min(1.0, f+offset));
     gradient.a = alpha_1 + (alpha_2 - alpha_1) * f;
     gradient.rgb = mix(color_1, color_2, f).rgb;
-    color.a *= gradient.a;
+    color.a *= gradient.a * gl_Color.a;
     color.rgb = gradient.rgb;
     gl_FragColor = color;
 }

@@ -13,10 +13,12 @@
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
+#define STBI_ONLY_BMP
 #include "stb_image.h"
 
-inline unsigned char * load_image(FSFile & image_file, int size,
-                                  int * w, int * h, int * channels)
+inline unsigned char * load_png_image(FSFile & image_file, int size,
+                                      int * w, int * h, int * channels)
 {
     unsigned char * buf = new unsigned char[size];
     image_file.read(buf, size);
@@ -24,6 +26,24 @@ inline unsigned char * load_image(FSFile & image_file, int size,
     delete[] buf;
     return out;
 }
+
+#ifdef CHOWDREN_USE_WEBP
+
+inline unsigned char * load_image(FSFile & image_file, int size,
+                                  int * w, int * h, int * channels)
+{
+    return load_png_image(image_file, size, w, h, channels);
+}
+
+#else
+
+inline unsigned char * load_image(FSFile & image_file, int size,
+                                  int * w, int * h, int * channels)
+{
+    return load_png_image(image_file, size, w, h, channels);
+}
+
+#endif
 
 typedef vector<Image*> ImageList;
 
@@ -168,6 +188,7 @@ void Image::upload_texture()
     if (tex != 0 || image == NULL)
         return;
 
+    // std::cout << "Upload image" << std::endl;
 #ifndef CHOWDREN_IS_WIIU
     // std::cout << "creating alpha: " << (width * height) << std::endl;
     // create alpha mask
@@ -450,7 +471,7 @@ void FileImage::load_file()
     }
 
     int w, h, channels;
-    image = load_image(fp, fp.get_size(), &w, &h, &channels);
+    image = load_png_image(fp, fp.get_size(), &w, &h, &channels);
 
     width = w;
     height = h;
@@ -543,7 +564,7 @@ void flush_image_cache()
 
 void preload_images()
 {
-#ifdef CHOWDREN_PRELOAD_IMAGES
+#if defined(CHOWDREN_PRELOAD_IMAGES) || defined(CHOWDREN_PRELOAD_ALL)
     AssetFile fp;
     fp.open();
     FileStream stream(fp);

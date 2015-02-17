@@ -94,7 +94,15 @@ class GetExpression(ExpressionMethodWriter):
 
         last_exp = items[converter.item_index + 2]
         if last_exp.getName() != 'Virgule':
-            raise NotImplementedError()
+            next_exp = items[converter.item_index + 1]
+            if next_exp.getName() != 'FixedValue':
+                return 'get_extra_dynamic('
+            if last_exp.getName() != 'Divide':
+                return 'get_extra_dynamic('
+            # silly Alonso
+            converter.item_index += 6
+            return '0.0'
+            
         next_exp = items[converter.item_index + 1]
         obj = (next_exp.objectInfo, next_exp.objectType)
         obj = self.converter.get_object(obj, use_default=True)

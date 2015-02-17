@@ -65,17 +65,45 @@ void QuickBackdrop::draw()
         width -= add_x;
         y += add_y;
         height -= add_y;
+
         width -= align_pos(screen_x2 - WINDOW_WIDTH, image->width);
         height -= align_pos(screen_y2 - WINDOW_HEIGHT, image->height);
 
+        blend_color.apply();
+
+#ifdef CHOWDREN_IS_3DS
+        image->upload_texture();
+        // can't use scissor for stereo 3d
+        short image_width = image->width;
+        short image_height = image->height;
+
+        int full_width = (width / image_width) * image_width;
+        int full_height = (height / image_height) * image_height;
+
+        int end_x = x + width;
+        int end_y = y + height;
+        int full_end_x = x + full_width;
+        int full_end_y = y + full_height;
+
+        for (int xx = x; xx < end_x; xx += image_width)
+        for (int yy = y; yy < end_y; yy += image_height) {
+            if (xx >= full_end_x)
+                image->width = end_x - xx;
+            if (yy >= full_end_y)
+                image->height = end_y - yy;
+            draw_image(image, xx + image->hotspot_x, yy + image->hotspot_y);
+            image->width = image_width;
+            image->height = image_height;
+        }
+#else
         glEnable(GL_SCISSOR_TEST);
         glc_scissor_world(x, y, width, height);
-        blend_color.apply();
         for (int xx = x; xx < x + width; xx += image->width)
         for (int yy = y; yy < y + height; yy += image->height) {
             draw_image(image, xx + image->hotspot_x, yy + image->hotspot_y);
         }
         glDisable(GL_SCISSOR_TEST);
+#endif
     } else {
         begin_draw();
         glDisable(GL_TEXTURE_2D);

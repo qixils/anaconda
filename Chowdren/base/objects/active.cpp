@@ -18,6 +18,9 @@ void Active::initialize_active()
     if (collision_box)
         sprite_col.flags |= BOX_COLLISION;
     update_direction();
+    // XXX
+    // do 2 extra update iterations if appear/disappear is used, otherwise
+    // 1 extra update iteration
 }
 
 Active::~Active()
@@ -34,9 +37,8 @@ void Active::set_animation(int value)
     animation = value;
     if (forced_animation >= 0)
         return;
-    if (forced_frame == -1) {
-        animation_frame = 0;
-    }
+    animation_frame = 0;
+    current_animation = animation;
     update_direction();
 }
 
@@ -51,31 +53,19 @@ void Active::force_animation(int value)
         FrameObject::destroy();
         return;
     }
-    int old_forced = forced_animation;
-    int old_anim = get_animation();
     forced_animation = value;
-    if (old_anim == forced_animation)
+    if (value == current_animation)
         return;
-    Direction * dir = NULL;
-    if (forced_frame == -1) {
-        // MMF behaviour: lock the animation if we try and force the one that
-        // just ended
-        if (animation_finished == value && old_forced == -2) {
-            direction_data = get_direction_data();
-            animation_frame = direction_data->frame_count - 1;
-            loop_count = 0;
-            update_frame();
-            return;
-        }
-
-        animation_frame = 0;
-    }
-    update_direction(dir);
+    animation_frame = 0;
+    current_animation = value;
+    update_direction();
 }
 
 void Active::force_frame(int value)
 {
     if (flags & FADEOUT)
+        return;
+    if (loop_count == 0)
         return;
     int frame_count = direction_data->frame_count;
     forced_frame = int_max(0, int_min(value, frame_count - 1));
@@ -111,9 +101,13 @@ void Active::restore_direction()
 
 void Active::restore_animation()
 {
+    if (forced_animation == -1)
+        return;
     forced_animation = -1;
-    if (forced_frame == -1)
-        animation_frame = 0;
+    if (current_animation == animation)
+        return;
+    current_animation = animation;
+    animation_frame = 0;
     update_direction();
 }
 
@@ -133,10 +127,11 @@ void Active::restore_speed()
 
 void Active::update_frame()
 {
-    Image * new_image = get_image();
+    Image * new_image = direction_data->frames[get_frame()];
     if (new_image == image)
         return;
     image = new_image;
+    image->load();
 
     sprite_col.set_image(image, image->hotspot_x, image->hotspot_y);
     update_action_point();
@@ -154,7 +149,7 @@ void Active::update_direction(Direction * dir)
     int frame_count = direction_data->frame_count;
     if (forced_frame != -1 && forced_frame >= frame_count)
         forced_frame = -1;
-    if (forced_frame == -1 && animation_frame >= frame_count)
+    if (animation_frame >= frame_count)
         animation_frame = 0;
 
     update_frame();
@@ -171,10 +166,9 @@ void Active::update_action_point()
 void Active::update()
 {
 #ifdef CHOWDREN_DEFER_COLLISIONS
-    flags |= DEFER_COLLISIONS;
-    memcpy(old_aabb, sprite_col.aabb, sizeof(old_aabb));
+        flags |= DEFER_COLLISIONS;
+        memcpy(old_aabb, sprite_col.aabb, sizeof(old_aabb));
 #endif
-
     if (flags & FADEOUT && animation_finished == DISAPPEARING) {
         FrameObject::destroy();
         return;
@@ -184,8 +178,15 @@ void Active::update()
 
     animation_finished = -1;
 
-    if (forced_frame != -1 || stopped || loop_count == 0)
+    if (forced_animation == -1 && animation != current_animation) {
+        current_animation = animation;
+        animation_frame = 0;
+        update_direction();
+    }
+
+    if (forced_frame != -1 || stopped || loop_count == 0) {
         return;
+    }
 
     counter += int(get_speed() * frame->timer_mul);
     int old_frame = animation_frame;
@@ -201,16 +202,14 @@ void Active::update()
             animation_frame = direction_data->back_to;
             continue;
         }
-        animation_finished = get_animation();
+
+        animation_finished = current_animation;
         animation_frame--;
 
-        if (forced_animation >= 0 && (flags & FADEOUT) == 0) {
-            if (forced_animation != animation)
-                animation_frame = 0;
-            forced_animation = -2;
-            forced_frame = -1;
+        if (forced_animation != -1) {
+            forced_animation = -1;
+            forced_speed = -1;
             forced_direction = -1;
-            update_direction();
         }
         return;
     }
@@ -230,10 +229,10 @@ inline int get_active_load_point(int value, int max)
 
 void Active::load(const std::string & filename, int anim, int dir, int frame,
                   int hot_x, int hot_y, int action_x, int action_y,
-                  int transparent_color)
+                  TransparentColor transparent_color)
 {
     Image * new_image = get_image_cache(convert_path(filename), 0, 0, 0, 0,
-                                        TransparentColor(transparent_color));
+                                        transparent_color);
 
     if (new_image == NULL) {
         std::cout << "Could not load image " << filename << std::endl;
@@ -275,13 +274,6 @@ void Active::draw()
         glEnable(GL_BLEND);
 }
 
-inline Image * Active::get_image()
-{
-    Image * image = direction_data->frames[get_frame()];
-    image->load();
-    return image;
-}
-
 int Active::get_action_x()
 {
     return get_x() + action_x;
@@ -321,10 +313,10 @@ int Active::get_speed()
 
 Direction * Active::get_direction_data()
 {
-    Animation * anim = animations->items[get_animation()];
+    Animation * anim = animations->items[current_animation];
 
     if (anim == NULL) {
-        std::cout << "Invalid animation: " << get_animation() << std::endl;
+        std::cout << "Invalid animation: " << current_animation << std::endl;
         return NULL;
     }
 
@@ -344,13 +336,6 @@ Direction * Active::get_direction_data()
             return new_data;
     }
     return NULL;
-}
-
-int Active::get_animation()
-{
-    if (forced_animation >= 0)
-        return forced_animation;
-    return animation;
 }
 
 static int animation_alias[] = {
@@ -444,7 +429,7 @@ void Active::paste(int collision_type)
 
 bool Active::test_animation(int value)
 {
-    if (value != get_animation())
+    if (value != current_animation)
         return false;
     if (loop_count == 0)
         return false;

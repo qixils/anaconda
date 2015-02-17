@@ -36,7 +36,7 @@ public:
 
     Animations * animations;
 
-    int animation;
+    int animation, current_animation;
     int animation_direction, animation_frame;
     int forced_animation, forced_frame, forced_speed, forced_direction;
     unsigned int counter;
@@ -70,7 +70,6 @@ public:
     void update_action_point();
     void update();
     void draw();
-    Image * get_image();
     int get_action_x();
     int get_action_y();
     void set_angle(float angle, int quality = 0);
@@ -78,7 +77,6 @@ public:
     int get_frame();
     int get_speed();
     Direction * get_direction_data();
-    int get_animation();
     int get_animation(int anim);
     void set_animation(int value);
     void set_direction(int value, bool set_movement = true);
@@ -96,7 +94,7 @@ public:
     bool has_animation(int anim);
     void load(const std::string & filename, int anim, int dir, int frame,
               int hot_x, int hot_y, int action_x, int action_y,
-              int transparent_color);
+              TransparentColor transparent_color);
     void replace_color(const Color & from, const Color & to);
 };
 

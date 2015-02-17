@@ -34,6 +34,7 @@ bool platform_remove_file(const std::string & path);
 const std::string & platform_get_appdata_dir();
 const std::string & platform_get_language();
 void platform_set_vsync(bool value);
+bool platform_get_vsync();
 void platform_set_fullscreen(bool value);
 
 // fs
@@ -58,6 +59,7 @@ bool is_joystick_direction_changed(int n);
 void joystick_vibrate(int n, int l, int r, int d);
 float get_joystick_axis(int n, int axis);
 int get_joystick_last_press(int n);
+const std::string & get_joystick_name(int n);
 
 // desktop
 void platform_set_display_scale(int scale);

@@ -109,17 +109,49 @@ inline double operator*(const MathHelper& lhs, DynamicNumber rhs)
 
 // float modulus
 
-inline MathHelper & operator%(double lhs, MathHelper& rhs)
+template <class T>
+class ModulusHelper
 {
-    rhs.lhs = lhs;
-    return rhs;
+public:
+    T lhs;
+
+    ModulusHelper(T lhs)
+    : lhs(lhs)
+    {
+    }
+};
+
+// safe divide
+
+inline double get_mod(double a, double b)
+{
+    return fmod(a, b);
 }
 
-inline double operator%(const MathHelper& lhs, double rhs)
+inline float get_mod(float a, float b)
 {
-    if (rhs == 0.0)
-        return 0.0;
-    return fmod(lhs.lhs, rhs);
+    return fmod(a, b);
+}
+
+inline int get_mod(int a, int b)
+{
+    return a % b;
+}
+
+template <class T, class U>
+inline typename boost::common_type<T, U>::type
+operator%(const ModulusHelper<T> & lhs, U rhs)
+{
+    if (rhs == 0)
+        return 0;
+    return get_mod(boost::common_type<T, U>::type(lhs.lhs),
+                   boost::common_type<T, U>::type(rhs));
+}
+
+template <class T>
+inline ModulusHelper<T> operator%(T lhs, MathHelper& rhs)
+{
+    return ModulusHelper<T>(lhs);
 }
 
 // bitwise AND

@@ -95,7 +95,5 @@ void LayerObject::sort_alt_decreasing(int index, double def)
 
 void LayerObject::set_rgb(int index, Color color)
 {
-    std::cout << "Set layer RGB not implemented: " << index << " " <<
-        color.r << " " << color.g << " " << color.b << " " << color.a
-        << std::endl;
+    frame->layers[index].blend_color = color;
 }

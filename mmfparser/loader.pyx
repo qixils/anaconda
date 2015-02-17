@@ -19,7 +19,8 @@ cdef class DataLoader:
     def __init__(self, reader = None, parent = None, **settings):
         self.init(reader, parent, settings)
 
-    cdef bint init(self, ByteReader reader, DataLoader parent, dict settings):
+    cdef bint init(self, ByteReader reader, DataLoader parent,
+                   dict settings) except False:
         self.parent = parent
         self.settings = settings
         self.initialize()

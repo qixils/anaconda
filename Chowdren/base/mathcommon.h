@@ -11,6 +11,7 @@
 #include <algorithm>
 
 #define CHOW_PI 3.14159265358979323846264338327950288
+#define RAD2DEG 57.295779513082320876798154814105
 
 // math helpers
 
@@ -22,13 +23,13 @@ inline float mod(float a, float b)
 template <class T>
 inline T rad(T x)
 {
-    return x * (CHOW_PI/180);
+    return x / RAD2DEG;
 }
 
 template <class T>
 inline T deg(T x)
 {
-    return x * (180/CHOW_PI);
+    return x * RAD2DEG;
 }
 
 template <class T>
@@ -43,11 +44,15 @@ inline int sign_int(T x)
 
 inline double sin_deg(double x)
 {
+    if (x == 180.0)
+        return 0.0;
     return sin(rad(x));
 }
 
 inline double cos_deg(double x)
 {
+    if (x == 90.0 || x == 270.0)
+        return 0.0;
     return cos(rad(x));
 }
 
@@ -82,22 +87,30 @@ inline int get_distance_int(int x1, int y1, int x2, int y2)
 {
     int dx = x2 - x1;
     int dy = y2 - y1;
-    return int(sqrt(dx * dx + dy * dy));
+    return int(sqrt(float(dx * dx + dy * dy)));
 }
 
 inline double get_angle(int x1, int y1, int x2, int y2)
 {
-    return atan2_deg(y2 - y1, x2 - x1);
+    double v = atan2_deg(y1 - y2, x2 - x1);
+    if (v < 0.0)
+        v += 360.0;
+    return v;
+}
+
+inline int get_angle_int(int x1, int y1, int x2, int y2)
+{
+    return int(get_angle(x1, y1, x2, y2));
 }
 
 inline int get_angle_int(int x, int y)
 {
-    return int(atan2_deg(-y, x));
+    return get_angle_int(0, 0, x, y);
 }
 
 inline double get_direction(int x1, int y1, int x2, int y2)
 {
-    return get_angle(x1, y1, x2, y2) / -11.25;
+    return get_angle(x1, y1, x2, y2) / 11.25;
 }
 
 inline int get_direction_int(int x1, int y1, int x2, int y2)
@@ -107,7 +120,6 @@ inline int get_direction_int(int x1, int y1, int x2, int y2)
 
 inline int int_round(double d)
 {
-    // mmf behaviour
     int v = (int)floor(d + 0.5);
     if (d - v > 0.5)
         v++;
@@ -246,6 +258,26 @@ inline void rect_union(int a_x1, int a_y1, int a_x2, int a_y2,
 
 inline void get_dir(int dir, double & x, double & y)
 {
+    switch (dir) {
+        case 0:
+            x = 1.0;
+            y = 0.0;
+            return;
+        case 8:
+            x = 0.0;
+            y = -1.0;
+            return;
+        case 16:
+            x = -1.0;
+            y = 0.0;
+            return;
+        case 24:
+            x = 0.0;
+            y = 1.0;
+            return;
+        default:
+            break;
+    }
     double r = rad(dir * 11.25);
     x = cos(r);
     y = -sin(r);
@@ -253,6 +285,26 @@ inline void get_dir(int dir, double & x, double & y)
 
 inline void get_dir(int dir, float & x, float & y)
 {
+    switch (dir) {
+        case 0:
+            x = 1.0f;
+            y = 0.0f;
+            return;
+        case 8:
+            x = 0.0f;
+            y = -1.0f;
+            return;
+        case 16:
+            x = -1.0f;
+            y = 0.0f;
+            return;
+        case 24:
+            x = 0.0f;
+            y = 1.0f;
+            return;
+        default:
+            break;
+    }
     float r = rad(dir * 11.25f);
     x = cos(r);
     y = -sin(r);

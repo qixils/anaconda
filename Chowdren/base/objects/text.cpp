@@ -36,6 +36,7 @@ void Text::draw()
     update_draw_text();
     blend_color.apply();
     glPushMatrix();
+    glEnable(GL_TEXTURE_2D);
     if (layout != NULL) {
         FTBBox bb = layout->BBox(draw_text.c_str(), -1);
         double off_x = x;
@@ -47,7 +48,7 @@ void Text::draw()
     } else {
         FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
         double box_w = box.Upper().X() - box.Lower().X();
-        double box_h = box.Upper().Y() - box.Lower().Y();
+        // double box_h = box.Upper().Y() - box.Lower().Y();
         double off_x = x;
         double off_y = y + font->Ascender();
 
@@ -72,6 +73,7 @@ void Text::draw()
         font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint());
         glPopMatrix();
     }
+    glDisable(GL_TEXTURE_2D);
 }
 
 void Text::set_string(const std::string & value)

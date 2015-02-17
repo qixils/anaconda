@@ -28,8 +28,7 @@ from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color, parse_direction, get_base_path, get_root_path, makedirs,
-    is_qualifier, get_qualifier, get_iter_type, get_list_type,
-    TEMPORARY_GROUP_ID)
+    is_qualifier, get_qualifier, TEMPORARY_GROUP_ID)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -536,6 +535,7 @@ class EventFileWriter(MultiFileWriter):
         self.putln('#include "lists.h"')
         self.putln('#include "media.h"')
         self.putln('#include "objects.h"')
+        self.putln('#include "bitarray.h"')
 
 class FrameDataWriter(MultiFileWriter):
     base_class = 'FrameData'
@@ -593,12 +593,11 @@ class Converter(object):
         self.use_dlls = args.dlls
         self.event_hash_id = 0
 
-        self.has_single_selection = {}
-        self.has_selection = {}
+        self.clear_selection()
         self.container_tree = []
         self.collision_objects = set()
         self.iterated_index = self.iterated_object = self.iterated_name = None
-        self.in_actions = False
+        self.in_actions = self.in_condition_expression = False
         self.strings = {}
         self.event_functions = {}
         self.event_wrappers = {}
@@ -637,6 +636,7 @@ class Converter(object):
         makedirs(self.outdir)
         self.build_dir = os.path.join(self.outdir, 'build')
         makedirs(self.build_dir)
+        makedirs(os.path.join(self.outdir, 'image_cache'))
 
         # application info
         def fix_quotes(value):
@@ -664,7 +664,7 @@ class Converter(object):
 
         self.frame_map = {}
         self.image_frames = defaultdict(set)
-        self.frame_images = []
+        self.frame_images = {}
 
         max_index = 0
         for game in self.games:
@@ -742,7 +742,8 @@ class Converter(object):
         self.all_objects = {}
         self.name_to_item = {}
         self.object_types = {}
-
+        self.object_list_ids = {}
+        self.object_lists = {}
         self.object_cache = {}
 
         self.extension_includes = set()
@@ -799,16 +800,16 @@ class Converter(object):
             handle = handle[:-1]
             if not self.is_valid_object(handle):
                 continue
-            list_name = self.get_object_list(handle)
-            if list_name in updated_objs:
-                continue
-            updated_objs.add(list_name)
-
             has_updates = writer.has_updates()
             has_movements = writer.has_movements()
             has_sleep = writer.has_sleep()
             if not has_updates and not has_movements:
                 continue
+            list_name = self.get_object_list(handle)
+            if list_name in updated_objs:
+                continue
+            updated_objs.add(list_name)
+
             func_name = 'update_%s_%s' % (writer.class_name.lower(),
                                           len(updaters))
             key = (writer.class_name, has_updates, has_movements, has_sleep)
@@ -896,23 +897,23 @@ class Converter(object):
         event_file.putln('data->frame = this;')
         event_file.end_brace()
 
-        if self.config.use_image_preload():
+        if not self.assets.skip:
             handles = []
-
             for handle, frames in sorted(self.image_frames.iteritems(),
                                          key=lambda (k, v): len(v),
                                          reverse=True):
                 handles.append(handle)
 
-            for frame_index, images in enumerate(self.frame_images):
-                event_file.putmeth('void load_frame_%s_images'
-                                   % (frame_index + 1))
+            self.assets.write_preload(handles)
+
+        if self.config.use_image_preload():
+            for frame_index in self.processed_frames:
+                images = self.frame_images.get(frame_index, ())
+                event_file.putmeth('void load_frame_%s_images' % frame_index)
                 for image in images:
                     event_file.putlnc('get_internal_image(%s)->'
                                       'upload_texture();', image)
                 event_file.end_brace()
-
-            self.assets.write_preload(handles)
 
         event_file.close()
 
@@ -1105,7 +1106,7 @@ class Converter(object):
                 self.image_indexes[handle] = image_index
                 image_hashes[image_hash] = image_index
 
-                new_entries.append(image)
+                new_entries.append((image, image_hash))
                 maxrects_images.append(pil_image)
 
                 image_index += 1
@@ -1116,7 +1117,16 @@ class Converter(object):
         # for file_index, rects in enumerate(maxrects):
         #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
 
-        for i, image in enumerate(new_entries):
+        for i, (image, image_hash) in enumerate(new_entries):
+            # image_hash = image_hash.encode('hex')
+            # cache_path = self.get_filename('image_cache',
+            #                                '%s_%s.png' % (image_hash,
+            #                                               self.platform_name))
+            # if os.path.isfile(cache_path):
+            #     temp = open(cache_path, 'rb').read()
+            # else:
+            #     temp = self.platform.get_image(maxrects_images[i])
+            #     open(cache_path, 'wb').write(temp)
             temp = self.platform.get_image(maxrects_images[i])
             arg = (image.xHotspot, image.yHotspot,
                    image.actionX, image.actionY, temp)
@@ -1245,8 +1255,9 @@ class Converter(object):
         for qualifier in events.qualifier_list:
             qual_obj = (qualifier.objectInfo, qualifier.type)
             object_infos = qualifier.resolve_objects(self.game.frameItems)
-            object_infos = tuple([(info, qualifier.type)
-                                  for info in object_infos])
+            object_infos = tuple(
+                [self.filter_object_type((info, qualifier.type))
+                for info in object_infos])
             self.qualifiers[qual_obj] = object_infos
             self.qualifier_types[qual_obj] = qualifier.type
 
@@ -1460,7 +1471,7 @@ class Converter(object):
                 startup_images.add(handle)
                 self.image_frames[handle].add(frame_index)
 
-        self.frame_images.append(startup_images)
+        self.frame_images[frame_index] = startup_images
 
         frame_file.putmeth('void on_start')
         frame_file.putlnc('%s%s();', events_ref, start_name)
@@ -1779,6 +1790,7 @@ class Converter(object):
                 continue
             object_writer.new_class_name = class_name
             object_writer.object_type = object_type
+            object_writer.handle = handle
             for define in object_writer.defines:
                 self.add_define(define)
             self.application_writers.add(object_writer.write_application)
@@ -1811,6 +1823,11 @@ class Converter(object):
                 self.all_objects[handle] = other
                 self.object_types[type_handle] = other.object_type
                 self.object_names[handle] = class_name
+
+                try:
+                    self.object_lists[handle] = self.object_lists[other.handle]
+                except KeyError:
+                    pass
                 continue
             except KeyError:
                 pass
@@ -1823,11 +1840,20 @@ class Converter(object):
             self.object_names[handle] = class_name
 
             if not object_writer.is_static_background():
-                objects_header.putln('#define %s %s' %
-                    (object_type_id, self.type_ids.next()))
-                list_name = self.get_object_list(handle[:-1])
-                list_ref = 'instances.items[%s]' % object_type_id
-                lists_header.putlnc('#define %s %s', list_name, list_ref)
+                list_id = object_writer.get_list_id()
+                if list_id in self.object_list_ids:
+                    type_int, type_list = self.object_list_ids[list_id]
+                    self.object_lists[handle] = type_list
+                else:
+                    type_int = self.type_ids.next()
+                    type_list = get_method_name(class_name) + '_instances'
+                    self.object_list_ids[list_id] = (type_int, type_list)
+                    self.object_lists[handle] = type_list
+                    list_ref = 'instances.items[%s]' % object_type_id
+                    lists_header.putlnc('#define %s %s', type_list, list_ref)
+
+                objects_header.putlnc('#define %s %s',
+                                      object_type_id, type_int)
 
             object_func = 'create_%s' % get_method_name(class_name)
 
@@ -2054,6 +2080,13 @@ class Converter(object):
 
             yield or_groups
 
+    def get_iter_type(self, obj):
+        if obj in self.saved_selections:
+            return 'SavedIterator'
+        if is_qualifier(obj[0]):
+            return 'QualifierIterator'
+        return 'ObjectIterator'
+
     @contextlib.contextmanager
     def iterate_object(self, *arg, **kw):
         self.start_object_iteration(*arg, **kw)
@@ -2066,15 +2099,14 @@ class Converter(object):
                 or not self.has_multiple_instances(object_info)):
             writer.start_brace()
             return
-        iter_type = get_iter_type(object_info)
         getter = self.create_list(object_info, writer)
         if copy:
             list_name = 'extra_%s' % self.get_object_list(object_info)
-            list_type = get_list_type(object_info)
-            writer.putlnc('static %s %s;', list_type, list_name)
-            writer.putlnc('%s.copy(%s);', list_name, getter)
+            writer.putlnc('SavedSelection %s(%s);', list_name, getter)
+            iter_type = 'SavedIterator'
         else:
             list_name = getter
+            iter_type = self.get_iter_type(object_info)
         self.set_iterator(object_info, list_name, '*' + name)
         writer.putlnc('for (%s %s(%s); !%s.end(); ++%s) {',
                       iter_type, name, list_name, name, name)
@@ -2143,6 +2175,7 @@ class Converter(object):
     def clear_selection(self):
         self.has_selection = {}
         self.has_single_selection = {}
+        self.saved_selections = set()
 
     def write_container_check(self, group, writer):
         container = group.container
@@ -2455,7 +2488,7 @@ class Converter(object):
                         selected_name = self.create_list(obj, writer)
                         has_multiple = True
                         self.set_iterator(obj, selected_name)
-                        iter_type = get_iter_type(obj)
+                        iter_type = self.get_iter_type(obj)
                         writer.putlnc('for (%s it(%s); !it.end(); '
                                       '++it) {', iter_type, selected_name)
                         writer.indent()
@@ -2491,11 +2524,11 @@ class Converter(object):
                 if has_multiple:
                     writer.end_brace()
                     writer.indented = False
-                    writer.putln('if (!%s.has_selection()) %s' % (selected_name,
-                        event_break))
-                    self.set_iterator(None)
+                    writer.putlnc('if (!%s.has_selection()) %s',
+                                  selected_name, event_break)
                 else:
                     writer.put(') %s\n' % event_break)
+                self.set_iterator(None)
 
         if group.or_final:
             writer.putlnc('%s = true;', group.or_result)
@@ -2505,7 +2538,7 @@ class Converter(object):
             self.write_instance_save(group, writer)
             writer.putlnc('if (!%s) goto or_final_%s_end;', group.or_result,
                           group.name)
-            self.has_selection = {}
+            self.clear_selection()
             new_selection = {}
 
             is_logical = group.or_type == 'OrLogical'
@@ -2522,8 +2555,15 @@ class Converter(object):
                     writer.putlnc('%s.empty_selection();', list_name)
 
             for obj, or_bools in group.or_instance_groups.iteritems():
+                for other in self.resolve_qualifier(obj):
+                    if other == obj:
+                        continue
+                    list_name = self.get_object_list(other)
+                    new_selection[other] = list_name
+
                 list_name = self.get_object_list(obj)
                 new_selection[obj] = list_name
+
                 check = '%s' % (' || '.join(or_bools))
                 writer.putlnc('if (%s) {', check)
                 writer.indent()
@@ -2581,7 +2621,7 @@ class Converter(object):
                 write_actions = actions[start_index:action_index+1]
 
                 list_name = self.create_list(obj, writer)
-                iter_type = get_iter_type(obj)
+                iter_type = self.get_iter_type(obj)
                 writer.putlnc('for (%s it(%s); !it.end(); '
                               '++it) {', iter_type, list_name)
                 writer.indent()
@@ -2629,8 +2669,7 @@ class Converter(object):
             self.write_instance_save(group, writer)
 
         self.set_iterator(None)
-        self.has_single_selection = {}
-        self.has_selection = {}
+        self.clear_selection()
         self.collision_objects = set()
         self.current_group = None
         self.current_event_id = None
@@ -2640,8 +2679,17 @@ class Converter(object):
     def write_instance_save(self, group, writer):
         if not self.has_selection:
             return
-        if_first = set()
+        # look for qualifiers first
+        has_qualifier = set()
         for obj, list_name in self.has_selection.iteritems():
+            if not is_qualifier(obj[0]):
+                continue
+            for other in self.resolve_qualifier(obj):
+                has_qualifier.add(other)
+
+        for obj, list_name in self.has_selection.iteritems():
+            if obj in has_qualifier:
+                continue
             group.or_instance_groups[obj].append(group.or_temp_result)
             if obj in group.or_selected:
                 continue
@@ -2651,6 +2699,8 @@ class Converter(object):
         writer.putlnc('if (%s) {', group.or_temp_result)
         writer.indent()
         for obj, list_name in self.has_selection.iteritems():
+            if obj in has_qualifier:
+                continue
             writer.putlnc('%s.save_selection();', list_name)
 
         writer.end_brace()
@@ -2692,6 +2742,8 @@ class Converter(object):
         parameter_type = container.getName()
 
         if loader.isExpression:
+            if not self.config.use_condition_expression_iterator():
+                self.in_condition_expression = not self.in_actions
             self.expression_items = loader.items[:-1]
             self.item_index = 0
             while self.item_index < len(self.expression_items):
@@ -2719,6 +2771,7 @@ class Converter(object):
                 # A.N.N.E hack for invalid commas in alt. val expression
                 if ')' not in out and '(' not in out and ', ' in out:
                     out = out.split(',')[0]
+            self.in_condition_expression = False
         else:
             parameter_name = type(container.loader).__name__
             if parameter_name == 'Object':
@@ -2871,12 +2924,11 @@ class Converter(object):
         single = self.get_single(object_info)
         if single is not None:
             return single
-        list_name = self.get_object_list(object_info)
         if object_info in self.has_selection:
-            return list_name
+            return self.has_selection[object_info]
+        list_name = self.get_object_list(object_info)
         # test for qualifier collision
         objs = self.resolve_qualifier(object_info)
-
         list_name = self.get_object_list(object_info)
 
         clear_lists = set()
@@ -2888,11 +2940,18 @@ class Converter(object):
             else:
                 clear_lists.add(self.get_object_list(obj))
 
-        if not has_col:
-            clear_lists = set([list_name])
+        if has_col:
+            writer.putln('// icache destruction')
+        else:
+            clear_lists = (list_name,)
 
         for obj_list in clear_lists:
             writer.putlnc('%s.clear_selection();', obj_list)
+
+        for obj in objs:
+            if obj == object_info:
+                continue
+            self.set_list(obj, self.get_object_list(obj))
 
         self.set_list(object_info, list_name)
 
@@ -2930,14 +2989,17 @@ class Converter(object):
         index = index or self.iterated_index
         if obj in self.has_single_selection:
             return self.has_single_selection[obj]
-        if self.iterated_object == obj:
+
+        is_it = self.iterated_object == obj
+        if is_it and not self.in_condition_expression:
             return '((%s)%s)' % (object_type, self.iterated_name)
 
         multi = self.has_multiple_instances(obj)
         if not multi:
             use_index = use_default = False
 
-        if obj in self.has_selection and multi:
+        has_selection = is_it or obj in self.has_selection
+        if has_selection and multi:
             ret = self.has_selection[obj]
             if as_list:
                 return ret
@@ -2979,20 +3041,24 @@ class Converter(object):
     def get_object_list(self, obj, allow_single=False):
         if self.has_single(obj) and not allow_single:
             print 'single exception:', self.get_single(obj)
+            print obj in self.has_single_selection
+            print obj == self.iterated_object
             raise NotImplementedError()
         type_id, is_qual = self.get_object_handle(obj)
         if is_qual:
             return type_id
-        return self.get_list_name(self.get_object_name(obj))
+        obj = self.filter_object_type(obj)
+        try:
+            return self.object_lists[obj + (self.game_index,)]
+        except KeyError:
+            import code
+            code.interact(local=locals())
 
     def filter_object_type(self, obj):
         if is_qualifier(obj[0]):
             return obj
-        try:
-            self.get_object_writer(obj)
+        if (obj + (self.game_index,)) in self.all_objects:
             return obj
-        except KeyError:
-            pass
         obj_type = self.object_types[(obj[0], self.game_index)]
         new_obj = (obj[0], obj_type)
         return new_obj
@@ -3006,9 +3072,6 @@ class Converter(object):
             return self.qualifier_names[obj]
         obj = self.filter_object_type(obj)
         return self.object_names[obj + (self.game_index,)]
-
-    def get_list_name(self, object_name):
-        return '%s_instances' % get_method_name(object_name, True)
 
     def get_type_name(self, object_type):
         name = getObjectType(object_type)
@@ -3047,6 +3110,7 @@ class Converter(object):
             return system_objects[object_type]
 
     def get_object_writer(self, obj):
+        obj = self.filter_object_type(obj)
         return self.all_objects[obj + (self.game_index,)]
 
     def get_handle_from_name(self, obj):

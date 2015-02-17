@@ -5,8 +5,7 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
                              parse_direction, get_flag_direction,
-                             get_list_type, get_iter_type, TEMPORARY_GROUP_ID,
-                             is_qualifier)
+                             TEMPORARY_GROUP_ID, is_qualifier)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
@@ -85,6 +84,7 @@ class SystemObject(ObjectWriter):
 
         col_groups = defaultdict(list)
         real_objs = {}
+        col_save = set()
         for group in self.get_conditions('OnCollision'):
             cond = group.conditions[0]
             data = cond.data
@@ -93,9 +93,18 @@ class SystemObject(ObjectWriter):
             obj2_real = (data.items[0].loader.objectInfo,
                          data.items[0].loader.objectType)
 
-            key = (obj1_real, obj2_real)
-            key = tuple(sorted(key))
-            key += (cond.has_collisions(group),)
+            is_qual1 = is_qualifier(obj1_real[0])
+            is_qual2 = is_qualifier(obj2_real[0])
+            if is_qual1 and not is_qual2:
+                key = (obj1_real, obj2_real)
+            elif is_qual2 and not is_qual1:
+                key = (obj2_real, obj1_real)
+            else:
+                key = tuple(sorted((obj1_real, obj2_real)))
+
+            if cond.has_collisions(group):
+                col_save.add(key)
+
             group_list = col_groups[key]
             group_list.append(group)
 
@@ -112,25 +121,15 @@ class SystemObject(ObjectWriter):
 
         col_funcs = {}
 
-        col_flag = defaultdict(lambda: -1)
-        def get_col_flag(obj):
-            obj_flag = col_flag[obj] + 1
-            if obj_flag > 32:
-                raise NotImplementedError()
-            col_flag[obj] = obj_flag
-            return 1 << obj_flag
-
         col_index = 0
         for key, groups in col_groups.iteritems():
-            object_info, other_info, has_col = key
+            object_info, other_info = key
             class1 = self.converter.get_object_class(object_info[1])
             class2 = self.converter.get_object_class(other_info[1])
             self.converter.set_object(object_info,
                                       '((%s)col_instance_1)' % class1)
-            # self.converter.set_object(object_info, 'col_instance_1')
             self.converter.set_object(other_info,
                                       '((%s)col_instance_2)' % class2)
-            # self.converter.set_object(other_info, 'col_instance_2')
             name = 'col_%s_%s' % (col_index,
                                   self.converter.current_frame_index)
             self.converter.begin_events()
@@ -160,15 +159,66 @@ class SystemObject(ObjectWriter):
             back_funcs[key] = name
             col_index += 1
 
-        name = 'test_collisions_%s' % converter.current_frame_index
-        writer.putmeth('void %s' % name)
-        writer.putln('ObjectList::iterator it1;')
-        writer.putln('ObjectList::iterator it2;')
-        for key in col_groups.iterkeys():
-            object_info, other_info, has_col = key
+
+        use_repeated = converter.config.use_repeated_collisions()
+        if not use_repeated:
+            col_flags = defaultdict(lambda: set(range(32)))
+
+            def get_flag(obj):
+                if not is_qualifier(obj[0]):
+                    pop = min(col_flags[obj])
+                    col_flags[obj].remove(pop)
+                    return 1 << pop
+                flags = set(range(32))
+                objs = converter.resolve_qualifier(obj)
+                for obj in objs:
+                    flags &= col_flags[obj]
+                flag = max(flags)
+                for obj in objs:
+                    col_flags[obj].remove(flag)
+                return 1 << flag
+
+        call_funcs = []
+
+        for col_index, key in enumerate(col_groups.iterkeys()):
+            object_info, other_info = key
             name = col_funcs[key]
             list1 = converter.get_object_list(object_info)
             list2 = converter.get_object_list(other_info)
+            if not use_repeated:
+                try:
+                    flag1 = get_flag(object_info)
+                    if object_info == other_info:
+                        flag2 = flag1
+                    else:
+                        flag2 = get_flag(other_info)
+                except ValueError:
+                    import code
+                    code.interact(local=locals())
+
+                if key in col_save:
+                    func_name = 'test_collisions_save'
+                else:
+                    func_name = 'test_collisions'
+
+
+                name = '(EventFunction)&Frames::%s' % name
+                call = '%s(%s, %s, %s, %s, %s);' % (func_name, list1, list2,
+                                                    flag1, flag2, name)
+                call_funcs.append(call)
+                continue
+
+            wrap_name = 'collisions_%s_%s' % (col_index,
+                                              converter.current_frame_index)
+            call_funcs.append('%s();' % wrap_name)
+            writer.putmeth('void %s' % wrap_name)
+
+            if not use_repeated:
+                flag1 = get_flag(object_info)
+                flag2 = get_flag(other_info)
+                writer.putlnc('StackBitArray temp = '
+                              'CREATE_BITARRAY_ZERO(%s.size());', list2)
+                writer.putln('int index;')
 
             converter.start_flat_iteration(object_info, writer, 'it1')
 
@@ -178,22 +228,35 @@ class SystemObject(ObjectWriter):
             converter.start_flat_iteration(other_info, writer, 'it2')
             writer.putlnc('col_instance_2 = %s;',
                           converter.get_object(other_info))
-            func_name = to_c('check_overlap<%s>', has_col)
 
-            writer.putlnc('if (!%s(col_instance_1, col_instance_2)) {',
+            if key in col_save:
+                func_name = 'check_overlap_save'
+            else:
+                func_name = 'check_overlap'
+
+            writer.putlnc('if (%s(col_instance_1, col_instance_2)) {',
                           func_name)
             writer.indent()
-            # writer.putlnc('%s->collision_flags &= ~%s;', instance, flag)
-            writer.putln('continue;')
+
+            writer.putlnc('%s();', name)
+            
             writer.end_brace()
 
-            # writer.putlnc('if (has_col_1 && (%s->collision_flags & %s)) '
-            #               'continue;', instance, flag2)
-            # writer.putlnc('%s->collision_flags |= %s;', instance, flag)
-            writer.putlnc('%s();', name)
+            if not use_repeated:
+                writer.putln('index++;')
 
             converter.end_flat_iteration(object_info, writer, 'it2')
-            converter.end_flat_iteration(other_info, writer, 'it1')
+            converter.end_flat_iteration(object_info, writer, 'it1')
+
+            writer.end_brace()
+
+        name = 'test_collisions_%s' % converter.current_frame_index
+        writer.putmeth('void %s' % name)
+
+        for wrap_name in call_funcs:
+            writer.putln(wrap_name)
+
+        writer.putln('ObjectList::iterator it1, it2;')
 
         for key, func in back_funcs.iteritems():
             obj, real_obj = key
@@ -384,7 +447,7 @@ class CollisionCondition(ConditionWriter):
     def has_collisions(self, group=None):
         if not self.save_collision:
             return False
-        group = group or self.converter.current_group
+        group = group or self.group
         actions = group.actions
         for action in actions:
             if action.data.getName() in ('Stop', 'Bounce'):
@@ -392,12 +455,15 @@ class CollisionCondition(ConditionWriter):
         return False
 
     def add_collision_objects(self, *handles):
+        has_col = self.has_collisions()
         for handle in handles:
             infos = self.converter.resolve_qualifier(handle)
-            self.converter.collision_objects.update(infos)
+            if has_col:
+                self.converter.collision_objects.update(infos)
             for obj in infos:
                 writer = self.converter.get_object_writer(obj)
                 writer.has_collision_events = True
+        return has_col
 
 class IsOverlapping(CollisionCondition):
     has_object = False
@@ -418,11 +484,11 @@ class IsOverlapping(CollisionCondition):
                              other_selected)
         else:
             other_selected = converter.create_list(other_info, writer)
-            if self.has_collisions():
-                func_name = 'check_overlap<true>'
-                self.add_collision_objects(object_info, other_info)
+            has_col = self.add_collision_objects(object_info, other_info)
+            if has_col:
+                func_name = 'check_overlap_save'
             else:
-                func_name = 'check_overlap<false>'
+                func_name = 'check_overlap'
             condition = to_c('%s(%s, %s)', func_name, selected_name,
                              other_selected)
         writer.putlnc('if (!%s) %s', condition, self.converter.event_break)
@@ -440,9 +506,9 @@ class OnBackgroundCollision(CollisionCondition):
 
     def write(self, writer):
         obj = self.get_object()
-        if self.has_collisions():
+        has_col = self.add_collision_objects(obj)
+        if has_col:
             func_name = 'overlaps_background_save'
-            self.add_collision_objects(obj)
         else:
             func_name = 'overlaps_background'
         writer.put('%s()' % func_name)
@@ -539,7 +605,11 @@ class TimerEquals(ConditionWriter):
     custom = True
 
     def write(self, writer):
-        seconds = self.parameters[0].loader.timer / 1000.0
+        loader = self.parameters[0].loader
+        if loader.isExpression:
+            seconds = '(%s) / 1000.0' % self.convert_index(0)
+        else:
+            seconds = self.parameters[0].loader.timer / 1000.0
         writer.putlnc('if (frame_time < %s) %s', seconds,
                       self.converter.event_break)
         write_not_always(writer, self)
@@ -548,14 +618,22 @@ class TimerGreater(ConditionWriter):
     is_always = True
 
     def write(self, writer):
-        seconds = self.parameters[0].loader.timer / 1000.0
+        loader = self.parameters[0].loader
+        if loader.isExpression:
+            seconds = '(%s) / 1000.0' % self.convert_index(0)
+        else:
+            seconds = self.parameters[0].loader.timer / 1000.0
         writer.put('frame_time >= %s' % seconds)
 
 class TimerLess(ConditionWriter):
     is_always = True
 
     def write(self, writer):
-        seconds = self.parameters[0].loader.timer / 1000.0
+        loader = self.parameters[0].loader
+        if loader.isExpression:
+            seconds = '(%s) / 1000.0' % self.convert_index(0)
+        else:
+            seconds = self.parameters[0].loader.timer / 1000.0
         writer.put('frame_time <= %s' % seconds)
 
 class TimerEvery(ConditionWriter):
@@ -663,8 +741,13 @@ class PickRandom(ConditionWriter):
         if converter.has_single(obj):
             return
         selected_name = converter.create_list(obj, writer)
-        writer.putlnc('if (!pick_random(%s)) %s', selected_name,
+        single_name = 'single_instance_%s' % self.get_id(self)
+        class_type = converter.get_object_class(obj[1])
+        writer.putlnc('FrameObject * %s; %s = pick_random(%s);',
+                      single_name, single_name, selected_name)
+        writer.putlnc('if (%s == NULL) %s', single_name,
                       self.converter.event_break)
+        converter.set_object(obj, '((%s)%s)' %  (class_type, single_name))
 
 class NumberOfObjects(ComparisonWriter):
     has_object = False
@@ -691,32 +774,85 @@ class CompareObjectsInZone(ComparisonWriter):
         return 'objects_in_zone(%s, %s, %s, %s, %s)' % (self.obj_list, zone.x1,
             zone.y1, zone.x2, zone.y2)
 
+class NoObjectsInZone(ConditionWriter):
+    has_object = False
+    iterate_objects = False
+
+    def get_parameters(self):
+        return self.parameters[1:]
+
+    def write(self, writer):
+        zone = self.parameters[0].loader
+        writer.putc('objects_in_zone(%s, %s, %s, %s, %s) == 0', self.obj_list,
+                    zone.x1, zone.y1, zone.x2, zone.y2)
+
+    def write_pre(self, writer):
+        obj = (self.data.objectInfo, self.data.objectType)
+        self.obj_list = self.converter.create_list(obj, writer)
+
 class PickCondition(ConditionWriter):
     custom = True
 
     def write(self, writer):
         objs = set()
-        for action in self.converter.current_groups[-1].actions:
-            obj = action.get_object()
-            if obj in objs:
-                continue
+
+
+        actions = self.converter.current_groups[-1].actions
+        conditions = self.group.conditions
+        conditions = conditions[conditions.index(self)+1:]
+
+        lists = (actions, conditions)
+
+        for ace_list in lists:
+            for ace in ace_list:
+                for parameter in ace.parameters:
+                    loader = parameter.loader
+                    if not loader.isExpression:
+                        continue
+                    for item in loader.items:
+                        exp = self.converter.get_expression_writer(item)
+                        objs.add(exp.get_object())
+
+                objs.add(ace.get_object())
+
+        new_objs = set()
+
+        for obj in objs:
             if obj[0] is None:
                 continue
-            if not self.converter.has_multiple_instances(obj):
-                self.converter.current_group.force_multiple.add(obj)
-            objs.add(obj)
+            if (not is_qualifier(obj[0]) and
+                    not self.converter.is_valid_object(obj)):
+                continue
+            if not self.pickable(obj):
+                continue
+            new_objs.add(obj)
+            if self.converter.has_multiple_instances(obj):
+                continue
+            self.converter.current_group.force_multiple.add(obj)
 
-        self.write_pick(writer, objs)
+        self.write_pick(writer, new_objs)
+
+    def pickable(self, obj):
+        return True
 
 class PickObjectsInZone(PickCondition):
     def write_pick(self, writer, objs):
         zone = self.parameters[0].loader
         for obj in objs:
+            if obj in self.converter.has_single_selection:
+                if obj not in self.converter.has_selection:
+                    raise NotImplementedError()
+                del self.converter.has_single_selection[obj]
             obj_list = self.converter.create_list(obj, writer)
             writer.putlnc('pick_objects_in_zone(%s, %s, %s, %s, %s);',
                           obj_list, zone.x1, zone.y1, zone.x2, zone.y2)
 
-class PickAlterableValue(PickCondition):
+class PickAlterableCondition(PickCondition):
+    def pickable(self, obj):
+        impl = self.converter.get_object_impl(obj[1])
+        return impl.use_alterables
+
+class PickAlterableValue(PickAlterableCondition):
     def write_pick(self, writer, objs):
         comparison = self.get_comparison()
         index = self.convert_index(0)
@@ -732,7 +868,7 @@ class PickAlterableValue(PickCondition):
                               index, comparison, 'check_value')
         writer.end_brace()
 
-class PickFlagOn(PickCondition):
+class PickFlagOn(PickAlterableCondition):
     def write_pick(self, writer, objs):
         comparison = self.get_comparison()
         index = self.convert_index(0)
@@ -945,6 +1081,13 @@ class CreateBase(ActionWriter):
                       multi, has_selection)
 
         single_parent = self.converter.get_single(parent_info)
+        if parent_info is not None:
+            if not single_parent and is_qualifier(parent_info[0]):
+                objs = self.converter.resolve_qualifier(parent_info)
+                if object_info in objs:
+                    # don't know how to resolve this 
+                    raise NotImplementedError()
+
         safe = (select_single and parent_info is not None and not
                 single_parent and self.converter.config.use_safe_create())
         safe_name = None
@@ -1207,7 +1350,7 @@ class LayerAction(ActionWriter):
 
         writer.start_brace()
         other_list = self.converter.create_list(other, writer)
-        iter_type = get_iter_type(other)
+        iter_type = self.converter.get_iter_type(other)
         writer.putlnc('%s other_it(%s);', iter_type, other_list)
         with self.converter.iterate_object(obj, writer, copy=False):
             obj = self.converter.get_object(obj)
@@ -1240,6 +1383,17 @@ class Foreach(ActionWriter):
         return self.converter.convert_static_expression(items)
 
     def write(self, writer):
+        self.reorder = self.converter.config.reorder_foreach()
+        if self.reorder:
+            return
+        self.write_foreach(writer)
+
+    def write_post(self, writer):
+        if not self.reorder:
+            return
+        self.write_foreach(writer)
+
+    def write_foreach(self, writer):
         writer.start_brace()
         obj = self.get_object()
         object_class = self.converter.get_object_class(obj[1])
@@ -1313,7 +1467,6 @@ class StartLoop(ActionWriter):
 
         use_clear = self.converter.config.use_loop_selection_clear()
         if not use_clear:
-            used_before = set()
             used_after = set()
 
             selection_after = {}
@@ -1321,6 +1474,8 @@ class StartLoop(ActionWriter):
             actions = self.converter.current_group.actions
             self_index = actions.index(self)
             for index, action in enumerate(actions):
+                if self_index > index:
+                    continue
                 obj = action.get_object()
                 if obj[0] is None:
                     continue
@@ -1328,17 +1483,16 @@ class StartLoop(ActionWriter):
                     continue
                 if not obj in self.converter.has_selection:
                     continue
-                if self_index > index:
-                    used_before.add(obj)
-                else:
-                    used_after.add(obj)
+                used_after.add(obj)
 
+            used_before = set(self.converter.has_selection.iterkeys())
             problem_obj = used_before & used_after
 
             for obj in problem_obj:
                 list_name = self.converter.has_selection[obj]
-                writer.putlnc('%s.clear_selection();', list_name)
-                selection_after[obj] = list_name
+                new_name = 'extra_%s' % list_name
+                selection_after[obj] = new_name
+                writer.putlnc('SavedSelection %s(%s);', new_name, list_name)
 
             if problem_obj:
                 writer.putlnc('// Problem objs: %s', problem_obj)
@@ -1376,6 +1530,7 @@ class StartLoop(ActionWriter):
         writer.putln('%s = true;' % running_name)
         if not is_infinite:
             writer.putln('int times = int(%s);' % times)
+
         writer.putln('%s = 0;' % index_name)
         writer.putln('while (%s) {' % comparison)
         writer.indent()
@@ -1392,9 +1547,15 @@ class StartLoop(ActionWriter):
             writer.put_label(dynamic_end)
         # writer.start_brace()
 
-        self.converter.clear_selection()
-        if not use_clear:
+        if use_clear:
+            self.converter.clear_selection()
+            self.group.force_multiple = set()
+        else:
+            writer.putln('// %r' % selection_after)
             self.converter.has_selection.update(selection_after)
+            self.converter.saved_selections.update(selection_after.iterkeys())
+            writer.putln('// %r' % self.converter.has_selection)
+
 
 class DeactivateGroup(ActionWriter):
     deactivated_container = None
@@ -1869,7 +2030,7 @@ actions = make_table(ActionMethodWriter, {
     'PauseAllSounds' : 'media.pause_samples',
     'ResumeAllSounds' : 'media.resume_samples',
     'StopSample' : 'media.stop_sample(%s)',
-    'SetSamplePan' : 'media.set_sample_volume(%s, %s)',
+    'SetSamplePan' : 'media.set_sample_pan(%s, %s)',
     'SetSamplePosition' : 'media.set_sample_position(%s, %s)',
     'SetSampleVolume' : 'media.set_sample_volume(%s, %s)',
     'SetSampleFrequency' : 'media.set_sample_frequency(%s, %s)',
@@ -1914,6 +2075,7 @@ actions = make_table(ActionMethodWriter, {
     'PauseDebugger' : EmptyAction, # don't implement
     'JumpSubApplicationFrame' : 'set_next_frame',
     'SetTextColor' : 'blend_color.set(%s)',
+    'SetFrameWidth' : 'set_width(%s, true)',
     'SetFrameHeight' : 'set_height(%s, true)',
     # ignore extract/release file actions, we just load directly when using the
     # temporary dir
@@ -1956,6 +2118,7 @@ conditions = make_table(ConditionMethodWriter, {
     'OnBackgroundCollision' : OnBackgroundCollision,
     'PickRandom' : PickRandom,
     'ObjectsInZone' : CompareObjectsInZone,
+    'NoObjectsInZone' : NoObjectsInZone,
     'PickObjectsInZone' : PickObjectsInZone,
     'PickAlterableValue' : PickAlterableValue,
     'PickFlagOn' : PickFlagOn,
@@ -1994,7 +2157,8 @@ conditions = make_table(ConditionMethodWriter, {
     # XXX implement
     'MouseWheelDown' : FalseCondition,
     'MouseWheelUp' : FalseCondition,
-    'OnLoop' : FalseCondition # if not a generated group, this is always false
+    'OnLoop' : FalseCondition, # if not a generated group, this is always false
+    'VsyncEnabled' : 'platform_get_vsync'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
@@ -2077,7 +2241,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'EffectParameter' : 'get_shader_parameter',
     'Floor' : 'get_floor',
     'Round' : 'int_round',
-    'AnimationNumber' : 'get_animation()',
+    'AnimationNumber' : '.current_animation',
     'Ceil' : 'get_ceil',
     'GetMainVolume' : 'media.get_main_volume()',
     'GetChannelPosition' : '.media.get_channel_position(-1 +',
@@ -2086,6 +2250,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetChannelVolume' : '.media.get_channel_volume(-1 +',
     'GetChannelDuration' : '.media.get_channel_duration(-1 + ',
     'GetChannelFrequency' : '.media.get_channel_frequency(-1 + ',
+    'GetChannelPan' : '.media.get_channel_pan(-1 + ',
     'ObjectLayer' : '.layer->index+1',
     'NewLine' : '.newline_character',
     'XLeftFrame' : 'frame_left()',

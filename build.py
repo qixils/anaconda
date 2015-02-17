@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
 
+import glob
 import sys
 from setuptools import setup, Extension
 from Cython.Distutils import build_ext
@@ -42,6 +43,12 @@ for name in names:
         continue
     ext_modules.append(Extension(name, ['./' + name.replace('.', '/') + '.pyx'],
         include_dirs = include_dirs, language='c++'))
+
+webp_srcs = glob.glob('./mmfparser/webp/*/*.c')
+ext_modules.append(Extension('mmfparser.webp',
+                             ['./mmfparser/webp.pyx'] + webp_srcs,
+                             include_dirs=include_dirs + ['./mmfparser/webp'],
+                             language='c++'))
 
 setup(
     name = 'mmfparser extensions',

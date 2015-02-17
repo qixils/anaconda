@@ -31,15 +31,17 @@ void PerspectiveObject::set_width(int width)
 
 void PerspectiveObject::draw()
 {
-    begin_draw();
-
     int box[4];
     get_screen_aabb(box);
     glc_copy_color_buffer_rect(texture, box[0], box[1],
                                box[2], box[3]);
+
+    begin_draw();
+
+    glDisable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glBegin(GL_QUADS);
     glTexCoord2f(back_texcoords[0], back_texcoords[1]);
     glVertex2d(x, y);
@@ -51,7 +53,7 @@ void PerspectiveObject::draw()
     glVertex2d(x, y + height);
     glEnd();
     glDisable(GL_TEXTURE_2D);
-
+    glEnable(GL_BLEND);
     end_draw();
 }
 

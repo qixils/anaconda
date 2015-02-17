@@ -32,6 +32,11 @@ void ActivePicture::load(const std::string & fn)
 #else
     filename = convert_path(fn);
 #endif
+
+#ifndef NDEBUG
+    std::cout << "load picture: " << filename << std::endl;
+#endif
+
     image = get_image_cache(filename, 0, 0, 0, 0, transparent_color);
 
     if (image == NULL)

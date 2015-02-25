@@ -317,7 +317,8 @@ void Layer::scroll(int scroll_x, int scroll_y, int dx, int dy)
     for (it2 = background_instances.begin(); it2 != background_instances.end();
          ++it2) {
         FrameObject * object = *it2;
-        // object->set_position(object->x + dx, object->y + dy);
+        // XXX stupid
+        object->set_position(object->x + dx, object->y + dy);
         object->set_backdrop_offset(-dx, -dy);
     }
 #endif
@@ -703,7 +704,6 @@ void Layer::draw(int display_x, int display_y)
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
 
-
     PROFILE_BEGIN(Layer_draw_instances);
 
 #ifdef CHOWDREN_USE_VIEWPORT
@@ -726,112 +726,6 @@ void Layer::draw(int display_x, int display_y)
 
     static FlatObjectList draw_list;
     draw_list.clear();
-
-#ifdef CHOWDREN_BACKGROUND_FBO
-    if (background_count > 25) {
-        if (v[0] < fbo_pos[0] || v[1] < fbo_pos[1] ||
-            v[2] > fbo_pos[2] || v[3] > fbo_pos[3])
-        {
-            glc_flush();
-            fbo_pos[0] = v[0] - FBO_BORDER;
-            fbo_pos[1] = v[1] - FBO_BORDER;
-            fbo_pos[2] = v[2] + FBO_BORDER;
-            fbo_pos[3] = v[3] + FBO_BORDER;
-
-            BackgroundDrawCallback callback(draw_list, fbo_pos);
-            broadphase.query(fbo_pos, callback);
-            // sort_back(draw_list);
-
-            if (!background_fbo_init) {
-                std::cout << "init back fbo: " << BACKGROUND_FBO_WIDTH
-                    << " " << BACKGROUND_FBO_HEIGHT << std::endl;
-                background_fbo.init(BACKGROUND_FBO_WIDTH,
-                                    BACKGROUND_FBO_HEIGHT);
-                background_fbo_init = true;
-            }
-            background_fbo.bind();
-            glViewport(0, 0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT);
-
-            glMatrixMode(GL_PROJECTION);
-            glPushMatrix();
-            glLoadIdentity();
-            glOrtho(0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT, 0, -1, 1);
-
-            glMatrixMode(GL_MODELVIEW);
-            glPushMatrix();
-            glLoadIdentity();
-
-            float t_x = -floor(off_x * coeff_x);
-            float t_y = -floor(off_y * coeff_y);
-            t_x += v[0] - fbo_pos[0];
-            t_y += v[1] - fbo_pos[1];
-            glTranslatef(t_x, t_y, 0.0f);
-
-            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            FlatObjectList::const_iterator it;
-            for (it = draw_list.begin(); it != draw_list.end(); ++it) {
-                FrameObject * obj = *it;
-                (*it)->draw();
-            }
-
-            glc_flush();
-
-            background_fbo.unbind();
-            glPopMatrix();
-
-            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-            glMatrixMode(GL_PROJECTION);
-            glPopMatrix();
-            glMatrixMode(GL_MODELVIEW);
-            glPopMatrix();
-        }
-
-        glPushMatrix();
-        glLoadIdentity();
-
-        glEnable(GL_TEXTURE_2D);
-
-        float back_x1 = fbo_pos[0] - v[0];
-        float back_y1 = fbo_pos[1] - v[1];
-        float back_x2 = back_x1 + fbo_pos[2] - fbo_pos[0];
-        float back_y2 = back_y1 + fbo_pos[3] - fbo_pos[1];
-
-        glBindTexture(GL_TEXTURE_2D, background_fbo.get_tex());
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, background_fbo.v);
-        glVertex2f(back_x1, back_y1);
-        glTexCoord2f(background_fbo.u, background_fbo.v);
-        glVertex2f(back_x2, back_y1);
-        glTexCoord2f(background_fbo.u, 0.0f);
-        glVertex2f(back_x2, back_y2);
-        glTexCoord2f(0.0f, 0.0f);
-        glVertex2f(back_x1, back_y2);
-        glEnd();
-
-        glc_flush();
-
-        glDisable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-
-        glPopMatrix();
-    } else {
-        BackgroundDrawCallback callback(draw_list, v);
-        broadphase.query(v, callback);
-        sort_back(draw_list);
-
-        FlatObjectList::const_iterator it;
-        for (it = draw_list.begin(); it != draw_list.end(); ++it) {
-            FrameObject * obj = *it;
-            (*it)->draw();
-        }
-    }
-
-    draw_list.clear();
-#endif
     DrawCallback callback(draw_list, v);
     broadphase.query(v, callback);
 
@@ -1129,20 +1023,21 @@ bool Frame::update()
         timer_mul = manager.dt * timer_base;
     }
 
-    PROFILE_BEGIN(handle_pre_events);
-    data->handle_pre_events();
-    PROFILE_END();
-
-    PROFILE_BEGIN(frame_update_objects);
-    update_objects();
-    PROFILE_END();
-
-    PROFILE_BEGIN(clean_instances);
-    clean_instances();
-    PROFILE_END();
-
-    if (loop_count == 0)
+    if (loop_count == 0) {
         on_start();
+    } else {    
+        PROFILE_BEGIN(handle_pre_events);
+        data->handle_pre_events();
+        PROFILE_END();
+
+        PROFILE_BEGIN(frame_update_objects);
+        update_objects();
+        PROFILE_END();
+
+        PROFILE_BEGIN(clean_instances);
+        clean_instances();
+        PROFILE_END();
+    }
 
     PROFILE_BEGIN(handle_events);
     data->handle_events();

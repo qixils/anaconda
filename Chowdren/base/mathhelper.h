@@ -138,14 +138,19 @@ inline int get_mod(int a, int b)
     return a % b;
 }
 
+inline unsigned int get_mod(unsigned int a, unsigned int b)
+{
+    return a % b;
+}
+
 template <class T, class U>
 inline typename boost::common_type<T, U>::type
 operator%(const ModulusHelper<T> & lhs, U rhs)
 {
     if (rhs == 0)
         return 0;
-    return get_mod(boost::common_type<T, U>::type(lhs.lhs),
-                   boost::common_type<T, U>::type(rhs));
+    return get_mod((typename boost::common_type<T, U>::type)(lhs.lhs),
+                   (typename boost::common_type<T, U>::type)(rhs));
 }
 
 template <class T>

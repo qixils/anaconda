@@ -43,7 +43,7 @@ cdef class AlterableStrings(DataLoader):
         self.items = []
 
     cpdef read(self, ByteReader reader):
-        self.items = [reader.readString()
+        self.items = [self.readString(reader)
             for _ in xrange(reader.readShort(True))]
 
     def write(self, ByteReader reader):
@@ -760,7 +760,7 @@ cdef class SubApplication(DataLoader):
         self.options.setFlags(reader.readInt(True))
         self.iconOffset = reader.readInt()
         reader.skipBytes(4) # "free"
-        self.name = reader.readString()
+        self.name = self.readString(reader)
 
     def getDockedPosition(self):
         docked1 = self.options['Docked1']

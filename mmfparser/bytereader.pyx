@@ -76,12 +76,14 @@ cdef class ByteReader:
     def __cinit__(self, input = None, start = None, size = None):
         self.pos = 0
         if isinstance(input, file):
-            self.fp = PyFile_AsFile(input)
+            IF not IS_PYPY:
+                self.fp = PyFile_AsFile(input)
             self.python_fp = input
             self.shared = False
             self.start = 0
             return
         else:
+            self.python_fp = None
             if input is not None:
                 data = input
             else:
@@ -104,86 +106,140 @@ cdef class ByteReader:
         self.buffer = c_data
 
     cpdef int tell(self):
-        if self.fp != NULL:
-            return ftell(self.fp)
-        else:
-            return self.pos
+        IF IS_PYPY:
+            if self.python_fp:
+                return self.python_fp.tell()
+        ELSE:
+            if self.fp != NULL:
+                return ftell(self.fp)
+
+        return self.pos
 
     cpdef data(self):
         cdef int pos
-        if self.fp != NULL:
-            pos = self.tell()
-            self.seek(0)
-            data = self.read()
-            self.seek(pos)
-            return data
-        else:
-            return self.buffer[0:self.data_size]
+        IF IS_PYPY:
+            if self.python_fp:
+                pos = self.tell()
+                self.seek(0)
+                data = self.read()
+                self.seek(pos)
+                return data
+        ELSE:
+            if self.fp != NULL:
+                pos = self.tell()
+                self.seek(0)
+                data = self.read()
+                self.seek(pos)
+                return data
+
+        return self.buffer[0:self.data_size]
 
     cpdef bint seek(self, int pos, int mode = 0):
-        if self.fp != NULL:
-            fseek(self.fp, pos, mode)
-        else:
-            if mode == 2:
-                pos += self.data_size
-            elif mode == 1:
-                pos += self.pos
-            if pos > self.data_size:
-                pos = self.data_size
-            if pos < 0:
-                pos = 0
-            self.pos = pos
+        IF IS_PYPY:
+            if self.python_fp:
+                self.python_fp.seek(pos, mode)
+                return True
+        ELSE:
+            if self.fp != NULL:
+                fseek(self.fp, pos, mode)
+                return True
+
+        if mode == 2:
+            pos += self.data_size
+        elif mode == 1:
+            pos += self.pos
+        if pos > self.data_size:
+            pos = self.data_size
+        if pos < 0:
+            pos = 0
+        self.pos = pos
+        return True
 
     cpdef adjust(self, int to):
         cdef int value = to - (self.tell() % to)
-        if self.fp != NULL:
-            self.seek(self.tell() + value)
-        else:
-            self.pos += value
+
+        IF IS_PYPY:
+            if self.python_fp:
+                self.seek(self.tell() + value)
+                return
+        ELSE:
+            if self.fp != NULL:
+                self.seek(self.tell() + value)
+                return
+
+        self.pos += value
 
     cdef bint _read(self, void * value, int size) except False:
-        cdef size_t read_bytes
-        if self.fp != NULL:
-            read_bytes = fread(value, 1, size, self.fp)
-            if read_bytes < size:
-                raise struct.error('%s bytes required' % size)
-        else:
-            check_available(self, size)
-            memcpy(value, (self.buffer + self.pos), size)
-            self.pos += size
+
+        IF IS_PYPY:
+            cdef char * data_c
+            if self.python_fp:
+                data = self.python_fp.read(size)
+                if len(data) < size:
+                    raise struct.error('%s bytes required' % size)
+                data_c = data
+                memcpy(value, data_c, len(data))
+                return True
+        ELSE:
+            cdef size_t read_bytes
+            if self.fp != NULL:
+                read_bytes = fread(value, 1, size, self.fp)
+                if read_bytes < size:
+                    raise struct.error('%s bytes required' % size)
+                return True
+
+        check_available(self, size)
+        memcpy(value, (self.buffer + self.pos), size)
+        self.pos += size
         return True
 
     cpdef read(self, int size = -1):
         cdef char * buf
         cdef size_t read_bytes
-        if self.fp != NULL:
-            if size == -1:
-                size = self.size() - self.tell()
-            newData = allocate_memory(size, &buf)
-            read_bytes = fread(buf, 1, size, self.fp)
-            return newData
-        else:
-            if size == -1 or size + self.pos > self.data_size:
-                size = self.data_size - self.pos
-            if size < 0:
-                size = 0
-            data = self.buffer[self.pos:self.pos+size]
-            self.pos += size
-            if self.pos > self.data_size:
-                self.pos = self.data_size
-            return data
+
+        IF IS_PYPY:
+            if self.python_fp:
+                if size == -1:
+                    size = self.size() - self.tell()
+                return self.python_fp.read(size)
+        ELSE:
+            if self.fp != NULL:
+                if size == -1:
+                    size = self.size() - self.tell()
+                newData = allocate_memory(size, &buf)
+                read_bytes = fread(buf, 1, size, self.fp)
+                return newData
+
+        if size == -1 or size + self.pos > self.data_size:
+            size = self.data_size - self.pos
+        if size < 0:
+            size = 0
+        data = self.buffer[self.pos:self.pos+size]
+        self.pos += size
+        if self.pos > self.data_size:
+            self.pos = self.data_size
+        return data
 
     cpdef size_t size(self):
         cdef int pos
         cdef int size
-        if self.fp != NULL:
-            pos = self.tell()
-            self.seek(0, 2)
-            size = self.tell()
-            self.seek(pos)
-            return size
-        else:
-            return self.data_size
+
+        IF IS_PYPY:
+            if self.python_fp:
+                pos = self.tell()
+                self.seek(0, 2)
+                size = self.tell()
+                self.seek(pos)
+                return size
+        ELSE:
+            if self.fp != NULL:
+                pos = self.tell()
+                self.seek(0, 2)
+                size = self.tell()
+                self.seek(pos)
+                return size
+        
+        return self.data_size
 
     def __len__(self):
         return self.size()
@@ -272,14 +328,22 @@ cdef class ByteReader:
 
     cpdef ByteReader readReader(self, size_t size):
         cdef ByteReader reader
-        if self.fp != NULL:
-            data = self.read(size)
-            reader = ByteReader(data, 0, len(data))
-        else:
-            check_available(self, size)
-            self.shared = True
-            reader = ByteReader(self.original, self.pos + self.start, size)
-            self.pos += size
+
+        IF IS_PYPY:
+            if self.python_fp:
+                data = self.read(size)
+                reader = ByteReader(data, 0, len(data))
+                return reader
+        ELSE:
+            if self.fp != NULL:
+                data = self.read(size)
+                reader = ByteReader(data, 0, len(data))
+                return reader
+
+        check_available(self, size)
+        self.shared = True
+        reader = ByteReader(self.original, self.pos + self.start, size)
+        self.pos += size
         return reader
 
     def readIntString(self):
@@ -291,23 +355,39 @@ cdef class ByteReader:
         if size == 0:
             return False
         cdef char * c_data
-        if self.fp != NULL:
-            fwrite(<char *>data, 1, size, self.fp)
-        else:
-            ensure_write_size(self, size)
-            c_data = data
-            memcpy((self.buffer + self.pos), c_data, size)
-            self.pos += size
+
+        IF IS_PYPY:
+            if self.python_fp:
+                self.python_fp.write(data)
+                return True
+        ELSE:
+            if self.fp != NULL:
+                fwrite(<char *>data, 1, size, self.fp)
+                return True
+
+        ensure_write_size(self, size)
+        c_data = data
+        memcpy((self.buffer + self.pos), c_data, size)
+        self.pos += size
+        return True
 
     cpdef bint write_size(self, char * data, size_t size):
         if size == 0:
             return False
-        if self.fp != NULL:
-            fwrite(data, 1, size, self.fp)
-        else:
-            ensure_write_size(self, size)
-            memcpy((self.buffer + self.pos), data, size)
-            self.pos += size
+
+        IF IS_PYPY:
+            if self.python_fp:
+                self.python_fp.write(buffer(data, 0, size))
+                return True
+        ELSE:
+            if self.fp != NULL:
+                fwrite(data, 1, size, self.fp)
+                return True
+
+        ensure_write_size(self, size)
+        memcpy((self.buffer + self.pos), data, size)
+        self.pos += size
+        return True
 
     def writeByte(self, value, asUnsigned = False):
         format = UBYTE if asUnsigned else BYTE
@@ -375,13 +455,15 @@ cdef class ByteReader:
         return checkDefault(self, value, *defaults)
 
     def openEditor(self):
-        if self.fp == NULL:
+        cdef object name
+        if self.python_fp:
+            name = self.python_fp.name
+        else:
             fp = tempfile.NamedTemporaryFile('wb', delete = False)
             fp.write(self.data())
             fp.close()
             name = fp.name
-        else:
-            name = self.python_fp.name
+
         try:
             raw_input('Press enter to open hex editor...')
             openEditor(name, self.tell())

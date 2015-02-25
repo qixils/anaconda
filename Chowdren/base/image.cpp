@@ -188,7 +188,6 @@ void Image::upload_texture()
     if (tex != 0 || image == NULL)
         return;
 
-    // std::cout << "Upload image" << std::endl;
 #ifndef CHOWDREN_IS_WIIU
     // std::cout << "creating alpha: " << (width * height) << std::endl;
     // create alpha mask
@@ -525,9 +524,10 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
     ImageCache::const_iterator it = image_cache.find(filename);
     if (it == image_cache.end()) {
         image = new FileImage(filename, 0, 0, 0, 0, color);
-        image->flags |= Image::USED;
         image->load();
-        if (!image->is_valid()) {
+        if (image->is_valid())
+            image->flags |= Image::USED | Image::CACHED;
+        else {
             delete image;
             image = NULL;
         }

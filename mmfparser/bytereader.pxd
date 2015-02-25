@@ -22,7 +22,10 @@ cdef class ByteReader:
     cdef unsigned int start, pos, data_size, lastPosition
     cdef bytes original
     cdef bint shared
-    cdef FILE * fp
+
+    IF not IS_PYPY:
+        cdef FILE * fp
+
     cdef object python_fp
 
     cpdef int tell(self)

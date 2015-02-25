@@ -2,12 +2,22 @@
 #define CHOWDREN_BITARRAY_H
 
 #ifdef _WIN32
+
+#include <malloc.h>
+
+#ifndef __GNUC__
 #define alloca _alloca
-#else
+#endif
+
+#elif defined(CHOWDREN_IS_DESKTOP)
 #include <alloca.h>
+#else
+#include <stdlib.h>
 #endif
 
 #include <string.h>
+
+#include <iostream>
 
 class BaseBitArray
 {
@@ -26,20 +36,12 @@ public:
 
     unsigned long get(int index)
     {
-        int i = index / WORD_SIZE;
-        return data[i] & (1 << (index - i));
+        return data[index / WORD_SIZE] & (1 << (index % WORD_SIZE));
     }
 
     void set(int index)
     {
-        int i = index / WORD_SIZE;
-        data[i] |= 1 << (index - i);
-    }
-
-    void unset(int index)
-    {
-        int i = index / WORD_SIZE;
-        data[i] &= ~(1 << (index - i));
+        data[index / WORD_SIZE] |= 1 << (index % WORD_SIZE);
     }
 };
 

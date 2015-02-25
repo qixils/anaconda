@@ -51,6 +51,8 @@ class SpreadValue(ActionMethodWriter):
         return parameter.objectInfo, parameter.objectType
 
 class SetAction(ActionMethodWriter):
+    has_object = True
+
     def write(self, writer):
         key = self.parameters[1].loader.items
         key = self.converter.convert_static_expression(key)
@@ -64,7 +66,8 @@ class SetAction(ActionMethodWriter):
 
     def get_object(self):
         parameter = self.parameters[0].loader
-        return parameter.objectInfo, parameter.objectType
+        obj = parameter.objectInfo, parameter.objectType
+        return self.converter.filter_object_type(obj)
 
 class SetValue(SetAction):
     func = 'set_value'

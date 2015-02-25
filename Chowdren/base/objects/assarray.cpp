@@ -265,6 +265,10 @@ void AssociateArray::save_encrypted(const std::string & path, int method)
     cipher.encrypt(&dst, src);
 
     FSFile fp(path.c_str(), "w");
+    if (!fp.is_open()) {
+        std::cout << "Could not save file " << path << std::endl;
+        return;
+    }
     fp.write(&dst[0], dst.size());
     fp.close();
 }

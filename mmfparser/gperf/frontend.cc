@@ -1,3 +1,6 @@
+// this will crash, but we use it to stay compatible with PyPy
+#define PyByteArray_FromStringAndSize(s, l) NULL
+
 #include "version.cc"
 #include "positions.cc"
 #include "keyword.cc"

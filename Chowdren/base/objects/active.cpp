@@ -1,4 +1,5 @@
 #include "objects/active.h"
+#include "manager.h"
 
 // Active
 
@@ -18,9 +19,11 @@ void Active::initialize_active()
     if (collision_box)
         sprite_col.flags |= BOX_COLLISION;
     update_direction();
-    // XXX
-    // do 2 extra update iterations if appear/disappear is used, otherwise
-    // 1 extra update iteration
+
+    int n = 1;
+    if (current_animation == APPEARING || current_animation == DISAPPEARING)
+        n++;
+    counter += int(direction_data->max_speed * manager.frame->timer_mul) * n;
 }
 
 Active::~Active()
@@ -63,8 +66,6 @@ void Active::force_animation(int value)
 
 void Active::force_frame(int value)
 {
-    if (flags & FADEOUT)
-        return;
     if (loop_count == 0)
         return;
     int frame_count = direction_data->frame_count;
@@ -93,8 +94,6 @@ void Active::force_direction(int value)
 
 void Active::restore_direction()
 {
-    if (flags & FADEOUT)
-        return;
     forced_direction = -1;
     update_direction();
 }
@@ -113,7 +112,7 @@ void Active::restore_animation()
 
 void Active::restore_frame()
 {
-    if (flags & FADEOUT || forced_frame == -1)
+    if (forced_frame == -1)
         return;
     animation_frame = forced_frame;
     forced_frame = -1;
@@ -231,6 +230,15 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
                   int hot_x, int hot_y, int action_x, int action_y,
                   TransparentColor transparent_color)
 {
+    if (anim >= animations->count)
+        return;
+    if (dir < 0 || dir >= 32)
+        return;
+    Animation * animation = animations->items[anim];
+    Direction * direction = animation->dirs[dir];
+    if (frame >= direction->frame_count)
+        return;
+
     Image * new_image = get_image_cache(convert_path(filename), 0, 0, 0, 0,
                                         transparent_color);
 
@@ -244,11 +252,11 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
     new_image->action_x = get_active_load_point(action_x, new_image->width);
     new_image->action_y = get_active_load_point(action_y, new_image->height);
 
-    Animation * animation = animations->items[anim];
-    Direction * direction = animation->dirs[dir];
+    Image * old_image = direction->frames[frame];
+    if (old_image == new_image)
+        return;
 
-    direction->frames[frame]->destroy();
-
+    old_image->destroy();
     new_image->upload_texture();
     direction->frames[frame] = new_image;
 

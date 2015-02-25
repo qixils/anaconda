@@ -13,14 +13,14 @@ def init(converter):
         flags['CollisionBox'] = False
 
     values = converter.game.globalValues.items
-    values[0] = 1
-    values[1] = 2
-    values[4] = 0
+    # values[0] = 1
+    # values[1] = 2
+    # values[4] = 1
 
 # def get_frames(converter, game, frames):
 #     new_frames = {}
 #     # indexes = (0, 1, 2, 3, 7, 8, 14, 83, 20, 21, 22, 23, 76, 82)
-#     indexes = (77,)
+#     # indexes = (72, 87, 85, 3, 8, 9, 10)
 #     for index in indexes:
 #         new_frames[index] = frames[index]
 #     return new_frames
@@ -83,7 +83,13 @@ global_objects = [
     'GlobalInputData',
     'Player_Others',
     'Master_Level',
-    'Controller.Music'
+    'Controller.Music',
+    'GUI_Rings',
+    'GUI_Crystal',
+    'GUI_Energy',
+    'GUI_ScoreTimeRings',
+    'GUI_Air',
+    'GUI_PowerCard'
 ]
 
 def use_global_alterables(converter, obj):
@@ -104,7 +110,9 @@ alterable_int_objects = [
     ('BossGunshipTurbineRight', None),
     ('RecordLabel', None),
     ('CrystalCursor', None),
-    ('GimmickRisingSwingPiece_', [0, 1, 8])
+    ('GimmickRisingSwingPiece_', [0, 1, 8]),
+    ('BossKujackerTail', None),
+    ('HazardOrbitBeam_', None)
 ]
 
 def use_alterable_int(converter, expression):
@@ -182,5 +190,5 @@ def reorder_foreach(converter):
 def use_repeated_collisions(converter):
     return False
 
-def use_condition_expression_iterator(converter):
-    return False
+# def use_condition_expression_iterator(converter):
+#     return False

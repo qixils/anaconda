@@ -24,17 +24,16 @@ class KcArray(ObjectWriter):
                     is_numeric, offset, x_size, y_size, z_size)
 
         if flags['Global']:
-            writer.putln('static ArrayData static_global_data;')
-            writer.putln('global_data = &static_global_data;')
-            writer.putln('static bool init = false;')
-            writer.putln('if (!init) {')
+            glob = self.get_global('ArrayObject::SavedArray')
+            writer.putlnc('global_data = &%s;', glob)
+            writer.putlnc('if (!%s.init) {', glob)
             writer.indent()
-            writer.putln('init = true;')
+            writer.putlnc('%s.init = true;', glob)
             writer.putln(init)
             writer.dedent()
             writer.putln('} else {')
             writer.indent()
-            writer.putln('data = static_global_data;')
+            writer.putlnc('data = %s.value;', glob)
             writer.end_brace()
         else:
             writer.putln(init)

@@ -319,6 +319,10 @@ void TextBlitter::set_charmap(const std::string & charmap)
     initialize(charmap);
 }
 
+void TextBlitter::call_char_callback()
+{
+}
+
 void TextBlitter::draw()
 {
     callback_line_count = int(lines.size());
@@ -348,13 +352,18 @@ void TextBlitter::draw()
         yy += height / 2 - lines.size() * char_height / 2
               - (lines.size() - 1) * y_spacing;
 
-    vector<LineReference>::const_iterator it;
+    int bottom_y = y + height;
 
     // glEnable(GL_SCISSOR_TEST);
     // glc_scissor_world(x, y, width, height);
 
-    for (it = lines.begin(); it != lines.end(); ++it) {
-        const LineReference & line = *it;
+    for (int line_index = 0; line_index < int(lines.size()); ++line_index) {
+        if (yy <= y - y_add || yy >= bottom_y) {
+            yy += y_add;
+            continue;
+        }
+
+        const LineReference & line = lines[line_index];
 
         int xx = x + x_scroll;
 
@@ -384,6 +393,15 @@ void TextBlitter::draw()
                 double t = double(anim_frame / anim_speed + x_add * i);
                 t /= double(wave_freq);
                 yyy += int(sin(t) * wave_height);
+            } else if (has_callback) {
+                callback_line = line_index;
+                callback_char = i;
+                callback_transparency = 0;
+                call_char_callback();
+
+                Color c = blend_color;
+                c.set_semi_transparency(callback_transparency);
+                c.apply();
             }
 
             glBegin(GL_QUADS);

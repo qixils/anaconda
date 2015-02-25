@@ -18,6 +18,17 @@ class Counter : public FrameObject
 public:
     FRAMEOBJECT_HEAD(Counter)
 
+    struct SavedCounter
+    {
+        bool init;
+        double value;
+
+        SavedCounter()
+        : init(false)
+        {
+        }
+    };
+
     int image_count;
     Image ** images;
     double value;

@@ -13,6 +13,7 @@ def init(converter):
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
     converter.add_define('CHOWDREN_DISABLE_DISPLAY0_EXT')
     converter.add_define('CHOWDREN_AUTOSAVE_ON_CHANGE') # this is stupid
+    converter.add_define('CHOWDREN_SAVE_PATH', 'data/savegames')
 
     # hack to turn on high-resolution lighting system images
     values = converter.game.globalValues.items
@@ -45,6 +46,12 @@ def init_container(converter, container):
             container.inactive = True
             return
 
+def init_frame(converter, frame):
+    if converter.current_frame_index != 0:
+        return
+    frame.fadeIn = None
+    frame.fadeOut = None
+
 def use_image_flush(converter, frame):
     return False
 
@@ -76,7 +83,9 @@ alterable_int_objects = [
     'CellBG',
     'Treasurebox',
     'Confirmtext_',
-    'Loadslots_'
+    'Loadslots_',
+    'InventoryItemsACCESSORY',
+    'InventoryACCESS'
 ]
 
 def use_alterable_int(converter, expression):
@@ -124,15 +133,26 @@ def get_fonts(converter):
 def get_frames(converter, game, frames):
     new_frames = {}
     if game.index == 0:
-        indexes = (0, 1, 3, 4, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-                   31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-                   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-                   63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
+        indexes = (0, 1, 3, 4, 6, 10, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28,
+                   29, 31, 32, 33, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46,
+                   47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+                   62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72)
         if converter.platform_name == 'generic':
             indexes = indexes + (77,)
-        # indexes = (0, 4, 21, 22,)
+        # indexes = (6,)
     else:
         indexes = (0, 1, 2, 3, 4, 5, 6, 7)
     for index in indexes:
         new_frames[index] = frames[index]
     return new_frames
+
+def use_condition_expression_iterator(converter):
+    return False
+
+def use_blitter_callback(converter, obj):
+    if obj.data.name != 'Text Dialogue':
+        return False
+    if obj.text.count('1234567890123456789012345678901234567890') <= 0:
+        return False
+    frame_index = converter.current_frame_index
+    return frame_index in (None, 6)

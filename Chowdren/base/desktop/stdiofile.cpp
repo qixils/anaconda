@@ -157,6 +157,7 @@ public:
             real_mode = "rb";
         else
             real_mode = "wb";
+
 #ifdef FSFILE_CONVERT_PATH
         std::string file_string = convert_path(filename);
         const char * file_string_c = file_string.c_str();

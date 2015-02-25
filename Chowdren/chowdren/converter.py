@@ -607,6 +607,7 @@ class Converter(object):
         self.defines = set()
         self.current_group = None
         self.event_settings = {}
+        self.current_frame_index = None
 
         self.games = []
 
@@ -724,6 +725,9 @@ class Converter(object):
         objects_header.putln('#include "common.h"')
         objects_header.putln('')
 
+        self.global_object_header = CodeWriter()
+        self.global_object_code = CodeWriter()
+
         objects_file = ObjectFileWriter(self)
 
         lists_header = self.open_code('lists.h')
@@ -745,6 +749,7 @@ class Converter(object):
         self.object_list_ids = {}
         self.object_lists = {}
         self.object_cache = {}
+        self.global_object_data = {}
 
         self.extension_includes = set()
         self.extension_sources = set()
@@ -763,6 +768,9 @@ class Converter(object):
 
         for class_name in self.class_names:
             objects_file.putlnc('FRAMEOBJECT_IMPL(%s)', class_name)
+
+        objects_header.putcode(self.global_object_header)
+        objects_file.putcode(self.global_object_code)
 
         objects_header.close_guard('CHOWDREN_OBJECTS_H')
         objects_file.close()
@@ -908,7 +916,7 @@ class Converter(object):
 
         if self.config.use_image_preload():
             for frame_index in self.processed_frames:
-                images = self.frame_images.get(frame_index, ())
+                images = self.frame_images.get(frame_index - 1, ())
                 event_file.putmeth('void load_frame_%s_images' % frame_index)
                 for image in images:
                     event_file.putlnc('get_internal_image(%s)->'
@@ -1202,6 +1210,7 @@ class Converter(object):
         frame.load()
         self.current_frame = frame
         self.current_frame_index = frame_index
+        self.config.init_frame(frame)
         self.processed_frames.append(frame_index + 1)
 
         startup_instances = []
@@ -1745,9 +1754,9 @@ class Converter(object):
         if fade:
             if fade.duration == 0:
                 print 'invalid fade duration:', fade.duration
-                fade.duration = 0.00001
-            start_writer.putlnc('manager.set_fade(%s, %s);',
-                make_color(fade.color), -1.0 / (fade.duration / 1000.0))
+            else:
+                start_writer.putlnc('manager.set_fade(%s, %s);',
+                    make_color(fade.color), -1.0 / (fade.duration / 1000.0))
 
         event_file.putmeth('void %s' % start_name)
         event_file.putcode(start_writer)
@@ -2004,9 +2013,23 @@ class Converter(object):
                 objects_file.putln('frame->event_callback(%s);' % event_id)
                 objects_file.end_brace()
 
-        if object_writer.has_dtor():
+        dtor = object_writer.has_dtor()
+        internal_dtor = object_writer.has_internal_dtor()
+        has_dtor = dtor or internal_dtor
+
+        if has_dtor:
             objects_file.putmeth('~%s' % class_name)
-            object_writer.write_dtor(objects_file)
+
+            if dtor:
+                object_writer.write_dtor(objects_file)
+
+            if internal_dtor:
+                object_writer.write_internal_dtor(objects_file)
+            objects_file.end_brace()
+
+            objects_file.putmeth('void dealloc')
+            objects_file.putlnc('this->%s::~%s();', class_name, class_name)
+            objects_file.putlnc('%s::pool.destroy(this);', subclass)
             objects_file.end_brace()
 
         if PROFILE_OBJECTS:
@@ -2426,6 +2449,10 @@ class Converter(object):
         writer.putln('// event %s' % TEMPORARY_GROUP_ID)
         event_break = self.event_break = 'goto %s_end;' % group.name
 
+        # need to save single selection now so we can use it later
+        if group.or_final:
+            single_save = self.has_single_selection.copy()
+
         if group.or_first:
             writer.putln('bool %s = false;' % group.or_result)
         if group.or_first or group.or_save or group.or_final:
@@ -2534,7 +2561,7 @@ class Converter(object):
             writer.putlnc('%s = true;', group.or_result)
             writer.putlnc('%s = true;', group.or_temp_result)
             writer.putlnc('%s_end: ;', group.name)
-            writer.end_brace()
+            # writer.end_brace()
             self.write_instance_save(group, writer)
             writer.putlnc('if (!%s) goto or_final_%s_end;', group.or_result,
                           group.name)
@@ -2570,8 +2597,9 @@ class Converter(object):
                 writer.putlnc('%s.restore_selection();', list_name)
                 writer.end_brace()
 
-            writer.start_brace()
+            # writer.start_brace()
             self.has_selection = new_selection # group.or_selected
+            self.has_single_selection = single_save
 
         self.in_actions = True
 
@@ -2679,25 +2707,35 @@ class Converter(object):
     def write_instance_save(self, group, writer):
         if not self.has_selection:
             return
+
+        objs = set(self.has_selection.iterkeys())
+        # objs += set(self.has_single_selection.iterkeys())
+
         # look for qualifiers first
         has_qualifier = set()
-        for obj, list_name in self.has_selection.iteritems():
+        for obj in objs:
             if not is_qualifier(obj[0]):
                 continue
             for other in self.resolve_qualifier(obj):
                 has_qualifier.add(other)
 
-        for obj, list_name in self.has_selection.iteritems():
+        for obj in objs:
             if obj in has_qualifier:
                 continue
             group.or_instance_groups[obj].append(group.or_temp_result)
             if obj in group.or_selected:
                 continue
+            list_name = self.get_object_list(obj, True)
             group.or_selected[obj] = list_name
             writer.putlnc('%s.clear_saved_selection();', list_name)
 
         writer.putlnc('if (%s) {', group.or_temp_result)
         writer.indent()
+
+        # save all single instances
+        # for obj, obj_name in self.has_single_selection.iteritems():
+        #     list_name = self.get_object_list(obj, True)
+
         for obj, list_name in self.has_selection.iteritems():
             if obj in has_qualifier:
                 continue

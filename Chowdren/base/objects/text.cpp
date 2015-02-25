@@ -28,6 +28,10 @@ void Text::add_line(const std::string & text)
 
 void Text::draw()
 {
+#ifdef CHOWDREN_IS_PS4
+    // XXX hack
+    return;
+#endif
     if (!init_font()) {
         set_visible(false);
         return;

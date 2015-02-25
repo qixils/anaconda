@@ -462,7 +462,28 @@ class Counter(ObjectWriter):
             writer.putln('width = height = 0;')
         writer.putlnc('minimum = %s;', counter.minimum)
         writer.putlnc('maximum = %s;', counter.maximum)
-        writer.putlnc('set(%s);', counter.initial)
+
+        if self.is_global():
+            self.global_name = self.get_global('Counter::SavedCounter')
+            writer.putlnc('if (%s.init)', self.global_name)
+            writer.indent()
+            writer.putlnc('set(%s.value);', self.global_name)
+            writer.dedent()
+            writer.putln('else')
+            writer.indent()
+            writer.putlnc('set(%s);', counter.initial)
+            writer.dedent()
+        else:
+            writer.putlnc('set(%s);', counter.initial)
+
+    def has_dtor(self):
+        return self.is_global()
+
+    def write_dtor(self, writer):
+        if not self.is_global():
+            return
+        writer.putlnc('%s.init = true;', self.global_name)
+        writer.putlnc('%s.value = value;', self.global_name)
 
     def is_static_background(self):
         return False

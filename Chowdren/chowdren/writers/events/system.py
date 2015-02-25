@@ -1660,8 +1660,11 @@ class SetFrameAction(ActionWriter):
         if fade.duration == 0:
             return
         color = fade.color
+        writer.putln('if (loop_count != 0)')
+        writer.indent()
         writer.putln(to_c('manager.set_fade(%s, %s);', make_color(
             color), 1.0 / (fade.duration / 1000.0)))
+        writer.dedent()
 
 class JumpToFrame(SetFrameAction):
     def write(self, writer):

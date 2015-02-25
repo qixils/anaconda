@@ -22,6 +22,7 @@ class ObjectWriter(BaseWriter):
         BaseWriter.__init__(self, *arg, **kw)
         self.common = self.data.properties.loader
         self.initialize()
+        self.init_global_data()
 
     def initialize(self):
         pass
@@ -164,37 +165,40 @@ class ObjectWriter(BaseWriter):
                                                       groups)
         self.converter.event_callbacks[event_id] = wrapper_name
 
-    def write_internal_class(self, writer):
+    def init_global_data(self):
         if not self.is_global():
             return
-        writer.putln('static bool has_saved_alterables;')
-        writer.putln('static Alterables global_alterables;')
+        self.global_alt = self.get_global('SavedAlterables')
+
+    def write_internal_class(self, writer):
+        pass
 
     def write_internal_post(self, writer):
-        if not self.is_global():
-            return
-        writer.putlnc('bool %s::has_saved_alterables = false;',
-                      self.new_class_name)
-        writer.putlnc('Alterables %s::global_alterables;',
-                      self.new_class_name)
+        pass
 
-    def has_dtor(self):
+    def has_internal_dtor(self):
         if not self.is_global():
             return False
         if self.has_single_global():
             return False
         return True
 
-    def has_autodestruct(self):
+    def has_dtor(self):
         return False
 
     def write_dtor(self, writer):
+        pass
+
+    def has_autodestruct(self):
+        return False
+
+    def write_internal_dtor(self, writer):
         if not self.is_global():
             return
         if self.has_single_global():
             return
-        writer.putln('has_saved_alterables = true;')
-        writer.putln('global_alterables.set(*alterables);')
+        writer.putlnc('%s.init = true;', self.global_alt)
+        writer.putlnc('%s.value.set(*alterables);', self.global_alt)
 
     def load_alterables(self, writer):
         if not self.use_alterables:
@@ -207,14 +211,15 @@ class ObjectWriter(BaseWriter):
             writer.putln('create_alterables();')
 
         if is_global:
+            alt_name = self.global_alt
             if single:
                 writer.putlnc('flags |= GLOBAL;')
-                writer.putln('alterables = &global_alterables;')
-                writer.putln('if (!has_saved_alterables) {')
+                writer.putlnc('alterables = &%s.value;', alt_name)
+                writer.putlnc('if (!%s.init) {', alt_name)
             else:
-                writer.putln('if (has_saved_alterables) {')
+                writer.putlnc('if (%s.init) {', alt_name)
                 writer.indent()
-                writer.putln('alterables->set(global_alterables);')
+                writer.putlnc('alterables->set(%s.value);', alt_name)
                 writer.dedent()
                 writer.putln('} else {')
 
@@ -235,7 +240,7 @@ class ObjectWriter(BaseWriter):
 
         if is_global:
             if single:
-                writer.putln('has_saved_alterables = true;')
+                writer.putlnc('%s.init = true;', alt_name)
             writer.end_brace()
 
     def get_base_filename(self):
@@ -258,6 +263,20 @@ class ObjectWriter(BaseWriter):
                    self.has_movements(), self.has_sleep())
         list_id = list_id + tuple(self.get_qualifiers())
         return list_id
+
+    def get_global(self, typ):
+        data = self.converter.global_object_data
+        key = (self.data.name, self.class_name, typ)
+        try:
+            return data[key]
+        except KeyError:
+            pass
+        name = 'global_data_%s_%s' % (len(data),
+                                      get_method_name(self.data.name))
+        data[key] = name
+        self.converter.global_object_header.putlnc('extern %s %s;', typ, name)
+        self.converter.global_object_code.putlnc('%s %s;', typ, name)
+        return name
 
     @staticmethod
     def write_application(converter):

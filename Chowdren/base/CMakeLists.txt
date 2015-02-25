@@ -172,7 +172,7 @@ endif()
 if(WIN32)
     if (MINGW)
         set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} imm32 version)
-        set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
+        set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/mingw"
             ${CMAKE_LIBRARY_PATH})
     else()
         set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
@@ -226,11 +226,11 @@ if(APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "${APP_VERSION}")
     set(MACOSX_BUNDLE_COPYRIGHT "${APP_COPYRIGHT}")
     set(DATA_SRCS ${DATA_SRCS} "${CMAKE_SOURCE_DIR}/${MACOSX_BUNDLE_ICON_FILE}")
-    set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
+    # set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 endif()
 
 # include alsoft.conf
-set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
+# set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 
 if (USE_PYTHON)
     add_definitions(-DCHOWDREN_USE_PYTHON)
@@ -270,6 +270,14 @@ if (NOT NO_STATIC_OGG)
     set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
 endif()
 
+if (USE_WEBP)
+    file(GLOB WEBP_C
+         "${CHOWDREN_BASE_DIR}/staticlibs/webp/*/*.c")
+    set(WEBP_INCLUDE_DIR
+        "${CHOWDREN_BASE_DIR}/staticlibs/webp")
+    set(SRCS ${WEBP_C} ${SRCS})
+endif()
+
 find_package(Boost REQUIRED)
 if (NOT CMAKE_CROSSCOMPILING)
     find_package(SDL2 REQUIRED)
@@ -285,12 +293,16 @@ set(EXE_NAME "Chowdren")
 add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
+    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${Boost_INCLUDE_DIRS}
+    ${WEBP_INCLUDE_DIR})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES}
     ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES})
 
-set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install CACHE PATH
+        "default install path" FORCE)
+endif()
 
 set(BIN_DIR ".")
 set(DATA_PATH ".")

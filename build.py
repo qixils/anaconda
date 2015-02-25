@@ -17,8 +17,10 @@
 
 import glob
 import sys
-from setuptools import setup, Extension
+import platform
+from setuptools import setup
 from Cython.Distutils import build_ext
+from Cython.Distutils.extension import Extension
 from Cython.Build import cythonize
 
 from Cython.Compiler import Options
@@ -38,19 +40,25 @@ include_dirs = ['./mmfparser/player']
 
 names = open('names.txt', 'rb').read().splitlines()
 
+is_pypy = platform.python_implementation() == 'PyPy'
+
+compile_env = {'IS_PYPY': True}
+
+kw = dict(language='c++')
+
 for name in names:
     if name.startswith('#'):
         continue
     ext_modules.append(Extension(name, ['./' + name.replace('.', '/') + '.pyx'],
-        include_dirs = include_dirs, language='c++'))
+        include_dirs = include_dirs, **kw))
 
 webp_srcs = glob.glob('./mmfparser/webp/*/*.c')
 ext_modules.append(Extension('mmfparser.webp',
                              ['./mmfparser/webp.pyx'] + webp_srcs,
                              include_dirs=include_dirs + ['./mmfparser/webp'],
-                             language='c++'))
+                             **kw))
 
 setup(
     name = 'mmfparser extensions',
-    ext_modules = cythonize(ext_modules)
+    ext_modules = cythonize(ext_modules, compile_time_env=compile_env)
 )

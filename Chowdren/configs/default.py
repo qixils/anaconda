@@ -4,6 +4,9 @@ def init(converter):
 def init_container(converter, container):
     pass
 
+def init_frame(converter, frame):
+    pass
+
 def write_pre(converter, writer, group):
     pass
 
@@ -17,7 +20,7 @@ def use_iteration_index(converter):
     return True
 
 def use_global_alterables(converter, obj):
-    return False
+    return True
 
 def use_single_global_alterables(converter, obj):
     return True
@@ -93,3 +96,6 @@ def use_webp(converter):
 
 def use_condition_expression_iterator(converter):
     return True
+
+def use_blitter_callback(converter, obj):
+    return False

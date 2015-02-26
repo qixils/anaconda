@@ -55,7 +55,8 @@ inline bool double_equals_exact(double a, double b)
     return memcmp(&a, &b, sizeof(double)) == 0;
 }
 
-#define FIXED_ENCODE_XOR 0x7800000000000000L
+#define FIXED_ENCODE_XOR 0x7800000000000000ULL
+#define FIXED_SIGN_BIT (1ULL << 63ULL)
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
@@ -67,6 +68,9 @@ inline FrameObject * get_object_from_fixed(double fixed)
     uint64_t value;
     memcpy(&value, &fixed, sizeof(uint64_t));
     value ^= FIXED_ENCODE_XOR;
+    // reposition the last bit at the sign bit
+    value |= (value & 1ULL) << 63ULL;
+    value &= ~(1ULL);
     FrameObject * p;
     memcpy(&p, &value, sizeof(FrameObject*));
     return p;

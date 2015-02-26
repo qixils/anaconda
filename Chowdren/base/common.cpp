@@ -1897,9 +1897,18 @@ FixedValue::operator double() const
 {
     uint64_t value = 0;
     memcpy(&value, &object, sizeof(FrameObject*));
+
+#ifndef NDEBUG
+    if (value & 0x1) {
+        std::cout << "Invalid alignment for fixed value" << std::endl;
+    }
+#endif
+    // reposition the sign bit in the last bit
+    value |= (value & FIXED_SIGN_BIT) >> 63ULL;
+    value &= ~FIXED_SIGN_BIT;
     value ^= FIXED_ENCODE_XOR;
     double v2;
-    memcpy(&v2, &value, sizeof(FrameObject*));
+    memcpy(&v2, &value, sizeof(uint64_t));
     return v2;
 }
 

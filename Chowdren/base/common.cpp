@@ -690,9 +690,8 @@ void Layer::draw(int display_x, int display_y)
     x = y = 0;
 #endif
 
-    glLoadIdentity();
-    glTranslatef(-floor(display_x * coeff_x - x),
-                 -floor(display_y * coeff_y - y), 0.0);
+    Render::set_offset(-floor(display_x * coeff_x - x),
+                       -floor(display_y * coeff_y - y));
 
 #ifdef CHOWDREN_IS_3DS
     glc_set_global_depth(depth);
@@ -752,15 +751,9 @@ void Layer::draw(int display_x, int display_y)
     }
 
     if (blend_color.r != 255 || blend_color.g != 255 || blend_color.b != 255) {
-        glLoadIdentity();
-        blend_color.apply();
         glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-        glBegin(GL_QUADS);
-        glVertex2f(0.0f, 0.0f);
-        glVertex2f(WINDOW_WIDTH, 0.0f);
-        glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
-        glVertex2f(0.0f, WINDOW_HEIGHT);
-        glEnd();
+        Render::set_offset(0, 0);
+        Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, blend_color);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
@@ -1055,24 +1048,14 @@ void Frame::draw(int remote)
 {
     PROFILE_BEGIN(frame_draw_start);
     // first, draw the actual window contents
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
+    Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 #ifdef CHOWDREN_HAS_MRT
-    if (remote == CHOWDREN_REMOTE_TARGET)
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    else
+    if (remote == CHOWDREN_REMOTE_TARGET) {
+        Render::clear(Color(0, 0, 0, 255));
+    } else if (remote != CHOWDREN_REMOTE_ONLY)
 #endif
     {
-        background_color.apply_clear_color();
-    }
-#ifdef CHOWDREN_HAS_MRT
-    if (remote != CHOWDREN_REMOTE_ONLY)
-#endif
-    {
-        glClear(GL_COLOR_BUFFER_BIT);
+        Render::clear(background_color);
     }
 
     PROFILE_END();
@@ -1201,7 +1184,7 @@ void Frame::reset()
 // FrameObject
 
 FrameObject::FrameObject(int x, int y, int type_id)
-: x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), shader(NULL),
+: x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), effect(Render::NONE),
   alterables(NULL), shader_parameters(NULL), direction(0),
   movement(NULL), movements(NULL), movement_count(0), collision(NULL),
   collision_flags(0)
@@ -1234,42 +1217,32 @@ FrameObject::~FrameObject()
 #endif
 }
 
+
+
 #ifndef CHOWDREN_USE_DIRECT_RENDERER
-void FrameObject::draw_image(Image * img, int x, int y, float angle,
+void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
                              float x_scale, float y_scale, bool flip_x)
 {
-    GLuint back_tex = 0;
-    bool has_tex_param = false;
-
-    if (shader != NULL) {
-        shader->begin(this, img);
-        back_tex = shader->get_background_texture();
-        has_tex_param = shader->has_texture_param();
-    }
-
-    img->draw(x, y, angle, x_scale, y_scale, flip_x, back_tex,
-              has_tex_param);
-
-    if (shader != NULL)
-        shader->end(this);
+    Render::set_effect(effect, width, height, this);
+    img->draw(x, y, c, angle, x_scale, y_scale, flip_x, back_tex,
+              tex_param);
+    Render::disable_effect();
 }
 #endif
 
 void FrameObject::begin_draw(int width, int height)
 {
-    if (shader != NULL)
-        shader->begin(this, width, height);
+    Render::set_effect(effect, width, height, this);
 }
 
 void FrameObject::begin_draw()
 {
-    begin_draw(width, height);
+    Render::set_effect(effect, width, height, this);
 }
 
 void FrameObject::end_draw()
 {
-    if (shader != NULL)
-        shader->end(this);
+    Render::disable_effect();
 }
 
 void FrameObject::set_position(int new_x, int new_y)
@@ -1518,11 +1491,11 @@ int FrameObject::get_box_index(int index)
     return ret;
 }
 
-void FrameObject::set_shader(Shader * value)
+void FrameObject::set_shader(Render::Effect value)
 {
     if (shader_parameters == NULL)
         shader_parameters = new ShaderParameters;
-    shader = value;
+    effect = value;
 }
 
 void FrameObject::set_shader_parameter(const std::string & name, double value)
@@ -1986,34 +1959,29 @@ FTTextureFont * get_font(int size)
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
                    Color & color, Color & color2, int alpha)
 {
-    glDisable(GL_TEXTURE_2D);
-    glBegin(GL_QUADS);
     switch (gradient_type) {
         case NONE_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, alpha);
-            glVertex2f(x1, y1);
-            glVertex2f(x2, y1);
-            glVertex2f(x2, y2);
-            glVertex2f(x1, y2);
+            Render::draw_quad(x1, y1, x2, y2, color);
             break;
         case VERTICAL_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, alpha);
-            glVertex2f(x1, y1);
-            glVertex2f(x2, y1);
-            glColor4ub(color2.r, color2.g, color2.b, alpha);
-            glVertex2f(x2, y2);
-            glVertex2f(x1, y2);
+            Render::draw_vertical_gradient(x1, y1, x2, y2, color, color2);
+            // glColor4ub(color.r, color.g, color.b, alpha);
+            // glVertex2f(x1, y1);
+            // glVertex2f(x2, y1);
+            // glColor4ub(color2.r, color2.g, color2.b, alpha);
+            // glVertex2f(x2, y2);
+            // glVertex2f(x1, y2);
             break;
         case HORIZONTAL_GRADIENT:
-            glColor4ub(color.r, color.g, color.b, alpha);
-            glVertex2f(x1, y2);
-            glVertex2f(x1, y1);
-            glColor4ub(color2.r, color2.g, color2.b, alpha);
-            glVertex2f(x2, y1);
-            glVertex2f(x2, y2);
+            Render::draw_horizontal_gradient(x1, y1, x2, y2, color, color2);
+            // glColor4ub(color.r, color.g, color.b, alpha);
+            // glVertex2f(x1, y2);
+            // glVertex2f(x1, y1);
+            // glColor4ub(color2.r, color2.g, color2.b, alpha);
+            // glVertex2f(x2, y1);
+            // glVertex2f(x2, y2);
             break;
     }
-    glEnd();
 }
 
 // File

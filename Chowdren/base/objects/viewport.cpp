@@ -59,20 +59,9 @@ void Viewport::draw()
     glc_copy_color_buffer_rect(texture, src_x1, src_y1, src_x2, src_y2);
     int x2 = x + width;
     int y2 = y + height;
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, texture);
     glDisable(GL_BLEND);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glTexCoord2f(back_texcoords[0], back_texcoords[1]);
-    glVertex2i(x, y);
-    glTexCoord2f(back_texcoords[2], back_texcoords[3]);
-    glVertex2i(x2, y);
-    glTexCoord2f(back_texcoords[4], back_texcoords[5]);
-    glVertex2i(x2, y2);
-    glTexCoord2f(back_texcoords[6], back_texcoords[7]);
-    glVertex2i(x, y2);
-    glEnd();
+    Render::draw_tex(x, y, x2, y2, Color(255, 255, 255, 255), texture,
+                     back_texcoords[0], back_texcoords[1],
+                     back_texcoords[4], back_texcoords[5]);
     glEnable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
 }

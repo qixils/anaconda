@@ -180,6 +180,6 @@ void Counter::draw()
     } else if (type == ANIMATION_COUNTER) {
         blend_color.apply();
         Image * image = get_image();
-        image->draw(x + image->hotspot_x, y + image->hotspot_y);
+        image->draw(x + image->hotspot_x, y + image->hotspot_y, blend_color);
     }
 }

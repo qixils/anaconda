@@ -2,6 +2,7 @@
 #define CHOWDREN_COMMON_H
 
 #include "chowconfig.h"
+#include "render.h"
 #include "include_gl.h"
 #include "profiler.h"
 #include "keydef.h"

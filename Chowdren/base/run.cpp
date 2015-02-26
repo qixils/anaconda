@@ -338,15 +338,10 @@ void GameManager::draw_fade()
 {
     if (fade_dir == 0.0f)
         return;
-    glLoadIdentity();
-    glBegin(GL_QUADS);
-    glColor4ub(fade_color.r, fade_color.g, fade_color.b,
-               int(fade_value * 255));
-    glVertex2f(0.0f, 0.0f);
-    glVertex2f(WINDOW_WIDTH, 0.0f);
-    glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
-    glVertex2f(0.0f, WINDOW_HEIGHT);
-    glEnd();
+    Render::set_offset(0, 0);
+    Color c = fade_color;
+    c.set_alpha(int(fade_value * 255));
+    Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, c);
 }
 
 void GameManager::set_frame(int index)

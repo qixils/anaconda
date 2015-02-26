@@ -70,34 +70,6 @@ void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
 void glc_set_global_depth(GLfloat depth);
 void glc_set_depth(GLfloat depth);
 
-#ifdef CHOWDREN_USE_GLES2
-#define glPushMatrix glc_push_matrix
-#define glMatrixMode glc_matrix_mode
-#define glPopMatrix glc_pop_matrix
-#define glLoadIdentity glc_load_identity
-#define glColor4ub glc_color_4ub
-#define glColor4f glc_color_4f
-#define glOrtho glc_ortho
-#define glTranslatef glc_translate_3f
-#define glTranslated glc_translate_3f
-#define glScalef glc_scale_f
-#define glScaled glc_scale_f
-#define glRotated glc_rotate_f
-#endif
-
-#if defined(CHOWDREN_USE_GLES1) || defined(CHOWDREN_USE_GLES2)
-#define glBegin glc_begin
-#define glEnd glc_end
-#define glVertex2f(x, y) glc_vertex_3f(x, y, 0.0f)
-#define glVertex3f glc_vertex_3f
-#define glVertex2i(x, y) glc_vertex_3f(x, y, 0.0f)
-#define glVertex2d(x, y) glc_vertex_3f(x, y, 0.0f)
-#define glMultiTexCoord2f glc_multi_texcoord_2f
-#define glTexCoord2f glc_texcoord_2f
-#define GL_CLAMP GL_CLAMP_TO_EDGE
-
-#endif
-
 #ifndef CHOWDREN_BUILD_GLC
 
 #if defined(CHOWDREN_USE_GL)

@@ -15,9 +15,12 @@ void convert_vec4(int val, float & a, float & b, float & c, float & d)
     d = ((val >> 24) & 0xFF) / 255.0f;
 }
 
-class AdditiveShader : public Shader
+class AdditiveShader : public BaseShader
 {
 public:
+    AdditiveShader()
+    : BaseShader()
+
     void begin(FrameObject * instance, int width, int height)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -29,22 +32,17 @@ public:
     }
 };
 
-#include "glslshader.h"
-
-void GLSLShader::set_image(FrameObject * instance, int src)
+void BaseShader::set_image(FrameObject * instance, int src)
 {
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, (GLuint)instance->get_shader_parameter(src));
-    glActiveTexture(GL_TEXTURE0);
 }
 
 // shader implementations
 
-class SubtractShader : public GLSLShader
+class SubtractShader : public BaseShader
 {
 public:
     SubtractShader()
-    : GLSLShader(SHADER_SUBTRACT)
+    : BaseShader(SHADER_SUBTRACT)
     {
     }
 
@@ -54,7 +52,7 @@ public:
         // glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
         glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
         glBlendFunc(GL_DST_COLOR, GL_ONE);
-        GLSLShader::begin(instance, width, height);
+        BaseShader::begin(instance, width, height);
     }
 
     void end(FrameObject * instance)
@@ -63,21 +61,20 @@ public:
         // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glBlendEquation(GL_FUNC_ADD);
-        GLSLShader::end(instance);
+        BaseShader::end(instance);
     }
 };
 
-class MonochromeShader : public GLSLShader
+class MonochromeShader : public BaseShader
 {
 public:
     MonochromeShader()
-    : GLSLShader(SHADER_MONOCHROME)
+    : BaseShader(SHADER_MONOCHROME)
     {
-
     }
 };
 
-class MixerShader : public GLSLShader
+class MixerShader : public BaseShader
 {
 public:
     int r;
@@ -85,7 +82,7 @@ public:
     int b;
 
     MixerShader()
-    : GLSLShader(SHADER_COLORMIXER)
+    : BaseShader(SHADER_COLORMIXER)
     {
 
     }
@@ -105,13 +102,13 @@ public:
     }
 };
 
-class HueShader : public GLSLShader
+class HueShader : public BaseShader
 {
 public:
     int hue;
 
     HueShader()
-    : GLSLShader(SHADER_HUE)
+    : BaseShader(SHADER_HUE)
     {
 
     }
@@ -127,14 +124,14 @@ public:
     }
 };
 
-class OffsetShader : public GLSLShader
+class OffsetShader : public BaseShader
 {
 public:
     int width;
     int height;
 
     OffsetShader()
-    : GLSLShader(SHADER_OFFSET, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_OFFSET, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -152,24 +149,24 @@ public:
     }
 };
 
-class InvertShader : public GLSLShader
+class InvertShader : public BaseShader
 {
 public:
     InvertShader()
-    : GLSLShader(SHADER_INVERT)
+    : BaseShader(SHADER_INVERT)
     {
 
     }
 };
 
-class DodgeBlurShader : public GLSLShader
+class DodgeBlurShader : public BaseShader
 {
 public:
     int vertical;
     int radius;
 
     DodgeBlurShader()
-    : GLSLShader(SHADER_DODGEBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_DODGEBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
 
     }
@@ -187,7 +184,7 @@ public:
     }
 };
 
-class GrainShader : public GLSLShader
+class GrainShader : public BaseShader
 {
 public:
     int strength, seed;
@@ -195,7 +192,7 @@ public:
     int r, g, b, a;
 
     GrainShader()
-    : GLSLShader(SHADER_GRAIN)
+    : BaseShader(SHADER_GRAIN)
     {
 
     }
@@ -223,25 +220,25 @@ public:
     }
 };
 
-class MultiplyShader : public GLSLShader
+class MultiplyShader : public BaseShader
 {
 public:
     MultiplyShader()
-    : GLSLShader(SHADER_MULTIPLY, SHADER_HAS_BACK)
+    : BaseShader(SHADER_MULTIPLY, SHADER_HAS_BACK)
     {
     }
 };
 
-class HardLightShader : public GLSLShader
+class HardLightShader : public BaseShader
 {
 public:
     HardLightShader()
-    : GLSLShader(SHADER_HARDLIGHT, SHADER_HAS_BACK)
+    : BaseShader(SHADER_HARDLIGHT, SHADER_HAS_BACK)
     {
     }
 };
 
-class TintShader : public GLSLShader
+class TintShader : public BaseShader
 {
 public:
     int tint_color;
@@ -249,7 +246,7 @@ public:
     int original_power;
 
     TintShader()
-    : GLSLShader(SHADER_TINT)
+    : BaseShader(SHADER_TINT)
     {
 
     }
@@ -269,14 +266,14 @@ public:
     }
 };
 
-class ChannelBlurShader : public GLSLShader
+class ChannelBlurShader : public BaseShader
 {
 public:
     int coeff;
     int r, g, b, a;
 
     ChannelBlurShader()
-    : GLSLShader(SHADER_CHANNELBLUR)
+    : BaseShader(SHADER_CHANNELBLUR)
     {
     }
 
@@ -299,7 +296,7 @@ public:
     }
 };
 
-class BgBloomShader : public GLSLShader
+class BgBloomShader : public BaseShader
 {
 public:
     int radius;
@@ -307,7 +304,7 @@ public:
     int coeff;
 
     BgBloomShader()
-    : GLSLShader(SHADER_BGBLOOM, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_BGBLOOM, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -326,7 +323,7 @@ public:
     }
 };
 
-class UnderwaterShader : public GLSLShader
+class UnderwaterShader : public BaseShader
 {
 public:
     int blur;
@@ -338,7 +335,7 @@ public:
     int freqY;
 
     UnderwaterShader()
-    : GLSLShader(SHADER_UNDERWATER)
+    : BaseShader(SHADER_UNDERWATER)
     {
     }
 
@@ -365,13 +362,13 @@ public:
     }
 };
 
-class RotateSubShader : public GLSLShader
+class RotateSubShader : public BaseShader
 {
 public:
     int angle, x, y, shift_x, shift_y;
 
     RotateSubShader()
-    : GLSLShader(SHADER_ROTATESUB)
+    : BaseShader(SHADER_ROTATESUB)
     {
     }
 
@@ -394,13 +391,13 @@ public:
     }
 };
 
-class SimpleMaskShader : public GLSLShader
+class SimpleMaskShader : public BaseShader
 {
 public:
     int fade, color;
 
     SimpleMaskShader()
-    : GLSLShader(SHADER_SIMPLEMASK)
+    : BaseShader(SHADER_SIMPLEMASK)
     {
     }
 
@@ -417,14 +414,14 @@ public:
     }
 };
 
-class OffsetStationaryShader : public GLSLShader
+class OffsetStationaryShader : public BaseShader
 {
 public:
 
     int width, height, x_offset, y_offset;
 
     OffsetStationaryShader()
-    : GLSLShader(SHADER_OFFSETSTATIONARY)
+    : BaseShader(SHADER_OFFSETSTATIONARY)
     {
     }
 
@@ -445,14 +442,14 @@ public:
     }
 };
 
-class PatternOverlayShader : public GLSLShader
+class PatternOverlayShader : public BaseShader
 {
 public:
     int x, y, width, height;
     int alpha;
 
     PatternOverlayShader()
-    : GLSLShader(SHADER_PATTERNOVERLAY, SHADER_HAS_TEX_SIZE, "pattern")
+    : BaseShader(SHADER_PATTERNOVERLAY, SHADER_HAS_TEX_SIZE, "pattern")
     {
     }
 
@@ -476,13 +473,13 @@ public:
     }
 };
 
-class SubPxShader : public GLSLShader
+class SubPxShader : public BaseShader
 {
 public:
     int x, y, limit;
 
     SubPxShader()
-    : GLSLShader(SHADER_SUBPX, SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_SUBPX, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -501,14 +498,14 @@ public:
     }
 };
 
-class ZoomOffsetShader : public GLSLShader
+class ZoomOffsetShader : public BaseShader
 {
 public:
     int x, y, width, height;
     int zoom_x, zoom_y;
 
     ZoomOffsetShader()
-    : GLSLShader(SHADER_ZOOMOFFSET)
+    : BaseShader(SHADER_ZOOMOFFSET)
     {
     }
 
@@ -533,7 +530,7 @@ public:
     }
 };
 
-class GradientShader : public GLSLShader
+class GradientShader : public BaseShader
 {
 public:
     int a_rgb, b_rgb;
@@ -542,7 +539,7 @@ public:
     int t, f, r, mask;
 
     GradientShader()
-    : GLSLShader(SHADER_GRADIENT)
+    : BaseShader(SHADER_GRADIENT)
     {
     }
 
@@ -577,13 +574,13 @@ public:
     }
 };
 
-class OverlayAlphaShader : public GLSLShader
+class OverlayAlphaShader : public BaseShader
 {
 public:
     int alpha;
 
     OverlayAlphaShader()
-    : GLSLShader(SHADER_OVERLAYALPHA, SHADER_HAS_BACK)
+    : BaseShader(SHADER_OVERLAYALPHA, SHADER_HAS_BACK)
     {
     }
 
@@ -598,13 +595,13 @@ public:
     }
 };
 
-class LensShader : public GLSLShader
+class LensShader : public BaseShader
 {
 public:
     int coeff, base;
 
     LensShader()
-    : GLSLShader(SHADER_LENS, SHADER_HAS_BACK)
+    : BaseShader(SHADER_LENS, SHADER_HAS_BACK)
     {
     }
 
@@ -621,14 +618,14 @@ public:
     }
 };
 
-class ColDirBlurShader : public GLSLShader
+class ColDirBlurShader : public BaseShader
 {
 public:
     int rr, rg, rb, gr, gg, gb, br, bg, bb;
     int angle, coeff;
 
     ColDirBlurShader()
-    : GLSLShader(SHADER_COLDIRBLUR, SHADER_HAS_BACK)
+    : BaseShader(SHADER_COLDIRBLUR, SHADER_HAS_BACK)
     {
     }
 
@@ -663,7 +660,7 @@ public:
     }
 };
 
-class PerspectiveShader : public GLSLShader
+class PerspectiveShader : public BaseShader
 {
 public:
     int effect;
@@ -672,7 +669,7 @@ public:
     int sine_waves;
 
     PerspectiveShader()
-    : GLSLShader(SHADER_PERSPECTIVE, SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_PERSPECTIVE, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -697,7 +694,7 @@ public:
     }
 };
 
-class NinePatchShader : public GLSLShader
+class NinePatchShader : public BaseShader
 {
 public:
     int x_scale, y_scale;
@@ -705,7 +702,7 @@ public:
     int coeff, offset, fade;
 
     NinePatchShader()
-    : GLSLShader(SHADER_9G, SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_9G, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -736,13 +733,13 @@ public:
     }
 };
 
-class PixelOutlineShader : public GLSLShader
+class PixelOutlineShader : public BaseShader
 {
 public:
     int color;
 
     PixelOutlineShader()
-    : GLSLShader(SHADER_PIXELOUTLINE, SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_PIXELOUTLINE, SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -757,13 +754,13 @@ public:
     }
 };
 
-class BrightSatBgShader : public GLSLShader
+class BrightSatBgShader : public BaseShader
 {
 public:
     int brightness, saturation;
 
     BrightSatBgShader()
-    : GLSLShader(SHADER_BRIGHTSATBG, SHADER_HAS_BACK)
+    : BaseShader(SHADER_BRIGHTSATBG, SHADER_HAS_BACK)
     {
     }
 
@@ -780,13 +777,13 @@ public:
     }
 };
 
-class BgBlurShader : public GLSLShader
+class BgBlurShader : public BaseShader
 {
 public:
     int x, y, alpha;
 
     BgBlurShader()
-    : GLSLShader(SHADER_BGBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
+    : BaseShader(SHADER_BGBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
     {
     }
 
@@ -806,103 +803,62 @@ public:
 };
 
 #ifndef CHOWDREN_USE_GL
-class BasicShader : public GLSLShader
+class BasicShader : public BaseShader
 {
 public:
     BasicShader()
-    : GLSLShader(SHADER_BASIC, false)
+    : BaseShader(SHADER_BASIC, false)
     {
     }
 };
 
-class TextureShader : public GLSLShader
+class TextureShader : public BaseShader
 {
 public:
     TextureShader()
-    : GLSLShader(SHADER_TEXTURE, false)
+    : BaseShader(SHADER_TEXTURE, false)
     {
     }
 };
 #endif
 
-// XXX make these static variables
-Shader * subtract_shader;
-Shader * additive_shader;
-Shader * monochrome_shader;
-Shader * mixer_shader;
-Shader * hue_shader;
-Shader * dummy_shader;
-Shader * blend_shader;
-Shader * offset_shader;
-Shader * dodgeblur_shader;
-Shader * invert_shader;
-Shader * grain_shader;
-Shader * multiply_shader;
-Shader * hardlight_shader;
-Shader * tint_shader;
-Shader * channelblur_shader;
-Shader * bgbloom_shader;
-Shader * underwater_shader;
-Shader * rotatesub_shader;
-Shader * simplemask_shader;
-Shader * offsetstationary_shader;
-Shader * patternoverlay_shader;
-Shader * subpx_shader;
-Shader * zoomoffset_shader;
-Shader * gradient_shader;
-Shader * overlayalpha_shader;
-Shader * lens_shader;
-Shader * coldirblur_shader;
-Shader * ninepatch_shader;
-Shader * pixeloutline_shader;
-Shader * brightsatbg_shader;
-Shader * bgblur_shader;
+SubtractShader subtract_shader;
+AdditiveShader additive_shader;
+MonochromeShader monochrome_shader;
+MixerShader mixer_shader;
+HueShader hue_shader;
+OffsetShader offset_shader;
+DodgeBlurShader dodgeblur_shader;
+InvertShader invert_shader;
+GrainShader grain_shader;
+MultiplyShader multiply_shader;
+HardLightShader hardlight_shader;
+TintShader tint_shader;
+ChannelBlurShader channelblur_shader;
+BgBloomShader bgbloom_shader;
+UnderwaterShader underwater_shader;
+RotateSubShader rotatesub_shader;
+SimpleMaskShader simplemask_shader;
+OffsetStationaryShader offsetstationary_shader;
+PatternOverlayShader patternoverlay_shader;
+SubPxShader subpx_shader;
+ZoomOffsetShader zoomoffset_shader;
+GradientShader gradient_shader;
+OverlayAlphaShader overlayalpha_shader;
+LensShader lens_shader;
+ColDirBlurShader coldirblur_shader;
+NinePatchShader ninepatch_shader;
+PixelOutlineShader pixeloutline_shader;
+BrightSatBgShader brightsatbg_shader;
+BgBlurShader bgblur_shader;
 
 // extension shaders
-Shader * perspective_shader;
+PerspectiveShader perspective_shader;
 
 // system shaders
-#ifndef CHOWDREN_USE_GL
-Shader * basic_shader;
-Shader * texture_shader;
-#endif
+BasicShader basic_shader;
+TextureShader texture_shader;
 
 void init_shaders()
 {
-#ifndef CHOWDREN_USE_GL
-    basic_shader = new BasicShader;
-    texture_shader = new TextureShader;
-#endif
-    subtract_shader = new SubtractShader;
-    additive_shader = new AdditiveShader;
-    monochrome_shader = new MonochromeShader;
-    mixer_shader = new MixerShader;
-    hue_shader = new HueShader;
-    dummy_shader = new Shader;
-    blend_shader = new Shader;
-    offset_shader = new OffsetShader;
-    dodgeblur_shader = new DodgeBlurShader;
-    invert_shader = new InvertShader;
-    grain_shader = new GrainShader;
-    multiply_shader = new MultiplyShader;
-    hardlight_shader = new HardLightShader;
-    tint_shader = new TintShader;
-    channelblur_shader = new ChannelBlurShader;
-    bgbloom_shader = new BgBloomShader;
-    underwater_shader = new UnderwaterShader;
-    rotatesub_shader = new RotateSubShader;
-    simplemask_shader = new SimpleMaskShader;
-    offsetstationary_shader = new OffsetStationaryShader;
-    patternoverlay_shader = new PatternOverlayShader;
-    subpx_shader = new SubPxShader;
-    zoomoffset_shader = new ZoomOffsetShader;
-    gradient_shader = new GradientShader;
-    overlayalpha_shader = new OverlayAlphaShader;
-    lens_shader = new LensShader;
-    coldirblur_shader = new ColDirBlurShader;
-    perspective_shader = new PerspectiveShader;
-    ninepatch_shader = new NinePatchShader;
-    pixeloutline_shader = new PixelOutlineShader;
-    brightsatbg_shader = new BrightSatBgShader;
-    bgblur_shader = new BgBlurShader;
 }

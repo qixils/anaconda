@@ -41,13 +41,8 @@ void SurfaceObject::draw()
         vector<SurfaceQuad>::const_iterator it;
         for (it = quads.begin(); it != quads.end(); it++) {
             const SurfaceQuad & quad = *it;
-            quad.color.apply();
-
-            glBegin(GL_QUADS);
-            for (int i = 0; i < 4; i++) {
-                glVertex2f(quad.points[i].x + x, quad.points[i].y + y);
-            }
-            glEnd();
+            int * p = (int*)&quad.points[0];
+            Render::draw_quad(p, quad.color);
         }
 
         end_draw();
@@ -67,21 +62,11 @@ void SurfaceObject::draw()
     if (use_fbo_blit) {
         surface_fbo.bind();
 
-        glViewport(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+        int old_offset[2] = Render::offset;
+        Render::set_view(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
+        Render::set_offset(0, 0);
+        Render::clear(clear_color);
 
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT, 0, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
-        clear_color.apply_clear_color();
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         vector<SurfaceBlit>::const_iterator it;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
@@ -99,11 +84,7 @@ void SurfaceObject::draw()
         }
         blit_images.clear();
 
-        glPopMatrix(); // restore MODELVIEW
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix(); // restore PROJECTION
-        glMatrixMode(GL_MODELVIEW);
-        glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
         surface_fbo.unbind();
 
         blend_color.apply();
@@ -113,97 +94,88 @@ void SurfaceObject::draw()
         if (shader != NULL)
             back_tex = shader->get_background_texture();
 
-        blend_color.apply();
         int x1 = x;
         int y1 = y;
         int x2 = x1 + SURFACE_FBO_WIDTH;
         int y2 = y1 + SURFACE_FBO_HEIGHT;
 
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, surface_fbo.get_tex());
-
-        if (back_tex != 0) {
-            glActiveTexture(GL_TEXTURE1);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, back_tex);
-        }
-
-        glBegin(GL_QUADS);
-        glTexCoord2f(back_texcoords[0], back_texcoords[1]);
-        if (back_tex != 0)
-            glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[0],
-                              back_texcoords[1]);
-        glVertex2i(x1, y1);
-        glTexCoord2f(back_texcoords[2], back_texcoords[3]);
-        if (back_tex != 0)
-            glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[2],
-                              back_texcoords[3]);
-        glVertex2i(x2, y1);
-        glTexCoord2f(back_texcoords[4], back_texcoords[5]);
-        if (back_tex != 0)
-            glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[4],
-                              back_texcoords[5]);
-        glVertex2i(x2, y2);
-        glTexCoord2f(back_texcoords[6], back_texcoords[7]);
-        if (back_tex != 0)
-            glMultiTexCoord2f(GL_TEXTURE1,
-                              back_texcoords[6],
-                              back_texcoords[7]);
-        glVertex2i(x1, y2);
-        glEnd();
-
-        if (back_tex != 0) {
-            glDisable(GL_TEXTURE_2D);
-            glActiveTexture(GL_TEXTURE0);
-        }
-
-        glDisable(GL_TEXTURE_2D);
+        Render::draw_tex(x1, y1, x2, y2, blend_color,
+                         surface_fbo.get_tex(),
+                         back_tex);
 
         end_draw();
         return;
     }
 
-    blend_color.apply();
-
     if (use_image_blit) {
-        int wrap_draws = 0;
         vector<SurfaceBlit>::const_iterator it;
         int display_width = displayed_image->width;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
+            Image * h = img.image;
 
             // XXX this is a hack, generalize it
             if (shader == subpx_shader)
-                img.image->set_filter(true);
+                h->set_filter(true);
+            h->upload_texture();
+            Texture t = h->tex;
 
-            begin_draw(img.image->width, img.image->height);
-            int off_x = x + img.image->hotspot_x * img.scale_x;
-            int off_y = y + img.image->hotspot_x * img.scale_x;
+            begin_draw(h->width, h->height);
+            int off_x = x + h->hotspot_x * img.scale_x;
+            int off_y = y + h->hotspot_x * img.scale_x;
             int draw_x = img.x + img.scroll_x;
             int draw_y = img.y + img.scroll_y;
 
-            img.image->draw(draw_x + off_x, draw_y + off_y, 0.0,
-                            img.scale_x, img.scale_y);
+            int w = h->width * img.scale_x;
+            int h = h->height * img.scale_y;
+
+            Render::draw_tex(draw_x + off_x, draw_y + off_y, 
+                             draw_x + off_x + w, draw_y + off_y + h,
+                             blend_color, t);
 
             for (int i = -1; i <= 1; i += 2) {
                 int x1 = draw_x + display_width * i;
                 int y1 = draw_y;
-                int x2 = x1 + img.image->width;
+                int x2 = x1 + h->width;
                 if (x1 >= 0 && x2 <= display_width)
                     continue;
                 if (x1 >= display_width || x2 <= 0)
                     continue;
-                img.image->draw(x1 + off_x, y1 + off_y, 0.0,
-                                img.scale_x, img.scale_y);
-                wrap_draws++;
+                int xx1 = x1 + off_x;
+                int yy1 = y1 + off_y;
+                Render::draw_tex(xx1, yy1, xx1 + w, yy1 + h, blend_color, t);
             }
             end_draw();
         }
     } else {
-        displayed_image->draw(this, x, y);
+        if (displayed_image->handle == NULL)
+            return;
+
+        SurfaceImage & m = *displayed_image;
+        Image * h = m.handle;
+
+        int w = h->width;
+        int h = h->height;
+        float scale_x = m.width / float(w);
+        float scale_y = m.height / float(h);
+
+        Render::enable_scissor(x, y,
+                               get_display_width(), get_display_height());
+
+        if ((scroll_x == 0 && scroll_y == 0) || !wrap) {
+            draw_image(h, x + scroll_x, y + scroll_y, blend_color,
+                       0.0, scale_x, scale_y, has_reverse_x);
+        } else {
+            int start_x = x - (h->width - scroll_x);
+            int start_y = y - (h->height - scroll_y);
+            for (int xx = start_x; xx < x + m.canvas_width; xx += w)
+            for (int yy = start_y; yy < y + m.canvas_height; yy += h) {
+                draw_image(h, xx, yy, blend_color,
+                           0.0, 1.0, 1.0, has_reverse_x);
+            }
+        }
+
+        Render::disable_scissor();
     }
 }
 
@@ -582,28 +554,3 @@ void SurfaceImage::set_image(Image * image)
 	}
 }
 
-void SurfaceImage::draw(FrameObject * instance, int x, int y)
-{
-    if (handle == NULL)
-        return;
-
-    double scale_x = width / double(handle->width);
-    double scale_y = height / double(handle->height);
-
-    glEnable(GL_SCISSOR_TEST);
-    glc_scissor_world(x, y, get_display_width(), get_display_height());
-
-    if ((scroll_x == 0 && scroll_y == 0) || !wrap) {
-        instance->draw_image(handle, x + scroll_x, y + scroll_y, 0.0,
-                             scale_x, scale_y, has_reverse_x);
-    } else {
-        int start_x = x - (handle->width - scroll_x);
-        int start_y = y - (handle->height - scroll_y);
-        for (int xx = start_x; xx < x + canvas_width; xx += handle->width)
-        for (int yy = start_y; yy < y + canvas_height; yy += handle->height) {
-            instance->draw_image(handle, xx, yy, 0.0, 1.0, 1.0, has_reverse_x);
-        }
-    }
-
-    glDisable(GL_SCISSOR_TEST);
-}

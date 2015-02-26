@@ -106,20 +106,12 @@ void QuickBackdrop::draw()
 #endif
     } else {
         begin_draw();
-        glDisable(GL_TEXTURE_2D);
         int x1 = x;
         int y1 = y;
         int x2 = x + width;
         int y2 = y + height;
         if (outline > 0) {
-            glBegin(GL_QUADS);
-            glColor4ub(outline_color.r, outline_color.g, outline_color.b,
-                       blend_color.a);
-            glVertex2f(x1, y1);
-            glVertex2f(x2, y1);
-            glVertex2f(x2, y2);
-            glVertex2f(x1, y2);
-            glEnd();
+            Render::draw_quad(x1, y1, x2, y2, outline_color);
             x1 += outline;
             y1 += outline;
             x2 -= outline;

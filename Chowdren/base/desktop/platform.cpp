@@ -18,6 +18,7 @@
 #include <time.h>
 #include <boost/cstdint.hpp>
 #include "path.h"
+#include "render.h"
 
 #define CHOWDREN_EXTRA_BILINEAR
 
@@ -535,34 +536,17 @@ void platform_swap_buffers()
     screen_fbo.unbind();
 
     // resize the window contents if necessary (fullscreen mode)
-    glViewport(0, 0, window_width, window_height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_width, window_height, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLoadIdentity();
+    Render::set_view(0, 0, window_width, window_height);
+    Render::set_offset(0, 0);
+    Render::clear(0, 0, 0, 255);
 
     int x2 = draw_x_off + draw_x_size;
     int y2 = draw_y_off + draw_y_size;
 
-    glColor4f(1.0, 1.0, 1.0, 1.0);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, screen_fbo.get_tex());
     glDisable(GL_BLEND);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 1.0);
-    glVertex2i(draw_x_off, draw_y_off);
-    glTexCoord2f(1.0, 1.0);
-    glVertex2i(x2, draw_y_off);
-    glTexCoord2f(1.0, 0.0);
-    glVertex2i(x2, y2);
-    glTexCoord2f(0.0, 0.0);
-    glVertex2i(draw_x_off, y2);
-    glEnd();
+	Render::draw_tex(draw_x_off, draw_y_off, x2, y2, Color(255, 255, 255, 255),
+                     screen_fbo.get_tex());
     glEnable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
 
 #ifdef CHOWDREN_QUICK_SCALE
     if (draw_x_off != 0 || draw_y_off != 0) {
@@ -604,20 +588,10 @@ void platform_swap_buffers()
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, draw_x_off, draw_y_off,
                             draw_x_size, draw_y_size);
 
-        glColor4f(1.0, 1.0, 1.0, 1.0);
         glDisable(GL_BLEND);
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 1.0);
-        glVertex2i(draw_x_off2, draw_y_off2);
-        glTexCoord2f(1.0, 1.0);
-        glVertex2i(x2, draw_y_off2);
-        glTexCoord2f(1.0, 0.0);
-        glVertex2i(x2, y2);
-        glTexCoord2f(0.0, 0.0);
-        glVertex2i(draw_x_off2, y2);
-        glEnd();
+        Render::draw_tex(draw_x_off2, draw_y_off2, x2, y2,
+                         screen_fbo.get_tex());
         glEnable(GL_BLEND);
-        glDisable(GL_TEXTURE_2D);
     }
 #endif
 

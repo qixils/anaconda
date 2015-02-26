@@ -276,7 +276,7 @@ public:
     int id;
     Color blend_color;
     Frame * frame;
-    Shader * shader;
+    Render::Effect effect;
     ShaderParameters * shader_parameters;
     int movement_count;
     Movement ** movements;
@@ -313,7 +313,7 @@ public:
     void set_blend_color(int color);
     virtual void draw();
 #ifndef CHOWDREN_USE_DIRECT_RENDERER
-    void draw_image(Image * img, int x, int y, float angle = 0.0f,
+    void draw_image(Image * img, int x, int y, Color c, float angle = 0.0f,
                     float scale_x = 1.0f, float scale_y = 1.0f,
                     bool flip_x = false);
 #endif
@@ -325,7 +325,7 @@ public:
     bool mouse_over();
     bool overlaps(FrameObject * other);
     void set_layer(int layer);
-    void set_shader(Shader * shader);
+    void set_shader(Render::Effect effect);
     void set_shader_parameter(const std::string & name, double value);
     void set_shader_parameter(const std::string & name, Image & image);
     void set_shader_parameter(const std::string & name, const Color & color);

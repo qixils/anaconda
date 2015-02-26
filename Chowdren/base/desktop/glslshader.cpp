@@ -108,7 +108,7 @@ GLuint GLSLShader::get_background_texture()
     return background_texture;
 }
 
-bool GLSLShader::has_texture_param()
+GLuint GLSLShader::get_texture_param()
 {
     return texture_parameter != NULL;
 }

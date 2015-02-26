@@ -35,6 +35,8 @@ void convert_vec4(int value, float & a, float & b, float & c, float & d);
 class Shader
 {
 public:
+
+
     virtual void begin(FrameObject * instance, int width, int height) {}
     virtual void end(FrameObject * instance) {}
 
@@ -48,9 +50,9 @@ public:
         return 0;
     }
 
-    virtual bool has_texture_param()
+    virtual bool get_texture_param()
     {
-        return false;
+        return 0;
     }
 };
 

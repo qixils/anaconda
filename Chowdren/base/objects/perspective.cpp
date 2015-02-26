@@ -37,22 +37,11 @@ void PerspectiveObject::draw()
                                box[2], box[3]);
 
     begin_draw();
-
     glDisable(GL_BLEND);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glTexCoord2f(back_texcoords[0], back_texcoords[1]);
-    glVertex2d(x, y);
-    glTexCoord2f(back_texcoords[2], back_texcoords[3]);
-    glVertex2d(x + width, y);
-    glTexCoord2f(back_texcoords[4], back_texcoords[5]);
-    glVertex2d(x + width, y + height);
-    glTexCoord2f(back_texcoords[6], back_texcoords[7]);
-    glVertex2d(x, y + height);
-    glEnd();
-    glDisable(GL_TEXTURE_2D);
+    Render::draw_tex(x, y, x + width, y + height, Color(255, 255, 255, 255),
+                     texture,
+                     back_texcoords[0], back_texcoords[1],
+                     back_texcoords[4], back_texcoords[5]);
     glEnable(GL_BLEND);
     end_draw();
 }

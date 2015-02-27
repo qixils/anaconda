@@ -344,9 +344,9 @@ void platform_create_display(bool fullscreen)
     __glActiveTextureARB =
         (PFNGLACTIVETEXTUREARBPROC)
         SDL_GL_GetProcAddress("glActiveTextureARB");
-    __glMultiTexCoord2fARB =
-        (PFNGLMULTITEXCOORD2FARBPROC)
-        SDL_GL_GetProcAddress("glMultiTexCoord2fARB");
+    __glClientActiveTextureARB =
+        (PFNGLACTIVETEXTUREARBPROC)
+        SDL_GL_GetProcAddress("glClientActiveTextureARB");
 
     __glGenFramebuffersEXT =
         (PFNGLGENFRAMEBUFFERSEXTPROC)
@@ -543,10 +543,10 @@ void platform_swap_buffers()
     int x2 = draw_x_off + draw_x_size;
     int y2 = draw_y_off + draw_y_size;
 
-    glDisable(GL_BLEND);
+    Render::disable_blend();
 	Render::draw_tex(draw_x_off, draw_y_off, x2, y2, Color(255, 255, 255, 255),
                      screen_fbo.get_tex());
-    glEnable(GL_BLEND);
+    Render::enable_blend();
 
 #ifdef CHOWDREN_QUICK_SCALE
     if (draw_x_off != 0 || draw_y_off != 0) {
@@ -588,10 +588,10 @@ void platform_swap_buffers()
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, draw_x_off, draw_y_off,
                             draw_x_size, draw_y_size);
 
-        glDisable(GL_BLEND);
+        Render::disable_blend();
         Render::draw_tex(draw_x_off2, draw_y_off2, x2, y2,
                          screen_fbo.get_tex());
-        glEnable(GL_BLEND);
+        Render::enable_blend();
     }
 #endif
 

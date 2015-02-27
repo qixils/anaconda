@@ -10,10 +10,6 @@
 #include "chowconfig.h"
 #include <boost/dynamic_bitset.hpp>
 
-const std::string & get_image_path();
-void set_image_path(const std::string & path);
-void initialize_images();
-
 extern const float normal_texcoords[8];
 extern const float back_texcoords[8];
 
@@ -61,8 +57,7 @@ public:
     void upload_texture();
     void draw(int x, int y, Color color, float angle = 0.0f,
               float scale_x = 1.0f, float scale_y = 1.0f,
-              bool flip_x = false, GLuint back = 0,
-              GLuint tex_param = 0);
+              bool flip_x = false);
     void draw(int x, int y, int src_x, int src_y, int w, int h, Color color);
     bool is_valid();
     void unload();

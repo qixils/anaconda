@@ -88,11 +88,6 @@ struct BaseColor
         set(color.r, color.g, color.b, color.a);
     }
 
-    void apply() const
-    {
-        glColor4ub(r, g, b, a);
-    }
-
     void set_alpha_coefficient(int a)
     {
         set_alpha(255 - a);

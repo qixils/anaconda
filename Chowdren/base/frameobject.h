@@ -275,8 +275,8 @@ public:
     int direction;
     int id;
     Color blend_color;
+	int effect;
     Frame * frame;
-    Render::Effect effect;
     ShaderParameters * shader_parameters;
     int movement_count;
     Movement ** movements;
@@ -325,7 +325,7 @@ public:
     bool mouse_over();
     bool overlaps(FrameObject * other);
     void set_layer(int layer);
-    void set_shader(Render::Effect effect);
+    void set_shader(int effect);
     void set_shader_parameter(const std::string & name, double value);
     void set_shader_parameter(const std::string & name, Image & image);
     void set_shader_parameter(const std::string & name, const Color & color);

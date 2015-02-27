@@ -71,15 +71,17 @@ void SurfaceObject::draw()
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
             if (img.effect == 11) {
-                glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
-                glBlendFunc(GL_ONE, GL_ONE);
+                Render::set_effect(Render::Effect::SURFACESUBTRACT);
+                // glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+                // glBlendFunc(GL_ONE, GL_ONE);
             }
             int draw_x = img.x + img.image->hotspot_x * img.scale_x;
             int draw_y = img.y + img.image->hotspot_y * img.scale_y;
             img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
             if (img.effect == 11) {
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                glBlendEquation(GL_FUNC_ADD);
+                Render::disable_effect();
+                // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                // glBlendEquation(GL_FUNC_ADD);
             }
         }
         blit_images.clear();
@@ -90,18 +92,13 @@ void SurfaceObject::draw()
         blend_color.apply();
         begin_draw(SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
 
-        GLuint back_tex = 0;
-        if (shader != NULL)
-            back_tex = shader->get_background_texture();
-
         int x1 = x;
         int y1 = y;
         int x2 = x1 + SURFACE_FBO_WIDTH;
         int y2 = y1 + SURFACE_FBO_HEIGHT;
 
         Render::draw_tex(x1, y1, x2, y2, blend_color,
-                         surface_fbo.get_tex(),
-                         back_tex);
+                         surface_fbo.get_tex());
 
         end_draw();
         return;

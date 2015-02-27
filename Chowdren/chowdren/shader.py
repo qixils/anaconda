@@ -28,7 +28,7 @@ NATIVE_SHADERS = {
     'DodgeBlur.fx' : 'dodgeblur',
     'Mono' : 'monochrome',
     'Monochrome' : 'monochrome',
-    'Blend' : 'blend',
+    'Blend' : None,
     'Subtract' : 'subtract',
     'MonoExample.fx' : 'monochrome',
     'HardMix.fx' : None,
@@ -71,61 +71,6 @@ NATIVE_SHADERS = {
     'AND' : None,
     'OR' : None
 }
-
-PARAMETERS = set([
-    # mixer_shader
-    'r', 'g', 'b',
-    # hue_shader
-    'fHue',
-    # offset_shader
-    'width', 'height',
-    # dodgeblur_shader
-    'vertical', 'radius',
-    # grain_shader
-    'fStrength', 'fSeed', 'iInvert', 'iR', 'iG', 'iB', 'iA',
-    # tint_shader
-    'fTintColor', 'fTintPower', 'fOriginalPower',
-    # channelblur_shader
-    'fCoeff', 'iR', 'iG', 'iB', 'iA',
-    # bgbloom_shader
-    'coeff', 'exponent', 'radius',
-    # underwater_shader
-    'fBlur', 'fAmplitudeX', 'fPeriodsX', 'fFreqX', 'fAmplitudeY', 'fPeriodsY',
-    'fFreqY',
-    # rotatesub_shader
-    'fA', 'fX', 'fY', 'fSx', 'fSy',
-    # simplemask_shader
-    'fFade', 'fC',
-    # offsetstationary_shader
-    'width', 'height', 'xoff', 'yoff',
-    # patternoverlay_shader
-    'pattern', 'width', 'height', 'x', 'y', 'alpha',
-    # subpx_shader
-    'x', 'y', 'limit',
-    # zoomoffset_shader
-    'fX', 'fY', 'fZoomX', 'fZoomY', 'fWidth', 'fHeight',
-    # gradient_shader
-    'fArgb', 'fAa', 'fBrgb', 'fBa', 'fCoeff', 'fOffset', 'fFade', 'iT', 'iF',
-    'iR', 'iMask',
-    # overlayalpha_shader
-    'bgA',
-    # lens_shader
-    'fCoeff', 'fBase',
-    # coldirblur_shader
-    'rr', 'rg', 'rb', 'gr', 'gg', 'gb', 'br', 'bg', 'bb', 'fAngle', 'fCoeff',
-    # perspective_shader
-    'effect', 'direction', 'zoom', 'offset', 'sine_waves',
-    # 'perspective_dir',
-    # ninepatch_shader
-    'xScale', 'yScale', 'fArgb', 'fAa', 'fBrgb', 'fBa', 'fCoeff', 'fOffset',
-    'fFade',
-    # pixeloutline_shader
-    'color',
-    # brightsatbg_shader
-    'Brightness', 'Saturation',
-    # bgblur_shader
-    'fX', 'fY', 'fA'
-])
 
 def get_name(name):
     name = NATIVE_SHADERS[name]

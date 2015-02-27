@@ -4,11 +4,14 @@
 
 typedef unsigned int Texture;
 
+class FrameObject;
+
 class Render
 {
 public:
     enum Effect
     {
+        // application effects
         NONE = 0,
         MONOCHROME,
         ZOOMOFFSET,
@@ -36,13 +39,17 @@ public:
         BGBLUR,
         PATTERNOVERLAY,
         BGBLOOM,
-        BLEND,
         ADDITIVE,
         OFFSET,
-        MIXER
+        MIXER,
+
+        // internal effects
+        SURFACESUBTRACT
     };
 
     static int offset[2];
+
+    static void init();
 
     static void set_view(int x, int y, int w, int h);
     static void set_offset(int x1, int y1);
@@ -56,14 +63,10 @@ public:
 
     static void draw_tex(int x1, int y1, int x2, int y2, Color color,
                          Texture tex);
-    static void draw_tex(float * p, Color color, Texture tex, Texture back_tex,
-                         Texture param_tex);
+    static void draw_tex(float * p, Color color, Texture tex);
     static void draw_tex(int x1, int y1, int x2, int y2, Color color,
                          Texture tex,
                          float tx1, float ty1, float tx2, float ty2);
-    static void draw_tex(int x1, int y1, int x2, int y2, Color color,
-                         Texture tex, Texture back_tex);
-    static void draw_tex(int x1, int y1, int x2, int y2, Color color);
     static void clear(Color color);
 
     static void enable_scissor(int x, int y, int w, int h);
@@ -75,9 +78,12 @@ public:
     }
 
     static void set_effect(Effect effect);
-    static void set_effect(Effect effect, int width, int height,
-                           FrameObject * obj);
+    static void set_effect(Effect effect, FrameObject * obj,
+                           int width, int height);
     static void disable_effect();
+
+    static void enable_blend();
+    static void disable_blend();
 
     static Texture copy_rect(int x1, int y1, int x2, int y2);
 

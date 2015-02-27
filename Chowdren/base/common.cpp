@@ -1223,25 +1223,34 @@ FrameObject::~FrameObject()
 void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
                              float x_scale, float y_scale, bool flip_x)
 {
-    Render::set_effect(effect, width, height, this);
-    img->draw(x, y, c, angle, x_scale, y_scale, flip_x, back_tex,
-              tex_param);
+    if (effect == Render::Effect::NONE) {
+        img->draw(x, y, c, angle, x_scale, y_scale, flip_x);
+        return;
+    }
+    Render::set_effect((Render::Effect)effect, this, width, height);
+    img->draw(x, y, c, angle, x_scale, y_scale, flip_x);
     Render::disable_effect();
 }
 #endif
 
 void FrameObject::begin_draw(int width, int height)
 {
-    Render::set_effect(effect, width, height, this);
+    if (effect == Render::Effect::NONE)
+        return;
+	Render::set_effect((Render::Effect)effect, this, width, height);
 }
 
 void FrameObject::begin_draw()
 {
-    Render::set_effect(effect, width, height, this);
+    if (effect == Render::Effect::NONE)
+        return;
+    Render::set_effect((Render::Effect)effect, this, width, height);
 }
 
 void FrameObject::end_draw()
 {
+    if (effect == Render::Effect::NONE)
+        return;
     Render::disable_effect();
 }
 
@@ -1491,7 +1500,7 @@ int FrameObject::get_box_index(int index)
     return ret;
 }
 
-void FrameObject::set_shader(Render::Effect value)
+void FrameObject::set_shader(int value)
 {
     if (shader_parameters == NULL)
         shader_parameters = new ShaderParameters;

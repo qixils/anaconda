@@ -37,12 +37,12 @@ void PerspectiveObject::draw()
                                box[2], box[3]);
 
     begin_draw();
-    glDisable(GL_BLEND);
+    Render::disable_blend();
     Render::draw_tex(x, y, x + width, y + height, Color(255, 255, 255, 255),
                      texture,
                      back_texcoords[0], back_texcoords[1],
                      back_texcoords[4], back_texcoords[5]);
-    glEnable(GL_BLEND);
+    Render::enable_blend();
     end_draw();
 }
 

@@ -1,10 +1,10 @@
-#include "shader.h"
+#include "shadercommon.h"
+#include "glslshader.h"
 #include "frameobject.h"
 #include "manager.h"
 #include "chowconfig.h"
 #include "fileio.h"
 #include "image.h"
-#include "glslshader.h"
 #include "collision.h"
 #include "datastream.h"
 #include "assetfile.h"
@@ -28,9 +28,9 @@ static void initialize_background()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
-GLSLShader * GLSLShader::current = NULL;
+BaseShader * BaseShader::current = NULL;
 
-GLSLShader::GLSLShader(unsigned int id, int flags,
+BaseShader::BaseShader(unsigned int id, int flags,
                        const char * texture_parameter)
 : initialized(false), id(id), flags(flags),
   texture_parameter(texture_parameter)
@@ -39,7 +39,7 @@ GLSLShader::GLSLShader(unsigned int id, int flags,
 
 static AssetFile fp;
 
-void GLSLShader::initialize()
+void BaseShader::initialize()
 {
     if (!fp.is_open())
         fp.open();
@@ -97,23 +97,11 @@ void GLSLShader::initialize()
     initialized = true;
 }
 
-void GLSLShader::initialize_parameters()
+void BaseShader::initialize_parameters()
 {
 }
 
-GLuint GLSLShader::get_background_texture()
-{
-    if (!(flags & SHADER_HAS_BACK))
-        return 0;
-    return background_texture;
-}
-
-GLuint GLSLShader::get_texture_param()
-{
-    return texture_parameter != NULL;
-}
-
-GLuint GLSLShader::attach_source(FSFile & fp, GLenum type)
+GLuint BaseShader::attach_source(FSFile & fp, GLenum type)
 {
     GLuint shader = glCreateShader(type);
 
@@ -143,7 +131,7 @@ GLuint GLSLShader::attach_source(FSFile & fp, GLenum type)
     return shader;
 }
 
-void GLSLShader::begin(FrameObject * instance, int width, int height)
+void BaseShader::begin(FrameObject * instance, int width, int height)
 {
     if (!initialized)
         initialize();
@@ -160,35 +148,28 @@ void GLSLShader::begin(FrameObject * instance, int width, int height)
     if (flags & SHADER_HAS_TEX_SIZE)
         glUniform2f(size_uniform, 1.0f / width, 1.0f / height);
 
-    set_parameters(instance);
-
     current = this;
 }
 
-void GLSLShader::set_parameters(FrameObject * instance)
-{
-
-}
-
-void GLSLShader::end(FrameObject * instance)
+void BaseShader::end(FrameObject * instance)
 {
     current = NULL;
 
     glUseProgram(0);
 }
 
-void GLSLShader::set_int(FrameObject * instance, int src, int uniform)
+void BaseShader::set_int(FrameObject * instance, int src, int uniform)
 {
     int val = (int)instance->get_shader_parameter(src);
     glUniform1i((GLint)uniform, val);
 }
 
-void GLSLShader::set_float(FrameObject * instance, int src, int uniform)
+void BaseShader::set_float(FrameObject * instance, int src, int uniform)
 {
     glUniform1f((GLint)uniform, instance->get_shader_parameter(src));
 }
 
-void GLSLShader::set_vec4(FrameObject * instance, int src, int uniform)
+void BaseShader::set_vec4(FrameObject * instance, int src, int uniform)
 {
     int val = (int)instance->get_shader_parameter(src);
     float a, b, c, d;
@@ -196,7 +177,22 @@ void GLSLShader::set_vec4(FrameObject * instance, int src, int uniform)
     glUniform4f((GLint)uniform, a, b, c, d);
 }
 
-int GLSLShader::get_uniform(const char * value)
+int BaseShader::get_uniform(const char * value)
 {
     return glGetUniformLocation(program, value);
 }
+
+#define EQ_REVERSE_SUBTRACT GL_FUNC_REVERSE_SUBTRACT
+#define EQ_ADD GL_FUNC_ADD
+
+#define FUNC_DST_COLOR GL_DST_COLOR
+#define FUNC_ONE GL_ONE
+#define FUNC_SRC_ALPHA GL_SRC_ALPHA
+#define FUNC_ONE_MINUS_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+
+#define set_blend_eqs(a, b) glBlendEquationSeparate(a, b)
+#define set_blend_eq(a) glBlendEquation(a)
+#define set_blend_func(a, b) glBlendFunc(a, b)
+#define commit_parameters(x)
+
+#include "shadercommon.cpp"

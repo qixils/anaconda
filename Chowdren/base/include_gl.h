@@ -9,7 +9,7 @@ extern PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
 extern PFNGLBLENDEQUATIONEXTPROC __glBlendEquationEXT;
 extern PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
 extern PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
-extern PFNGLMULTITEXCOORD2FARBPROC __glMultiTexCoord2fARB;
+extern PFNGLCLIENTACTIVETEXTUREARBPROC __glClientActiveTextureARB;
 extern PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
 extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
 extern PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
@@ -77,7 +77,7 @@ void glc_set_depth(GLfloat depth);
 #define glBlendEquationSeparate __glBlendEquationSeparateEXT
 #define glBlendFuncSeparate __glBlendFuncSeparateEXT
 #define glActiveTexture __glActiveTextureARB
-#define glMultiTexCoord2f __glMultiTexCoord2fARB
+#define glClientActiveTexture __glActiveTextureARB
 #define glGenFramebuffers __glGenFramebuffersEXT
 #define glBindFramebuffer __glBindFramebufferEXT
 #define glFramebufferTexture2D __glFramebufferTexture2DEXT

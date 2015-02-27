@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <string.h>
 #include "stringcommon.h"
-#include "shader.h"
 #include "datastream.h"
 #include <ctype.h>
 #include "globals.h"

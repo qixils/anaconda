@@ -294,7 +294,7 @@ const float back_texcoords[8] = {
 
 void Image::draw(int x, int y, Color color,
                  float angle, float scale_x, float scale_y,
-                 bool flip_x, GLuint background, GLuint tex_param)
+                 bool flip_x)
 {
     if (tex == 0) {
         upload_texture();
@@ -354,7 +354,7 @@ void Image::draw(int x, int y, Color color,
 //     }
 // #endif
 
-    Render::draw_tex(&p[0], color, tex, background, tex_param);
+    Render::draw_tex(&p[0], color, tex);
 }
 
 void Image::draw(int x, int y, int src_x, int src_y, int w, int h, Color c)

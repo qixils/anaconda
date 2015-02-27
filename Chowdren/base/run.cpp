@@ -129,10 +129,7 @@ void GameManager::set_window(bool fullscreen)
     platform_create_display(fullscreen);
 
     // OpenGL init
-    glc_init();
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    init_shaders();
+    Render::init();
 
 #ifdef CHOWDREN_VSYNC
     platform_set_vsync(true);

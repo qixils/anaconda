@@ -41,7 +41,7 @@ PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
 PFNGLBLENDEQUATIONEXTPROC __glBlendEquationEXT;
 PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
 PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
-PFNGLMULTITEXCOORD2FARBPROC __glMultiTexCoord2fARB;
+PFNGLCLIENTACTIVETEXTUREARBPROC __glClientActiveTextureARB;
 PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
 PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
 PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
@@ -544,7 +544,7 @@ void platform_swap_buffers()
     int y2 = draw_y_off + draw_y_size;
 
     Render::disable_blend();
-	Render::draw_tex(draw_x_off, draw_y_off, x2, y2, Color(255, 255, 255, 255),
+	Render::draw_tex(draw_x_off, y2, x2, draw_y_off, Color(255, 255, 255, 255),
                      screen_fbo.get_tex());
     Render::enable_blend();
 
@@ -576,7 +576,6 @@ void platform_swap_buffers()
         } else {
             glBindTexture(GL_TEXTURE_2D, scaletex);
         }
-        glEnable(GL_TEXTURE_2D);
         static int last_x = -1;
         static int last_y = -1;
         if (last_x != draw_x_size || last_y != draw_y_size) {
@@ -589,8 +588,9 @@ void platform_swap_buffers()
                             draw_x_size, draw_y_size);
 
         Render::disable_blend();
-        Render::draw_tex(draw_x_off2, draw_y_off2, x2, y2,
-                         screen_fbo.get_tex());
+        Render::draw_tex(draw_x_off2, y2, x2, draw_y_off2,
+                         scaletex,
+                         0.0f, 1.0f, 1.0f, 0.0f);
         Render::enable_blend();
     }
 #endif

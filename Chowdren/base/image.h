@@ -56,8 +56,9 @@ public:
     void set_static();
     void upload_texture();
     void draw(int x, int y, Color color, float angle = 0.0f,
-              float scale_x = 1.0f, float scale_y = 1.0f,
-              bool flip_x = false);
+              float scale_x = 1.0f, float scale_y = 1.0f);
+    void draw_flip_x(int x, int y, Color color, float angle = 0.0f,
+                     float scale_x = 1.0f, float scale_y = 1.0f);
     void draw(int x, int y, int src_x, int src_y, int w, int h, Color color);
     bool is_valid();
     void unload();

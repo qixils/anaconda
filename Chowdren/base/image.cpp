@@ -293,8 +293,7 @@ const float back_texcoords[8] = {
 #endif
 
 void Image::draw(int x, int y, Color color,
-                 float angle, float scale_x, float scale_y,
-                 bool flip_x)
+                 float angle, float scale_x, float scale_y)
 {
     if (tex == 0) {
         upload_texture();
@@ -304,12 +303,15 @@ void Image::draw(int x, int y, Color color,
     }
 
     if (angle == 0.0f && scale_x == 1.0f && scale_y == 1.0f) {
-        Render::draw_tex(x, y, x + width, y + height, color, tex);
+        int xx = x - hotspot_x;
+        int yy = y - hotspot_y;
+        Render::draw_tex(xx, yy, xx + width, yy + height, color, tex);
         return;
     }
 
-    float c = cos(rad(angle));
-    float s = sin(rad(angle));
+    float r = rad(angle);
+    float c = cos(r);
+    float s = sin(r);
 
     float x1 = -hotspot_x * scale_x;
     float y1 = -hotspot_y * scale_y;
@@ -328,32 +330,53 @@ void Image::draw(int x, int y, Color color,
     float p[8] = {
         x1c + y1s + x, x1s + y1c + y,
         x2c + y1s + x, x2s + y1c + y,
-        x1c + y2s + x, x1s + y2c + y,
-        x2c + y2s + x, x2s + y2c + y
+        x2c + y2s + x, x2s + y2c + y,
+        x1c + y2s + x, x1s + y2c + y
     };
+    Render::draw_tex(&p[0], color, tex);
+}
 
-// #ifdef CHOWDREN_NO_NPOT
-//     const float * src_tc;
-//     if (flip_x)
-//         src_tc = flipped_texcoords;
-//     else
-//         src_tc = normal_texcoords;
-//     float tex_coords[8];
-//     float u = float(width) / float(pot_w);
-//     float v = float(height) / float(pot_h);
-//     for (int i = 0; i < 8; i += 2) {
-//         tex_coords[i] = src_tc[i] * u;
-//         tex_coords[i+1] = src_tc[i+1] * v;
-//     }
-// #else
-//     const float * tex_coords;
-//     if (flip_x) {
-//         tex_coords = flipped_texcoords;
-//     } else {
-//         tex_coords = normal_texcoords;
-//     }
-// #endif
+void Image::draw_flip_x(int x, int y, Color color,
+                        float angle, float scale_x, float scale_y)
+{
+    if (tex == 0) {
+        upload_texture();
 
+        if (tex == 0)
+            return;
+    }
+
+    if (angle == 0.0f && scale_x == 1.0f && scale_y == 1.0f) {
+        int xx = x - hotspot_x;
+        int yy = y - hotspot_y;
+        Render::draw_tex(xx + width, yy, xx, yy + height, color, tex);
+        return;
+    }
+
+    float r = rad(angle);
+    float c = cos(r);
+    float s = sin(r);
+
+    float x2 = -hotspot_x * scale_x;
+    float y1 = -hotspot_y * scale_y;
+    float x1 = (-hotspot_x + width) * scale_x;
+    float y2 = (-hotspot_y + height) * scale_y;
+    
+    float x1c = x1 * c;
+    float x1s = -x1 * s;
+    float y1c = y1 * c;
+    float y1s = y1 * s;
+    float x2c = x2 * c;
+    float x2s = -x2 * s;
+    float y2c = y2 * c;
+    float y2s = y2 * s;
+
+    float p[8] = {
+        x1c + y1s + x, x1s + y1c + y,
+        x2c + y1s + x, x2s + y1c + y,
+        x2c + y2s + x, x2s + y2c + y,
+        x1c + y2s + x, x1s + y2c + y
+    };
     Render::draw_tex(&p[0], color, tex);
 }
 

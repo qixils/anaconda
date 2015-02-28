@@ -153,27 +153,25 @@ shader_perspective.add_uniform('offset', 'float')
 shader_perspective.add_uniform('sine_waves', 'int')
 
 shader_9g = Shader('NinePatch', '9g', has_tex_size=True)
-shader_9g.add_uniform('x_scale', 'float')
-shader_9g.add_uniform('y_scale', 'float')
-shader_9g.add_uniform('color_1', 'vec4')
-shader_9g.add_uniform('alpha_1', 'float')
-shader_9g.add_uniform('color_2', 'vec4')
-shader_9g.add_uniform('alpha_2', 'float')
-shader_9g.add_uniform('offset', 'float')
+shader_9g.add_uniform('xScale', 'float')
+shader_9g.add_uniform('yScale', 'float')
+shader_9g.add_uniform('fArgb', 'vec4')
+shader_9g.add_uniform('fAa', 'float')
+shader_9g.add_uniform('fBrgb', 'vec4')
+shader_9g.add_uniform('fBa', 'float')
+shader_9g.add_uniform('fOffset', 'float')
 
 shader_pixeloutline = Shader('PixelOutline', 'pixeloutline', has_tex_size=True)
 shader_pixeloutline.add_uniform('color', 'vec4')
 
 shader_brightsatbg = Shader('BrightSatBg', 'brightsatbg', has_back=True)
-shader_brightsatbg.add_uniform('brightness', 'float')
-shader_brightsatbg.add_uniform('saturation', 'float')
+shader_brightsatbg.add_uniform('Brightness', 'float')
+shader_brightsatbg.add_uniform('Saturation', 'float')
 
 shader_bgblur = Shader('BgBlur', 'bgblur', has_back=True, has_tex_size=True)
-shader_bgblur.add_uniform('x', 'float')
-shader_bgblur.add_uniform('y', 'float')
-shader_bgblur.add_uniform('alpha', 'float')
-
-shader_basic = Shader('Basic', 'basic')
+shader_bgblur.add_uniform('fX', 'float')
+shader_bgblur.add_uniform('fY', 'float')
+shader_bgblur.add_uniform('fA', 'float')
 
 shader_texture = Shader('Texture', 'texture')
 
@@ -207,6 +205,5 @@ SHADERS = [
     shader_pixeloutline,
     shader_brightsatbg,
     shader_bgblur,
-    shader_basic,
     shader_texture
 ]

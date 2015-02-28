@@ -14,6 +14,8 @@ def write_shader_param():
     for shader in SHADERS:
         for param in shader.uniforms:
             parameters.append(param[0])
+        if shader.tex_param:
+            parameters.append(shader.tex_param)
     parameters = list(set(parameters))
 
     hash_data = get_hash_function('hash_shader_parameter', parameters,
@@ -85,6 +87,9 @@ def write_shaders():
             param = 'SHADER_PARAM_%s' % uniform[0].upper()
             code.putlnc('BaseShader::set_%s(instance, %s, %s);', uniform[1],
                         param, uniform[0])
+        if shader.tex_param:
+            param = 'SHADER_PARAM_%s' % shader.tex_param.upper()
+            code.putlnc('BaseShader::set_image(instance, %s);', param)
         code.end_brace()
 
         code.end_brace(True)

@@ -29,4 +29,7 @@ class FrameObject;
 
 void convert_vec4(int value, float & a, float & b, float & c, float & d);
 
+void shader_set_effect(int effect, FrameObject * obj, int width, int height);
+void shader_set_texture();
+
 #endif // CHOWDREN_SHADER_H

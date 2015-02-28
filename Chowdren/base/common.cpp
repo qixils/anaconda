@@ -751,10 +751,10 @@ void Layer::draw(int display_x, int display_y)
     }
 
     if (blend_color.r != 255 || blend_color.g != 255 || blend_color.b != 255) {
-        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        Render::set_effect(Render::Effect::LAYERCOLOR);
         Render::set_offset(0, 0);
         Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, blend_color);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        Render::disable_effect();
     }
 
     PROFILE_END();
@@ -1217,18 +1217,48 @@ FrameObject::~FrameObject()
 #endif
 }
 
-
-
 #ifndef CHOWDREN_USE_DIRECT_RENDERER
+void FrameObject::draw_image(Image * img, int x, int y, Color c)
+{
+    img->upload_texture();
+    int x1 = x - img->hotspot_x;
+    int y1 = y - img->hotspot_y;
+    int x2 = x1 + img->width;
+    int y2 = y1 + img->height;
+    if (effect == Render::Effect::NONE) {
+        Render::draw_tex(x1, y1, x2, y2, c, img->tex);
+        return;
+    }
+    Render::set_effect(effect, this, img->width, img->height);
+    Render::draw_tex(x1, y1, x2, y2, c, img->tex);
+    Render::disable_effect();
+}
+
+void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
+                             float x_scale, float y_scale)
+{
+    if (effect == Render::Effect::NONE) {
+        img->draw(x, y, c, angle, x_scale, y_scale);
+        return;
+    }
+    Render::set_effect(effect, this, img->width, img->height);
+    img->draw(x, y, c, angle, x_scale, y_scale);
+    Render::disable_effect();
+}
+
 void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
                              float x_scale, float y_scale, bool flip_x)
 {
-    if (effect == Render::Effect::NONE) {
-        img->draw(x, y, c, angle, x_scale, y_scale, flip_x);
+    if (!flip_x) {
+        draw_image(img, x, y, c, angle, x_scale, y_scale);
         return;
     }
-    Render::set_effect((Render::Effect)effect, this, width, height);
-    img->draw(x, y, c, angle, x_scale, y_scale, flip_x);
+    if (effect == Render::Effect::NONE) {
+        img->draw_flip_x(x, y, c, angle, x_scale, y_scale);
+        return;
+    }
+    Render::set_effect(effect, this, img->width, img->height);
+    img->draw_flip_x(x, y, c, angle, x_scale, y_scale);
     Render::disable_effect();
 }
 #endif
@@ -1237,14 +1267,14 @@ void FrameObject::begin_draw(int width, int height)
 {
     if (effect == Render::Effect::NONE)
         return;
-	Render::set_effect((Render::Effect)effect, this, width, height);
+	Render::set_effect(effect, this, width, height);
 }
 
 void FrameObject::begin_draw()
 {
     if (effect == Render::Effect::NONE)
         return;
-    Render::set_effect((Render::Effect)effect, this, width, height);
+    Render::set_effect(effect, this, width, height);
 }
 
 void FrameObject::end_draw()
@@ -1966,29 +1996,22 @@ FTTextureFont * get_font(int size)
 }
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color & color, Color & color2, int alpha)
+                   Color color, Color color2, int alpha)
 {
     switch (gradient_type) {
         case NONE_GRADIENT:
+            color.set_alpha(alpha);
             Render::draw_quad(x1, y1, x2, y2, color);
             break;
         case VERTICAL_GRADIENT:
+            color.set_alpha(alpha);
+            color2.set_alpha(alpha);
             Render::draw_vertical_gradient(x1, y1, x2, y2, color, color2);
-            // glColor4ub(color.r, color.g, color.b, alpha);
-            // glVertex2f(x1, y1);
-            // glVertex2f(x2, y1);
-            // glColor4ub(color2.r, color2.g, color2.b, alpha);
-            // glVertex2f(x2, y2);
-            // glVertex2f(x1, y2);
             break;
         case HORIZONTAL_GRADIENT:
+            color.set_alpha(alpha);
+            color2.set_alpha(alpha);
             Render::draw_horizontal_gradient(x1, y1, x2, y2, color, color2);
-            // glColor4ub(color.r, color.g, color.b, alpha);
-            // glVertex2f(x1, y2);
-            // glVertex2f(x1, y1);
-            // glColor4ub(color2.r, color2.g, color2.b, alpha);
-            // glVertex2f(x2, y1);
-            // glVertex2f(x2, y2);
             break;
     }
 }

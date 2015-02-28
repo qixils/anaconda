@@ -309,7 +309,7 @@ void GameManager::draw()
 #endif
     PROFILE_END();
 
-    glLoadIdentity();
+    Render::set_offset(0, 0);
 
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
@@ -407,6 +407,7 @@ static InstanceCount counts[MAX_OBJECT_ID];
 
 static void print_instance_stats()
 {
+    return;
     int count = 0;
     for (int i = 0; i < MAX_OBJECT_ID; i++) {
         int instance_count = manager.frame->instances.items[i].size();
@@ -493,7 +494,7 @@ void GameManager::map_axis(int axis,
 
 #endif
 
-// #define SHOW_STATS
+#define SHOW_STATS
 
 bool GameManager::update()
 {

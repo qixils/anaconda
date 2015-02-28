@@ -1,4 +1,5 @@
 #ifndef CHOWDREN_RENDER_H
+#define CHOWDREN_RENDER_H
 
 #include "color.h"
 
@@ -44,7 +45,8 @@ public:
         MIXER,
 
         // internal effects
-        SURFACESUBTRACT
+        SURFACESUBTRACT,
+        LAYERCOLOR
     };
 
     static int offset[2];
@@ -77,9 +79,9 @@ public:
         clear(Color(r, g, b, a));
     }
 
-    static void set_effect(Effect effect);
-    static void set_effect(Effect effect, FrameObject * obj,
+    static void set_effect(int effect, FrameObject * obj,
                            int width, int height);
+    static void set_effect(int effect);
     static void disable_effect();
 
     static void enable_blend();

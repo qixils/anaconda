@@ -69,8 +69,6 @@ void QuickBackdrop::draw()
         width -= align_pos(screen_x2 - WINDOW_WIDTH, image->width);
         height -= align_pos(screen_y2 - WINDOW_HEIGHT, image->height);
 
-        blend_color.apply();
-
 #ifdef CHOWDREN_IS_3DS
         image->upload_texture();
         // can't use scissor for stereo 3d
@@ -96,13 +94,12 @@ void QuickBackdrop::draw()
             image->height = image_height;
         }
 #else
-        glEnable(GL_SCISSOR_TEST);
-        glc_scissor_world(x, y, width, height);
+		Render::enable_scissor(x, y, width, height);
         for (int xx = x; xx < x + width; xx += image->width)
         for (int yy = y; yy < y + height; yy += image->height) {
-            draw_image(image, xx + image->hotspot_x, yy + image->hotspot_y);
+            draw_image(image, xx + image->hotspot_x, yy + image->hotspot_y, blend_color);
         }
-        glDisable(GL_SCISSOR_TEST);
+		Render::disable_scissor();
 #endif
     } else {
         begin_draw();

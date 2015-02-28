@@ -281,7 +281,7 @@ void Active::draw()
         return;
     }
     Render::disable_blend();
-    draw_image(image, x, y, angle, x_scale, y_scale);
+    draw_image(image, x, y, blend_color, angle, x_scale, y_scale);
     Render::enable_blend();
 }
 

@@ -70,23 +70,18 @@ void SurfaceObject::draw()
         vector<SurfaceBlit>::const_iterator it;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
-            if (img.effect == 11) {
+            if (img.effect == 11)
                 Render::set_effect(Render::Effect::SURFACESUBTRACT);
-                // glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
-                // glBlendFunc(GL_ONE, GL_ONE);
-            }
             int draw_x = img.x + img.image->hotspot_x * img.scale_x;
             int draw_y = img.y + img.image->hotspot_y * img.scale_y;
             img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
-            if (img.effect == 11) {
+            if (img.effect == 11)
                 Render::disable_effect();
-                // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                // glBlendEquation(GL_FUNC_ADD);
-            }
         }
         blit_images.clear();
 
         Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        Render::set_offset(old_offset[0], old_offset[1]);
         surface_fbo.unbind();
 
         blend_color.apply();
@@ -101,6 +96,7 @@ void SurfaceObject::draw()
                          surface_fbo.get_tex());
 
         end_draw();
+
         return;
     }
 

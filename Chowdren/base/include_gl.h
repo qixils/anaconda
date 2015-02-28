@@ -77,7 +77,7 @@ void glc_set_depth(GLfloat depth);
 #define glBlendEquationSeparate __glBlendEquationSeparateEXT
 #define glBlendFuncSeparate __glBlendFuncSeparateEXT
 #define glActiveTexture __glActiveTextureARB
-#define glClientActiveTexture __glActiveTextureARB
+#define glClientActiveTexture __glClientActiveTextureARB
 #define glGenFramebuffers __glGenFramebuffersEXT
 #define glBindFramebuffer __glBindFramebufferEXT
 #define glFramebufferTexture2D __glFramebufferTexture2DEXT

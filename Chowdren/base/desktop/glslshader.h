@@ -22,9 +22,10 @@ public:
     int get_uniform(const char * value);
     virtual void initialize_parameters();
     void begin(FrameObject * instance, int width, int height);
-    void end(FrameObject * instance);
     static void set_int(FrameObject * instance, int src, int uniform);
     static void set_float(FrameObject * instance, int src, int uniform);
     static void set_vec4(FrameObject * instance, int src, int uniform);
     static void set_image(FrameObject * instance, int src);
 };
+
+

@@ -505,6 +505,7 @@ public:
         BaseShader::set_float(instance, SHADER_PARAM_WIDTH, width);
         BaseShader::set_float(instance, SHADER_PARAM_HEIGHT, height);
         BaseShader::set_float(instance, SHADER_PARAM_ALPHA, alpha);
+        BaseShader::set_image(instance, SHADER_PARAM_PATTERN);
     }
 };
 int PatternOverlayShader::x;
@@ -798,13 +799,13 @@ int PerspectiveShader::sine_waves;
 class NinePatchShader : public BaseShader
 {
 public:
-    static int x_scale;
-    static int y_scale;
-    static int color_1;
-    static int alpha_1;
-    static int color_2;
-    static int alpha_2;
-    static int offset;
+    static int xScale;
+    static int yScale;
+    static int fArgb;
+    static int fAa;
+    static int fBrgb;
+    static int fBa;
+    static int fOffset;
     
     NinePatchShader()
     : BaseShader(SHADER_9G, SHADER_HAS_TEX_SIZE)
@@ -813,33 +814,33 @@ public:
     
     void initialize_parameters()
     {
-        x_scale = get_uniform("x_scale");
-        y_scale = get_uniform("y_scale");
-        color_1 = get_uniform("color_1");
-        alpha_1 = get_uniform("alpha_1");
-        color_2 = get_uniform("color_2");
-        alpha_2 = get_uniform("alpha_2");
-        offset = get_uniform("offset");
+        xScale = get_uniform("xScale");
+        yScale = get_uniform("yScale");
+        fArgb = get_uniform("fArgb");
+        fAa = get_uniform("fAa");
+        fBrgb = get_uniform("fBrgb");
+        fBa = get_uniform("fBa");
+        fOffset = get_uniform("fOffset");
     }
     
     static void set_parameters(FrameObject * instance)
     {
-        BaseShader::set_float(instance, SHADER_PARAM_X_SCALE, x_scale);
-        BaseShader::set_float(instance, SHADER_PARAM_Y_SCALE, y_scale);
-        BaseShader::set_vec4(instance, SHADER_PARAM_COLOR_1, color_1);
-        BaseShader::set_float(instance, SHADER_PARAM_ALPHA_1, alpha_1);
-        BaseShader::set_vec4(instance, SHADER_PARAM_COLOR_2, color_2);
-        BaseShader::set_float(instance, SHADER_PARAM_ALPHA_2, alpha_2);
-        BaseShader::set_float(instance, SHADER_PARAM_OFFSET, offset);
+        BaseShader::set_float(instance, SHADER_PARAM_XSCALE, xScale);
+        BaseShader::set_float(instance, SHADER_PARAM_YSCALE, yScale);
+        BaseShader::set_vec4(instance, SHADER_PARAM_FARGB, fArgb);
+        BaseShader::set_float(instance, SHADER_PARAM_FAA, fAa);
+        BaseShader::set_vec4(instance, SHADER_PARAM_FBRGB, fBrgb);
+        BaseShader::set_float(instance, SHADER_PARAM_FBA, fBa);
+        BaseShader::set_float(instance, SHADER_PARAM_FOFFSET, fOffset);
     }
 };
-int NinePatchShader::x_scale;
-int NinePatchShader::y_scale;
-int NinePatchShader::color_1;
-int NinePatchShader::alpha_1;
-int NinePatchShader::color_2;
-int NinePatchShader::alpha_2;
-int NinePatchShader::offset;
+int NinePatchShader::xScale;
+int NinePatchShader::yScale;
+int NinePatchShader::fArgb;
+int NinePatchShader::fAa;
+int NinePatchShader::fBrgb;
+int NinePatchShader::fBa;
+int NinePatchShader::fOffset;
 
 class PixelOutlineShader : public BaseShader
 {
@@ -866,8 +867,8 @@ int PixelOutlineShader::color;
 class BrightSatBgShader : public BaseShader
 {
 public:
-    static int brightness;
-    static int saturation;
+    static int Brightness;
+    static int Saturation;
     
     BrightSatBgShader()
     : BaseShader(SHADER_BRIGHTSATBG, SHADER_HAS_BACK)
@@ -876,25 +877,25 @@ public:
     
     void initialize_parameters()
     {
-        brightness = get_uniform("brightness");
-        saturation = get_uniform("saturation");
+        Brightness = get_uniform("Brightness");
+        Saturation = get_uniform("Saturation");
     }
     
     static void set_parameters(FrameObject * instance)
     {
-        BaseShader::set_float(instance, SHADER_PARAM_BRIGHTNESS, brightness);
-        BaseShader::set_float(instance, SHADER_PARAM_SATURATION, saturation);
+        BaseShader::set_float(instance, SHADER_PARAM_BRIGHTNESS, Brightness);
+        BaseShader::set_float(instance, SHADER_PARAM_SATURATION, Saturation);
     }
 };
-int BrightSatBgShader::brightness;
-int BrightSatBgShader::saturation;
+int BrightSatBgShader::Brightness;
+int BrightSatBgShader::Saturation;
 
 class BgBlurShader : public BaseShader
 {
 public:
-    static int x;
-    static int y;
-    static int alpha;
+    static int fX;
+    static int fY;
+    static int fA;
     
     BgBlurShader()
     : BaseShader(SHADER_BGBLUR, SHADER_HAS_BACK | SHADER_HAS_TEX_SIZE)
@@ -903,38 +904,21 @@ public:
     
     void initialize_parameters()
     {
-        x = get_uniform("x");
-        y = get_uniform("y");
-        alpha = get_uniform("alpha");
+        fX = get_uniform("fX");
+        fY = get_uniform("fY");
+        fA = get_uniform("fA");
     }
     
     static void set_parameters(FrameObject * instance)
     {
-        BaseShader::set_float(instance, SHADER_PARAM_X, x);
-        BaseShader::set_float(instance, SHADER_PARAM_Y, y);
-        BaseShader::set_float(instance, SHADER_PARAM_ALPHA, alpha);
+        BaseShader::set_float(instance, SHADER_PARAM_FX, fX);
+        BaseShader::set_float(instance, SHADER_PARAM_FY, fY);
+        BaseShader::set_float(instance, SHADER_PARAM_FA, fA);
     }
 };
-int BgBlurShader::x;
-int BgBlurShader::y;
-int BgBlurShader::alpha;
-
-class BasicShader : public BaseShader
-{
-public:
-    BasicShader()
-    : BaseShader(SHADER_BASIC)
-    {
-    }
-    
-    void initialize_parameters()
-    {
-    }
-    
-    static void set_parameters(FrameObject * instance)
-    {
-    }
-};
+int BgBlurShader::fX;
+int BgBlurShader::fY;
+int BgBlurShader::fA;
 
 class TextureShader : public BaseShader
 {
@@ -982,5 +966,4 @@ NinePatchShader ninepatch_shader;
 PixelOutlineShader pixeloutline_shader;
 BrightSatBgShader brightsatbg_shader;
 BgBlurShader bgblur_shader;
-BasicShader basic_shader;
 TextureShader texture_shader;

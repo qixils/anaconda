@@ -1,9 +1,9 @@
 #include "objects/textblitter.h"
 #include "include_gl.h"
 #include "collision.h"
-#include "shader.h"
 #include <iostream>
 #include "font.h"
+#include "render.h"
 
 // TextBlitter
 
@@ -381,7 +381,7 @@ void TextBlitter::draw()
             float t_y1 = float(img_y) / float(image->height);
             float t_y2 = float(img_y+char_height) / float(image->height);
 
-            Color c = blend_color;
+            Color color = blend_color;
             int yyy = yy;
             if (anim_type == BLITTER_ANIMATION_SINWAVE) {
                 double t = double(anim_frame / anim_speed + x_add * i);
@@ -393,11 +393,11 @@ void TextBlitter::draw()
                 callback_transparency = 0;
                 call_char_callback();
 
-                c.set_semi_transparency(callback_transparency);
+                color.set_semi_transparency(callback_transparency);
             }
 
             Render::draw_tex(xx, yyy, xx + char_width, yyy + char_height,
-                             c, image->tex, t_x1, t_y1, t_x2, t_y2);
+                             color, image->tex, t_x1, t_y1, t_x2, t_y2);
 
             xx += x_add;
         }

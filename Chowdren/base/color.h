@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <algorithm>
-#include "include_gl.h"
 
 inline unsigned char clamp_color_component(int v)
 {

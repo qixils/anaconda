@@ -23,7 +23,7 @@ void convert_vec4(int val, float & a, float & b, float & c, float & d)
                      S.set_parameters(obj);\
                      commit_parameters(obj);
 
-#define HANDLE_SHADER(N, S) case Render::Effect::N:\
+#define HANDLE_SHADER(N, S) case Render::N:\
                                 DO_SHADER(S);\
                                 break
 
@@ -64,26 +64,27 @@ void shader_set_effect(int effect, FrameObject * obj,
     }
 
     switch (effect) {
-        case Render::Effect::NONE:
+        case Render::NONE:
             break;
-        case Render::Effect::SUBTRACT:
+        case Render::SUBTRACT:
             DO_SHADER(subtract_shader);
             SET_BLEND_EQ(EQ_REVERSE_SUBTRACT, EQ_ADD);
             SET_BLEND_FUNC(FUNC_DST_COLOR, FUNC_ONE);
             break;
-        case Render::Effect::ADDITIVE:
+        case Render::ADDITIVE:
             texture_shader.begin(NULL, 0, 0);
             SET_BLEND_FUNC(FUNC_SRC_ALPHA, FUNC_ONE);
             break;
-        case Render::Effect::SURFACESUBTRACT:
+        case Render::SURFACESUBTRACT:
             texture_shader.begin(NULL, 0, 0);
             SET_BLEND_EQ(EQ_REVERSE_SUBTRACT, EQ_ADD);
             SET_BLEND_FUNC(FUNC_ONE, FUNC_ONE);
             break;
-        case Render::Effect::LAYERCOLOR:
+        case Render::LAYERCOLOR:
             texture_shader.begin(NULL, 0, 0);
             SET_BLEND_FUNC(FUNC_ZERO, FUNC_SRC_COLOR);
             break;
+        HANDLE_SHADER(PERSPECTIVE, perspective_shader);
         HANDLE_SHADER(MONOCHROME, monochrome_shader);
         HANDLE_SHADER(ZOOMOFFSET, zoomoffset_shader);
         HANDLE_SHADER(PIXELOUTLINE, pixeloutline_shader);

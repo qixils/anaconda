@@ -3,7 +3,6 @@
 #include "include_gl.h"
 #include "collision.h"
 #include <iostream>
-#include "shader.h"
 #include "mathcommon.h"
 #include "common.h"
 
@@ -41,8 +40,12 @@ void SurfaceObject::draw()
         vector<SurfaceQuad>::const_iterator it;
         for (it = quads.begin(); it != quads.end(); it++) {
             const SurfaceQuad & quad = *it;
-            int * p = (int*)&quad.points[0];
-            Render::draw_quad(p, quad.color);
+            float p[8];
+            for (int i = 0; i < 8; i += 2) {
+                p[i] = quad.points[i].x;
+                p[i+1] = quad.points[i].y;
+            }
+            Render::draw_quad(&p[0], quad.color);
         }
 
         end_draw();
@@ -62,7 +65,7 @@ void SurfaceObject::draw()
     if (use_fbo_blit) {
         surface_fbo.bind();
 
-        int old_offset[2] = Render::offset;
+		int old_offset[2] = {Render::offset[0], Render::offset[1]};
         Render::set_view(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
         Render::set_offset(0, 0);
         Render::clear(clear_color);
@@ -71,7 +74,7 @@ void SurfaceObject::draw()
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
             if (img.effect == 11)
-                Render::set_effect(Render::Effect::SURFACESUBTRACT);
+                Render::set_effect(Render::SURFACESUBTRACT);
             int draw_x = img.x + img.image->hotspot_x * img.scale_x;
             int draw_y = img.y + img.image->hotspot_y * img.scale_y;
             img.image->draw(draw_x, draw_y, 0.0, img.scale_x, img.scale_y);
@@ -84,7 +87,6 @@ void SurfaceObject::draw()
         Render::set_offset(old_offset[0], old_offset[1]);
         surface_fbo.unbind();
 
-        blend_color.apply();
         begin_draw(SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
 
         int x1 = x;
@@ -105,22 +107,22 @@ void SurfaceObject::draw()
         int display_width = displayed_image->width;
         for (it = blit_images.begin(); it != blit_images.end(); it++) {
             const SurfaceBlit & img = *it;
-            Image * h = img.image;
+            Image * hh = img.image;
 
             // XXX this is a hack, generalize it
-            if (shader == subpx_shader)
-                h->set_filter(true);
-            h->upload_texture();
-            Texture t = h->tex;
+			if (effect == Render::SUBPX)
+                hh->set_filter(true);
+            hh->upload_texture();
+            Texture t = hh->tex;
 
-            begin_draw(h->width, h->height);
-            int off_x = x + h->hotspot_x * img.scale_x;
-            int off_y = y + h->hotspot_x * img.scale_x;
+            begin_draw(hh->width, hh->height);
+            int off_x = x + hh->hotspot_x * img.scale_x;
+            int off_y = y + hh->hotspot_x * img.scale_x;
             int draw_x = img.x + img.scroll_x;
             int draw_y = img.y + img.scroll_y;
 
-            int w = h->width * img.scale_x;
-            int h = h->height * img.scale_y;
+            int w = hh->width * img.scale_x;
+            int h = hh->height * img.scale_y;
 
             Render::draw_tex(draw_x + off_x, draw_y + off_y, 
                              draw_x + off_x + w, draw_y + off_y + h,
@@ -129,7 +131,7 @@ void SurfaceObject::draw()
             for (int i = -1; i <= 1; i += 2) {
                 int x1 = draw_x + display_width * i;
                 int y1 = draw_y;
-                int x2 = x1 + h->width;
+                int x2 = x1 + hh->width;
                 if (x1 >= 0 && x2 <= display_width)
                     continue;
                 if (x1 >= display_width || x2 <= 0)
@@ -145,26 +147,26 @@ void SurfaceObject::draw()
             return;
 
         SurfaceImage & m = *displayed_image;
-        Image * h = m.handle;
+        Image * hh = m.handle;
 
-        int w = h->width;
-        int h = h->height;
+        int w = hh->width;
+        int h = hh->height;
         float scale_x = m.width / float(w);
         float scale_y = m.height / float(h);
 
         Render::enable_scissor(x, y,
-                               get_display_width(), get_display_height());
+                               m.get_display_width(), m.get_display_height());
 
-        if ((scroll_x == 0 && scroll_y == 0) || !wrap) {
-            draw_image(h, x + scroll_x, y + scroll_y, blend_color,
-                       0.0, scale_x, scale_y, has_reverse_x);
+        if ((m.scroll_x == 0 && m.scroll_y == 0) || !m.wrap) {
+            draw_image(hh, x + m.scroll_x, y + m.scroll_y, blend_color,
+                       0.0, scale_x, scale_y, m.has_reverse_x);
         } else {
-            int start_x = x - (h->width - scroll_x);
-            int start_y = y - (h->height - scroll_y);
+            int start_x = x - (hh->width - m.scroll_x);
+            int start_y = y - (hh->height - m.scroll_y);
             for (int xx = start_x; xx < x + m.canvas_width; xx += w)
             for (int yy = start_y; yy < y + m.canvas_height; yy += h) {
-                draw_image(h, xx, yy, blend_color,
-                           0.0, 1.0, 1.0, has_reverse_x);
+                draw_image(hh, xx, yy, blend_color,
+                           0.0, 1.0, 1.0, m.has_reverse_x);
             }
         }
 

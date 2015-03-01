@@ -23,8 +23,8 @@ inline void Render::set_offset(int x, int y)
 {
     offset[0] = x;
     offset[1] = y;
-    render_data.pos_x = -x;
-    render_data.pos_y = -y;
+    render_data.pos_x = x;
+    render_data.pos_y = y;
 }
 
 inline void Render::set_view(int x, int y, int w, int h)
@@ -67,10 +67,10 @@ inline Texture Render::create_tex(void * pixels, Format f,
 
     GLenum format;
     switch (f) {
-        case Format::RGBA:
+        case RGBA:
             format = GL_RGBA;
             break;
-        case Format::L:
+        case L:
             format = GL_ALPHA;
             break;
     }
@@ -230,6 +230,11 @@ inline void Render::draw_quad(int x1, int y1, int x2, int y2, Color c)
     draw_tex(x1, y1, x2, y2, c, render_data.white_tex);
 }
 
+inline void Render::draw_quad(float * p, Color c)
+{
+    draw_tex(p, c, render_data.white_tex);
+}
+
 inline void Render::draw_tex(int x1, int y1, int x2, int y2, Color c,
                              Texture t)
 {
@@ -300,7 +305,7 @@ inline void Render::set_effect(int effect)
 
 inline void Render::disable_effect()
 {
-    render_data.effect = Render::Effect::NONE;
+    render_data.effect = NONE;
 }
 
 inline Texture Render::copy_rect(int x1, int y1, int x2, int y2)

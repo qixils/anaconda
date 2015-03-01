@@ -76,7 +76,7 @@ def get_name(name):
     name = NATIVE_SHADERS[name]
     if name is None:
         name = 'NONE'
-    return 'Render::Effect::%s' % name.upper()
+    return 'Render::%s' % name.upper()
 
 VERTEX_REPLACEMENTS = {
     'gl_MultiTexCoord0': 'in_tex_coord1',

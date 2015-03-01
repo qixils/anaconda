@@ -751,7 +751,7 @@ void Layer::draw(int display_x, int display_y)
     }
 
     if (blend_color.r != 255 || blend_color.g != 255 || blend_color.b != 255) {
-        Render::set_effect(Render::Effect::LAYERCOLOR);
+        Render::set_effect(Render::LAYERCOLOR);
         Render::set_offset(0, 0);
         Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, blend_color);
         Render::disable_effect();
@@ -1225,7 +1225,7 @@ void FrameObject::draw_image(Image * img, int x, int y, Color c)
     int y1 = y - img->hotspot_y;
     int x2 = x1 + img->width;
     int y2 = y1 + img->height;
-    if (effect == Render::Effect::NONE) {
+    if (effect == Render::NONE) {
         Render::draw_tex(x1, y1, x2, y2, c, img->tex);
         return;
     }
@@ -1237,7 +1237,7 @@ void FrameObject::draw_image(Image * img, int x, int y, Color c)
 void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
                              float x_scale, float y_scale)
 {
-    if (effect == Render::Effect::NONE) {
+    if (effect == Render::NONE) {
         img->draw(x, y, c, angle, x_scale, y_scale);
         return;
     }
@@ -1253,7 +1253,7 @@ void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
         draw_image(img, x, y, c, angle, x_scale, y_scale);
         return;
     }
-    if (effect == Render::Effect::NONE) {
+    if (effect == Render::NONE) {
         img->draw_flip_x(x, y, c, angle, x_scale, y_scale);
         return;
     }
@@ -1265,21 +1265,21 @@ void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
 
 void FrameObject::begin_draw(int width, int height)
 {
-    if (effect == Render::Effect::NONE)
+    if (effect == Render::NONE)
         return;
 	Render::set_effect(effect, this, width, height);
 }
 
 void FrameObject::begin_draw()
 {
-    if (effect == Render::Effect::NONE)
+    if (effect == Render::NONE)
         return;
     Render::set_effect(effect, this, width, height);
 }
 
 void FrameObject::end_draw()
 {
-    if (effect == Render::Effect::NONE)
+    if (effect == Render::NONE)
         return;
     Render::disable_effect();
 }

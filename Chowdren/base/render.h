@@ -46,7 +46,8 @@ public:
 
         // internal effects
         SURFACESUBTRACT,
-        LAYERCOLOR
+        LAYERCOLOR,
+        PERSPECTIVE
     };
 
     static int offset[2];
@@ -55,7 +56,7 @@ public:
 
     static void set_view(int x, int y, int w, int h);
     static void set_offset(int x1, int y1);
-    static void draw_quad(int * p, Color color);
+    static void draw_quad(float * p, Color color);
     static void draw_quad(int x1, int y1, int x2, int y2, Color color);
 
     static void draw_horizontal_gradient(int x1, int y1, int x2, int y2,
@@ -98,6 +99,11 @@ public:
     // textures
     static Texture create_tex(void * pixels, Format f, int width, int height);
     static void set_filter(Texture tex, bool linear);
+
+#ifdef CHOWDREN_IS_3DS
+    static void set_global_depth(float depth);
+    static void set_depth(float depth);
+#endif
 };
 
 #include "renderplatform.h"

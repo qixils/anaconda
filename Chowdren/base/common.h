@@ -3,7 +3,6 @@
 
 #include "chowconfig.h"
 #include "render.h"
-#include "include_gl.h"
 #include "profiler.h"
 #include "keydef.h"
 #include "keyconv.h"

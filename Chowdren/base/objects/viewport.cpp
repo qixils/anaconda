@@ -1,6 +1,7 @@
 #include "objects/viewport.h"
 #include "chowconfig.h"
 #include "collision.h"
+#include "render.h"
 
 // Viewport
 

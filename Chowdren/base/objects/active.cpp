@@ -275,7 +275,7 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
 void Active::draw()
 {
     bool blend = transparent || blend_color.a < 255 ||
-                 effect != Render::Effect::NONE;
+                 effect != Render::NONE;
     if (blend) {
         draw_image(image, x, y, blend_color, angle, x_scale, y_scale);
         return;

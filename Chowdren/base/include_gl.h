@@ -2,6 +2,7 @@
 #define INCLUDE_GL_H
 
 #ifdef CHOWDREN_IS_DESKTOP
+
 #ifdef CHOWDREN_USE_GL
 #include <SDL_opengl.h>
 
@@ -31,48 +32,6 @@ extern PFNGLUNIFORM1FPROC __glUniform1f;
 extern PFNGLUNIFORM4FPROC __glUniform4f;
 extern PFNGLGETUNIFORMLOCATIONPROC __glGetUniformLocation;
 
-#elif CHOWDREN_USE_GLES1
-#include <SDL_opengles.h>
-
-#elif CHOWDREN_USE_GLES2
-#include <SDL_opengles2.h>
-
-#else // CHOWDREN_USE_GL
-#define USE_GENERIC_GLC
-#include "generic_glc.h"
-#endif // CHOWDREN_USE_GL
-
-#else // CHOWDREN_IS_DESKTOP
-
-// include platform-specific glc
-#include "glc.h"
-
-#endif // CHOWDREN_IS_DESKTOP
-
-void glc_enable(GLenum cap);
-void glc_disable(GLenum cap);
-void glc_begin(GLenum mode);
-void glc_ortho(GLfloat left, GLfloat right, GLfloat bottom, GLfloat top,
-               GLfloat near, GLfloat far);
-void glc_load_identity();
-void glc_color_4ub(GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha);
-void glc_color_4f(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
-void glc_matrix_mode(GLenum mode);
-void glc_translate_3f(GLfloat x, GLfloat y, GLfloat z);
-void glc_scale_f(GLfloat x, GLfloat y, GLfloat z);
-void glc_push_matrix();
-void glc_pop_matrix();
-void glc_vertex_3f(GLfloat x, GLfloat y, GLfloat z);
-void glc_end();
-void glc_multi_texcoord_2f(GLenum target, GLfloat s, GLfloat t);
-void glc_texcoord_2f(GLfloat s, GLfloat t);
-void glc_rotate_f(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
-void glc_set_global_depth(GLfloat depth);
-void glc_set_depth(GLfloat depth);
-
-#ifndef CHOWDREN_BUILD_GLC
-
-#if defined(CHOWDREN_USE_GL)
 #define glBlendEquation __glBlendEquationEXT
 #define glBlendEquationSeparate __glBlendEquationSeparateEXT
 #define glBlendFuncSeparate __glBlendFuncSeparateEXT
@@ -99,22 +58,14 @@ void glc_set_depth(GLfloat depth);
 #define glUniform4f __glUniform4f
 #define glGetUniformLocation __glGetUniformLocation
 
-#endif
+#elif CHOWDREN_USE_GLES1
+#include <SDL_opengles.h>
 
-#ifdef CHOWDREN_USE_GLES2
-#define glDisable glc_disable
-#define glEnable glc_enable
-#endif
+#elif CHOWDREN_USE_GLES2
+#include <SDL_opengles2.h>
 
-#define glPopAttrib glPopAttribUndef
-#define glPushAttrib glPushAttribUndef
+#endif // CHOWDREN_USE_GL
 
-#endif // CHOWDREN_BUILD_GLC
-
-#ifdef CHOWDREN_USE_GLES2
-#define GL_MODELVIEW 0x1700
-#define GL_PROJECTION 0x1701
-#define GL_QUADS 0x0007
-#endif
+#endif // CHOWDREN_IS_DESKTOP
 
 #endif // INCLUDE_GL_H

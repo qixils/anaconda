@@ -46,7 +46,7 @@ cdef class Chunk(DataLoader):
             else:
                 data = zlibdata.decompress(data)
         elif flags != 0:
-            raise Exception('unsupported compression flag!')
+            raise Exception('unsupported compression flag: %s' % flags)
         cdef type loaderClass
         try:
             if old:

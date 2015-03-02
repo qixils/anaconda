@@ -271,12 +271,6 @@ void Layer::init(int index, double coeff_x, double coeff_y, bool visible,
         return;
 
     broadphase.init();
-
-#ifdef CHOWDREN_BACKGROUND_FBO
-    fbo_pos[0] = fbo_pos[1] = fbo_pos[2] = fbo_pos[3] = 0;
-    background_count = 0;
-    background_fbo_init = false;
-#endif
 }
 
 Layer::~Layer()
@@ -385,11 +379,6 @@ void Layer::add_background_object(FrameObject * instance)
     else
         instance->depth = background_instances.back()->depth + 1;
     background_instances.push_back(instance);
-
-#ifdef CHOWDREN_BACKGROUND_FBO
-    if (instance->id == BACKGROUND_TYPE)
-        background_count++;
-#endif
 }
 
 void Layer::remove_background_object(FrameObject * instance)
@@ -613,12 +602,6 @@ struct DrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
-#ifdef CHOWDREN_BACKGROUND_FBO
-        // if (item->id == BACKGROUND_TYPE)
-        //     return true;
-        if (item->flags & BACKGROUND)
-            return true;
-#endif
         if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
             return true;
         if (!collide_box(item, aabb))
@@ -627,34 +610,6 @@ struct DrawCallback
         return true;
     }
 };
-
-#ifdef CHOWDREN_BACKGROUND_FBO
-struct BackgroundDrawCallback
-{
-    FlatObjectList & list;
-    int * aabb;
-
-    BackgroundDrawCallback(FlatObjectList & list, int v[4])
-    : list(list), aabb(v)
-    {
-    }
-
-    bool on_callback(void * data)
-    {
-        FrameObject * item = (FrameObject*)data;
-        // if (item->id != BACKGROUND_TYPE)
-        //     return true;
-        if (!(item->flags & BACKGROUND))
-            return true;
-        if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
-            return true;
-        if (!collide_box(item, aabb))
-            return true;
-        list.push_back(item);
-        return true;
-    }
-};
-#endif
 
 inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 {
@@ -668,16 +623,6 @@ inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 inline void sort_depth(FlatObjectList & list)
 {
     std::sort(list.begin(), list.end(), sort_depth_comp);
-}
-
-inline bool sort_back_comp(FrameObject * obj1, FrameObject * obj2)
-{
-    return obj1->depth < obj2->depth;
-}
-
-inline void sort_back(FlatObjectList & list)
-{
-    std::sort(list.begin(), list.end(), sort_back_comp);
 }
 
 void Layer::draw(int display_x, int display_y)
@@ -1909,9 +1854,18 @@ FixedValue::operator double() const
 {
     uint64_t value = 0;
     memcpy(&value, &object, sizeof(FrameObject*));
+
+#ifndef NDEBUG
+    if (value & 0x1) {
+        std::cout << "Invalid alignment for fixed value" << std::endl;
+    }
+#endif
+    // reposition the sign bit in the last bit
+    value |= (value & FIXED_SIGN_BIT) >> 63ULL;
+    value &= ~FIXED_SIGN_BIT;
     value ^= FIXED_ENCODE_XOR;
     double v2;
-    memcpy(&v2, &value, sizeof(FrameObject*));
+    memcpy(&v2, &value, sizeof(uint64_t));
     return v2;
 }
 

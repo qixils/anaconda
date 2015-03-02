@@ -98,7 +98,7 @@ if (USE_STEAM)
     add_definitions(-DCHOWDREN_USE_STEAM)
     if (ENABLE_STEAM)
         add_definitions(-DCHOWDREN_ENABLE_STEAM)
-        include_directories("${CHOWDREN_BASE_DIR}/steam")
+        include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
         if (WIN32)
             set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
                 "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")

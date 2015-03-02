@@ -1,6 +1,8 @@
+#include "leaderboards.h"
+CSteamLeaderboards boards;
+
 #include "leaderboards.cpp"
 
-CSteamLeaderboards boards;
 
 static char * characters[6] =
 {

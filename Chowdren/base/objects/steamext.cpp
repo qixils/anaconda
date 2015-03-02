@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <SDL.h>
+#include "fileio.h"
+#include "path.h"
 
 // SteamGlobal
 

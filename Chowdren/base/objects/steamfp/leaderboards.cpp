@@ -194,7 +194,7 @@ void CSteamLeaderboards::OnDownloadScore(LeaderboardScoresDownloaded_t *pCallbac
 	else if (!bIOFailure)
 	{
 		m_nLeaderboardEntries = pCallback->m_cEntryCount;
-		g_SteamLeaderboards->lbcount=SteamUserStats()->GetLeaderboardEntryCount(m_CrystalLeaderboard);
+		boards.lbcount=SteamUserStats()->GetLeaderboardEntryCount(m_CrystalLeaderboard);
 
 		ResetLBStruct();
 		for (int index = 0; index < m_nLeaderboardEntries; index++)
@@ -210,7 +210,7 @@ void CSteamLeaderboards::OnDownloadScore(LeaderboardScoresDownloaded_t *pCallbac
 		}
 #ifdef FAKE_LB_LIST
 		m_nLeaderboardEntries = FAKE_LB_ENTRY;
-		g_SteamLeaderboards->lbcount = FAKE_LB_ENTRY;
+		boards.lbcount = FAKE_LB_ENTRY;
 #endif
 		scoresloaded=true;
 	} else {

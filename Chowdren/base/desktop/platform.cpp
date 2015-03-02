@@ -281,6 +281,19 @@ void platform_get_mouse_pos(int * x, int * y)
     *y = (*y - draw_y_off) * (float(WINDOW_HEIGHT) / draw_y_size);
 }
 
+// #define CHOWDREN_USE_GL_DEBUG
+
+#ifndef NDEBUG
+static void APIENTRY on_debug_message(GLenum source, GLenum type, GLuint id,
+                                      GLenum severity, GLsizei length,
+                                      const GLchar * message,
+                                      GLvoid * param)
+{
+    std::cout << "OpenGL message (" << source << " " << type << " " << id <<
+        ")" << message << std::endl;
+}
+#endif
+
 void platform_create_display(bool fullscreen)
 {
     is_fullscreen = fullscreen;
@@ -299,6 +312,10 @@ void platform_create_display(bool fullscreen)
                         SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
+
+#ifndef NDEBUG
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #endif
 
     int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
@@ -410,6 +427,25 @@ void platform_create_display(bool fullscreen)
     __glGetUniformLocation =
         (PFNGLGETUNIFORMLOCATIONPROC)
         SDL_GL_GetProcAddress("glGetUniformLocation");
+#endif
+
+#if !defined(NDEBUG) && defined(CHOWDREN_USE_GL_DEBUG)
+#define GL_DEBUG_OUTPUT 0x92E0
+	std::cout << "OpenGL debug enabled" << std::endl;
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+
+    PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallback =
+        (PFNGLDEBUGMESSAGECALLBACKARBPROC)
+        SDL_GL_GetProcAddress("glDebugMessageCallback");
+
+    PFNGLDEBUGMESSAGECONTROLARBPROC glDebugMessageControl =
+        (PFNGLDEBUGMESSAGECONTROLARBPROC)
+        SDL_GL_GetProcAddress("glDebugMessageControl");
+
+	glDebugMessageCallback((GLDEBUGPROCARB)on_debug_message, NULL);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL,
+                          GL_TRUE);
 #endif
 
     // check extensions
@@ -589,8 +625,7 @@ void platform_swap_buffers()
 
         Render::disable_blend();
         Render::draw_tex(draw_x_off2, y2, x2, draw_y_off2,
-                         Color(), scaletex,
-                         0.0f, 1.0f, 1.0f, 0.0f);
+                         Color(), scaletex);
         Render::enable_blend();
     }
 #endif

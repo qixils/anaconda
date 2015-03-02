@@ -3,6 +3,7 @@ def init(converter):
     converter.add_define('CHOWDREN_QUICK_SCALE')
     converter.add_define('CHOWDREN_POINT_FILTER')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
+    converter.add_define('CHOWDREN_STEAM_APPID', 248310)
 
     frameitems = converter.game.frameItems
     for item in frameitems.itemDict.itervalues():

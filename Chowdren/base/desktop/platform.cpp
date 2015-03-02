@@ -1116,16 +1116,16 @@ void open_url(const std::string & name)
 
 // file
 
-#ifdef CHOWDREN_ENABLE_STEAM
-#include "sdk/public/steam/steam_api.h"
-#include "sdk/public/steam/steamtypes.h"
+#ifdef CHOWDREN_AUTO_STEAMCLOUD
+#include "steam/steam_api.h"
+#include "steam/steamtypes.h"
 #include <sstream>
 #include "../path.h"
 #endif
 
 bool platform_remove_file(const std::string & file)
 {
-#ifdef CHOWDREN_ENABLE_STEAM
+#ifdef CHOWDREN_AUTO_STEAMCLOUD
     std::string base = get_path_filename(file);
     const char * base_c = base.c_str();
     if (SteamRemoteStorage()->FileExists(base_c)) {

@@ -47,7 +47,8 @@ public:
         // internal effects
         SURFACESUBTRACT,
         LAYERCOLOR,
-        PERSPECTIVE
+        PERSPECTIVE,
+        PIXELSCALE
     };
 
     static int offset[2];

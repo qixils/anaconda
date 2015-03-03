@@ -920,6 +920,40 @@ int BgBlurShader::fX;
 int BgBlurShader::fY;
 int BgBlurShader::fA;
 
+class PixelScaleShader : public BaseShader
+{
+public:
+    static int x_scale;
+    static int y_scale;
+    static int x_size;
+    static int y_size;
+    
+    PixelScaleShader()
+    : BaseShader(SHADER_PIXELSCALE)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+        x_scale = get_uniform("x_scale");
+        y_scale = get_uniform("y_scale");
+        x_size = get_uniform("x_size");
+        y_size = get_uniform("y_size");
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+        BaseShader::set_float(instance, SHADER_PARAM_X_SCALE, x_scale);
+        BaseShader::set_float(instance, SHADER_PARAM_Y_SCALE, y_scale);
+        BaseShader::set_float(instance, SHADER_PARAM_X_SIZE, x_size);
+        BaseShader::set_float(instance, SHADER_PARAM_Y_SIZE, y_size);
+    }
+};
+int PixelScaleShader::x_scale;
+int PixelScaleShader::y_scale;
+int PixelScaleShader::x_size;
+int PixelScaleShader::y_size;
+
 class TextureShader : public BaseShader
 {
 public:
@@ -966,4 +1000,5 @@ NinePatchShader ninepatch_shader;
 PixelOutlineShader pixeloutline_shader;
 BrightSatBgShader brightsatbg_shader;
 BgBlurShader bgblur_shader;
+PixelScaleShader pixelscale_shader;
 TextureShader texture_shader;

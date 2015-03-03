@@ -536,6 +536,9 @@ void platform_begin_draw()
     screen_fbo.bind();
 }
 
+void set_scale_uniform(float width, float height,
+                       float x_scale, float y_scale);
+
 void platform_swap_buffers()
 {
     int window_width, window_height;
@@ -552,12 +555,7 @@ void platform_swap_buffers()
 
         real_aspect = std::min(aspect_width, aspect_height);
 
-#ifdef CHOWDREN_QUICK_SCALE
-        float aspect = std::max(std::min(1.0f, real_aspect),
-                                float(floor(real_aspect)));
-#else
         float aspect = real_aspect;
-#endif
         draw_x_size = aspect * WINDOW_WIDTH;
         draw_y_size = aspect * WINDOW_HEIGHT;
 
@@ -579,55 +577,27 @@ void platform_swap_buffers()
     int x2 = draw_x_off + draw_x_size;
     int y2 = draw_y_off + draw_y_size;
 
+#ifdef CHOWDREN_QUICK_SCALE
+    float x_scale = draw_x_size / float(WINDOW_WIDTH);
+    float y_scale = draw_y_size / float(WINDOW_WIDTH);
+    float use_effect = draw_x_size % WINDOW_WIDTH != 0 ||
+                       draw_y_size % WINDOW_HEIGHT != 0;
+    if (use_effect) {        
+        Render::set_effect(Render::PIXELSCALE);
+        set_scale_uniform(WINDOW_WIDTH, WINDOW_HEIGHT,
+                          draw_x_size / float(WINDOW_WIDTH),
+                          draw_y_size / float(WINDOW_HEIGHT));
+    }
+#endif
+
     Render::disable_blend();
 	Render::draw_tex(draw_x_off, y2, x2, draw_y_off, Color(),
                      screen_fbo.get_tex());
     Render::enable_blend();
 
 #ifdef CHOWDREN_QUICK_SCALE
-    if (draw_x_off != 0 || draw_y_off != 0) {
-        int draw_x_size2 = real_aspect * WINDOW_WIDTH;
-        int draw_y_size2 = real_aspect * WINDOW_HEIGHT;
-
-        int draw_x_off2 = (window_width - draw_x_size2) / 2;
-        int draw_y_off2 = (window_height - draw_y_size2) / 2;
-
-        x2 = draw_x_off2 + draw_x_size2;
-        y2 = draw_y_off2 + draw_y_size2;
-
-        static bool init_bilinear = false;
-        static GLuint scaletex;
-        if (!init_bilinear) {
-            init_bilinear = true;
-            glGenTextures(1, &scaletex);
-            glBindTexture(GL_TEXTURE_2D, scaletex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-                            GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                            GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                            GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-                            GL_CLAMP_TO_EDGE);
-        } else {
-            glBindTexture(GL_TEXTURE_2D, scaletex);
-        }
-        static int last_x = -1;
-        static int last_y = -1;
-        if (last_x != draw_x_size || last_y != draw_y_size) {
-            last_x = draw_x_size;
-            last_y = draw_y_size;
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, draw_x_size, draw_y_size,
-                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        }
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, draw_x_off, draw_y_off,
-                            draw_x_size, draw_y_size);
-
-        Render::disable_blend();
-        Render::draw_tex(draw_x_off2, y2, x2, draw_y_off2,
-                         Color(), scaletex);
-        Render::enable_blend();
-    }
+    if (use_effect)
+        Render::disable_effect();
 #endif
 
     SDL_GL_SwapWindow(global_window);

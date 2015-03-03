@@ -179,3 +179,11 @@ int BaseShader::get_uniform(const char * value)
 #define commit_parameters(x)
 
 #include "shadercommon.cpp"
+
+void set_scale_uniform(float width, float height, float x_scale, float y_scale)
+{
+    glUniform1f(pixelscale_shader.x_scale, x_scale);
+    glUniform1f(pixelscale_shader.y_scale, y_scale);
+    glUniform1f(pixelscale_shader.x_size, width);
+    glUniform1f(pixelscale_shader.y_size, height);
+}

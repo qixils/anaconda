@@ -173,6 +173,12 @@ shader_bgblur.add_uniform('fX', 'float')
 shader_bgblur.add_uniform('fY', 'float')
 shader_bgblur.add_uniform('fA', 'float')
 
+shader_pixelscale = Shader('PixelScale', 'pixelscale')
+shader_pixelscale.add_uniform('x_scale', 'float')
+shader_pixelscale.add_uniform('y_scale', 'float')
+shader_pixelscale.add_uniform('x_size', 'float')
+shader_pixelscale.add_uniform('y_size', 'float')
+
 shader_texture = Shader('Texture', 'texture')
 
 SHADERS = [
@@ -205,5 +211,6 @@ SHADERS = [
     shader_pixeloutline,
     shader_brightsatbg,
     shader_bgblur,
+    shader_pixelscale,
     shader_texture
 ]

@@ -2045,6 +2045,25 @@ int remap_button(int n)
         default:
             return CHOWDREN_BUTTON_INVALID;
     }
+#elif CHOWDREN_JOYSTICK2_CONTROLLER
+    switch (n) {
+        case CHOWDREN_BUTTON_BACK:
+            return CHOWDREN_BUTTON_LEFTSHOULDER;
+        case CHOWDREN_BUTTON_GUIDE:
+            return CHOWDREN_BUTTON_RIGHTSHOULDER;
+        case CHOWDREN_BUTTON_START:
+            return CHOWDREN_BUTTON_LEFTSTICK;
+        case CHOWDREN_BUTTON_LEFTSTICK:
+            return CHOWDREN_BUTTON_RIGHTSTICK;
+        case CHOWDREN_BUTTON_RIGHTSTICK:
+            return CHOWDREN_BUTTON_START;
+        case CHOWDREN_BUTTON_LEFTSHOULDER:
+            return CHOWDREN_BUTTON_BACK;
+        case CHOWDREN_BUTTON_RIGHTSHOULDER:
+            return CHOWDREN_BUTTON_GUIDE;
+        default:
+            return n;
+    }
 #else
     return n;
 #endif

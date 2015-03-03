@@ -2749,7 +2749,7 @@ class Converter(object):
         for item in expressions:
             name = item.getName()
             if name == 'String':
-                out += item.loader.value
+                out += self.config.get_string(item.loader.value)
             elif name == 'Long':
                 out += str(item.loader.value)
             elif name == 'Plus':
@@ -2770,7 +2770,7 @@ class Converter(object):
         for item in loader.items:
             if item.getName() != 'String':
                 continue
-            strings.append(item.loader.value)
+            strings.append(self.config.get_string(item.loader.value))
         return strings
 
     def convert_parameter(self, container):
@@ -2884,7 +2884,7 @@ class Converter(object):
             elif parameter_name in ('String', 'Filename'):
                 # self.start_clauses -= loader.value.count('(')
                 # self.end_clauses -= loader.value.count(')')
-                return self.intern_string(loader.value)
+                return self.intern_string(self.config.get_string(loader.value))
             elif parameter_name in ('TwoShorts'):
                 return to_c('%r, %r', loader.value1, loader.value2)
             else:

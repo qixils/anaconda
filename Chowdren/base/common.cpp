@@ -2028,7 +2028,7 @@ MathHelper math_helper;
 
 int remap_button(int n)
 {
-#ifdef CHOWDREN_SNES_CONTROLLER
+#if defined(HOWDREN_SNES_CONTROLLER)
     switch (n) {
         case CHOWDREN_BUTTON_X:
             return CHOWDREN_BUTTON_A;
@@ -2045,7 +2045,7 @@ int remap_button(int n)
         default:
             return CHOWDREN_BUTTON_INVALID;
     }
-#elif CHOWDREN_JOYSTICK2_CONTROLLER
+#elif defined(CHOWDREN_JOYSTICK2_CONTROLLER)
     switch (n) {
         case CHOWDREN_BUTTON_BACK:
             return CHOWDREN_BUTTON_LEFTSHOULDER;

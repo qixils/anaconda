@@ -2884,7 +2884,7 @@ class Converter(object):
             elif parameter_name in ('String', 'Filename'):
                 # self.start_clauses -= loader.value.count('(')
                 # self.end_clauses -= loader.value.count(')')
-                return self.intern_string(self.config.get_string(loader.value))
+                return self.intern_string(loader.value)
             elif parameter_name in ('TwoShorts'):
                 return to_c('%r, %r', loader.value1, loader.value2)
             else:
@@ -2920,6 +2920,7 @@ class Converter(object):
         return out
 
     def intern_string(self, value):
+        value = self.config.get_string(value)
         if value == '':
             return 'empty_string'
         try:

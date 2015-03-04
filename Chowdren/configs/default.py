@@ -102,5 +102,5 @@ def use_condition_expression_iterator(converter):
 def use_blitter_callback(converter, obj):
     return False
 
-def get_string(value):
+def get_string(converter, value):
     return value

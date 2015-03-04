@@ -39,7 +39,7 @@ SteamGlobal::SteamGlobal()
     if (!initialized) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Steam error",
                                  "Could not initialize Steam API", NULL);
-#ifndef NDEBUG
+#ifdef NDEBUG
         exit(0);
 #endif
         return;
@@ -100,6 +100,8 @@ bool SteamObject::is_ready()
 void SteamObject::update()
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return;
     SteamAPI_RunCallbacks();
 #endif
 }
@@ -107,6 +109,8 @@ void SteamObject::update()
 void SteamObject::unlock_achievement(const std::string & name)
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return;
     SteamUserStats()->SetAchievement(name.c_str());
     SteamUserStats()->StoreStats();
 #endif
@@ -115,6 +119,8 @@ void SteamObject::unlock_achievement(const std::string & name)
 void SteamObject::clear_achievement(const std::string & name)
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return;
     SteamUserStats()->ClearAchievement(name.c_str());
     SteamUserStats()->StoreStats();
 #endif
@@ -123,6 +129,8 @@ void SteamObject::clear_achievement(const std::string & name)
 bool SteamObject::is_achievement_unlocked(const std::string & name)
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return false;
     bool achieved;
     SteamUserStats()->GetAchievement(name.c_str(), &achieved);
     return achieved;
@@ -134,6 +142,8 @@ bool SteamObject::is_achievement_unlocked(const std::string & name)
 void SteamObject::upload(const std::string & name)
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return;
     std::string filename = get_path_filename(name);
     const char * filename_c = filename.c_str();
     char * data;
@@ -147,6 +157,8 @@ void SteamObject::upload(const std::string & name)
 void SteamObject::download(const std::string & name)
 {
 #ifdef CHOWDREN_ENABLE_STEAM
+    if (!global_steam_obj.initialized)
+        return;
     std::string filename = get_path_filename(name);
     const char * filename_c = filename.c_str();
     if (!SteamRemoteStorage()->FileExists(filename_c))

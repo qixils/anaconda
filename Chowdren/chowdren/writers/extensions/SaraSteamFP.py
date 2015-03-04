@@ -22,11 +22,11 @@ actions = make_table(ActionMethodWriter, {
     6 : 'unlock_achievement', # achievements_simple_unlock_6
     7 : 'clear_achievement', # achievements_simple_lock_7
     11 : 'upload("./records.dat")', # cloud_simple_upload_records_dat_11
-    13 : 'upload("./gamepad.cfg")', # cloud_simple_upload_gamepad_cfg_13
-    14 : 'upload("./keyboard.cfg")', # cloud_simple_upload_keyboard_cfg_14
+    13 : 'upload("./control_gamepad.cfg")', # cloud_simple_upload_gamepad_cfg_13
+    14 : 'upload("./control_keyboard.cfg")', # cloud_simple_upload_keyboard_cfg_14
     15 : 'download("./records.dat")', # cloud_simple_download_records_dat_15
-    17 : 'download("./gamepad.cfg")', # cloud_simple_download_gamepad_cfg_17
-    18 : 'download("./keyboard.cfg")', # cloud_simple_download_keyboard_cfg_18
+    17 : 'download("./control_gamepad.cfg")', # cloud_simple_download_gamepad_cfg_17
+    18 : 'download("./control_keyboard.cfg")', # cloud_simple_download_keyboard_cfg_18
     27 : 'upload("./file" + number_to_string(%s) + ".sav")', # cloud_simple_upload_adventure_27
     29 : 'download("./file" + number_to_string(%s) + ".sav")' # cloud_simple_download_adventure_29
 })

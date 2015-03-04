@@ -192,5 +192,10 @@ def reorder_foreach(converter):
 def use_repeated_collisions(converter):
     return False
 
-# def use_condition_expression_iterator(converter):
-#     return False
+def use_condition_expression_iterator(converter):
+    return False
+
+def get_string(converter, value):
+    value = value.replace('gamepad.cfg', 'control_gamepad.cfg')
+    value = value.replace('keyboard.cfg', 'control_keyboard.cfg')
+    return value

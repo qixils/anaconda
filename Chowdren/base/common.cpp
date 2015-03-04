@@ -2028,7 +2028,7 @@ MathHelper math_helper;
 
 int remap_button(int n)
 {
-#if defined(HOWDREN_SNES_CONTROLLER)
+#if defined(CHOWDREN_SNES_CONTROLLER)
     switch (n) {
         case CHOWDREN_BUTTON_X:
             return CHOWDREN_BUTTON_A;

@@ -33,7 +33,7 @@ from mmfparser.player.event.expressions.common import Expression
 class SetRandomSeed(Action):
     def execute(self, instance):
         instance.objectPlayer.random.seed(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class SetRandomSeedTimer(Action):
     def execute(self, instance):
@@ -58,9 +58,9 @@ def compare(val1, op, val2):
 
 class CompareNumbers(Condition):
     def execute(self, instance):
-        val1 = self.evaluate_expression(self.get_parameter(0))
-        val2 = self.evaluate_expression(self.get_parameter(1))
-        op = self.evaluate_expression(self.get_parameter(2))
+        val1 = self.evaluate_index(0)
+        val2 = self.evaluate_index(1)
+        op = self.evaluate_index(2)
         return compare(val1, op, val2)
 
 # Expressions
@@ -331,7 +331,7 @@ class ApproachInt(Expression):
 import random
 
 class DefaultObject(HiddenObject):
-    def created(self, data):
+    def created(self, data = None):
         self.random = random.Random()
 
 class StochasticUtility(UserExtension):

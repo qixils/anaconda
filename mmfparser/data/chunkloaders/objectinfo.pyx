@@ -44,8 +44,8 @@ objectTypes = {
     9 : 'SubApplication'
 }
 
-(PLAYER, KEYBOARD, CREATE, TIMER, GAME, SPEAKER, 
-    SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT, 
+(PLAYER, KEYBOARD, CREATE, TIMER, GAME, SPEAKER,
+    SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT,
     QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION) = xrange(-7, 10)
 
 def getObjectType(id):
@@ -62,13 +62,13 @@ class ObjectProperties(DataLoader, _ObjectTypeMixin):
 
     def read(self, ByteReader reader):
         self._loadReader = reader
-    
+
     def load(self, objectType):
         self.objectType = objectType
         reader = self._loadReader
         del self._loadReader
         reader.seek(0)
-        
+
         self.isCommon = False
         if objectType == QUICKBACKDROP:
             self.loader = self.new(QuickBackdrop, reader)
@@ -77,7 +77,7 @@ class ObjectProperties(DataLoader, _ObjectTypeMixin):
         else:
             self.isCommon = True
             self.loader = self.new(ObjectCommon, reader)
-    
+
     def write(self, ByteReader reader):
         self.loader.write(reader)
 
@@ -90,11 +90,16 @@ INVERTED_EFFECT = 2
 XOR_EFFECT = 3
 AND_EFFECT = 4
 OR_EFFECT = 5
-MONOCHROME_EFFECT = 10
+REPLACE_TRANSPARENT_EFFECT = 6
+DWROP_EFFECT = 7
+ANDNOT_EFFECT = 8
 ADD_EFFECT = 9
+MONOCHROME_EFFECT = 10
 SUBTRACT_EFFECT = 11
-HWA_EFFECT = 4096
+NO_REPLACE_EFFECT = 12
 SHADER_EFFECT = 13
+
+HWA_EFFECT = 0x1000 # BOP_RGBAFILTER
 
 INK_EFFECTS = {
     NONE_EFFECT : 'None',
@@ -130,7 +135,7 @@ class ObjectHeader(DataLoader, _ObjectTypeMixin):
     flags = None
     inkEffect = None
     inkEffectParameter = None
-    
+
     def initialize(self):
         self.flags = OBJECT_FLAGS.copy()
 
@@ -141,7 +146,7 @@ class ObjectHeader(DataLoader, _ObjectTypeMixin):
         reserved = reader.readShort() # no longer used
         self.inkEffect = reader.readInt(True)
         self.inkEffectParameter = reader.readInt(True)
-    
+
     def write(self, ByteReader reader):
         reader.writeShort(self.handle)
         reader.writeShort(self.objectType)
@@ -156,17 +161,16 @@ class ObjectInfo(DataLoader, _ObjectTypeMixin):
     objectType = None
     flags = None
     properties = None
-    
+
     antialias = None
     transparent = None
     inkEffect = None
     inkEffectValue = None
-    
+
     shaderId = None
     items = None
 
     def read(self, ByteReader reader):
-        # reader.openEditor()
         infoChunks = self.new(ChunkList, reader)
         properties = None
         for chunk in infoChunks.items:
@@ -192,7 +196,7 @@ class ObjectInfo(DataLoader, _ObjectTypeMixin):
                 print chunk.getName(), chunk.id
         properties.load(self.objectType)
         self.properties = properties
-    
+
     def write(self, ByteReader reader):
         newChunks = self.new(ChunkList)
         newHeader = self.new(ObjectHeader)
@@ -216,7 +220,7 @@ class ObjectInfo(DataLoader, _ObjectTypeMixin):
         newChunks.append(Last())
         newChunks.write(reader)
 
-from mmfparser.data.chunkloaders.objects import (QuickBackdrop, Backdrop, 
+from mmfparser.data.chunkloaders.objects import (QuickBackdrop, Backdrop,
     ObjectCommon)
 
 from mmfparser.data.chunkloaders.last import Last

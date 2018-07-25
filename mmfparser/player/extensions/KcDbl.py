@@ -53,7 +53,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        val = self.evaluate_expression(self.get_parameter(0))
+        val = self.evaluate_index(0)
         if val <= 0:
             val = 1
         if val > 256:
@@ -71,7 +71,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        val = self.evaluate_expression(self.get_parameter(0))
+        val = self.evaluate_index(0)
         if val <= 0:
             val = 1
         if val > 256:

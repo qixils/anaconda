@@ -47,7 +47,7 @@ class Action1(Action):
 
     def execute(self, instance):
         instance.objectPlayer.set_seed(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class Action2(Action):
     """
@@ -59,7 +59,7 @@ class Action2(Action):
 
     def execute(self, instance):
         objectPlayer = instance.objectPlayer
-        maxPercent = self.evaluate_expression(self.get_parameter(0))
+        maxPercent = self.evaluate_index(0)
         if maxPercent <= 0:
             maxPercent = 100
         objectPlayer.globalPercentMax = maxPercent
@@ -79,8 +79,8 @@ class Action3(Action):
 
     def execute(self, instance):
         objectPlayer = instance.objectPlayer
-        groupName = self.evaluate_expression(self.get_parameter(0))
-        maxPercent = self.evaluate_expression(self.get_parameter(1))
+        groupName = self.evaluate_index(0)
+        maxPercent = self.evaluate_index(1)
         if maxPercent <= 0:
             maxPercent = 100
         lastPercentMax = objectPlayer.currentPercentMax
@@ -111,7 +111,7 @@ class Condition0(Condition):
 
     def check(self, instance):
         return instance.objectPlayer.random.randrange(100
-            ) < self.evaluate_expression(self.get_parameter(0))
+            ) < self.evaluate_index(0)
 
 class Condition1(Condition):
     """
@@ -123,7 +123,7 @@ class Condition1(Condition):
 
     def check(self, instance):
         objectPlayer = instance.objectPlayer
-        p = self.evaluate_expression(self.get_parameter(0))
+        p = self.evaluate_index(0)
         objectPlayer.globalPosition += p
         return (objectPlayer.globalRandom >= objectPlayer.globalPosition - p and
             objectPlayer.globalRandom < objectPlayer.globalPosition)
@@ -138,11 +138,11 @@ class Condition2(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         if name != instance.objectPlayer.groupName:
             return
         objectPlayer = instance.objectPlayer
-        p = self.evaluate_expression(self.get_parameter(1))
+        p = self.evaluate_index(1)
         objectPlayer.globalPosition += p
         return (objectPlayer.globalRandom >= objectPlayer.globalPosition - p and
             objectPlayer.globalRandom < objectPlayer.globalPosition)

@@ -22,7 +22,7 @@ from mmfparser.bytereader cimport ByteReader
 from mmfparser.bitdict import BitDict
 from mmfparser.data.chunkloaders.movement import Movements
 from mmfparser.data.chunkloaders.transition import FadeIn, FadeOut
-from mmfparser.data.chunkloaders.objectinfo import (TEXT, QUESTION, SCORE, 
+from mmfparser.data.chunkloaders.objectinfo import (TEXT, QUESTION, SCORE,
     LIVES, COUNTER, RTF, SUBAPPLICATION)
 
 cdef class AlterableValues(DataLoader):
@@ -30,7 +30,7 @@ cdef class AlterableValues(DataLoader):
     cpdef read(self, ByteReader reader):
         self.items = [reader.readInt()
             for _ in xrange(reader.readShort(True))]
-    
+
     def write(self, ByteReader reader):
         reader.writeShort(len(self.items))
         for item in self.items:
@@ -38,14 +38,14 @@ cdef class AlterableValues(DataLoader):
 
 cdef class AlterableStrings(DataLoader):
     cdef public list items
-    
+
     cpdef initialize(self):
         self.items = []
 
     cpdef read(self, ByteReader reader):
-        self.items = [reader.readString()
+        self.items = [self.readString(reader)
             for _ in xrange(reader.readShort(True))]
-            
+
     def write(self, ByteReader reader):
         reader.writeShort(len(self.items))
         for item in self.items:
@@ -96,7 +96,7 @@ cdef class Shape(DataLoader):
         object color1, color2
         int gradientFlags
         int image
-    
+
     cpdef initialize(self):
         self.lineFlags = SHAPE_FLAGS.copy()
 
@@ -105,7 +105,7 @@ cdef class Shape(DataLoader):
         self.borderColor = reader.readColor()
         self.shape = reader.readShort()
         self.fillType = reader.readShort()
-        
+
         if self.shape == LINE_SHAPE:
             self.lineFlags.setFlags(reader.readShort(True))
         elif self.fillType == SOLID_FILL:
@@ -116,7 +116,7 @@ cdef class Shape(DataLoader):
             self.gradientFlags = reader.readShort()
         elif self.fillType == MOTIF_FILL:
             self.image = reader.readShort()
-    
+
     def write(self, ByteReader reader):
         reader.writeShort(self.borderSize)
         reader.writeColor(self.borderColor)
@@ -132,16 +132,16 @@ cdef class Shape(DataLoader):
             reader.writeShort(self.gradientFlags)
         elif self.fillType == MOTIF_FILL:
             reader.writeShort(self.image)
-    
+
     def getImage(self, images):
         return images.fromHandle(self.image)
-    
+
     def getGradientType(self):
         return GRADIENT_TYPES[self.gradientFlags]
-    
+
     def getFill(self):
         return FILL_TYPES[self.fillType]
-    
+
     def getShape(self):
         return SHAPE_TYPES[self.shape]
 
@@ -168,6 +168,15 @@ COLLISION_MODES = [
 ]
 
 cdef class _Background(DataLoader):
+    def getCollisionMode(self):
+        return COLLISION_MODES[self.collisionMode]
+
+    def getObstacleType(self):
+        return OBSTACLE_TYPES[self.obstacleType]
+
+    def getImage(self, imageBank):
+        return imageBank.fromHandle(self.image)
+
     def isBackground(self):
         return True
 
@@ -178,7 +187,7 @@ cdef class QuickBackdrop(_Background):
         int width
         int height
         object shape
-        
+
     cpdef read(self, ByteReader reader):
         size = reader.readInt(True)
         self.obstacleType = reader.readShort()
@@ -187,7 +196,7 @@ cdef class QuickBackdrop(_Background):
         self.height = reader.readInt()
         self.shape = self.new(Shape, reader, width = self.width,
             height = self.height)
-    
+
     def write(self, ByteReader reader):
         reader.writeInt(0) # size
         reader.writeShort(self.obstacleType)
@@ -195,15 +204,6 @@ cdef class QuickBackdrop(_Background):
         reader.writeInt(self.width)
         reader.writeInt(self.height)
         self.shape.write(reader)
-    
-    def getCollisionMode(self):
-        return COLLISION_MODES[self.collisionMode]
-    
-    def getObstacleType(self):
-        return OBSTACLE_TYPES[self.obstacleType]
-    
-    def getImage(self, imageBank):
-        return imageBank.fromHandle(self.image)
 
 cdef class Backdrop(_Background):
     cdef public:
@@ -212,6 +212,7 @@ cdef class Backdrop(_Background):
         int width
         int height
         int image
+
     cpdef read(self, ByteReader reader):
         size = reader.readInt()
         self.obstacleType = reader.readShort()
@@ -219,7 +220,7 @@ cdef class Backdrop(_Background):
         self.width = reader.readInt()
         self.height = reader.readInt()
         self.image = reader.readShort()
-        
+
     def write(self, ByteReader reader):
         reader.writeInt(0) # size
         reader.writeShort(self.obstacleType)
@@ -227,7 +228,7 @@ cdef class Backdrop(_Background):
         reader.writeInt(self.width)
         reader.writeInt(self.height)
         reader.writeShort(self.image)
-    
+
     def getImage(self, imageBank):
         return imageBank.fromHandle(self.image)
 
@@ -255,12 +256,12 @@ cdef class AnimationDirection(DataLoader):
             self.hasSingle = True
         self.repeat = reader.readShort()
         self.backTo = reader.readShort()
-        self.frames = [reader.readShort() 
+        self.frames = [reader.readShort()
             for _ in xrange(reader.readShort())]
-    
+
     def getImages(self, images):
         return [images.fromHandle(frame) for frame in self.frames]
-    
+
     def write(self, ByteReader reader):
         reader.writeByte(self.minSpeed)
         reader.writeByte(self.maxSpeed)
@@ -275,11 +276,11 @@ cdef getClosestDirection(int direction, dict directionDict):
         return directionDict[direction]
     except KeyError:
         pass
-    
+
     # (directionObject, distance)
     forward = None
     backward = None
-    
+
     # get closest in back
     position = direction
     distance = 0
@@ -301,7 +302,7 @@ cdef getClosestDirection(int direction, dict directionDict):
         if position in directionDict:
             forward = (directionDict[position], distance)
             break
-    
+
     # backward has priority
     if backward[1] >= forward[1]:
         return forward[0]
@@ -340,9 +341,9 @@ cdef class Animation(DataLoader):
     cpdef read(self, ByteReader reader):
         self.index = self.settings['index']
         currentPosition = reader.tell()
-        
+
         offsets = [reader.readShort() for _ in xrange(32)]
-        
+
         directionDict = self.loadedDirections = {}
         for index, offset in enumerate(offsets):
             if offset != 0:
@@ -350,9 +351,9 @@ cdef class Animation(DataLoader):
                 directionDict[index] = self.new(AnimationDirection, reader)
 
         for index in xrange(32):
-            self.directions.append(getClosestDirection(index, 
+            self.directions.append(getClosestDirection(index,
                 directionDict))
-    
+
     def write(self, ByteReader reader):
         directionData = ByteReader()
         for i in xrange(32):
@@ -362,10 +363,10 @@ cdef class Animation(DataLoader):
             reader.writeShort(directionData.tell() + 2 * 32)
             self.loadedDirections[i].write(directionData)
         reader.writeReader(directionData)
-    
+
     def getIndex(self):
         return self.index
-    
+
     def getName(self):
         index = self.getIndex()
         try:
@@ -428,23 +429,23 @@ cdef class AnimationHeader(DataLoader):
 
     cpdef read(self, ByteReader reader):
         currentPosition = reader.tell()
-        
+
         size = reader.readShort()
-        
+
         count = reader.readShort()
-        
+
         offsets = [reader.readShort() for _ in xrange(count)]
-        
+
         self.loadedAnimations = animationDict = {}
         for index, offset in enumerate(offsets):
             if offset != 0:
                 reader.seek(currentPosition + offset)
-                animationDict[index] = self.new(Animation, reader, 
+                animationDict[index] = self.new(Animation, reader,
                     index = index)
 
         for index in xrange(count):
             self.items.append(getClosestAnimation(index, animationDict, count))
-    
+
     def write(self, ByteReader reader):
         count = max(16, max(self.loadedAnimations.keys()) + 1)
         offsets = []
@@ -460,7 +461,7 @@ cdef class AnimationHeader(DataLoader):
         for offset in offsets:
             reader.writeShort(offset)
         reader.writeReader(animationData)
-    
+
     def fromName(self, name):
         index = ANIMATION_NAMES.index(name)
         return self.items[index]
@@ -533,7 +534,7 @@ cdef class Counters(DataLoader):
         bint useDecimals
         int decimals
         bint addNulls
-        
+
     cpdef read(self, ByteReader reader):
         size = reader.readInt(True)
         self.width = reader.readInt(True)
@@ -541,7 +542,7 @@ cdef class Counters(DataLoader):
         self.player = reader.readShort(True)
         self.displayType = reader.readShort()
         self.flags = reader.readShort()
-        
+
         self.integerDigits = self.flags & INT_DIGITS_MASK
         self.formatFloat = self.flags & FORMAT_FLOAT != 0
         self.floatDigits = ((self.flags & FLOAT_DIGITS_MASK
@@ -550,7 +551,7 @@ cdef class Counters(DataLoader):
         self.decimals = ((self.flags & FLOAT_DECIMALS_MASK
             ) >> FLOAT_DECIMALS_SHIFT)
         self.addNulls = self.flags & FLOAT_PAD != 0
-        
+
         self.inverse = byteflag.getFlag(self.flags, 8)
         self.font = reader.readShort(True)
         if self.displayType == HIDDEN:
@@ -560,7 +561,7 @@ cdef class Counters(DataLoader):
                 for _ in xrange(reader.readShort(True))]
         elif self.displayType in (VERTICAL_BAR, HORIZONTAL_BAR, TEXT_COUNTER):
             self.shape = self.new(Shape, reader)
-    
+
     def write(self, ByteReader reader):
         reader.writeInt(0) # size
         reader.writeInt(self.width, True)
@@ -574,16 +575,16 @@ cdef class Counters(DataLoader):
                 reader.writeShort(frame)
         elif self.displayType in (VERTICAL_BAR, HORIZONTAL_BAR, TEXT_COUNTER):
             self.shape.write(reader)
-        
+
     def getFont(self, fonts):
         try:
             return fonts.fromHandle(self.font)
         except (ValueError, AttributeError):
             return INVALID_FONT
-    
+
     def getImage(self, name, images):
         return images.fromHandle(self.frames[COUNTER_FRAMES.index(name)])
-    
+
     def getDisplayType(self):
         return DISPLAY_NAMES[self.displayType]
 
@@ -602,7 +603,7 @@ cdef class Paragraph(DataLoader):
         int font
         object flags
         object color
-        str value
+        bytes value
 
     cpdef initialize(self):
         self.flags = PARAGRAPH_FLAGS.copy()
@@ -611,14 +612,14 @@ cdef class Paragraph(DataLoader):
         self.font = reader.readShort(True)
         self.flags.setFlags(reader.readShort(True))
         self.color = reader.readColor()
-        self.value = reader.readString()
-    
+        self.value = self.readString(reader)
+
     def write(self, ByteReader reader):
         reader.writeShort(self.font, True)
         reader.writeShort(self.flags.getFlags(), True)
         reader.writeColor(self.color)
         reader.writeString(self.value)
-    
+
     def getFont(self, fonts):
         try:
             return fonts.fromHandle(self.font)
@@ -638,14 +639,14 @@ cdef class Text(DataLoader):
         size = reader.readInt()
         self.width = reader.readInt()
         self.height = reader.readInt()
-        
+
         itemOffsets = [reader.readInt()
             for _ in xrange(reader.readInt())]
-        
+
         for offset in itemOffsets:
             reader.seek(currentPosition + offset)
             self.items.append(self.new(Paragraph, reader))
-    
+
     def write(self, ByteReader reader):
         count = len(self.items)
         offsets = []
@@ -653,7 +654,7 @@ cdef class Text(DataLoader):
         for item in self.items:
             offsets.append(paragraphData.tell() + 16 + 4 * count)
             item.write(paragraphData)
-            
+
         reader.writeInt(len(paragraphData) + 16 + 4 * count)
         reader.writeInt(self.width)
         reader.writeInt(self.height)
@@ -675,7 +676,7 @@ cdef class RTFObject(DataLoader):
         tuple backColor
         int width
         int height
-        str value
+        bytes value
 
     cpdef initialize(self):
         self.options = RTF_FLAGS.copy()
@@ -689,7 +690,7 @@ cdef class RTFObject(DataLoader):
         self.height = reader.readInt()
         reader.skipBytes(4)
         self.value = reader.read(reader.readInt())
-    
+
     def write(self, ByteReader reader):
         reader.writeInt(0)
         reader.writeInt(self.version)
@@ -745,10 +746,11 @@ cdef class SubApplication(DataLoader):
         int startFrame
         object options
         int iconOffset
-        str name
+        bytes name
+
     cpdef initialize(self):
         self.options = SUBAPPLICATION_FLAGS.copy()
-    
+
     cpdef read(self, ByteReader reader):
         size = reader.readInt()
         self.width = reader.readInt()
@@ -758,13 +760,13 @@ cdef class SubApplication(DataLoader):
         self.options.setFlags(reader.readInt(True))
         self.iconOffset = reader.readInt()
         reader.skipBytes(4) # "free"
-        self.name = reader.readString()
-    
+        self.name = self.readString(reader)
+
     def getDockedPosition(self):
         docked1 = self.options['Docked1']
         docked2 = self.options['Docked2']
         return DOCK_POSITIONS[(docked1, docked2)]
-    
+
     def write(self, ByteReader reader):
         reader.writeInt(0)
         reader.writeInt(self.width)
@@ -787,13 +789,13 @@ cdef class Counter(DataLoader):
         self.initial = reader.readInt()
         self.minimum = reader.readInt()
         self.maximum = reader.readInt()
-    
+
     def write(self, ByteReader reader):
         reader.writeShort(0)
         reader.writeInt(self.initial)
         reader.writeInt(self.minimum)
         reader.writeInt(self.maximum)
-        
+
 # free(Villy)
 # everything's good now! thanks Villy!
 
@@ -825,7 +827,9 @@ OBJECT_FLAGS = BitDict(
     'NeverSleep',
     'ManualSleep',
     'Text',
-    'DoNotCreateAtStart'
+    'DoNotCreateAtStart',
+    'FakeSprite',
+    'FakeCollisions'
 )
 
 OBJECT_PREFERENCES = BitDict(
@@ -839,7 +843,8 @@ OBJECT_PREFERENCES = BitDict(
     'Kill',
     'InkEffects',
     'Transitions',
-    'FineCollisions'
+    'FineCollisions',
+    'AppletProblems'
 )
 
 cdef class ObjectCommon(DataLoader):
@@ -867,7 +872,7 @@ cdef class ObjectCommon(DataLoader):
         object fadeIn
         object fadeOut
 
-    cpdef initialize(self):   
+    cpdef initialize(self):
         self.qualifiers = []
         # OCFLAGS2
         self.newFlags = NEW_OBJECT_FLAGS.copy()
@@ -875,69 +880,113 @@ cdef class ObjectCommon(DataLoader):
         self.flags = OBJECT_FLAGS.copy()
         # OEPREF
         self.preferences = OBJECT_PREFERENCES.copy()
-    
+
     cpdef read(self, ByteReader reader):
         currentPosition = reader.tell()
-        
-        size = reader.readInt()
-        
-        movementsOffset = reader.readShort()
-        animationsOffset = reader.readShort()
-        
-        self.version = reader.readShort()
-        
-        counterOffset = reader.readShort()
-        systemObjectOffset = reader.readShort()
-        
-        reader.skipBytes(2) # "free"
 
-        self.flags.setFlags(reader.readInt(True))
-        
-        end = reader.tell() + 8 * 2
-        
-        for _ in xrange(8):
-            qualifier = reader.readShort()
-            if qualifier == -1:
-                break
-            self.qualifiers.append(qualifier)
-        
-        reader.seek(end)
-        
-        extensionOffset = reader.readShort()
-        valuesOffset = reader.readShort()
-        stringsOffset = reader.readShort()
-        
-        self.newFlags.setFlags(reader.readShort(True))
-        self.preferences.setFlags(reader.readShort(True))
-        self.identifier = reader.readInt()
-        self.backColour = reader.readColor()
-        
-        fadeInOffset = reader.readInt()
-        fadeOutOffset = reader.readInt()
-        
+        cdef int size = reader.readInt()
+
+        cdef short movementsOffset
+        cdef short animationsOffset
+        cdef short counterOffset
+        cdef short systemObjectOffset
+        cdef int fadeInOffset
+        cdef int fadeOutOffset
+        cdef short valuesOffset
+        cdef short stringsOffset
+        cdef short extensionOffset
+        cdef short qualifier
+        cdef unsigned int end
+
+        cdef bint newobj = (self.settings['build'] >= 284 and
+                            not self.settings.get('compat', False))
+        if newobj:
+            counterOffset = reader.readShort()
+            self.version = reader.readShort()
+            reader.skipBytes(2) # "free"
+            movementsOffset = reader.readShort()
+            extensionOffset = reader.readShort()
+            animationsOffset = reader.readShort()
+
+            self.flags.setFlags(reader.readInt(True))
+
+            end = reader.tell() + 8 * 2
+
+            for _ in xrange(8):
+                qualifier = reader.readShort()
+                if qualifier == -1:
+                    break
+                self.qualifiers.append(qualifier)
+
+            reader.seek(end)
+
+            systemObjectOffset = reader.readShort()
+            valuesOffset = reader.readShort()
+            stringsOffset = reader.readShort()
+            self.newFlags.setFlags(reader.readShort(True))
+            self.preferences.setFlags(reader.readShort(True)) # runtime data
+            self.identifier = reader.readInt()
+            self.backColour = reader.readColor()
+            fadeInOffset = reader.readInt()
+            fadeOutOffset = reader.readInt()
+        else:
+            movementsOffset = reader.readShort()
+            animationsOffset = reader.readShort()
+
+            self.version = reader.readShort()
+
+            counterOffset = reader.readShort()
+            systemObjectOffset = reader.readShort()
+
+            reader.skipBytes(2) # "free"
+
+            self.flags.setFlags(reader.readInt(True))
+
+            end = reader.tell() + 8 * 2
+
+            for _ in xrange(8):
+                qualifier = reader.readShort()
+                if qualifier == -1:
+                    break
+                self.qualifiers.append(qualifier)
+
+            reader.seek(end)
+
+            extensionOffset = reader.readShort()
+            valuesOffset = reader.readShort()
+            stringsOffset = reader.readShort()
+
+            self.newFlags.setFlags(reader.readShort(True))
+            self.preferences.setFlags(reader.readShort(True)) # runtime data
+            self.identifier = reader.readInt()
+            self.backColour = reader.readColor()
+
+            fadeInOffset = reader.readInt()
+            fadeOutOffset = reader.readInt()
+
         if movementsOffset != 0:
             reader.seek(currentPosition + movementsOffset)
             self.movements = self.new(Movements, reader)
-        
+
         if valuesOffset != 0:
             reader.seek(currentPosition + valuesOffset)
             self.values = self.new(AlterableValues, reader)
-            
+
         if stringsOffset != 0:
             reader.seek(currentPosition + stringsOffset)
             self.strings = self.new(AlterableStrings, reader)
-        
+
         if animationsOffset != 0:
             reader.seek(currentPosition + animationsOffset)
             self.animations = self.new(AnimationHeader, reader)
-            
+
         if counterOffset != 0:
             reader.seek(currentPosition + counterOffset)
             self.counter = self.new(Counter, reader)
 
         if extensionOffset != 0:
             reader.seek(currentPosition + extensionOffset)
-            
+
             dataSize = reader.readInt() - 20
             reader.skipBytes(4) # maxSize
             self.extensionVersion = reader.readInt()
@@ -945,15 +994,15 @@ cdef class ObjectCommon(DataLoader):
             self.extensionPrivate = reader.readInt()
             if dataSize != 0:
                 self.extensionData = reader.read(dataSize)
-        
+
         if fadeInOffset != 0:
             reader.seek(currentPosition + fadeInOffset)
             self.fadeIn = self.new(FadeIn, reader)
-            
+
         if fadeOutOffset != 0:
             reader.seek(currentPosition + fadeOutOffset)
             self.fadeOut = self.new(FadeOut, reader)
-        
+
         if systemObjectOffset != 0:
             reader.seek(currentPosition + systemObjectOffset)
 
@@ -966,12 +1015,12 @@ cdef class ObjectCommon(DataLoader):
                 self.rtf = self.new(RTFObject, reader)
             elif objectType == SUBAPPLICATION:
                 self.subApplication = self.new(SubApplication, reader)
-    
+
     def write(self, ByteReader reader):
         movementsOffset = animationsOffset = counterOffset = \
         systemObjectOffset = extensionOffset = valuesOffset = \
         stringsOffset = fadeInOffset = fadeOutOffset = 0
-        
+
         objectData = ByteReader()
         if self.movements is not None:
             movementsOffset = objectData.tell() + 62
@@ -995,7 +1044,7 @@ cdef class ObjectCommon(DataLoader):
             objectData.writeInt(self.extensionVersion)
             objectData.writeInt(self.extensionId)
             objectData.writeInt(self.extensionPrivate)
-            objectData.write(self.extensionData or '')
+            objectData.write(self.extensionData or b'')
         if self.fadeIn is not None:
             fadeInOffset = objectData.tell() + 62
             self.fadeIn.write(objectData)
@@ -1003,7 +1052,7 @@ cdef class ObjectCommon(DataLoader):
             fadeOutOffset = objectData.tell() + 62
             self.fadeOut.write(objectData)
         objectType = self.parent.objectType
-        if objectType in (TEXT, QUESTION, SCORE, LIVES, COUNTER, RTF, 
+        if objectType in (TEXT, QUESTION, SCORE, LIVES, COUNTER, RTF,
                         SUBAPPLICATION):
             systemObjectOffset = objectData.tell() + 62
             if objectType in (TEXT, QUESTION):
@@ -1014,7 +1063,7 @@ cdef class ObjectCommon(DataLoader):
                 self.rtf.write(objectData)
             elif objectType == SUBAPPLICATION:
                 self.subApplication.write(objectData)
-        
+
         reader.writeInt(len(objectData) + 62) # size
         reader.writeShort(movementsOffset)
         reader.writeShort(animationsOffset)
@@ -1023,7 +1072,7 @@ cdef class ObjectCommon(DataLoader):
         reader.writeShort(systemObjectOffset)
         reader.writeShort(0)
         reader.writeInt(self.flags.getFlags(), True)
-        
+
         for i in xrange(8):
             try:
                 reader.writeShort(self.qualifiers[i])
@@ -1039,7 +1088,7 @@ cdef class ObjectCommon(DataLoader):
         reader.writeInt(fadeInOffset)
         reader.writeInt(fadeOutOffset)
         reader.writeReader(objectData)
-    
+
     def isBackground(self):
         return self.flags['QuickDisplay'] or self.flags['Background']
 

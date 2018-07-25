@@ -33,8 +33,8 @@ from mmfparser.player.shader import Shader
 
 class PushShader(Action):
     def execute(self, instance):
-        vertex = self.evaluate_expression(self.get_parameter(0)) or None
-        fragment = self.evaluate_expression(self.get_parameter(1)) or None
+        vertex = self.evaluate_index(0) or None
+        fragment = self.evaluate_index(1) or None
         if vertex is not None:
             try:
                 vertex = open_file(vertex, 'rb').read()
@@ -49,13 +49,13 @@ class PushShader(Action):
 
 class CreateShader(Action):
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.create(name)
 
 class SetShader(Action):
     def execute(self, instance):
         objects = self.get_instances(self.get_parameter(0).objectInfo)
-        name = self.evaluate_expression(self.get_parameter(1))
+        name = self.evaluate_index(1)
         shader = instance.objectPlayer.shaders[name]
         instance.objectPlayer.lastShader = name
         for object in objects:
@@ -63,9 +63,9 @@ class SetShader(Action):
 
 class SetUniformFloat(Action):
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
-        uniform = self.evaluate_expression(self.get_parameter(1))
-        value = self.evaluate_expression(self.get_parameter(2))
+        name = self.evaluate_index(0)
+        uniform = self.evaluate_index(1)
+        value = self.evaluate_index(2)
         shader = instance.objectPlayer.shaders[name]
         for item in shader:
             item.bind()
@@ -74,9 +74,9 @@ class SetUniformFloat(Action):
 
 class SetUniformInteger(Action):
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
-        uniform = self.evaluate_expression(self.get_parameter(1))
-        value = int(self.evaluate_expression(self.get_parameter(2)))
+        name = self.evaluate_index(0)
+        uniform = self.evaluate_index(1)
+        value = int(self.evaluate_index(2))
         shaders = instance.objectPlayer.shaders[name]
         for item in shaders:
             item.bind()

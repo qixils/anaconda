@@ -76,7 +76,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         instances = self.get_instances(self.get_parameter(0).objectInfo)
         instance.objectPlayer.add(instances, value)
 

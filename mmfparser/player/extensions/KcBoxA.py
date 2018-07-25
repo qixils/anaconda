@@ -42,8 +42,8 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        width = self.evaluate_expression(self.get_parameter(0))
-        height = self.evaluate_expression(self.get_parameter(1))
+        width = self.evaluate_index(0)
+        height = self.evaluate_index(1)
         instance.objectPlayer.set_size(width, height)
 
 class Action1(Action):
@@ -56,8 +56,8 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         instance.set_position(x, y)
 
 class Action2(Action):
@@ -1478,6 +1478,30 @@ class Expression34(Expression):
     def get(self, instance):
         return get_system_color(self.next_argument())
 
+class GetX(Expression):
+    """
+    Position->X Coordinate
+
+    Parameters:
+    0: (not found) ((unknown 27035))
+    Return type: Int
+    """
+
+    def get(self, instance):
+        return instance.x
+
+class GetY(Expression):
+    """
+    Position->Y Coordinate
+
+    Parameters:
+    0: (not found) ((unknown 27036))
+    Return type: Int
+    """
+
+    def get(self, instance):
+        return instance.y
+
 from mmfparser.data.font import LogFont
 from pyglet import gl
 from mmfparser.player.gui import draw_rectangle
@@ -2043,6 +2067,8 @@ class KcBoxA(UserExtension):
         31 : Expression31,
         32 : Expression32,
         33 : Expression33,
+        34 : GetX,
+        35 : GetY,
         36 : Expression34,
     }
 

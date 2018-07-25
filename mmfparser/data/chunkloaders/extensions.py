@@ -39,15 +39,17 @@ class Extension(DataLoader):
 
     def read(self, reader):
         currentPosition = reader.tell()
-        size = reader.readShort(True)
+        size = reader.readShort()
+        if size < 0:
+            size = -size
         self.handle = reader.readShort()
         self.magicNumber = reader.readInt()
         self.versionLS = reader.readInt()
         self.versionMS = reader.readInt()
-        self.name, self.extension = reader.readString().split('.')
+        self.name, self.extension = self.readString(reader).split('.')
         self.subType = reader.readString()
         reader.seek(currentPosition + size)
-    
+
     def write(self, reader):
         newReader = ByteReader()
         newReader.writeShort(self.handle)
@@ -56,10 +58,10 @@ class Extension(DataLoader):
         newReader.writeInt(self.versionMS)
         newReader.writeString('.'.join([self.name, self.extension]))
         newReader.writeString(self.subType)
-        
+
         reader.writeShort(len(newReader) + 2, True)
         reader.writeReader(newReader)
-    
+
     def load(self, library = None):
         if self.loaded:
             return self.loaded
@@ -69,22 +71,23 @@ class Extension(DataLoader):
 class ExtensionList(DataLoader):
     items = None
     preloadExtensions = None
-    
+
     def initialize(self):
         self.items = []
 
     def read(self, reader):
+        # reader.openEditor()
         numberOfExtensions = reader.readShort(True)
         self.preloadExtensions = reader.readShort(True)
         self.items = [self.new(Extension, reader)
             for _ in xrange(numberOfExtensions)]
-    
+
     def write(self, reader):
         reader.writeShort(len(self.items))
         reader.writeShort(self.preloadExtensions)
         for item in self.items:
             item.write(reader)
-    
+
     def fromHandle(self, handle):
         handle, = [item for item in self.items if item.handle == handle]
         return handle
@@ -103,10 +106,10 @@ class MovementExtension(DataLoader):
 
 class MovementExtensions(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
         self.items = [self.new(MovementExtension, reader)
             for _ in xrange(reader.readShort(True))]

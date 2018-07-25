@@ -42,7 +42,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
+        fixed = self.evaluate_index(0)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -59,7 +59,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
+        fixed = self.evaluate_index(0)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -76,8 +76,8 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        fixed1 = self.evaluate_expression(self.get_parameter(0))
-        fixed2 = self.evaluate_expression(self.get_parameter(1))
+        fixed1 = self.evaluate_index(0)
+        fixed2 = self.evaluate_index(1)
         instance1 = self.player.frame.get_fixed_object(fixed1)
         instance2 = self.player.frame.get_fixed_object(fixed2)
         if None in (instance1, instance2):
@@ -116,7 +116,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
+        fixed = self.evaluate_index(0)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -133,7 +133,7 @@ class Action5(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
+        fixed = self.evaluate_index(0)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -150,8 +150,8 @@ class Action6(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
-        n = self.evaluate_expression(self.get_parameter(1))
+        fixed = self.evaluate_index(0)
+        n = self.evaluate_index(1)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -168,8 +168,8 @@ class Action7(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
-        n = self.evaluate_expression(self.get_parameter(1))
+        fixed = self.evaluate_index(0)
+        n = self.evaluate_index(1)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -199,8 +199,8 @@ class Action9(Action):
     """
 
     def execute(self, instance):
-        fixed1 = self.evaluate_expression(self.get_parameter(0))
-        fixed2 = self.evaluate_expression(self.get_parameter(1))
+        fixed1 = self.evaluate_index(0)
+        fixed2 = self.evaluate_index(1)
         instance1 = self.player.frame.get_fixed_object(fixed1)
         instance2 = self.player.frame.get_fixed_object(fixed2)
         if None in (instance1, instance2):
@@ -221,8 +221,8 @@ class Action10(Action):
     """
 
     def execute(self, instance):
-        fixed1 = self.evaluate_expression(self.get_parameter(0))
-        fixed2 = self.evaluate_expression(self.get_parameter(1))
+        fixed1 = self.evaluate_index(0)
+        fixed2 = self.evaluate_index(1)
         instance1 = self.player.frame.get_fixed_object(fixed1)
         instance2 = self.player.frame.get_fixed_object(fixed2)
         if None in (instance1, instance2):
@@ -243,8 +243,8 @@ class Action11(Action):
     """
 
     def execute(self, instance):
-        fixed = self.evaluate_expression(self.get_parameter(0))
-        n = self.evaluate_expression(self.get_parameter(1))
+        fixed = self.evaluate_index(0)
+        n = self.evaluate_index(1)
         instance = self.player.frame.get_fixed_object(fixed)
         if instance is None:
             return
@@ -394,7 +394,7 @@ class Action21(Action):
     """
 
     def execute(self, instance):
-        n = self.evaluate_expression(self.get_parameter(1))
+        n = self.evaluate_index(1)
         for instance in self.get_instances(self.get_parameter(0).objectInfo):
             layer = instance.layer
             layer.set_level(instance, layer.get_level(instance) - n)
@@ -409,7 +409,7 @@ class Action22(Action):
     """
 
     def execute(self, instance):
-        n = self.evaluate_expression(self.get_parameter(1))
+        n = self.evaluate_index(1)
         for instance in self.get_instances(self.get_parameter(0).objectInfo):
             layer = instance.layer
             layer.set_level(instance, layer.get_level(instance) + n)
@@ -462,7 +462,7 @@ class Action25(Action):
     """
 
     def execute(self, instance):
-        n = self.evaluate_expression(self.get_parameter(1))
+        n = self.evaluate_index(1)
         for instance in self.get_instances(self.get_parameter(0).objectInfo):
             layer = instance.layer
             layer.set_level(instance, n)
@@ -478,7 +478,7 @@ class Action26(Action):
 
     def execute(self, instance):
         index = self.get_parameter(0).value
-        default = self.evaluate_expression(self.get_parameter(1))
+        default = self.evaluate_index(1)
         instances = []
         for item in instance.objectPlayer.get_layer().instances:
             try:
@@ -499,7 +499,7 @@ class Action27(Action):
 
     def execute(self, instance):
         index = self.get_parameter(0).value
-        default = self.evaluate_expression(self.get_parameter(1))
+        default = self.evaluate_index(1)
         instances = []
         for item in instance.objectPlayer.get_layer().instances:
             try:
@@ -519,8 +519,8 @@ class Action28(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        x = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        x = self.evaluate_index(1)
         layer = self.player.frame.layers[index]
         layer.set_position(x = x)
 
@@ -534,8 +534,8 @@ class Action29(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        y = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        y = self.evaluate_index(1)
         layer = self.player.frame.layers[index]
         layer.set_position(y = y)
 
@@ -549,9 +549,9 @@ class Action30(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        x = self.evaluate_expression(self.get_parameter(1))
-        y = self.evaluate_expression(self.get_parameter(2))
+        index = self.evaluate_index(0) - 1
+        x = self.evaluate_index(1)
+        y = self.evaluate_index(2)
         layer = self.player.frame.layers[index]
         layer.set_position(x, y)
 
@@ -565,7 +565,7 @@ class Action31(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         layer = self.player.frame.layers[index]
         layer.visible = True
 
@@ -579,13 +579,13 @@ class Action32(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         layer = self.player.frame.layers[index]
         layer.visible = False
 
 class LayerNameAction(Action):
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         layer = instance.objectPlayer.find_layer(name)
         if layer is not None:
             self.action(instance, layer)
@@ -600,7 +600,7 @@ class Action33(LayerNameAction):
     """
 
     def action(self, instance, layer):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         layer.set_position(x = value)
 
 class Action34(LayerNameAction):
@@ -613,7 +613,7 @@ class Action34(LayerNameAction):
     """
 
     def action(self, instance, layer):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         layer.set_position(y = value)
 
 class Action35(LayerNameAction):
@@ -626,8 +626,8 @@ class Action35(LayerNameAction):
     """
 
     def action(self, instance, layer):
-        x = self.evaluate_expression(self.get_parameter(1))
-        y = self.evaluate_expression(self.get_parameter(2))
+        x = self.evaluate_index(1)
+        y = self.evaluate_index(2)
         layer.set_position(x = x, y = y)
 
 class Action36(LayerNameAction):
@@ -664,7 +664,7 @@ class Action38(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         instance.objectPlayer.layer = self.player.frame.layers[index]
 
 class Action39(LayerNameAction):
@@ -689,9 +689,9 @@ class Action40(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         layer = self.player.frame.layers[index]
-        layer.xCoefficient = self.evaluate_expression(self.get_parameter(1))
+        layer.xCoefficient = self.evaluate_index(1)
 
 class Action41(Action):
     """
@@ -703,9 +703,9 @@ class Action41(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         layer = self.player.frame.layers[index]
-        layer.yCoefficient = self.evaluate_expression(self.get_parameter(1))
+        layer.yCoefficient = self.evaluate_index(1)
 
 class Action42(LayerNameAction):
     """
@@ -717,7 +717,7 @@ class Action42(LayerNameAction):
     """
 
     def action(self, instance, layer):
-        layer.xCoefficient = self.evaluate_expression(self.get_parameter(1))
+        layer.xCoefficient = self.evaluate_index(1)
 
 class Action43(LayerNameAction):
     """
@@ -729,14 +729,14 @@ class Action43(LayerNameAction):
     """
 
     def action(self, instance, layer):
-        layer.yCoefficient = self.evaluate_expression(self.get_parameter(1))
+        layer.yCoefficient = self.evaluate_index(1)
 
 # Conditions
 
 class FixedValueCondition(Condition):
     def check(self, instance):
         fixed_instance = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         return self.condition(instance, fixed_instance)
 
 class Condition0(FixedValueCondition):
@@ -776,9 +776,9 @@ class Condition2(Condition):
 
     def check(self, instance):
         fixed_instance1 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         fixed_instance2 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         layer = instance.objectPlayer.get_layer()
         level1 = layer.get_level(fixed_instance1)
         level2 = layer.get_level(fixed_instance2)
@@ -795,9 +795,9 @@ class Condition3(Condition):
 
     def check(self, instance):
         fixed_instance1 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         fixed_instance2 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         layer = instance.objectPlayer.get_layer()
         level1 = layer.get_level(fixed_instance1)
         level2 = layer.get_level(fixed_instance2)
@@ -814,11 +814,11 @@ class Condition4(Condition):
 
     def check(self, instance):
         fixed_instance1 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         fixed_instance2 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         fixed_instance3 = self.player.frame.get_fixed_object(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         layer = instance.objectPlayer.get_layer()
         level1 = layer.get_level(fixed_instance1)
         level2 = layer.get_level(fixed_instance2)
@@ -948,7 +948,7 @@ class Condition10(Condition):
     """
 
     def check(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         layer = self.player.frame.layers[index].visible
         return layer.visible
 
@@ -962,7 +962,7 @@ class Condition11(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         layer = instance.objectPlayer.find_layer(name)
         return layer.visible
 

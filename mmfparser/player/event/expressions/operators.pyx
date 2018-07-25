@@ -20,6 +20,7 @@ from mmfparser.player.event.expressions.common cimport (Expression,
     DummyExpression, Expression)
 from mmfparser.player.event.evaluater cimport Evaluater, Value
 import math
+cimport cython
 
 cdef class OperatorExpression(Expression):
     cdef void created(self):
@@ -28,7 +29,8 @@ cdef class OperatorExpression(Expression):
     
     cdef operator_created(self):
         pass
-    
+
+@cython.final
 cdef class End(OperatorExpression):
     cdef void initialize(self, loader):
         self.eventPlayer = self.player.eventPlayer
@@ -40,6 +42,7 @@ cdef class End(OperatorExpression):
     cdef void execute(self, Value value):
         pass
 
+@cython.final
 cdef class Plus(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 1
@@ -49,6 +52,7 @@ cdef class Plus(OperatorExpression):
         new_value = self.evaluater.evaluate_next()
         value.set(value.get() + self.evaluater.evaluate_next())
 
+@cython.final
 cdef class Minus(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 2
@@ -61,6 +65,7 @@ cdef class Minus(OperatorExpression):
         else:
             value.set(value.get() - self.evaluater.evaluate_next())
 
+@cython.final
 cdef class Multiply(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 3
@@ -68,6 +73,7 @@ cdef class Multiply(OperatorExpression):
     cdef void execute(self, Value value):
         value.set(value.get() * self.evaluater.evaluate_next())
 
+@cython.final
 cdef class Divide(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 3
@@ -85,6 +91,7 @@ cdef class Divide(OperatorExpression):
                 new_value = math.trunc(value1 / value2)
         value.set(new_value)
 
+@cython.final
 cdef class Modulus(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 4
@@ -100,24 +107,28 @@ cdef class Modulus(OperatorExpression):
                 new_value = value1 - (value2 * math.trunc(value1 / value2))
         value.set(new_value)
 
+@cython.final
 cdef class Power(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 5
     cdef void execute(self, Value value):
         value.set(value.get() ** self.evaluater.evaluate_next())
 
+@cython.final
 cdef class AND(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 6
     cdef void execute(self, Value value):
         value.set(value.get() & self.evaluater.evaluate_next())
 
+@cython.final
 cdef class OR(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 7
     cdef void execute(self, Value value):
         value.set(value.get() | self.evaluater.evaluate_next())
-    
+
+@cython.final
 cdef class XOR(OperatorExpression):
     cdef operator_created(self):
         self.precedence = 8
@@ -127,12 +138,15 @@ cdef class XOR(OperatorExpression):
 
 # not really operators...
 
+@cython.final
 cdef class Parenthesis(Expression):
     cdef evaluate(self):
         return self.next_argument()
 
+@cython.final
 cdef class Virgule(DummyExpression):
     pass
 
+@cython.final
 cdef class EndParenthesis(DummyExpression):
     pass

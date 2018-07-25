@@ -18,32 +18,46 @@
 cdef class DataLoader:
     def __init__(self, reader = None, parent = None, **settings):
         self.init(reader, parent, settings)
-    
-    cdef void init(self, ByteReader reader, DataLoader parent, dict settings):
+
+    cdef bint init(self, ByteReader reader, DataLoader parent,
+                   dict settings) except False:
         self.parent = parent
         self.settings = settings
-        self.initialize()
+        IF IS_PYPY:
+            getattr(self, 'initialize')()
+        ELSE:
+            self.initialize()
         if reader is not None:
             self.read(reader)
-    
+        return True
+
     def new(self, type loaderClass, reader = None, **kw):
         (<dict>kw).update(self.settings)
         cdef DataLoader newLoader = loaderClass.__new__(loaderClass)
         newLoader.init(reader, self, kw)
         return newLoader
-    
+
+    cpdef readString(self, ByteReader reader, size=None):
+        if self.settings.get('unicode', False):
+            return reader.readUnicodeString(size).encode('utf-8')
+        else:
+            return reader.readString(size)
+
     cpdef initialize(self):
         return
-    
+
     cpdef read(self, ByteReader reader):
-        raise NotImplementedError('%s has not implemented a read method' %
-            self.__class__.__name__)
-    
+        IF IS_PYPY:
+            return getattr(self, 'read')(reader)
+        ELSE:
+            raise NotImplementedError('%s has not implemented a read method' %
+                self.__class__.__name__)
+
     def generate(self):
         newReader = ByteReader()
         self.write(newReader)
         return newReader
-    
+
     def write(self, reader):
         raise NotImplementedError('%s has not implemented a write method' %
             self.__class__.__name__)

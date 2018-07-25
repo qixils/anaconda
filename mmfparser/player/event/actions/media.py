@@ -19,19 +19,19 @@ from mmfparser.player.event.actions.common import Action
 
 class SetMainPan(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.media.set_main_pan(value)
 
 class SetChannelPan(Action):
     def execute(self):
-        id = self.evaluate_expression(self.get_parameter(0)) - 1
-        value = self.evaluate_expression(self.get_parameter(1))
+        id = self.evaluate_index(0) - 1
+        value = self.evaluate_index(1)
         self.player.media.get_channel(id).set_pan(value)
 
 class SetSamplePan(Action):
     def execute(self):
         name = self.get_parameter(0).handle
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         players = self.player.media.get_player(name)
         if not players:
             return
@@ -41,33 +41,33 @@ class SetSamplePan(Action):
 class PlayChannelSample(Action):
     def execute(self):
         handle = self.get_parameter(0).handle
-        channel = self.evaluate_expression(self.get_parameter(1)) - 1
+        channel = self.evaluate_index(1) - 1
         self.player.media.play_sound_handle(handle, channel = channel)
 
 class PlayChannelFileSample(Action):
     def execute(self):
         path = self.get_filename(self.get_parameter(0))
-        channel = self.evaluate_expression(self.get_parameter(1)) - 1
+        channel = self.evaluate_index(1) - 1
         self.player.media.play_sound_file(path, channel = channel)
 
 class PlayLoopingChannelFileSample(Action):
     def execute(self):
         path = self.get_filename(self.get_parameter(0))
-        channel = self.evaluate_expression(self.get_parameter(1)) - 1
-        loops = self.evaluate_expression(self.get_parameter(2))
+        channel = self.evaluate_index(1) - 1
+        loops = self.evaluate_index(2)
         self.player.media.play_sound_file(path, loops, channel)
 
 class PlayLoopingSample(Action):
     def execute(self):
         handle = self.get_parameter(0).handle
-        loops = self.evaluate_expression(self.get_parameter(1))
+        loops = self.evaluate_index(1)
         self.player.media.play_sound_handle(handle, loops)
 
 class PlayLoopingChannelSample(Action):
     def execute(self):
         handle = self.get_parameter(0).handle
-        channel = self.evaluate_expression(self.get_parameter(1)) - 1
-        loops = self.evaluate_expression(self.get_parameter(2))
+        channel = self.evaluate_index(1) - 1
+        loops = self.evaluate_index(2)
         self.player.media.play_sound_handle(handle, loops, channel)
 
 class PlaySample(Action):
@@ -82,7 +82,7 @@ class StopAllSamples(Action):
 class PlayLoopingMusic(Action):
     def execute(self):
         handle = self.get_parameter(0).handle
-        loops = self.evaluate_expression(self.get_parameter(1))
+        loops = self.evaluate_index(1)
         self.player.media.play_music_handle(handle, loops)
 
 class PlayMusic(Action):
@@ -98,7 +98,7 @@ class PlayMusicFile(Action):
 class PlayLoopingMusicFile(Action):
     def execute(self):
         filename = self.get_filename(self.get_parameter(0))
-        loops = self.evaluate_expression(self.get_parameter(1))
+        loops = self.evaluate_index(1)
         self.player.media.play_music_file(filename, loops)
 
 class StopMusic(Action):
@@ -151,7 +151,7 @@ class ResumeMusic(Action):
 
 class StopChannel(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0))
+        channel = self.evaluate_index(0)
         self.player.media.stop_channel(channel - 1)
 
 class StopSample(Action):
@@ -161,37 +161,37 @@ class StopSample(Action):
 
 class SetChannelVolume(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
-        volume = self.evaluate_expression(self.get_parameter(1))
+        channel = self.evaluate_index(0) - 1
+        volume = self.evaluate_index(1)
         self.player.media.set_channel_volume(channel, volume)
 
 class SetSampleVolume(Action):
     def execute(self):
         name = self.get_parameter(0).handle
-        volume = self.evaluate_expression(self.get_parameter(1))
+        volume = self.evaluate_index(1)
         self.player.media.set_sample_volume(name, volume)
 
 class SetMainVolume(Action):
     def execute(self):
-        volume = self.evaluate_expression(self.get_parameter(0))
+        volume = self.evaluate_index(0)
         self.player.media.set_main_volume(volume)
 
 class SetChannelPosition(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
-        position = self.evaluate_expression(self.get_parameter(1))
+        channel = self.evaluate_index(0) - 1
+        position = self.evaluate_index(1)
         self.player.media.set_channel_position(channel, position)
 
 class SetSamplePosition(Action):
     def execute(self):
         name = self.get_parameter(0).handle
-        position = self.evaluate_expression(self.get_parameter(1))
+        position = self.evaluate_index(1)
         self.player.media.set_sample_position(name, position)
 
 class SetSampleFrequency(Action):
     def execute(self):
         name = self.get_parameter(0).handle
-        frequency = self.evaluate_expression(self.get_parameter(1))
+        frequency = self.evaluate_index(1)
         players = self.player.media.get_player(name)
         if not players:
             return
@@ -200,16 +200,16 @@ class SetSampleFrequency(Action):
 
 class SetChannelFrequency(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
-        frequency = self.evaluate_expression(self.get_parameter(1))
+        channel = self.evaluate_index(0) - 1
+        frequency = self.evaluate_index(1)
         self.player.media.get_channel(channel).frequency = frequency
 
 class LockChannel(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
+        channel = self.evaluate_index(0) - 1
         self.player.media.lock_channel(channel)
 
 class UnlockChannel(Action):
     def execute(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
+        channel = self.evaluate_index(0) - 1
         self.player.media.unlock_channel(channel)

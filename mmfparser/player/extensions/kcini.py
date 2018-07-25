@@ -129,7 +129,7 @@ class SetItemValue(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
+        item = self.evaluate_index(0)
         instance.objectPlayer.set_value(self.evaluate_expression(
             self.get_parameter(1)), item = item)
 
@@ -145,8 +145,8 @@ class SetSpecifiedValue(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(1))
-        group = self.evaluate_expression(self.get_parameter(0))
+        item = self.evaluate_index(1)
+        group = self.evaluate_index(0)
         instance.objectPlayer.set_value(self.evaluate_expression(
             self.get_parameter(2)), item = item, group = group)
 
@@ -160,7 +160,7 @@ class SetItemString(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
+        item = self.evaluate_index(0)
         instance.objectPlayer.set_value(self.evaluate_expression(
             self.get_parameter(1)), item = item)
 
@@ -175,8 +175,8 @@ class SetSpecifiedString(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(1))
-        group = self.evaluate_expression(self.get_parameter(0))
+        item = self.evaluate_index(1)
+        group = self.evaluate_index(0)
         instance.objectPlayer.set_value(self.evaluate_expression(
             self.get_parameter(2)), item = item, group = group)
 
@@ -189,7 +189,7 @@ class DeleteItem(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
+        item = self.evaluate_index(0)
         instance.objectPlayer.remove_item(item = item)
 
 class DeleteSpecifiedItem(Action):
@@ -202,8 +202,8 @@ class DeleteSpecifiedItem(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(0))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(0)
         instance.objectPlayer.remove_item(item = item, group = group)
 
 class DeleteGroup(Action):
@@ -215,7 +215,7 @@ class DeleteGroup(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
+        group = self.evaluate_index(0)
         instance.objectPlayer.remove_group(group = group)
 
 # Expressions

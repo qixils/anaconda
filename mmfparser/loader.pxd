@@ -23,7 +23,9 @@ cdef class DataLoader:
     cdef public:
         dict settings
         DataLoader parent
-    
+
     cpdef read(self, ByteReader reader)
     cpdef initialize(self)
-    cdef void init(self, ByteReader reader, DataLoader parent, dict settings)
+    cdef bint init(self, ByteReader reader, DataLoader parent,
+                   dict settings) except False
+    cpdef readString(self, ByteReader reader, size=?)

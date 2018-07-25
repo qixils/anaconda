@@ -47,8 +47,8 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        x = self.evaluate_expression(self.get_parameter(0))
-        y = self.evaluate_expression(self.get_parameter(1))
+        x = self.evaluate_index(0)
+        y = self.evaluate_index(1)
         instance.objectPlayer.points.append(Point(x, y))
 
 class Action1(Action):
@@ -61,7 +61,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         objectPlayer = instance.objectPlayer
         if objectPlayer.distance != 0:
             return
@@ -90,7 +90,7 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        clearType = self.evaluate_expression(self.get_parameter(0))
+        clearType = self.evaluate_index(0)
         objectPlayer = instance.objectPlayer
         journeys = objectPlayer.journeys
         if len(journeys) < 2:
@@ -121,9 +121,9 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        index1 = self.evaluate_expression(self.get_parameter(0)) - 1
-        index2 = self.evaluate_expression(self.get_parameter(1)) - 1
-        speed = float(self.evaluate_expression(self.get_parameter(2)) or 1)
+        index1 = self.evaluate_index(0) - 1
+        index2 = self.evaluate_index(1) - 1
+        speed = float(self.evaluate_index(2) or 1)
         points = instance.objectPlayer.points
         for index in (index1, index2):
             if index < 0 or index >= len(points):
@@ -148,7 +148,7 @@ class Action4(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         instance.objectPlayer.journeys.append(Journey(index))
 
 class Action5(Action):
@@ -161,8 +161,8 @@ class Action5(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        pos = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        pos = self.evaluate_index(1)
         points = instance.objectPlayer.points
         journey = instance.objectPlayer.journeys
         try:
@@ -194,7 +194,7 @@ class Action7(Action):
     def execute(self, instance):
         if instance.objectPlayer.distance != 0:
             return
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
+        index = self.evaluate_index(0) - 1
         journey = instance.objectPlayer.journeys
         try:
             journey.pop(index)
@@ -226,7 +226,7 @@ class Action8(Action):
     """
 
     def execute(self, instance):
-        node = self.evaluate_expression(self.get_parameter(0)) - 1
+        node = self.evaluate_index(0) - 1
         if node < 0:
             return
         objectPlayer = instance.objectPlayer
@@ -410,7 +410,7 @@ class Action20(Action):
     """
 
     def execute(self, instance):
-        speed = self.evaluate_expression(self.get_parameter(0))
+        speed = self.evaluate_index(0)
         instance.objectPlayer.update(speed)
 
 def move_point(point, x, y, points):
@@ -445,8 +445,8 @@ class Action21(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        x = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        x = self.evaluate_index(1)
         try:
             point = instance.objectPlayer.points[index]
         except IndexError:
@@ -463,8 +463,8 @@ class Action22(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0)) - 1
-        y = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0) - 1
+        y = self.evaluate_index(1)
         try:
             point = instance.objectPlayer.points[index]
         except IndexError:
@@ -481,8 +481,8 @@ class Action23(Action):
     """
 
     def execute(self, instance):
-        index1 = self.evaluate_expression(self.get_parameter(0)) - 1
-        index2 = self.evaluate_expression(self.get_parameter(1)) - 1
+        index1 = self.evaluate_index(0) - 1
+        index2 = self.evaluate_index(1) - 1
         points = instance.objectPlayer.points
         try:
             point1 = points[index1]
@@ -566,8 +566,8 @@ class Condition1(Condition):
     """
 
     def check(self, instance):
-        index1 = self.evaluate_expression(self.get_parameter(0)) - 1
-        index2 = self.evaluate_expression(self.get_parameter(1)) - 1
+        index1 = self.evaluate_index(0) - 1
+        index2 = self.evaluate_index(1) - 1
         try:
             point1 = instance.objectPlayer.points[index1]
         except IndexError:

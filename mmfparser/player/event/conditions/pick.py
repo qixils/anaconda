@@ -30,7 +30,7 @@ class PickAlterableValue(Condition):
                 continue
             self.select_instances([instance], instance.handle)
             index = self.get_alterable_index(self.get_parameter(0))
-            value = self.evaluate_expression(self.get_parameter(1))
+            value = self.evaluate_index(1)
             if self.compare(instance.alterables.get_value(index), value):
                 selectedInstances.append(instance)
         self.select_frame_instances(selectedInstances, instances)
@@ -44,7 +44,7 @@ class PickFlagOn(Condition):
             if instance.alterables is None:
                 continue
             self.select_instances([instance], instance.handle)
-            index = self.evaluate_expression(self.get_parameter(0))
+            index = self.evaluate_index(0)
             if instance.alterables.flags[index] == True:
                 selectedInstances.append(instance)
         self.select_frame_instances(selectedInstances, instances)
@@ -58,7 +58,7 @@ class PickFlagOff(Condition):
             if instance.alterables is None:
                 continue
             self.select_instances([instance], instance.handle)
-            index = self.evaluate_expression(self.get_parameter(0))
+            index = self.evaluate_index(0)
             if instance.alterables.flags[index] == False:
                 selectedInstances.append(instance)
         self.select_frame_instances(selectedInstances, instances)
@@ -66,7 +66,7 @@ class PickFlagOff(Condition):
 
 class CompareObjectCount(Condition):
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(self.player.frame.objectCount, value)
 
 class NoAllObjectsInZone(Condition):
@@ -99,7 +99,7 @@ class AllObjectsInZone(Condition):
         self.y2 = zone.y2
 
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(1)
         count = len([instance for instance in self.get_frame_instances()
             if instance.in_zone(self.x1, self.y1, self.x2, self.y2)])
         return self.compare(count, value)
@@ -133,10 +133,10 @@ class PickObjectsInZone(Condition):
 
 class PickObjectsInLine(Condition):
     def check(self):
-        x1 = self.evaluate_expression(self.get_parameter(0))
-        y1 = self.evaluate_expression(self.get_parameter(1))
-        x2 = self.evaluate_expression(self.get_parameter(2))
-        y2 = self.evaluate_expression(self.get_parameter(3))
+        x1 = self.evaluate_index(0)
+        y1 = self.evaluate_index(1)
+        x2 = self.evaluate_index(2)
+        y2 = self.evaluate_index(3)
         instances = [instance for instance in self.get_frame_instances()
             if collide_line(instance.x1, instance.y1, instance.x2, instance.y2,
             x1, y1, x2, y2)]
@@ -190,7 +190,7 @@ class PickRandomObjectInZoneOld(Condition):
 
 class PickFromFixed(Condition):
     def check(self):
-        fixed = self.evaluate_expression(self.get_parameter(0))
+        fixed = self.evaluate_index(0)
         instances = [instance for instance in self.get_frame_instances()
             if id(instance) == fixed]
         self.select_frame_instances(instances, self.get_instances(

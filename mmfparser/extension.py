@@ -19,7 +19,7 @@ from ctypes import *
 from ctypes import wintypes
 
 try:
-    import winguiauto
+    from mmfparser import winguiauto
 except ImportError:
     pass
 
@@ -104,7 +104,7 @@ class _mvstruct(Structure):
 
         ('mvExtListCount', c_int),
         ('mvExtListSize', c_int),
-        
+
         ('mvExtList', c_void_p),
         ('mvNbDllTrans', c_int),
         ('mvDllTransList', c_void_p),
@@ -112,10 +112,10 @@ class _mvstruct(Structure):
         ('mvJoyCaps', c_int * 32),
 
         ('mvHMsgHook', wintypes.HHOOK),
-        
+
         ('mvModalLoop', c_int),
         ('mvModalSubAppCount', c_int),
-        
+
         ('mvFree', c_void_p * 5),
 
         ('mvHelp', c_void_p),
@@ -221,18 +221,25 @@ def copyMenu(dst, src):
                 user32.AppendMenuA(dst, MF_POPUP | MF_STRING, newmenu, strBuf)
                 copyMenu(newmenu, user32.GetSubMenu(src, n))
 
-def loadMenu(handle, resource):
+def loadMenu(handle, resource, verbose = True):
     user32 = windll.user32
     menu = user32.LoadMenuA(handle, resource)
     if not menu:
+        if verbose:
+            print 'could not load menu', handle, resource, menu
         return 0
     submenu = user32.GetSubMenu(menu, 0)
     if not submenu:
+        if verbose:
+            print 'could not load submenu'
         return 0
     popup = user32.CreatePopupMenu()
     if not popup:
+        if verbose:
+            print 'could not load popup'
         return 0
     copyMenu(popup, submenu)
+    user32.DestroyMenu(menu)
     return popup
 
 def getItems(hmenu, codeFunction):
@@ -258,7 +265,7 @@ def getItems(hmenu, codeFunction):
 def getActionMenu(extension, menu = None):
     if menu is None:
         try:
-            menu = extension.library.GetActionMenu(state.mv, c_void_p(), 
+            menu = extension.library.GetActionMenu(state.mv, c_void_p(),
                 c_void_p())
         except AttributeError:
             return {}
@@ -267,7 +274,7 @@ def getActionMenu(extension, menu = None):
 def getConditionMenu(extension, menu = None):
     if menu is None:
         try:
-            menu = extension.library.GetConditionMenu(state.mv, c_void_p(), 
+            menu = extension.library.GetConditionMenu(state.mv, c_void_p(),
                 c_void_p())
         except AttributeError:
             return {}
@@ -276,7 +283,7 @@ def getConditionMenu(extension, menu = None):
 def getExpressionMenu(extension, menu = None):
     if menu is None:
         try:
-            menu = extension.library.GetExpressionMenu(state.mv, c_void_p(), 
+            menu = extension.library.GetExpressionMenu(state.mv, c_void_p(),
                 c_void_p())
         except AttributeError:
             return {}
@@ -288,14 +295,14 @@ def getDescription(extension):
     objectCopyright = create_string_buffer(256)
     objectComment = create_string_buffer(1024)
     objectSite = create_string_buffer(256)
-    
+
     try:
-        extension.library.GetObjInfos(extension.state.mv, c_void_p(), 
-        byref(objectName), byref(objectAuthor), byref(objectCopyright), 
+        extension.library.GetObjInfos(extension.state.mv, c_void_p(),
+        byref(objectName), byref(objectAuthor), byref(objectCopyright),
         byref(objectComment), byref(objectSite))
     except AttributeError:
         return ('', '', '', '', '')
-    
+
     return (objectName.value, objectAuthor.value, objectCopyright.value,
         objectComment.value, objectSite.value)
 
@@ -307,19 +314,19 @@ def getRunInfos(extension):
 
 def getActionDescription(self, extension, num):
     data = create_string_buffer(256)
-    extension.library.GetActionString(state.mv, c_short(num), 
+    extension.library.GetActionString(state.mv, c_short(num),
         byref(data), c_short(256))
     return data.value
 
 def getConditionDescription(self, extension, num):
     data = create_string_buffer(256)
-    extension.library.GetConditionString(state.mv, c_short(num), 
+    extension.library.GetConditionString(state.mv, c_short(num),
         byref(data), c_short(256))
     return data.value
 
 def getExpressionDescription(self, extension, num):
     data = create_string_buffer(256)
-    extension.library.GetExpressionString(state.mv, c_short(num), 
+    extension.library.GetExpressionString(state.mv, c_short(num),
         byref(data), c_short(256))
     return data.value
 
@@ -337,12 +344,12 @@ class ACE(object):
     flags = None
     info = None
     parameters = None
-    
+
     infoFunction = None
     titleFunction = None
     descriptionFunction = None
     menuAttribute = None
-    
+
     def __init__(self, extension, num):
         self.num = num
         self.menu = getattr(extension, self.menuAttribute)[num]
@@ -368,14 +375,14 @@ class ACE(object):
         for i in xrange(len(parameterTypes)):
             data = create_string_buffer(256)
             try:
-                getattr(extension.library, self.titleFunction)(state.mv, c_short(num), 
+                getattr(extension.library, self.titleFunction)(state.mv, c_short(num),
                     c_short(i), byref(data), c_short(256))
             except AttributeError:
                 parameters.append(Parameter(parameterTypes[i], '(not found)'))
                 continue
             parameters.append(Parameter(parameterTypes[i], data.value))
         self.created()
-    
+
     def created(self):
         pass
 
@@ -384,7 +391,7 @@ class Action(ACE):
     titleFunction = 'GetActionTitle'
     descriptionFunction = getActionDescription
     menuAttribute = 'actionMenu'
-        
+
 class Condition(ACE):
     infoFunction = 'GetConditionInfos'
     titleFunction = 'GetConditionTitle'
@@ -403,7 +410,7 @@ class Expression(ACE):
     titleFunction = 'GetExpressionParam'
     descriptionFunction = getExpressionDescription
     menuAttribute = 'expressionMenu'
-    
+
     def getReturnType(self):
         if self.num == -1:
             return ''
@@ -411,58 +418,67 @@ class Expression(ACE):
 
 class LoadedExtension(object):
     pluginVersion = None
-    
+
     actionMenu = None
     actions = None
-    
+
     conditionMenu = None
     conditions = None
-    
+
     expressionMenu = None
     expressions = None
-    
+
     description = None
     runInfos = None
 
-    def __init__(self, library):
+    action_hmenu = condition_hmenu = expression_hmenu = None
+
+    def __init__(self, library, descriptions = True):
         self.library = library
-        
+
         self.pluginVersion = library.GetInfos(KGI_PLUGIN)
         self.version = library.GetInfos(KGI_VERSION)
-        
+
         action_hmenu = None
         condition_hmenu = None
         expression_hmenu = None
-        
+
         if self.version == EXT_VERSION1:
             state.mv = _mv0
+            mv_name = 'mv0'
         elif self.version == EXT_VERSION2:
             if self.pluginVersion == EXT_VERSION1:
                 state.mv = _mv15
+                mv_name = 'mv15'
             else:
                 state.mv = _mv
-        
+                mv_name = 'mv'
+
         try:
             library.Initialize(state.mv, 0)
         except AttributeError:
             pass
-            
-        handle = library._handle
-        action_hmenu = loadMenu(handle, MN_ACTIONS)
-        condition_hmenu = loadMenu(handle, MN_CONDITIONS)
-        expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
 
-        self.actionMenu = getActionMenu(self, action_hmenu)
-        self.actions = [Action(self, num)
-            for num in self.actionMenu.keys()]
-            
-        self.conditionMenu = getConditionMenu(self, condition_hmenu)
-        self.conditions = [Condition(self, num) 
-            for num in self.conditionMenu.keys()]
-            
-        self.expressionMenu = getExpressionMenu(self, expression_hmenu)
-        self.expressions = [Expression(self, num) 
-            for num in self.expressionMenu.keys()]
-        
+        if False:
+            handle = library._handle
+            self.action_hmenu = loadMenu(handle, MN_ACTIONS)
+            self.condition_hmenu = loadMenu(handle, MN_CONDITIONS)
+            self.expression_hmenu = loadMenu(handle, MN_EXPRESSIONS)
+
+        self.actionMenu = getActionMenu(self, self.action_hmenu)
+        if descriptions:
+            self.actions = [Action(self, num)
+                for num in self.actionMenu.keys()]
+
+        self.conditionMenu = getConditionMenu(self, self.condition_hmenu)
+        if descriptions:
+            self.conditions = [Condition(self, num)
+                for num in self.conditionMenu.keys()]
+
+        self.expressionMenu = getExpressionMenu(self, self.expression_hmenu)
+        if descriptions:
+            self.expressions = [Expression(self, num)
+                for num in self.expressionMenu.keys()]
+
         self.description = getDescription(self)
         self.runInfos = getRunInfos(self)

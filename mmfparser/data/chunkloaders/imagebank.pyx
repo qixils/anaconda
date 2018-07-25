@@ -371,7 +371,7 @@ cdef class ImageItem(DataLoader):
             newReader = reader
         else:
             newReader = zlibdata.decompress(reader)
-        
+
         start = newReader.tell()
         
         if old:
@@ -398,6 +398,12 @@ cdef class ImageItem(DataLoader):
             self.transparent = (0, 0, 0)
         else:
             self.transparent = newReader.readColor()
+
+        cdef int decompressed
+        if self.flags['LZX']:
+            decompressed = newReader.readInt()
+            newReader = ByteReader(zlib.decompress(newReader.read()))
+
         self.load(newReader, size)
     
     def write(self, reader):
@@ -459,6 +465,7 @@ cdef class ImageItem(DataLoader):
             code.interact(local = locals())
             reader.openEditor()
             raise NotImplementedError('unknown graphic mode: %s' % self.graphicMode)
+
         readerData = reader.read()
         data = readerData
         cdef int alphaSize, imageSize
@@ -543,6 +550,11 @@ cdef class JavaImage(DataLoader):
         newImage.anchor_y = self.height - self.yHotspot
         return newImage
 
+    def getImageData(self, *arg, **kw):
+        from mmfparser.image import Image
+        img = Image(data = self.data)
+        return img.get_data()
+
 cdef class ImageBank(DataLoader):
     cdef public:
         dict itemDict
@@ -555,11 +567,13 @@ cdef class ImageBank(DataLoader):
         self.itemDict = {}
 
     cpdef read(self, ByteReader reader):
-        java = self.settings.get('java', False)
+        cdef bint java = self.settings.get('java', False)
+        cdef int build = self.settings['build']
         cdef int i
+        cdef int numberOfItems
         if not java:
             if self.settings.get('debug', False):
-                path = reader.readString()
+                path = self.readString(reader)
                 newReader = ByteReader(open(path, 'rb'))
                 newReader.skipBytes(4)
                 bank = self.new(AGMIBank, newReader)
@@ -569,6 +583,8 @@ cdef class ImageBank(DataLoader):
             numberOfItems = reader.readInt()
             for i in range(numberOfItems):
                 newItem = self.new(ImageItem, reader)
+                if build >= 284:
+                    newItem.handle -= 1
                 self.itemDict[newItem.handle] = newItem
         
         else:

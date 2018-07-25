@@ -45,7 +45,7 @@ class AnswerMatches(Condition):
             answered = self.answered)
     
     def answered(self, instance, value):
-        if self.evaluate_expression(self.get_parameter(0)) != value:
+        if self.evaluate_index(0) != value:
             return
         self.generate()
 

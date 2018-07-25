@@ -144,7 +144,7 @@ class Action13(Action):
     """
 
     def execute(self, instance):
-        image = self.evaluate_expression(self.get_parameter(0))
+        image = self.evaluate_index(0)
         try:
             cursor = instance.objectPlayer.get_cursor_handle(image)
             instance.objectPlayer.set_custom_cursor(cursor)
@@ -162,7 +162,7 @@ class Action14(Action):
     def execute(self, instance):
         try:
             cursor = instance.objectPlayer.get_cursor_name(
-                self.evaluate_expression(self.get_parameter(0)))
+                self.evaluate_index(0))
         except ValueError:
             return
         instance.objectPlayer.set_custom_cursor(cursor)
@@ -250,7 +250,7 @@ class Action24(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         image = None
         for otherInstance in self.player.frame.instances:
             if (otherInstance.objectType == ACTIVE and 

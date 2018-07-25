@@ -21,7 +21,8 @@ from mmfparser.data.chunkloaders.common import _ObjectTypeMixin
 from mmfparser.data.chunkloaders.objectinfo import (ObjectName, ObjectHeader,
     ObjectEffects, PLAYER, KEYBOARD, CREATE, TIMER, GAME, SPEAKER, 
     SYSTEM, QUICKBACKDROP, BACKDROP, ACTIVE, TEXT, 
-    QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, objectTypes)
+    QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION, objectTypes,
+    EXTENSION_BASE)
 from mmfparser.data.chunkloaders.objects import _Background
 from mmfparser.data.chunkloaders.last import Last
 from mmfparser.data.chunk import ChunkList
@@ -636,8 +637,8 @@ class Expression(_AceCommon):
     def read(self, reader):
         currentPosition = reader.tell()
         self.objectType = reader.readByte()
-        self.num = reader.readByte()
-        if self.objectType > 2:
+        self.num = self.realnum = reader.readByte()
+        if self.objectType > 2 and self.num >= 48:
             self.num += 32
         if self.objectType == 0 and self.num == 0:
             return
@@ -671,7 +672,7 @@ class Expression(_AceCommon):
         reader.writeReader(dataReader)
     
     def getExtensionNum(self):
-        return self.num - 80
+        return (self.num) - 80
 
 class OldExpressionParameter(ExpressionParameter):
     def read(self, reader):
@@ -701,9 +702,12 @@ class Action(_AceCommon):
         currentPosition = reader.tell()
         size = reader.readShort(True)
         self.objectType = reader.readByte()
-        self.num = reader.readByte()
-        if self.objectType > 2:
+        self.num = self.realnum = reader.readByte()
+        if self.objectType >= 2 and self.num >= 48:
             self.num += 32
+        if self.getName() == 'SetFontName':
+            print 'uhohh', self.num, self.realnum, self.objectType
+            raw_input()
         self.objectInfo = reader.readShort(True)
         self.objectInfoList = reader.readShort()
         self.flags.setFlags(reader.readByte(True))
@@ -732,7 +736,7 @@ class Action(_AceCommon):
         reader.writeReader(newReader)
     
     def getExtensionNum(self):
-        return self.num - 80
+        return (self.num) - 80
 
 class Condition(_AceCommon):
     def initialize(self):
@@ -740,13 +744,13 @@ class Condition(_AceCommon):
         self.extensionDict = conditions.extensionDict
         self.flags = ACE_FLAGS.copy()
         self.otherFlags = ACE_OTHERFLAGS.copy()
-    
+
     def read(self, reader):
         currentPosition = reader.tell()
         size = reader.readShort(True)
         self.objectType = reader.readByte()
-        self.num = reader.readByte()
-        if self.objectType > 2:
+        self.num = self.realnum = reader.readByte()
+        if self.objectType >= 2 and self.num < -48:
             self.num -= 32
         self.objectInfo = reader.readShort(True)
         self.objectInfoList = reader.readShort()
@@ -780,7 +784,7 @@ class Condition(_AceCommon):
         reader.writeReader(newReader)
     
     def getExtensionNum(self):
-        return -self.num - 80 - 1
+        return -(self.num) - 80 - 1
 
 class EventGroup(DataLoader):
     def initialize(self):
@@ -793,7 +797,7 @@ class EventGroup(DataLoader):
         numberOfConditions = reader.readByte(True)
         numberOfActions = reader.readByte(True)
         self.flags.setFlags(reader.readShort(True)) # Flags
-        self.restrict = reader.readShort() # If the group is inhibited
+        self.is_restricted = reader.readShort() # If the group is inhibited
         self.restrictCpt = reader.readShort() # Counter
         self.identifier = reader.readShort() # Unique identifier
         self.undo = reader.readShort() # Identifier for UNDO
@@ -812,7 +816,7 @@ class EventGroup(DataLoader):
         newReader.writeByte(len(self.conditions), True)
         newReader.writeByte(len(self.actions), True)
         newReader.writeShort(self.flags.getFlags(), True)
-        newReader.writeShort(self.restrict)
+        newReader.writeShort(self.is_restricted)
         newReader.writeShort(self.restrictCpt)
         newReader.writeShort(self.identifier)
         newReader.writeShort(self.undo)

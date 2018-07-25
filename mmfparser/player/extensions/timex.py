@@ -57,7 +57,7 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         instance.objectPlayer.start_timer(index)
 
 class Action2(Action):
@@ -233,7 +233,7 @@ class Action15(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0)) / 1000.0
+        value = self.evaluate_index(0) / 1000.0
         instance.objectPlayer.gameTime = self.player.time - value
 
 # Conditions
@@ -252,7 +252,7 @@ class Condition0(Condition):
         self.last = self.player.frame.get_time()
     
     def check(self, instance):
-        value = (self.evaluate_expression(self.get_parameter(0)) / 1000.0)
+        value = (self.evaluate_index(0) / 1000.0)
         if self.player.frame.get_time() - self.last >= value:
             self.last = self.last + value
             return True
@@ -281,7 +281,7 @@ class Condition2(Condition):
     """
 
     def check(self, instance):
-        value = (self.evaluate_expression(self.get_parameter(0)) / 1000.0)
+        value = (self.evaluate_index(0) / 1000.0)
         return self.player.frame.get_time() > value
 
 class Condition3(Condition):
@@ -320,8 +320,8 @@ class Condition5(Condition):
     """
 
     def check(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1)) / 1000.0
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1) / 1000.0
         # if value == 0.5:
             # import code
             # code.interact(local = locals())

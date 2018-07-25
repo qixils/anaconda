@@ -47,8 +47,8 @@ class Action0(Action):
         instances = self.get_instances(handle)
         for instance in instances:
             self.select_instances([instance], handle)
-            start = self.evaluate_expression(self.get_parameter(1))
-            end = self.evaluate_expression(self.get_parameter(2))
+            start = self.evaluate_index(1)
+            end = self.evaluate_index(2)
             caret = instance.objectPlayer.widget.caret
             caret.position = end
             if end == start:

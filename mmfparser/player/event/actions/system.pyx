@@ -21,7 +21,8 @@ from mmfparser.player.event.actions.common cimport Action
 from mmfparser.player.event.conditions.common cimport Condition
 from mmfparser.player.event.actions.common import EmptyAction
 from mmfparser.player.event.player cimport Container, EventPlayer, Loop
-from mmfparser.player.event.common cimport ExpressionList
+from mmfparser.player.event.common cimport (ExpressionList,
+    ConstantExpressionList)
 from mmfparser.player.event.conditions.system import OnLoop
 
 class Skip(EmptyAction):
@@ -72,27 +73,27 @@ cdef class DeactivateGroup(_GroupAction):
 cdef class AddGlobalValue(Action):
     cdef void execute(self):
         cdef int index = self.get_global_index(self.get_parameter(0))
-        cdef object value = self.evaluate_expression(self.get_parameter(1))
+        cdef object value = self.evaluate_index(1)
         cdef object original = self.player.globals.get_value(index)
         self.player.globals.set_value(index, original + value)
 
 cdef class SubtractGlobalValue(Action):
     cdef void execute(self):
         cdef int index = self.get_global_index(self.get_parameter(0))
-        cdef object value = self.evaluate_expression(self.get_parameter(1))
+        cdef object value = self.evaluate_index(1)
         cdef object original = self.player.globals.get_value(index)
         self.player.globals.set_value(index, original - value)
 
 cdef class SetGlobalValue(Action):
     cdef void execute(self):
         cdef int index = self.get_global_index(self.get_parameter(0))
-        cdef object value = self.evaluate_expression(self.get_parameter(1))
+        cdef object value = self.evaluate_index(1)
         self.player.globals.set_value(index, value)
 
 cdef class SetGlobalString(Action):
     cdef void execute(self):
         cdef int index = self.get_global_index(self.get_parameter(0))
-        cdef object value = self.evaluate_expression(self.get_parameter(1))
+        cdef object value = self.evaluate_index(1)
         self.player.globals.set_string(index, value)
 
 cdef class StartLoop(Action):
@@ -104,11 +105,10 @@ cdef class StartLoop(Action):
         bint constant
 
     cdef void execute(self):
-        cdef ExpressionList parameter
         if not self.initialized or not self.constant:
-            parameter = <ExpressionList>self.get_parameter(0)
+            parameter = self.get_parameter(0)
             if not self.initialized:
-                self.constant = parameter.size == 1
+                self.constant = isinstance(parameter, ConstantExpressionList)
                 self.initialized = True
             name = self.evaluate_expression(parameter)
             if name == 'debug_anaconda':
@@ -122,7 +122,7 @@ cdef class StartLoop(Action):
             self.player.open_debug()
             return
 
-        cdef int loops = self.evaluate_expression(self.get_parameter(1))
+        cdef int loops = self.evaluate_index(1)
         
         cdef Loop loop = self.loop
         
@@ -157,15 +157,15 @@ cdef class StopLoop(Action):
 
     cdef void execute(self):
         if not self.initialized:
-            name = self.evaluate_expression(self.get_parameter(0))
+            name = self.evaluate_index(0)
             self.loop = self.eventPlayer.get_loop(name)
             self.initialized = True
         self.loop.stopped = True
 
 cdef class SetLoopIndex(Action):
     cdef void execute(self):
-        name = self.evaluate_expression(self.get_parameter(0))
-        index = self.evaluate_expression(self.get_parameter(1))
+        name = self.evaluate_index(0)
+        index = self.evaluate_index(1)
         (<Loop>self.eventPlayer.loops[name.lower()]).index = index
 
 cdef class FullscreenMode(Action):
@@ -186,5 +186,5 @@ cdef class PauseDebugger(Action):
 
 cdef class SetRandomSeed(Action):
     cdef void execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         random.seed(value)

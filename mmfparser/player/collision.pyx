@@ -141,12 +141,10 @@ cdef class ObjectCollision(CollisionBase):
         if not self.transform:
             return get_pmask_pixel(self.mask, x, y)
         cdef int sourceX, sourceY
-        x += self.x1
-        y += self.y1
-        sourceX = <int>(x / self.xScale * self.cosinus + 
-            y / self.yScale * self.sinus)
-        sourceY = <int>(y / self.yScale * self.cosinus - 
-            x / self.xScale * self.sinus)
+        cdef double x2 = x + self.x1
+        cdef double y2 = y + self.y1
+        sourceX = <int>((x2 * self.cosinus + y2 * self.sinus) / self.xScale)
+        sourceY = <int>((y2 * self.cosinus - x2 * self.sinus) / self.yScale)
         if (sourceX >= 0 and sourceX < self.width 
         and sourceY >= 0 and sourceY < self.height):
             return get_pmask_pixel(self.mask, sourceX, sourceY)
@@ -383,6 +381,7 @@ cdef inline bint collide(CollisionBase lhs, CollisionBase rhs):
     
     cdef int c1, c2, x, y
     # for each overlapping pixel, check for a collision
+
     for x in range(x2 - x1):
         for y in range(y2 - y1):
             if bounding1:

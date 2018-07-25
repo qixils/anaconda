@@ -55,7 +55,7 @@ class Action1(Action):
 
     def execute(self, instance):
         instance.objectPlayer.random.seed(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class SeedAction(Action):
     def execute(self, instance):
@@ -138,7 +138,7 @@ class Action9(Action):
     """
 
     def execute(self, instance):
-        for _ in xrange(self.evaluate_expression(self.get_parameter(0))):
+        for _ in xrange(self.evaluate_index(0)):
             instance.objectPlayer.random.random()
 
 # Expressions

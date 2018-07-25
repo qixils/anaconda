@@ -20,6 +20,8 @@ from mmfparser.loader import DataLoader
 GAME_HEADER = 'PAME'
 UNICODE_GAME_HEADER = 'PAMU'
 
+CNCV1_VERSION = 0x207
+
 products = {
     'MMF1' : 0x0300,
     'MMF1.5' : 0x0301,
@@ -32,68 +34,73 @@ class GameData(DataLoader):
     productVersion = None
     productBuild = None
     chunks = None
-    
+
     name = None
     author = None
     copyright = None
     aboutText = None
     doc = None
-    
+
     editorFilename = None
     targetFilename = None
-    
+
     exeOnly = None
 
     menu = None
     icon = None
-    
+
     header = None
     extendedHeader = None
-    
+
     fonts = None
     sounds = None
     music = None
     images = None
-    
+
     globalValues = None
     globalStrings = None
-    
+
     extensions = None
-    
+
     frameItems = None
-    
+
     frames = None
     frameHandles = None
-    
+
     serial = None
-    
+
     shaders = None
-    
-    unicode = False
-    
+
     def initialize(self):
         self.frames = []
 
     def read(self, reader):
         header = reader.read(4)
         if header == UNICODE_GAME_HEADER:
-            raise Exception('unicode not supported')
+            self.settings['unicode'] = True
         elif header != GAME_HEADER:
             raise Exception('invalid game header')
-        self.runtimeVersion = reader.readShort()
+        first_short = reader.readShort()
+        if first_short == CNCV1_VERSION:
+            self.settings["cnc"] = True
+            self.read_cnc(reader)
+            return
+        self.runtimeVersion = first_short
         self.runtimeSubversion = reader.readShort()
         self.productVersion = reader.readInt()
         self.productBuild = reader.readInt()
-        
+
+        self.settings['build'] = self.productBuild
+
         productName = self.getProduct()
-        
+
         if productName == 'MMF1.5':
             self.settings['old'] = True
         elif productName != 'MMF2':
             raise Exception('invalid product: %s' % productName)
-        
+
         chunks = self.new(ChunkList, reader)
-        
+
         if self.settings.get('old', False):
             from mmfparser.data.chunkloaders.onepointfive import all as old
             self.header = chunks.popChunk(old.AppHeader)
@@ -151,7 +158,7 @@ class GameData(DataLoader):
             except IndexError:
                 pass
             self.extensions = chunks.popChunk(ExtensionList)
-            
+
             self.frameItems = chunks.popChunk(old.FrameItems)
             self.frameHandles = chunks.popChunk(FrameHandles).handles
             try:
@@ -162,10 +169,10 @@ class GameData(DataLoader):
             self.files = None
             self.chunks = chunks
             return
-        
+
         self.header = chunks.popChunk(AppHeader)
         self.extendedHeader = chunks.popChunk(ExtendedHeader, True)
-        
+
         try:
             self.name = chunks.popChunk(AppName).value
         except IndexError:
@@ -183,7 +190,7 @@ class GameData(DataLoader):
             self.author = chunks.popChunk(AppAuthor).value
         except IndexError:
             pass
-        
+
         try:
             self.editorFilename = chunks.popChunk(EditorFilename).value
         except IndexError:
@@ -193,19 +200,19 @@ class GameData(DataLoader):
             self.targetFilename = chunks.popChunk(TargetFilename).value
         except IndexError:
             pass
-        
+
         try:
             self.exeOnly = chunks.popChunk(ExeOnly).value
         except IndexError:
             pass
-        
+
         self.menu = chunks.popChunk(AppMenu, True)
-        
+
         try:
             self.sounds = chunks.popChunk(SoundBank)
         except IndexError:
             pass
-            
+
         try:
             self.music = chunks.popChunk(MusicBank)
         except IndexError:
@@ -220,17 +227,17 @@ class GameData(DataLoader):
             self.images = chunks.popChunk(ImageBank)
         except IndexError:
             pass
-        
+
         try:
             self.icon = chunks.popChunk(AppIcon)
         except IndexError:
             pass
-        
+
         try:
             self.shaders = chunks.popChunk(Shaders)
         except IndexError:
             pass
-        
+
         try:
             self.globalStrings = chunks.popChunk(GlobalStrings)
         except IndexError:
@@ -239,12 +246,12 @@ class GameData(DataLoader):
             self.globalValues = chunks.popChunk(GlobalValues)
         except IndexError:
             pass
-        
+
         self.extensions = chunks.popChunk(ExtensionList)
-        
+
         self.frameItems = chunks.popChunk(FrameItems)
         self.frameHandles = chunks.popChunk(FrameHandles).handles
-        
+
         try:
             while 1:
                 self.frames.append(chunks.popChunk(Frame))
@@ -252,20 +259,23 @@ class GameData(DataLoader):
             pass
 
         self.serial = chunks.popChunk(SecNum)
-        
+
         self.files = chunks.popChunk(BinaryFiles, True)
-        
+
         self.chunks = chunks
-            
+
     def getProduct(self):
         for key, value in products.iteritems():
             if value == self.runtimeVersion:
                 return key
         return False
-        
+
     def setProduct(self, productName):
         self.runtimeVersion = products[productName]
-                
+
+    def readCnc(self, reader):
+        pass
+
     def write(self, reader):
         reader.write(GAME_HEADER) # PAME
         reader.writeShort(self.runtimeVersion)

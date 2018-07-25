@@ -95,6 +95,14 @@ cdef class ACEBase(PlayerChild):
     def get_group_actions(self, klass, objectInfo = None):
         return self.group.get_actions(klass, objectInfo)
 
+    cpdef evaluate_index(self, int index):
+        cdef object loader = self.parameters[index]
+        if isinstance(loader, ConstantExpressionList):
+            return (<ConstantExpressionList>loader).value
+        self.evaluater.reset(loader)
+        result = self.evaluater.evaluate()
+        return result
+
     cpdef evaluate_expression(self, loader):
         if isinstance(loader, ConstantExpressionList):
             return (<ConstantExpressionList>loader).value
@@ -182,7 +190,7 @@ cdef class ACEBase(PlayerChild):
             else:
                 return value[index % size]
         return None
-        
+
     cpdef list get_instances(self, objectInfo = None):
         """
         For actions and conditions
@@ -197,10 +205,10 @@ cdef class ACEBase(PlayerChild):
         for handle in resolvedObjects:
             instances.extend(self.group.get_instances(handle))
         return instances
-    
+
     cpdef list resolve_objects(self, objectInfo):
         return self.eventPlayer.resolve_objects(objectInfo)
-    
+
     cpdef list get_all_instances(self, objectInfo = None):
         if objectInfo is None:
             objectInfo = self.objectInfo
@@ -209,7 +217,7 @@ cdef class ACEBase(PlayerChild):
         for handle in self.resolve_objects(objectInfo):
             instances.extend(self.frame.get_instances(handle))
         return instances
-    
+
     cpdef select_instances(self, list instanceList, objectInfo = None):
         cdef list resolvedObjects
         if objectInfo is None:
@@ -222,7 +230,7 @@ cdef class ACEBase(PlayerChild):
             self.group.select_instances(handle, 
                 [instance for instance in instanceList
                 if instance.handle == handle])
-    
+
     cpdef get_frame_instances(self):
         cdef Instance instance
         cdef list instances = []
@@ -230,7 +238,7 @@ cdef class ACEBase(PlayerChild):
             if instance.objectType not in (QUICKBACKDROP, BACKDROP):
                 instances.append(instance)
         return instances
-    
+
     cpdef select_frame_instances(self, list instanceList, list allInstances = None):
         allInstances = allInstances or self.frame.instances[:]
         cdef Instance instance

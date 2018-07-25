@@ -114,14 +114,14 @@ class ExecuteEvaluatedProgram(_ExecuteProgram):
         self.flags = BitDict('Wait', 'Hide')
     
     def execute(self):
-        executable = self.evaluate_expression(self.get_parameter(0))
-        command = self.evaluate_expression(self.get_parameter(1))
+        executable = self.evaluate_index(0)
+        command = self.evaluate_index(1)
         self.flags.setFlags(self.get_parameter(2).value)
         self.run(executable, command, self.flags['Wait'], self.flags['Hide'])
 
 class SetClipboard(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         clipboard.set(value)
 
 class ClearClipboard(Action):
@@ -130,5 +130,5 @@ class ClearClipboard(Action):
 
 class SetFrameRate(Action):
     def execute(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         self.player.set_fps(value)

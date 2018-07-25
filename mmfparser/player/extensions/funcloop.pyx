@@ -57,7 +57,7 @@ cdef class FunctionAction(Action):
         
         self.set_arguments(objectPlayer)
         objectPlayer.returned = False
-        cdef str name = self.evaluate_expression(self.get_parameter(0))
+        cdef str name = self.evaluate_index(0)
         cdef list conditions
         if name == self.name:
             conditions = self.conditions
@@ -101,7 +101,7 @@ cdef class Action1(FunctionAction):
     """
 
     cdef void set_arguments(self, DefaultObject objectPlayer):
-        objectPlayer.intA = self.evaluate_expression(self.get_parameter(1))
+        objectPlayer.intA = self.evaluate_index(1)
 
 cdef class Action2(FunctionAction):
     """
@@ -114,8 +114,8 @@ cdef class Action2(FunctionAction):
     """
 
     cdef void set_arguments(self, DefaultObject objectPlayer):
-        objectPlayer.intA = self.evaluate_expression(self.get_parameter(1))
-        objectPlayer.intB = self.evaluate_expression(self.get_parameter(2))
+        objectPlayer.intA = self.evaluate_index(1)
+        objectPlayer.intB = self.evaluate_index(2)
 
 cdef class Action3(FunctionAction):
     """
@@ -127,7 +127,7 @@ cdef class Action3(FunctionAction):
     """
 
     cdef void set_arguments(self, DefaultObject objectPlayer):
-        objectPlayer.stringA = self.evaluate_expression(self.get_parameter(1))
+        objectPlayer.stringA = self.evaluate_index(1)
 
 cdef class Action4(FunctionAction):
     """
@@ -140,8 +140,8 @@ cdef class Action4(FunctionAction):
     """
 
     cdef void set_arguments(self, DefaultObject objectPlayer):
-        objectPlayer.stringA = self.evaluate_expression(self.get_parameter(1))
-        objectPlayer.stringB = self.evaluate_expression(self.get_parameter(2))
+        objectPlayer.stringA = self.evaluate_index(1)
+        objectPlayer.stringB = self.evaluate_index(2)
 
 cdef class Action5(FunctionAction):
     """
@@ -154,13 +154,13 @@ cdef class Action5(FunctionAction):
     """
 
     cdef void set_arguments(self, DefaultObject objectPlayer):
-        objectPlayer.intA = self.evaluate_expression(self.get_parameter(1))
-        objectPlayer.stringB = self.evaluate_expression(self.get_parameter(2))
+        objectPlayer.intA = self.evaluate_index(1)
+        objectPlayer.stringB = self.evaluate_index(2)
 
 cdef class ArgumentAction(Action):
     cdef void execute_instance(self, Instance instance):
         <DefaultObject>(instance.objectPlayer).waitingArguments.append(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 cdef class Action6(ArgumentAction):
     """
@@ -202,7 +202,7 @@ cdef class Action9(ReturnAction):
 
 cdef class ReturnVariableAction(ReturnAction):
     cdef object get_return(self, Instance instance):
-        return self.evaluate_expression(self.get_parameter(0))
+        return self.evaluate_index(0)
 
 cdef class Action10(ReturnVariableAction):
     """
@@ -241,7 +241,7 @@ cdef class Action13(Action):
         str name
 
     cdef void execute_instance(self, Instance instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         cdef list conditions
         if name == self.name:
             conditions = self.conditions
@@ -254,7 +254,7 @@ cdef class Action13(Action):
         cdef int oldIndex = objectPlayer.loopIndex
         objectPlayer.loopStopped = False
         objectPlayer.loopIndex = 0
-        cdef int loops = self.evaluate_expression(self.get_parameter(1))
+        cdef int loops = self.evaluate_index(1)
         cdef Condition condition
         while objectPlayer.loopIndex < loops:
             objectPlayer.loopIndexes[self.name] = objectPlayer.loopIndex
@@ -307,7 +307,7 @@ cdef class OnFunction(Condition):
     
     cdef str get_name(self):
         if self.name is None:
-            self.name = self.evaluate_expression(self.get_parameter(0))
+            self.name = self.evaluate_index(0)
         return self.name
 
 cdef class OnLoop(Condition):
@@ -325,7 +325,7 @@ cdef class OnLoop(Condition):
     
     cdef str get_name(self):
         if self.name is None:
-            self.name = self.evaluate_expression(self.get_parameter(0))
+            self.name = self.evaluate_index(0)
         return self.name
 
 # Expressions

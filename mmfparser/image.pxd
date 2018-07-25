@@ -15,4 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
 
-cdef class Image:    cdef public:        bytes data        unsigned char * c_data        int width, height, channels    cdef void close(self)
+cdef class Image:
+    cdef public:
+        bytes data
+        unsigned char * c_data
+        int width, height, channels
+
+    cdef void close(self)

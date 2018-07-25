@@ -110,8 +110,8 @@ class SetRadioText(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_text(index, value) 
 
 class EnableRadio(Action):
@@ -123,7 +123,7 @@ class EnableRadio(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         instance.objectPlayer.enable(index = index)
 
 class DisableRadio(Action):
@@ -135,7 +135,7 @@ class DisableRadio(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         instance.objectPlayer.disable(index = index)
 
 class SelectRadio(Action):
@@ -147,7 +147,7 @@ class SelectRadio(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         instance.objectPlayer.currentRadio = index
 
 class CheckButton(Action):
@@ -246,7 +246,7 @@ class RadioEnabled(Condition):
     """
 
     def check(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         return instance.objectPlayer.enabled[index]
 
 # Expressions

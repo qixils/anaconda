@@ -23,22 +23,22 @@ from mmfparser.player.sprite import CreatedFrame
 
 cdef class SetAngle(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_angle(value)
 
 cdef class SetScale(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_scale(value, value)
 
 cdef class SetXScale(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_scale(value, None)
 
 cdef class SetYScale(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.set_scale(None, value)
 
 cdef class StartAnimation(Action):
@@ -51,7 +51,7 @@ cdef class StopAnimation(Action):
 
 cdef class ForceFrame(Action):
     cdef void execute_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         instance.objectPlayer.force_frame(True, value)
 
 cdef class RestoreFrame(Action):
@@ -79,11 +79,11 @@ cdef class LoadActiveFrame(Action):
         filename = self.get_filename(self.get_parameter(0))
         animationIndex = self.get_parameter_value(self.get_parameter(1))
         directionIndex = self.get_direction(self.get_parameter(2)) % 32
-        frameIndex = self.evaluate_expression(self.get_parameter(3))
-        xHotspot = self.evaluate_expression(self.get_parameter(4))
-        yHotspot = self.evaluate_expression(self.get_parameter(5))
-        actionX = self.evaluate_expression(self.get_parameter(6))
-        actionY = self.evaluate_expression(self.get_parameter(7))
+        frameIndex = self.evaluate_index(3)
+        xHotspot = self.evaluate_index(4)
+        yHotspot = self.evaluate_index(5)
+        actionX = self.evaluate_index(6)
+        actionY = self.evaluate_index(7)
         if len(filename) == 0 or frameIndex < 0:
             return
         try:

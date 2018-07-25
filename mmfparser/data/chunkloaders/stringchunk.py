@@ -21,11 +21,11 @@ from mmfparser.loader import DataLoader
 
 class StringChunk(DataLoader):
     value = None
-    
+
     def read(self, reader):
-        self.value = reader.readString()
+        self.value = self.readString(reader)
         reader.seek(0, 2) # make implementation happy
-        
+
     def write(self, reader):
         reader.writeString(self.value)
 

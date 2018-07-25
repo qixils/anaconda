@@ -34,34 +34,34 @@ class FrameEffects(DataLoader):
 
 class FrameHandles(DataLoader):
     handles = None
-    
+
     def initialize(self):
         self.handles = []
 
     def read(self, reader):
         self.handles = [reader.readShort() for _ in xrange(len(reader) / 2)]
-    
+
     def write(self, reader):
         for handle in self.handles:
             reader.writeShort(handle)
 
 class FramePalette(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
 
     def read(self, reader):
         # XXX figure this out
         reader.skipBytes(4)
-        
+
         self.items = []
         for _ in xrange(256):
             self.items.append(reader.readColor())
-    
+
     def write(self, reader):
         reader.write('\x00' * 4)
-        
+
         for item in self.items:
             reader.writeColor(item)
 
@@ -69,50 +69,59 @@ class MovementTimerBase(DataLoader):
     value = None
     def read(self, reader):
         self.value = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeInt(self.value)
 
 class Frame(DataLoader):
     name = None
-    
+
     password = None
-    
+
     width = None
     height = None
     background = None
     flags = None
-    
+
     top = None
     bottom = None
     left = None
     right = None
-    
+
     movementTimer = None
-    
+
     instances = None
     maxObjects = None
-    
+
     layers = None
-    
+
     events = None
     palette = None
-    
+
     checksum = None
-    
+
     delayedReader = None
-    
+
     def read(self, reader):
         if not self.settings.get('loadFrames', False):
             self.delayedReader = reader
         else:
             self.read_now(reader)
-    
+
     def load(self):
         if self.delayedReader is None:
             return
         self.read_now(self.delayedReader)
-    
+
+    def close(self):
+        self.name = None
+        self.instances = None
+        self.layers = None
+        self.events = None
+        self.palette = None
+        self.fadeIn = None
+        self.fadeOut = None
+
     def read_now(self, reader):
         self.delayedReader = None
         newChunks = self.new(chunk.ChunkList, reader)
@@ -129,52 +138,52 @@ class Frame(DataLoader):
         self.height = newHeader.height
         self.background = newHeader.background
         self.flags = newHeader.flags
-        
+
         newVirtual = newChunks.popChunk(VirtualSize)
         self.top = newVirtual.top
         self.bottom = newVirtual.bottom
         self.left = newVirtual.left
         self.right = newVirtual.right
-        
+
         self.instances = newChunks.popChunk(ObjectInstances, True)
-        
+
         self.layers = newChunks.popChunk(Layers)
-        
+
         self.events = newChunks.popChunk(Events)
         self.maxObjects = self.events.maxObjects
-        
+
         self.palette = newChunks.popChunk(FramePalette, True)
-        
+
         try:
             self.movementTimer = newChunks.popChunk(MovementTimerBase).value
         except IndexError:
             pass
-        
+
         self.fadeIn = newChunks.popChunk(FadeIn, True)
         self.fadeOut = newChunks.popChunk(FadeOut, True)
-        
+
     def write(self, reader):
         newChunks = self.new(chunk.ChunkList)
-            
+
         newHeader = FrameHeader()
         newHeader.width = self.width
         newHeader.height = self.height
         newHeader.background = self.background
         newHeader.flags = self.flags
         newChunks.append(newHeader)
-        
+
         newVirtual = VirtualSize()
         newVirtual.top = self.top
         newVirtual.bottom = self.bottom
         newVirtual.left = self.left
         newVirtual.right = self.right
         newChunks.append(newVirtual)
-        
+
         if self.name is not None:
             newChunks.append(chunk.makeValueChunk(FrameName, self.name))
         if self.password is not None:
             newChunks.append(chunk.makeValueChunk(FramePassword, self.name))
-        
+
         if self.instances is not None:
             newChunks.append(self.instances)
         newChunks.append(self.layers)
@@ -198,7 +207,7 @@ class Layer(DataLoader):
     yCoefficient = None
     numberOfBackgrounds = None
     backgroundIndex = None
-    
+
     def initialize(self):
         self.flags = BitDict(
             'XCoefficient',
@@ -208,10 +217,10 @@ class Layer(DataLoader):
             'Visible', # visible
             'WrapHorizontally',
             'WrapVertically',
-            None, None, None, None, 
-            None, None, None, None, None, 
-            'Redraw', 
-            'ToHide', 
+            None, None, None, None,
+            None, None, None, None, None,
+            'Redraw',
+            'ToHide',
             'ToShow'
         )
 
@@ -222,8 +231,8 @@ class Layer(DataLoader):
         self.yCoefficient = reader.readFloat()
         self.numberOfBackgrounds = reader.readInt()
         self.backgroundIndex = reader.readInt()
-        self.name = reader.readString()
-    
+        self.name = self.readString(reader)
+
     def write(self, reader):
         reader.writeInt(self.flags.getFlags(), True)
         reader.writeFloat(self.xCoefficient)
@@ -231,31 +240,31 @@ class Layer(DataLoader):
         reader.writeInt(self.numberOfBackgrounds)
         reader.writeInt(self.backgroundIndex)
         reader.writeString(self.name)
-    
+
     def getBackgrounds(self, objectInstances):
         return objectInstances.items[
             self.backgroundIndex:self.backgroundIndex+self.numberOfBackgrounds]
-    
+
     def getInstances(self, objectInstances):
-        return self.parent.getObjectInstances(self, 
+        return self.parent.getObjectInstances(self,
             objectInstances)
 
 class Layers(DataLoader):
     def initialize(self):
         self.items = []
-        
+
     def getObjectInstances(self, layer, objectInstances):
         layerIndex = self.items.index(layer)
         try:
-            return [instance for instance in objectInstances.items 
+            return [instance for instance in objectInstances.items
                 if instance.layer == layerIndex]
         except AttributeError:
             return []
-    
+
     def read(self, reader):
         self.items = [self.new(Layer, reader)
             for _ in xrange(reader.readInt(True))]
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items), True)
         for item in self.items:
@@ -288,7 +297,7 @@ class ObjectInstance(DataLoader):
         self.parentHandle = reader.readShort() # object info
         self.layer = reader.readShort()
         reader.skipBytes(2)
-    
+
     def write(self, reader):
         reader.writeShort(self.handle, True)
         reader.writeShort(self.objectInfo, True)
@@ -298,33 +307,32 @@ class ObjectInstance(DataLoader):
         reader.writeShort(self.parentHandle)
         reader.writeShort(self.layer)
         reader.writeShort(0)
-    
+
     def getObjectInfo(self, frameItems):
         return frameItems.fromHandle(self.objectInfo)
-    
+
     def getParent(self):
         return frameItems.fromHandle(self.parentHandle)
-    
+
     def getParentType(self):
         return PARENT_TYPES[self.parentType]
 
 class ObjectInstances(DataLoader):
     def initialize(self):
-        self.items = {}
-        
+        self.items = []
+
     def read(self, reader):
         self.items = [self.new(ObjectInstance, reader)
             for _ in xrange(reader.readInt(True))]
-        
         reader.skipBytes(4) # XXX figure out
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items), True)
         for item in self.items:
             item.write(reader)
         reader.writeInt(self.parent.settings['parent'
             ].header.checksum, True)
-    
+
     def fromHandle(self, handle):
         handle, = [item for item in self.items if item.handle == handle]
         return handle
@@ -337,7 +345,7 @@ class FrameHeader(DataLoader):
     height = None
     flags = None
     background = None
-    
+
     def initialize(self):
         # 0x8000 == TimedMovements
         self.flags = BitDict(
@@ -377,6 +385,6 @@ class FrameName(StringChunk):
 class FramePassword(StringChunk):
     pass
 
-__all__ = ['FrameHandles', 'FrameName', 'Frame', 'FrameHeader', 
+__all__ = ['FrameHandles', 'FrameName', 'Frame', 'FrameHeader',
     'VirtualSize', 'ObjectInstances', 'Layers', 'FramePalette',
     'MovementTimerBase', 'FramePassword', 'LayerEffects', 'FrameEffects']

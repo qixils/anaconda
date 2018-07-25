@@ -50,10 +50,10 @@ class SoundItem(BaseSound):
     flags = None
     name = None
     data = None
-    
+
     def initialize(self):
         self.flags = SOUND_FLAGS.copy()
-    
+
     def read(self, reader):
         self.handle = reader.readInt(True)
         self.checksum = reader.readInt()
@@ -64,12 +64,12 @@ class SoundItem(BaseSound):
         nameLenght = reader.readInt()
         if self.settings.get('compressed', True):
             size = reader.readInt()
-            data = zlib.decompress(reader.read(size))
+            data = ByteReader(zlib.decompress(reader.read(size)))
         else:
-            data = reader.read(decompressedLenght)
-        self.data = data[nameLenght:]
-        self.name = data[:nameLenght].replace("\x00", '')
-    
+            data = reader.readReader(decompressedLenght)
+        self.name = self.readString(data, nameLenght)
+        self.data = data.read()
+
     def write(self, reader):
         reader.writeInt(self.handle, True)
         reader.writeInt(self.checksum)
@@ -121,7 +121,7 @@ class OldSound(BaseSound):
         new_data.readShort() # dunno
         self.chunk_size = new_data.readInt(True)
         self.data = new_data.read(self.chunk_size)
-    
+
     def get_wav(self):
         reader = ByteReader()
         reader.write('RIFF')
@@ -138,7 +138,7 @@ class OldSound(BaseSound):
         reader.writeInt(self.chunk_size, True)
         reader.write(self.data)
         return reader
-    
+
     def write(self, reader):
         data = self.get_wav()
         reader.writeInt(self.handle, True)
@@ -153,7 +153,7 @@ class OldSound(BaseSound):
 
 class SoundBank(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
 
@@ -165,10 +165,10 @@ class SoundBank(DataLoader):
         old = self.settings.get('old', False)
 
         if debug:
-            path = reader.readString()
+            path = self.readString(reader)
             reader = ByteReader(open(path, 'rb'))
             reader.skipBytes(4)
-    
+
         if java:
             numberOfItems = reader.readShort()
             itemsToRead = reader.readShort()
@@ -186,15 +186,15 @@ class SoundBank(DataLoader):
                 itemClass = SoundItem
 
         compressed = not debug
-            
+
         self.items = [self.new(itemClass, reader, compressed = compressed)
             for _ in xrange(itemsToRead)]
-        
+
         self.names = dict([(item.name, item) for  item in self.items])
-    
+
     def fromHandle(self, handle):
         return [item for item in self.items if item.handle == handle][0]
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items))
         for item in self.items:

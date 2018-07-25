@@ -29,10 +29,10 @@ DOUBLE = 2
 
 class GlobalValues(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
         items = self.items
         numberOfItems = reader.readShort(True)
@@ -48,7 +48,7 @@ class GlobalValues(DataLoader):
             else:
                 raise Exception('unknown global type')
             items.append(newGlobal)
-    
+
     def write(self, reader):
         types = []
         reader.writeShort(len(self.items))
@@ -66,14 +66,14 @@ class GlobalValues(DataLoader):
 
 class GlobalStrings(DataLoader):
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
-        self.items = [reader.readString() 
+        self.items = [self.readString(reader)
             for _ in xrange(reader.readInt(True))]
-    
+
     def write(self, reader):
         reader.writeInt(len(self.items))
         for item in self.items:

@@ -20,5 +20,5 @@ from mmfparser.player.instance cimport Instance
 
 cdef class CompareCounter(Condition):
     cdef bint check_instance(self, Instance instance):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(instance.objectPlayer.value, value)

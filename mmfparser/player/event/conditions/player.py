@@ -28,7 +28,7 @@ class PlayerCondition(Condition):
 
 class NumberOfLives(PlayerCondition):
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(self.playerHandler.lives, value)
 
 class PlayerDied(PlayerCondition):
@@ -126,5 +126,5 @@ class PlayerKeyDown(PlayerCondition):
 
 class CompareScore(PlayerCondition):
     def check(self):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         return self.compare(self.playerHandler.score, value)

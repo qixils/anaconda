@@ -73,7 +73,7 @@ class LoadDirectoryList(Action):
 
     def execute(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         lines = []
         for item in glob(path):
             if os.path.isdir(item):
@@ -90,7 +90,7 @@ class LoadFileList(Action):
 
     def execute(self, instance):
         path = convert_path(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         lines = []
         for item in glob(path):
             if os.path.isfile(item):
@@ -131,7 +131,7 @@ class AddLine(Action):
 
     def execute(self, instance):
         instance.objectPlayer.listObject.append(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class InsertLine(Action):
     """
@@ -143,10 +143,10 @@ class InsertLine(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         index += instance.objectPlayer.indexOffset
         instance.objectPlayer.listObject.insert(index, 
-            self.evaluate_expression(self.get_parameter(1)))
+            self.evaluate_index(1))
 
 class DeleteLine(Action):
     """
@@ -157,7 +157,7 @@ class DeleteLine(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         index += instance.objectPlayer.indexOffset
         if index < 0:
             return
@@ -172,7 +172,7 @@ class SetCurrentLine(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
+        index = self.evaluate_index(0)
         index += instance.objectPlayer.indexOffset
         index = max(0, index)
         instance.objectPlayer.listObject.scroll_to_line(
@@ -268,7 +268,7 @@ class ScrollToLine(Action):
 
     def execute(self, instance):
         instance.objectPlayer.listObject.scroll_to_line(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class ScrollToEnd(Action):
     """
@@ -332,8 +332,8 @@ class SetLineData(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         instance.objectPlayer.listObject.set_data(index, value)
 
 class ChangeLine(Action):
@@ -346,8 +346,8 @@ class ChangeLine(Action):
     """
 
     def execute(self, instance):
-        index = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        index = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         instance.objectPlayer.listObject.replace(index, value)
 
 # Conditions

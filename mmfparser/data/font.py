@@ -50,14 +50,14 @@ class LogFont(DataLoader):
         self.clipPrecision = reader.readByte()
         self.quality = reader.readByte()
         self.pitchAndFamily = reader.readByte()
-        self.faceName = reader.readString(32)
-        
+        self.faceName = self.readString(reader, 32)
+
     def isBold(self):
         return self.weight == 700
-    
+
     def getSize(self):
         return -int(round(self.height / (96.0 / 72)))
-    
+
     def write(self, reader):
         if self.settings.get('old', False):
             writeMethod = reader.writeShort

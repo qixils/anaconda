@@ -130,7 +130,19 @@ systemDict = {
         23 : 'OpenDebugger',
         24 : 'PauseDebugger',
         25 : 'ExtractBinaryFile',
-        26 : 'ReleaseBinaryFile'
+        26 : 'ReleaseBinaryFile',
+        27 : 'SetGlobalValueInt',
+        28 : 'SetGlobalValue2',
+        29 : 'SetGlobalValueDouble',
+        30 : 'SetGlobalValue3',
+        31 : 'AddGlobalValueInt',
+        32 : 'AddGlobalValue2',
+        33 : 'AddGlobalValueDouble',
+        34 : 'AddGlobalValue3',
+        35 : 'SubtractGlobalValueInt',
+        36 : 'SubtractGlobalValue2',
+        37 : 'SubtractGlobalValueDouble',
+        38 : 'SubtractGlobalValue3'
     },
     -7 : {
         0 : 'SetScore',
@@ -150,10 +162,13 @@ systemDict = {
         1 : 'ShowCursor'
     },
     -5 : {
-        0 : 'CreateObject'
+        0 : 'CreateObject',
+        1 : 'CreateObjectByName'
     },
     -4 : {
-        0 : 'SetTimer'
+        0 : 'SetTimer',
+        1 : 'ScheduleEvent',
+        2 : 'ScheduleEventTimes'
     },
     -3 : {
         0 : 'NextFrame',
@@ -184,10 +199,15 @@ systemDict = {
         25 : 'DeleteAllCreatedBackdrops',
         26 : 'SetFrameWidth',
         27 : 'SetFrameHeight',
-        28 : 'SAVEFRAME',
-        29 : 'LOADFRAME',
-        30 : 'LOADAPPLICATION',
-        31 : 'PLAYDEMO'
+        28 : 'SaveFrame',
+        29 : 'LoadFrame',
+        30 : 'LoadApplication',
+        31 : 'PlayDemo',
+        32 : 'SetFrameEffect',
+        33 : 'SetFrameEffectParameter',
+        34 : 'SetFrameEffectImage',
+        35 : 'SetFrameAlphaCoefficient',
+        36 : 'SetFrameRGBCoefficient'
     },
     -2 : { # Sound and Music
         0 : 'PlaySample',
@@ -294,5 +314,19 @@ extensionDict = {
     64 : 'SetEffectParameter',
     65 : 'SetAlphaCoefficient',
     66 : 'SetRGBCoefficient',
-    67 : 'SetEffectImage'
+    67 : 'SetEffectImage',
+    68 : 'SetFriction',
+    69 : 'SetElasticity',
+    70 : 'ApplyImpulse',
+    71 : 'ApplyAngularImpulse',
+    72 : 'ApplyForce',
+    73 : 'ApplyTorque',
+    74 : 'SetLinearVelocity',
+    75 : 'SetAngularVelocity',
+    76 : 'Foreach',
+    77 : 'ForeachTwoObjects',
+    78 : 'StopForce',
+    79 : 'StopTorque',
+    80 : 'SetDensity',
+    81 : 'SetGravityScale'
 }

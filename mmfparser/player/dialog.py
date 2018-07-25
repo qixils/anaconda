@@ -18,6 +18,7 @@
 import sys
 
 if sys.platform == 'win32':
+    import os
     import ctypes
     from ctypes import (c_int, c_ulong, c_char_p, c_wchar_p, c_ushort, wintypes,
         create_unicode_buffer, cast, wstring_at, addressof, string_at)
@@ -105,23 +106,26 @@ if sys.platform == 'win32':
             newFilters.append(filterTypes)
         filterText = '\x00'.join(newFilters) + "\x00\x00"
         ofx.lpstrFilter = filterText
-        print 'doing it'
         if func(ctypes.byref(ofx)):
             if multi:
-                '%r' % ofx.lpstrFile
-                print string_at(addressof(lpstrFile), 1024)
                 offset = addressof(lpstrFile)
-                print offset
                 items = []
                 while 1:
                     item = wstring_at(offset)
-                    offset += len(item)
+                    offset += (len(item) + 1) * 2
                     if item == '':
                         break
                     items.append(item)
-                return items
+
+                if len(items) == 1:
+                    return items
+                directory = items[0]
+                new_items = []
+                for item in items[1:]:
+                    new_items.append(os.path.join(directory, item))
+                return new_items
             else:
-                return ofx.lpstrFile.replace("\0", "")
+                return wstring_at(addressof(lpstrFile))
         return ''
     
     def open_file_selector(title = 'Open', *arg, **kw):

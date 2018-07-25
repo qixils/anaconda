@@ -39,7 +39,7 @@ OPERATOR_LIST = [
     '<',
     '>=',
     '>'
-]   
+]
 
 def getAttributes(loader):
     attributeDict = {}
@@ -61,12 +61,12 @@ class Object(ParameterCommon, _ObjectInfoMixin, _ObjectTypeMixin):
     objectInfoList = None
     objectInfo = None
     objectType = None
-    
+
     def read(self, reader):
         self.objectInfoList = reader.readShort()
         self.objectInfo = reader.readShort(True)
         self.objectType = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.objectInfoList)
         reader.writeShort(self.objectInfo, True)
@@ -75,21 +75,21 @@ class Object(ParameterCommon, _ObjectInfoMixin, _ObjectTypeMixin):
 class Time(ParameterCommon):
     timer = None
     loops = None
-    
+
     def read(self, reader):
         self.timer = reader.readInt()
         self.loops = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeInt(self.timer)
         reader.writeInt(self.loops)
 
 class Short(ParameterCommon):
     value = None
-    
+
     def read(self, reader):
         self.value = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.value)
 
@@ -101,7 +101,7 @@ class Remark(ParameterCommon):
         if reader.readShort() != 0:
             print 'remark NOOO'
         self.id = reader.readInt(True)
-    
+
     def write(self, reader):
         self.font.write(reader)
         reader.writeColor(self.fontColor)
@@ -111,31 +111,33 @@ class Remark(ParameterCommon):
 
 class Int(ParameterCommon):
     value = None
-    
+
     def read(self, reader):
         self.value = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeInt(self.value)
 
 SAMPLE_FLAGS = BitDict(
     'Uninterruptible',
-    'Bad'
+    'Bad',
+    'IPhoneAudioPlayer',
+    'IPhoneOpenAL'
 )
 
 
 class Sample(ParameterCommon):
     handle = None
     flags = None
-    
+
     def initialize(self):
         self.flags = SAMPLE_FLAGS.copy()
-    
+
     def read(self, reader):
         self.handle = reader.readShort()
         self.flags.setFlags(reader.readShort(True))
-        self.name = reader.readString()
-    
+        self.name = self.readString(reader)
+
     def write(self, reader):
         reader.writeShort(self.handle)
         reader.writeShort(self.flags.getFlags(), True)
@@ -144,13 +146,13 @@ class Sample(ParameterCommon):
 class Create(ParameterCommon):
     objectInstance = None
     objectInfo = None
-    
+
     def read(self, reader):
         self.position = self.new(Position, reader)
         self.objectInstance = reader.readShort(True)
         self.objectInfo = reader.readShort(True)
         reader.skipBytes(4) # free
-    
+
     def write(self, reader):
         self.position.write(reader)
         reader.writeShort(self.objectInstance, True)
@@ -159,21 +161,21 @@ class Create(ParameterCommon):
 
 class Every(ParameterCommon):
     delay = None
-    
+
     def read(self, reader):
         self.delay = reader.readInt() # in ms
         self.compteur = reader.readInt()
-    
+
     def write(self, reader):
         reader.writeInt(self.delay)
         reader.writeInt(self.compteur)
 
 class KeyParameter(ParameterCommon):
     key = None
-    
+
     def read(self, reader):
         self.key = Key(reader.readShort())
-    
+
     def write(self, reader):
         reader.writeShort(self.key.getValue())
 
@@ -181,10 +183,10 @@ class ExpressionParameter(ParameterCommon):
     isExpression = True
     comparison = None
     items = None
-    
+
     def initialize(self):
         self.items = []
-    
+
     def read(self, reader):
         self.comparison = reader.readShort()
         items = self.items
@@ -193,19 +195,26 @@ class ExpressionParameter(ParameterCommon):
             items.append(expression)
             if expression.objectType == 0 and expression.num == 0:
                 break
-    
+
     def write(self, reader):
         reader.writeShort(self.comparison)
         for item in self.items:
             item.write(reader)
-    
+
     def getOperator(self):
         return OPERATOR_LIST[self.comparison]
 
 POSITION_FLAGS = BitDict(
+    # Located flag
+    # True: transform position according to the direction of parent
+    # False: use position without transformation
     'Direction',
+    # Origin flag
     'Action',
+    # 2 orientation flags (both are set appropriately)
+    # True: use direction of parent
     'InitialDirection',
+    # True: use default movement direction
     'DefaultDirection'
 )
 
@@ -220,10 +229,10 @@ class Position(ParameterCommon):
     typeParent = None
     objectInfoList = None
     layer = None
-    
+
     def initialize(self):
         self.flags = POSITION_FLAGS.copy()
-    
+
     def read(self, reader):
         self.objectInfoParent = reader.readShort(True)
         self.flags.setFlags(reader.readShort(True))
@@ -235,7 +244,7 @@ class Position(ParameterCommon):
         self.typeParent = reader.readShort()
         self.objectInfoList = reader.readShort()
         self.layer = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.objectInfoParent, True)
         reader.writeShort(self.flags.getFlags(), True)
@@ -253,14 +262,14 @@ class Shoot(ParameterCommon):
     objectInstance = None
     objectInfo = None
     shootSpeed = None
-    
+
     def read(self, reader):
         self.position = self.new(Position, reader)
         self.objectInstance = reader.readShort(True)
         self.objectInfo = reader.readShort(True)
         reader.skipBytes(4) # free
         self.shootSpeed = reader.readShort()
-    
+
     def write(self, reader):
         self.position.write(reader)
         reader.writeShort(self.objectInstance, True)
@@ -273,13 +282,13 @@ class Zone(ParameterCommon):
     y1 = None
     x2 = None
     y2 = None
-    
+
     def read(self, reader):
         self.x1 = reader.readShort()
         self.y1 = reader.readShort()
         self.x2 = reader.readShort()
         self.y2 = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.x1)
         reader.writeShort(self.y1)
@@ -288,10 +297,10 @@ class Zone(ParameterCommon):
 
 class Colour(ParameterCommon):
     value = None
-    
+
     def read(self, reader):
         self.value = reader.readColor()
-    
+
     def write(self, reader):
         reader.writeColor(self.value)
 
@@ -304,17 +313,17 @@ class Program(ParameterCommon):
     flags = None
     filename = None
     command = None
-    
+
     def initialize(self):
         self.flags = PROGRAM_FLAGS.copy()
-    
+
     def read(self, reader):
         self.flags.setFlags(reader.readShort(True))
         currentPosition = reader.tell()
-        self.filename = reader.readString()
+        self.filename = self.readString(reader)
         reader.seek(currentPosition + 260)
-        self.command = reader.readString()
-    
+        self.command = self.readString(reader)
+
     def write(self, reader):
         reader.writeShort(self.flags.getFlags(), True)
         filename = self.filename[:259]
@@ -326,7 +335,7 @@ GROUP_FLAGS = BitDict(
     'Closed',
     'ParentInactive',
     'GroupInactive',
-    'Global'
+    'Global' # unicode?
 )
 
 class Group(ParameterCommon):
@@ -334,17 +343,17 @@ class Group(ParameterCommon):
     id = None
     name = None
     offset = None
-    
+
     def initialize(self):
         self.flags = GROUP_FLAGS.copy()
-    
+
     def read(self, reader):
         self.offset = reader.tell() - 24
         self.flags.setFlags(reader.readShort(True))
         self.id = reader.readShort(True)
-        self.name = reader.readString(96)
+        self.name = self.readString(reader, 96)
         self.password = reader.readInt()
-        
+
     def write(self, reader):
         reader.writeShort(self.flags.getFlags(), True)
         reader.writeShort(self.id, True)
@@ -355,32 +364,32 @@ class GroupPointer(ParameterCommon):
     savedPointer = None
     pointer = None
     id = None
-    
+
     def read(self, reader):
         self.pointer = self.savedPointer = reader.readInt()
         self.id = reader.readShort()
         if self.pointer != 0:
             self.pointer += reader.tell()
-    
+
     def write(self, reader):
         reader.writeInt(self.savedPointer)
         reader.writeShort(self.id)
 
 class String(ParameterCommon):
     value = None
-    
+
     def read(self, reader):
-        self.value = reader.readString()
-    
+        self.value = self.readString(reader)
+
     def write(self, reader):
         reader.writeString(self.value)
 
 class Filename(ParameterCommon):
     value = None
-    
+
     def read(self, reader):
-        self.value = reader.readString()
-    
+        self.value = self.readString(reader)
+
     def write(self, reader):
         value = self.value[:259]
         reader.write(value + '\x00' * (260 - len(value)))
@@ -389,12 +398,12 @@ class CompareTime(ParameterCommon):
     timer = None
     loops = None
     comparison = None
-    
+
     def read(self, reader):
         self.timer = reader.readInt()
         self.loops = reader.readInt()
         self.comparison = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeInt(self.timer)
         reader.writeInt(self.loops)
@@ -403,11 +412,11 @@ class CompareTime(ParameterCommon):
 class TwoShorts(ParameterCommon):
     value1 = None
     value2 = None
-    
+
     def read(self, reader):
         self.value1 = reader.readShort()
         self.value2 = reader.readShort()
-    
+
     def write(self, reader):
         reader.writeShort(self.value1)
         reader.writeShort(self.value2)
@@ -421,11 +430,11 @@ class Extension(ParameterCommon):
         self.type = reader.readShort()
         self.code = reader.readShort()
         self.data = reader.readReader(size - 6)
-    
+
     def get_reader(self):
         self.data.seek(0)
         return self.data
-    
+
     def write(self, reader):
         reader.writeShort(len(self.data) + 6)
         reader.writeShort(self.type)
@@ -449,21 +458,32 @@ class Click(ParameterCommon):
     def read(self, reader):
         self.click = reader.readByte()
         self.double = bool(reader.readByte())
-    
+
     def write(self, reader):
         reader.writeByte(self.click)
         reader.writeByte(int(self.double))
-        
+
     def getButton(self):
-        return CLICK_NAMES(self.click)
+        return CLICK_NAMES[self.click]
+
+class CharacterEncoding(ParameterCommon):
+    def read(self, reader):
+        raise NotImplementedError()
+        # typedef struct {
+        #     WORD    wCharEncoding;
+        #     DWORD   dwUnusedParam;
+        # } charEncodingParam;
+
+    def write(self, reader):
+        raise NotImplementedError()
 
 class Bug(ParameterCommon):
     def read(self, reader):
         pass
-    
+
     def write(self, reader):
         pass
-    
+
 parameterLoaders = [
     None,
     Object,
@@ -529,5 +549,7 @@ parameterLoaders = [
     Short,
     ExpressionParameter,
     Filename,
-    String
+    String,
+    CharacterEncoding,
+    CharacterEncoding
 ]

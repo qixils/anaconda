@@ -29,6 +29,9 @@ if os.path.isfile(DEFAULT_SOUNDFONT):
 else:
     SOUNDFONT_PATH = None
 
+def clamp(value):
+    return max(0, min(1.0, value))
+
 class SoundDummy(object):
     item = None
     dummy = True
@@ -333,7 +336,7 @@ class MediaPlayer(PlayerChild, EventDispatcher):
     
     # main stuff
     def set_main_volume(self, value):
-        snakesound.listener.volume = value / 100.0
+        snakesound.listener.volume = clamp(value / 100.0)
     
     def get_main_volume(self):
         return snakesound.listener.volume * 100.0

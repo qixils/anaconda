@@ -44,10 +44,26 @@ def findAppendedOffset(reader):
     numberOfSections = reader.readShort(True)
     reader.skipBytes(16)
 
-    reader.skipBytes(28 + 68 + 16 * 8 + (numberOfSections - 1) * 40 + 16)
+    # seek to first section table entry
+    optional_header = 28 + 68
+    data_dir = 16 * 8
+    reader.skipBytes(optional_header + data_dir)
 
-    sizeOfRawData = reader.readInt(True)
-    pointerToRawData = reader.readInt(True)
-    reader.seek(sizeOfRawData + pointerToRawData)
-    
+    pos = None
+
+    for i in xrange(numberOfSections):
+        start = reader.tell()
+        name = reader.readString()
+        if name == '.extra':
+            reader.seek(start+16+4)
+            pos = reader.readInt(True) # pointerToRawData
+            break
+        elif i >= numberOfSections - 1:
+            reader.seek(start+16)
+            size = reader.readInt(True) # sizeOfRawData
+            addr = reader.readInt(True) # pointerToRawData
+            pos = addr + size
+            break
+        reader.seek(start+40)
+    reader.seek(pos)
     return reader.tell()

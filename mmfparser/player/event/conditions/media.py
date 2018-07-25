@@ -19,7 +19,7 @@ from mmfparser.player.event.conditions.common import Condition
 
 class ChannelNotPlaying(Condition):
     def check(self):
-        channel = self.evaluate_expression(self.get_parameter(0)) - 1
+        channel = self.evaluate_index(0) - 1
         return (not self.player.media.channel_playing(channel)) != self.negated
 
 class NoSamplesPlaying(Condition):
@@ -54,7 +54,7 @@ class SamplePaused(Condition):
 
 class ChannelPaused(Condition):
     def check(self):
-        id = self.evaluate_expression(self.get_parameter(0)) - 1
+        id = self.evaluate_index(0) - 1
         return self.player.media.channel_paused(id) != self.negated
 
 class MusicFinished(Condition):

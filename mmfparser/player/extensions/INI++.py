@@ -29,10 +29,12 @@ from mmfparser.player.extensions.common import UserExtension, HiddenObject
 from mmfparser.player.event.actions.common import Action
 from mmfparser.player.event.conditions.common import Condition
 from mmfparser.player.event.expressions.common import Expression
-from mmfparser.player.common import open_file
+from mmfparser.player.common import open_file, convert_path
 
 from ConfigParser import (RawConfigParser, NoSectionError, 
     DuplicateSectionError)
+
+import os
 
 import re
 regex_cache = {}
@@ -59,8 +61,8 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        new_group = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        new_group = self.evaluate_index(1)
         instance.objectPlayer.group = group
 
 class Action1(Action):
@@ -74,8 +76,8 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(2))
+        item = self.evaluate_index(0)
+        value = self.evaluate_index(2)
         instance.objectPlayer.set_value(value, item = item)
 
 class Action2(Action):
@@ -88,8 +90,8 @@ class Action2(Action):
     """
 
     def execute(self, instance):
-        item = self.evaluate_expression(self.get_parameter(0))
-        value = self.evaluate_expression(self.get_parameter(1))
+        item = self.evaluate_index(0)
+        value = self.evaluate_index(1)
         instance.objectPlayer.set_value(value, item = item)
 
 class Action3(Action):
@@ -180,7 +182,7 @@ class Action10(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         instance.objectPlayer.remove_item(item = name)
 
 class Action11(Action):
@@ -236,10 +238,10 @@ class Action14(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
-        type = self.evaluate_expression(self.get_parameter(2))
-        value = self.evaluate_expression(self.get_parameter(3))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
+        type = self.evaluate_index(2)
+        value = self.evaluate_index(3)
         if type == 0:
             value = int(value)
         elif type == 1:
@@ -258,9 +260,9 @@ class Action15(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
-        value = self.evaluate_expression(self.get_parameter(2))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
+        value = self.evaluate_index(2)
         instance.objectPlayer.set_value(value, group = group, item = item)
 
 class Action16(Action):
@@ -441,7 +443,7 @@ class Action28(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
+        group = self.evaluate_index(0)
         instance.objectPlayer.remove_group(group)
 
 class Action29(Action):
@@ -454,8 +456,8 @@ class Action29(Action):
     """
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
         instance.objectPlayer.remove_item(group, item)
 
 class Action30(Action):
@@ -482,8 +484,21 @@ class Action31(Action):
     """
 
     def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+        group_pattern = get_regex_pattern(self.evaluate_index(0))
+        item_pattern = get_regex_pattern(self.evaluate_index(1))
+        value_pattern = get_regex_pattern(self.evaluate_index(2))
+        case_sens = self.evaluate_index(3)
+        if case_sens != 0:
+            raise NotImplementedError
+        for option, options in instance.objectPlayer.get_dict().iteritems():
+            if not group_pattern.match(option):
+                continue
+            for value_name, value in options.iteritems():
+                if not item_pattern.match(value_name):
+                    continue
+                if not value_pattern.match(value):
+                    continue
+                del options[value_name]
 
 class Action32(Action):
     """
@@ -507,11 +522,11 @@ class Action33(Action):
     def execute(self, instance):
         # XXX does not support exotic features
         group_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
         item_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(1)))
+            self.evaluate_index(1))
         value_condition = get_regex_pattern(
-            self.evaluate_expression(self.get_parameter(2)))
+            self.evaluate_index(2))
         # options = self.get_parameter(3).data
         # print 'option len:', len(options)
         # mode = options.readByte(True)
@@ -593,7 +608,7 @@ class Action38(Action):
 
     def execute(self, instance):
         filename = self.get_filename(self.get_parameter(0))
-        overwrite = bool(self.evaluate_expression(self.get_parameter(1)))
+        overwrite = bool(self.evaluate_index(1))
         instance.objectPlayer.load(filename, True, overwrite)
 
 class Action39(Action):
@@ -611,7 +626,20 @@ class Action39(Action):
         raise NotImplementedError('%s not implemented' % (
             str(self)))
 
-class Action40(Action):
+class OtherINIAction(Action):
+    def execute(self, instance):
+        name = self.get_parameter(0).data.readString()
+        for other_instance in self.player.frame.instances:
+            if other_instance.objectInfo.name != name:
+                continue
+            if other_instance.objectPlayer.__class__ is not DefaultObject:
+                continue
+            break
+        else:
+            return
+        self.action(instance, instance)
+
+class Action40(OtherINIAction):
     """
     Merging->Merge (with other Ini++ object)
 
@@ -620,21 +648,12 @@ class Action40(Action):
     1: Allow overwrites ( 0 = No , 1 = Yes ) (EXPRESSION, ExpressionParameter)
     """
 
-    def execute(self, instance):
-        name = self.get_parameter(0).data.readString()
-        overwrite = self.evaluate_expression(self.get_parameter(1))
-        for instance in self.player.frame.instances:
-            if instance.objectInfo.name != name:
-                continue
-            if instance.objectPlayer.__class__ is not DefaultObject:
-                continue
-            break
-        else:
-            return
-        instance.objectPlayer.merge_dict(instance.objectPlayer.get_dict(),
+    def action(self, instance, other_instance):
+        overwrite = self.evaluate_index(1)
+        instance.objectPlayer.merge_dict(other_instance.objectPlayer.get_dict(),
             overwrite)
 
-class Action41(Action):
+class Action41(OtherINIAction):
     """
     Merging->Merge Group (with other Ini++ object)
 
@@ -645,9 +664,12 @@ class Action41(Action):
     3: Allow overwrites ( 0 = No , 1 = Yes ) (EXPRESSION, ExpressionParameter)
     """
 
-    def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            str(self)))
+    def action(self, instance, other_instance):
+        source = self.evaluate_index(1)
+        dest = self.evaluate_index(2)
+        overwrite = self.evaluate_index(3)
+        instance.objectPlayer.merge_group(other_instance.objectPlayer.get_dict(),
+            source, dest, overwrite)
 
 class Action42(Action):
     """
@@ -659,8 +681,8 @@ class Action42(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        mode = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        mode = self.evaluate_index(1)
         instance.objectPlayer.load(value, mode)
 
 class Action43(Action):
@@ -674,7 +696,7 @@ class Action43(Action):
 
     def execute(self, instance):
         filename = self.get_filename(self.get_parameter(0))
-        readonly = self.evaluate_expression(self.get_parameter(1))
+        readonly = self.evaluate_index(1)
         try:
             instance.objectPlayer.load(filename)
         except:
@@ -697,7 +719,7 @@ class Action45(Action):
     """
 
     def execute(self, instance):
-        path = self.evaluate_expression(self.get_parameter(0))
+        path = self.evaluate_index(0)
         instance.objectPlayer.save(path)
 
 class Action46(Action):
@@ -732,8 +754,8 @@ class Action48(Action):
     """
 
     def execute(self, instance):
-        value = self.evaluate_expression(self.get_parameter(0))
-        mode = self.evaluate_expression(self.get_parameter(1))
+        value = self.evaluate_index(0)
+        mode = self.evaluate_index(1)
         instance.objectPlayer.load_string(value, mode)
 
 class Action49(Action):
@@ -1049,7 +1071,7 @@ class Action71(Action):
         self.parameter = reader.readByte(True)
 
     def execute(self, instance):
-        group = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(1)
         if self.option == SORT_BY_NAME:
             orig = instance.objectPlayer.get_dict()
             value = ini_dict(sorted(orig.items(), key=lambda t: t[0]))
@@ -1077,7 +1099,7 @@ class Condition1(Condition):
     """
 
     def check(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         return instance.objectPlayer.has_item(item = name)
 
 class Condition2(Condition):
@@ -1104,7 +1126,7 @@ class Condition3(Condition):
 
     def check(self, instance):
         return instance.objectPlayer.has_group(
-            self.evaluate_expression(self.get_parameter(0)))
+            self.evaluate_index(0))
 
 class Condition4(Condition):
     """
@@ -1116,8 +1138,8 @@ class Condition4(Condition):
     """
 
     def check(self, instance):
-        group = self.evaluate_expression(self.get_parameter(0))
-        item = self.evaluate_expression(self.get_parameter(1))
+        group = self.evaluate_index(0)
+        item = self.evaluate_index(1)
         return instance.objectPlayer.has_item(group, item)
 
 class Condition5(Condition):
@@ -1800,8 +1822,11 @@ class ini_dict(OrderedDict):
         OrderedDict.__init__(self, *arg, **kw)
     
     def __setitem__(self, key, value):
-        if isinstance(value, str) and value[0] == value[-1] == '"':
-            value = value[1:-1]
+        try:
+            if type(value) == str and value[0] == value[-1] == '"':
+                value = value[1:-1]
+        except IndexError:
+            pass
         if key == '<empty>':
             key = ''
         transform = key.lower()
@@ -1841,6 +1866,14 @@ class ConfigParser(RawConfigParser):
     def readfp(self, fp, filename = None):
         return RawConfigParser.readfp(self, FileReader(fp), filename)
 
+def open_dir_file(filename, mode):
+    filename = convert_path(filename)
+    try:
+        os.makedirs(os.path.dirname(filename))
+    except OSError:
+        pass
+    return open(filename, mode)
+
 class DefaultObject(HiddenObject):
     filename = None
     group = None
@@ -1849,6 +1882,8 @@ class DefaultObject(HiddenObject):
     key = None
     def created(self, data):
         self.results = []
+        data.skipBytes(2)
+        filename = data.readString()
         data.seek(3269)
         self.autoSave = data.readByte() == 1
         data.seek(3429)
@@ -1861,7 +1896,10 @@ class DefaultObject(HiddenObject):
                 return
             except KeyError:
                 pass
-        self.clear()
+        if filename:
+            self.load(filename)
+        else:
+            self.clear()
     
     def close(self):
         self.clear()
@@ -1886,24 +1924,24 @@ class DefaultObject(HiddenObject):
         if filename == '':
             return
         try:
-            file = open_file(filename, 'rb')
+            fp = open_dir_file(filename, 'rb')
             if self.key is not None:
-                data = file.read()
-                file.close()
+                data = fp.read()
+                fp.close()
                 data = convert(data, self.key)
-                file = StringIO(data)
+                fp = StringIO(data)
             if overwrite:
-                self.config.readfp(file)
+                self.config.readfp(fp)
             else:
                 config = self.get_config()
-                config.readfp(file)
+                config.readfp(fp)
                 for group in config.sections():
                     if not self.config.has_section(group):
                         self.config.add_section(group)
                     for name, value in config.items(group):
                         if not self.config.has_option(group, name):
                             self.config.set(group, name, value)
-            file.close()
+            fp.close()
         except IOError, e:
             print 'INI++ load failed:', e
             pass
@@ -1922,6 +1960,18 @@ class DefaultObject(HiddenObject):
                 if not overwrite and option in origin_section:
                     continue
                 origin_section[option] = value
+
+    def merge_group(self, value, source, dest, overwrite):
+        sections = self.get_dict()
+        if dest not in sections:
+            origin_section = {}
+            value[dest] = origin_section
+        else:
+            origin_section = sections[dest]
+        for option, value in value.get(source, {}).iteritems():
+            if not overwrite and option in origin_section:
+                continue
+            origin_section[option] = value
     
     def load_string(self, value, merge):
         if not merge:
@@ -1948,13 +1998,13 @@ class DefaultObject(HiddenObject):
         self.filename = filename
         # print 'saving', filename, self.key
         try:
-            file = open_file(filename, 'wb')
+            fp = open_dir_file(filename, 'wb')
             if self.key is not None:
                 value = self.get_data()
-                file.write(convert(value, self.key))
+                fp.write(convert(value, self.key))
             else:
-                self.config.write(file)
-            file.close()
+                self.config.write(fp)
+            fp.close()
         except IOError, e:
             pass
             # print 'could not save:', e

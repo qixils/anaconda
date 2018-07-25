@@ -34,7 +34,23 @@ from mmfparser.player.event.expressions.common import Expression
 
 # Actions
 
-class Action0(Action):
+class PlayAction(Action):
+    def play(self, instance, name, channel, repeat = 1):
+        channel -= 1
+        if channel == -1:
+            channel = None
+        try:
+            filename = instance.objectPlayer.sounds[name]
+            self.player.media.play_sound_file(filename, repeat, channel)
+        except KeyError:
+            try:
+                item = self.player.gameData.sounds.names[name]
+            except (KeyError, AttributeError):
+                print '(sound %r not found)' % name
+                return
+            self.player.media.play_sound(item, repeat, channel)
+
+class Action0(PlayAction):
     """
     Playback->Play and loop
 
@@ -43,27 +59,14 @@ class Action0(Action):
     1: Channel index (1-32, 0: Free channel) (EXPRESSION, ExpressionParameter)
     2: Repeat count (0: Infinite) (EXPRESSION, ExpressionParameter)
     """
-    initialized = False
-    filename = None
-    sound = None
     
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
-        channel = self.evaluate_expression(self.get_parameter(1))
-        repeat = self.evaluate_expression(self.get_parameter(2))
-        if not self.initialized:
-            try:
-                filename = instance.objectPlayer.sounds[name]
-                self.player.media.play_sound_file(filename, repeat, channel)
-            except KeyError:
-                try:
-                    item = self.player.gameData.sounds.names[name]
-                except KeyError:
-                    print '(sound %r not found)' % name
-                    return
-                self.player.media.play_sound(item, repeat, channel)
+        name = self.evaluate_index(0)
+        channel = self.evaluate_index(1)
+        repeat = self.evaluate_index(2)
+        self.play(instance, name, channel, repeat)
 
-class Action1(Action):
+class Action1(PlayAction):
     """
     Playback->Play
 
@@ -73,8 +76,9 @@ class Action1(Action):
     """
 
     def execute(self, instance):
-        raise NotImplementedError('%s not implemented' % (
-            self.__class__.__name__))
+        name = self.evaluate_index(0)
+        channel = self.evaluate_index(1)
+        self.play(instance, name, channel)
 
 class Action2(Action):
     """
@@ -98,7 +102,7 @@ class Action3(Action):
     """
 
     def execute(self, instance):
-        name = self.evaluate_expression(self.get_parameter(0))
+        name = self.evaluate_index(0)
         filename = self.get_filename(self.get_parameter(1))
         instance.objectPlayer.sounds[name] = filename
 
@@ -439,7 +443,10 @@ class Expression10(Expression):
 
 class DefaultObject(HiddenObject):
     def created(self, data):
-        self.sounds = {}
+        storage = self.get_storage()
+        if 'sounds' not in storage:
+            storage['sounds'] = {}
+        self.sounds = storage['sounds']
 
 class SoundPlayer(UserExtension):
     objectPlayer = DefaultObject

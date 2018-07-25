@@ -43,7 +43,7 @@ class Action0(Action):
     """
 
     def execute(self, instance):
-        port = self.evaluate_expression(self.get_parameter(0)) or 6121
+        port = self.evaluate_index(0) or 6121
         instance.objectPlayer.host(port)
 
 class Action1(Action):
@@ -73,7 +73,7 @@ class Action2(FactoryAction):
     """
 
     def handle_action(self, factory):
-        value = self.evaluate_expression(self.get_parameter(0))
+        value = self.evaluate_index(0)
         factory.welcomeMessage = value
 
 class EnableInteractiveAction(Action):

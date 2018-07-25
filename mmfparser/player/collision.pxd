@@ -43,7 +43,7 @@ cdef inline void intersect(int a_x1, int a_y1, int a_x2, int a_y2,
     r_x2[0] = int_min(a_x2, b_x2)
     r_y2[0] = int_min(a_y2, b_y2)
 
-cdef inline bint collide(CollisionBase lhs, CollisionBase rhs)
+cdef bint collide(CollisionBase lhs, CollisionBase rhs)
 
 from mmfparser.player.instance cimport Instance
 from mmfparser.player.objects.common cimport BaseObject

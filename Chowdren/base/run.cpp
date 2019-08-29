@@ -34,8 +34,12 @@ GameManager manager;
 #endif
 
 #ifndef NDEBUG
-#define CHOWDREN_SHOW_DEBUGGER
+#define CHOWDREN_DEBUG
 #endif
+
+// #ifdef CHOWDREN_DEBUG
+#define CHOWDREN_SHOW_DEBUGGER
+// #endif
 
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -59,21 +63,6 @@ void GameManager::init()
     idle_timer_started = false;
     global_time = show_build_timer = reset_timer = manual_reset_timer = 0.0;
 #endif
-
-#ifdef CHOWDREN_USE_JOYTOKEY
-    simulate_count = 0;
-    axis_moved = false;
-    last_axis = -1;
-    deadzone = 0.4f;
-    for (int i = 0; i < CHOWDREN_BUTTON_MAX-1; i++)
-        key_mappings[i] = -1;
-    for (int i = 0; i < CHOWDREN_AXIS_MAX-1; i++) {
-        axis_pos_mappings[i] = -1;
-        axis_neg_mappings[i] = -1;
-        axis_values[i] = 0;
-    }
-#endif
-
     platform_init();
     set_window(false);
 
@@ -88,23 +77,16 @@ void GameManager::init()
 
     fps_limit.set(FRAMERATE);
 
-    int start_frame = 0;
 #if defined(CHOWDREN_IS_AVGN)
-    start_frame = 0;
+    set_frame(0);
 #elif defined(CHOWDREN_IS_HFA)
-    start_frame = 0;
+    set_frame(25);
 #elif defined(CHOWDREN_IS_FP)
     player_died = false;
     lives = 3;
-    start_frame = 0;
+    set_frame(39);
 #else
-    start_frame = 0;
-#endif
-
-#ifdef NDEBUG
     set_frame(0);
-#else
-    set_frame(start_frame);
 #endif
 }
 
@@ -119,20 +101,20 @@ void GameManager::reset_globals()
 
 void GameManager::set_window(bool fullscreen)
 {
+    this->fullscreen = fullscreen;
     if (window_created) {
-        if (fullscreen == this->fullscreen)
-            return;
-        this->fullscreen = fullscreen;
         platform_set_fullscreen(fullscreen);
         return;
     }
-    this->fullscreen = fullscreen;
     window_created = true;
 
     platform_create_display(fullscreen);
 
     // OpenGL init
-    Render::init();
+    glc_init();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    init_shaders();
 
 #ifdef CHOWDREN_VSYNC
     platform_set_vsync(true);
@@ -148,13 +130,6 @@ void GameManager::set_window_scale(int scale)
 #endif
 }
 
-void GameManager::set_scale_type(int type)
-{
-#ifdef CHOWDREN_IS_DESKTOP
-    platform_set_scale_type(type);
-#endif
-}
-
 bool GameManager::is_fullscreen()
 {
     return fullscreen;
@@ -167,11 +142,21 @@ void GameManager::on_key(int key, bool state)
     idle_timer = 0.0;
 #endif
 
+#ifdef CHOWDREN_IS_DESKTOP
+    if (state && key == SDLK_RETURN) {
+        bool alt = keyboard.is_pressed(SDLK_LALT) ||
+                   keyboard.is_pressed(SDLK_RALT);
+        if (alt) {
+            set_window(!fullscreen);
+            return;
+        }
+    }
+#endif
+
     if (state)
         keyboard.add(key);
     else
         keyboard.remove(key);
-
     if (state)
         frame->last_key = key;
 }
@@ -319,7 +304,7 @@ void GameManager::draw()
 #endif
     PROFILE_END();
 
-    Render::set_offset(0, 0);
+    glLoadIdentity();
 
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
@@ -345,10 +330,15 @@ void GameManager::draw_fade()
 {
     if (fade_dir == 0.0f)
         return;
-    Render::set_offset(0, 0);
-    Color c = fade_color;
-    c.set_alpha(int(fade_value * 255));
-    Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, c);
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+    glColor4ub(fade_color.r, fade_color.g, fade_color.b,
+               int(fade_value * 255));
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(WINDOW_WIDTH, 0.0f);
+    glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glVertex2f(0.0f, WINDOW_HEIGHT);
+    glEnd();
 }
 
 void GameManager::set_frame(int index)
@@ -384,6 +374,7 @@ void GameManager::set_frame(int index)
     std::cout << "Setting frame: " << index << std::endl;
 
     frame->set_index(index);
+    frame->on_start();
 
     std::cout << "Frame set" << std::endl;
 }
@@ -417,7 +408,6 @@ static InstanceCount counts[MAX_OBJECT_ID];
 
 static void print_instance_stats()
 {
-    return;
     int count = 0;
     for (int i = 0; i < MAX_OBJECT_ID; i++) {
         int instance_count = manager.frame->instances.items[i].size();
@@ -435,83 +425,7 @@ static void print_instance_stats()
 }
 #endif
 
-#ifdef CHOWDREN_USE_JOYTOKEY
-
-void GameManager::set_deadzone(float value)
-{
-    deadzone = value;
-}
-
-void GameManager::simulate_key(const std::string & key)
-{
-    int key_int = -1;
-    if (!key.empty())
-        key_int = translate_string_to_key(key);
-    simulate_key(key_int);
-}
-
-void GameManager::simulate_key(int key_int)
-{
-    if (simulate_count >= InputList::STATE_COUNT)
-        return;
-    if (key_int == -1)
-        return;
-    for (int i = 0; i < simulate_count; i++) {
-        if (simulate_keys[i].key != key_int)
-            continue;
-        simulate_keys[i].down = true;
-        return;
-    }
-
-    simulate_keys[simulate_count].key = key_int;
-    simulate_keys[simulate_count].down = true;
-    keyboard.add(key_int);
-    simulate_count++;
-}
-
-void GameManager::map_button(int button, const std::string & key)
-{
-    button++;
-    if (button == CHOWDREN_BUTTON_INVALID || button >= CHOWDREN_BUTTON_MAX)
-        return;
-    int key_int = -1;
-    if (!key.empty())
-        key_int = translate_string_to_key(key);
-    int old_key = key_mappings[button-1];
-    if (old_key != -1 && old_key != key_int)
-        keyboard.remove(old_key);
-    key_mappings[button-1] = key_int;
-}
-
-void GameManager::map_axis(int axis,
-                           const std::string & neg,
-                           const std::string & pos)
-{
-    axis++;
-    if (axis == CHOWDREN_AXIS_INVALID || axis >= CHOWDREN_AXIS_MAX)
-        return;
-    int old_key;
-    int key = -1;
-    if (!neg.empty())
-        key = translate_string_to_key(neg);
-    old_key = axis_neg_mappings[axis-1];
-    if (old_key != -1 && old_key != key)
-        keyboard.remove(old_key);
-    axis_neg_mappings[axis-1] = key;
-    key = -1;
-    if (!pos.empty())
-        key = translate_string_to_key(pos);
-    old_key = axis_pos_mappings[axis-1];
-    if (old_key != -1 && old_key != key)
-        keyboard.remove(old_key);
-    axis_pos_mappings[axis-1] = key;
-}
-
-#endif
-
-#ifndef NDEBUG
-#define SHOW_STATS
-#endif
+// #define SHOW_STATS
 
 bool GameManager::update()
 {
@@ -529,8 +443,6 @@ bool GameManager::update()
     keyboard.update();
     mouse.update();
 
-    platform_poll_events();
-
     // player controls
     int new_control = get_player_control_flags(1);
     player_press_flags = new_control & ~(player_flags);
@@ -543,65 +455,7 @@ bool GameManager::update()
     joystick_flags = new_control;
 
     fps_limit.start();
-
-#ifdef CHOWDREN_USE_JOYTOKEY
-    for (int i = 0; i < simulate_count; i++) {
-        if (simulate_keys[i].down) {
-            simulate_keys[i].down = false;
-            continue;
-        }
-        keyboard.remove(simulate_keys[i].key);
-        simulate_keys[i] = simulate_keys[simulate_count-1];
-        i--;
-        simulate_count--;
-    }
-
-    for (int i = 0; i < CHOWDREN_BUTTON_MAX-1; i++) {
-        int key = key_mappings[i];
-        if (key == -1)
-            continue;
-        if (is_joystick_pressed_once(1, i+1))
-            keyboard.add(key);
-        else if (is_joystick_released_once(1, i+1))
-            keyboard.remove(key);
-    }
-    axis_moved = false;
-    for (int i = 0; i < CHOWDREN_AXIS_MAX-1; i++) {
-        float value = get_joystick_axis(1, i+1);
-        int pos = axis_pos_mappings[i];
-        int neg = axis_neg_mappings[i];
-
-        int axis_value = 0;
-        if (value > deadzone) {
-            last_axis = i;
-            if (pos != -1 && axis_values[i] != 1)
-                keyboard.add(pos);
-            axis_value = 1;
-        } else {
-            if (pos != -1 && axis_values[i] == 1)
-                keyboard.remove(pos);
-        }
-
-        if (value < -deadzone) {
-            last_axis = i;
-            if (neg != -1 && axis_values[i] != -1)
-                keyboard.add(neg);
-            axis_value = -1;
-        } else {
-            if (neg != -1 && axis_values[i] == -1)
-                keyboard.remove(neg);
-        }
-
-        axis_values[i] = axis_value;
-
-        static bool last_move = false;
-        bool new_move = axis_value != 0;
-        if (new_move && new_move != last_move)
-            axis_moved = true;
-
-        last_move = new_move;
-    }
-#endif
+    platform_poll_events();
 
     // update mouse position
     platform_get_mouse_pos(&mouse_x, &mouse_y);
@@ -692,8 +546,12 @@ void GameManager::run()
 
 // InputList
 
+#define INPUT_STATE_PRESSED 0
+#define INPUT_STATE_HOLD 1
+#define INPUT_STATE_RELEASED 2
+
 InputList::InputList()
-: last(-1), count(0)
+: last(-1)
 {
 }
 
@@ -701,58 +559,62 @@ void InputList::add(int v)
 {
     last = v;
 
-    for (int i = 0; i < count; i++) {
-        InputState & s = states[i];
+    vector<InputState>::iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        InputState & s = *it;
         if (s.key != v)
             continue;
-        s.state = STATE_PRESSED;
+        s.state = INPUT_STATE_PRESSED;
         return;
     }
-    if (count >= STATE_COUNT)
-        return;
-    states[count].key = v;
-    states[count].state = STATE_PRESSED;
-    count++;
+    InputState s;
+    s.key = v;
+    s.state = INPUT_STATE_PRESSED;
+    items.push_back(s);
 }
 
 void InputList::remove(int v)
 {
-    for (int i = 0; i < count; i++) {
-        InputState & s = states[i];
+    vector<InputState>::iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        InputState & s = *it;
         if (s.key != v)
             continue;
-        s.state = STATE_RELEASED;
+        s.state = INPUT_STATE_RELEASED;
         return;
     }
 }
 
 bool InputList::is_pressed(int v)
 {
-    for (int i = 0; i < count; i++) {
-        const InputState & s = states[i];
+    vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        const InputState & s = *it;
         if (s.key != v)
             continue;
-        return s.state != STATE_RELEASED;
+        return s.state != INPUT_STATE_RELEASED;
     }
     return false;
 }
 
 bool InputList::is_pressed_once(int v)
 {
-    for (int i = 0; i < count; i++) {
-        const InputState & s = states[i];
+    vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        const InputState & s = *it;
         if (s.key != v)
             continue;
-        return s.state == STATE_PRESSED;
+        return s.state == INPUT_STATE_PRESSED;
     }
     return false;
 }
 
 bool InputList::is_any_pressed()
 {
-    for (int i = 0; i < count; i++) {
-        const InputState & s = states[i];
-        if (s.state == STATE_RELEASED)
+    vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        const InputState & s = *it;
+        if (s.state == INPUT_STATE_RELEASED)
             continue;
         return true;
     }
@@ -761,9 +623,10 @@ bool InputList::is_any_pressed()
 
 bool InputList::is_any_pressed_once()
 {
-    for (int i = 0; i < count; i++) {
-        const InputState & s = states[i];
-        if (s.state != STATE_PRESSED)
+    vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        const InputState & s = *it;
+        if (s.state != INPUT_STATE_PRESSED)
             continue;
         return true;
     }
@@ -772,31 +635,32 @@ bool InputList::is_any_pressed_once()
 
 bool InputList::is_released_once(int v)
 {
-    for (int i = 0; i < count; i++) {
-        const InputState & s = states[i];
+    vector<InputState>::const_iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        const InputState & s = *it;
         if (s.key != v)
             continue;
-        return s.state == STATE_RELEASED;
+        return s.state == INPUT_STATE_RELEASED;
     }
     return false;
 }
 
 void InputList::clear()
 {
-    count = 0;
+    items.clear();
 }
 
 void InputList::update()
 {
-    for (int i = 0; i < count; i++) {
-        InputState & s = states[i];
-        if (s.state != STATE_RELEASED) {
-            s.state = STATE_HOLD;
+    vector<InputState>::iterator it = items.begin();
+    while (it != items.end()) {
+        InputState & s = *it;
+        if (s.state != INPUT_STATE_RELEASED) {
+            s.state = INPUT_STATE_HOLD;
+            ++it;
             continue;
         }
-        states[i] = states[count-1];
-        count--;
-        i--;
+        it = items.erase(it);
     }
 }
 

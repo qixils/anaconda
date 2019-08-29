@@ -13,6 +13,10 @@
 #include "color.h"
 #include "instancemap.h"
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#include "fbo.h"
+#endif
+
 class BackgroundItem;
 class CollisionBase;
 
@@ -40,6 +44,12 @@ typedef boost::intrusive::member_hook<FrameObject, LayerPos,
                                       &FrameObject::layer_pos> LayerHook;
 typedef boost::intrusive::list<FrameObject, LayerHook> LayerInstances;
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#define FBO_BORDER 32
+#define BACKGROUND_FBO_WIDTH (WINDOW_WIDTH + FBO_BORDER * 2)
+#define BACKGROUND_FBO_HEIGHT (WINDOW_HEIGHT + FBO_BORDER * 2)
+#endif
+
 class Layer
 {
 public:
@@ -55,11 +65,16 @@ public:
     int x, y;
     Broadphase broadphase;
     bool wrap_x, wrap_y;
-    Color blend_color;
-    int inactive_box[4];
 
 #ifdef CHOWDREN_IS_3DS
     float depth;
+#endif
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    int background_count;
+    int fbo_pos[4];
+    bool background_fbo_init;
+    Framebuffer background_fbo;
 #endif
 
     Layer();
@@ -132,7 +147,6 @@ public:
 
     FrameData();
     virtual void event_callback(int id);
-    virtual void init();
     virtual void on_start();
     virtual void on_end();
     virtual void on_app_end();
@@ -176,7 +190,7 @@ public:
     void pause();
     void restart();
     void draw(int remote);
-    FrameObject * add_object(FrameObject * object, int layer_index);
+    FrameObject * add_object(FrameObject * object, int layer_indcex);
     FrameObject * add_object(FrameObject * object, Layer * layer);
     void add_background_object(FrameObject * object, int layer_index);
     void set_object_layer(FrameObject * object, int new_layer);
@@ -201,17 +215,6 @@ public:
     int get_instance_count();
     void set_width(int width, bool adjust);
     void set_height(int height, bool adjust);
-
-    void test_collisions(ObjectList & a, ObjectList & b,
-                         int flag1, int flag2, EventFunction e);
-    void test_collisions(QualifierList & a, ObjectList & b,
-                         int flag1, int flag2, EventFunction e);
-    void test_collisions(QualifierList & a, QualifierList & b,
-                         int flag1, int flag2, EventFunction e);
-    void test_collisions_save(ObjectList & a, ObjectList & b,
-                              int flag1, int flag2, EventFunction e);
-    void test_collisions_save(QualifierList & a, ObjectList & b,
-                              int flag1, int flag2, EventFunction e);
 
     virtual void set_index(int index) = 0;
     virtual void load_static_images();
@@ -241,6 +244,11 @@ public:
     void event_callback(int id)
     {
         data->event_callback(id);
+    }
+
+    void on_start()
+    {
+        data->on_start();
     }
 
     void on_end()

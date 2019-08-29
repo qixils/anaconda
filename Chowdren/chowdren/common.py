@@ -8,8 +8,6 @@ def get_base_path():
     return os.path.join(get_root_path(), 'base')
 
 def get_root_path():
-    if hasattr(sys, 'frozen'):
-        return os.getcwd()
     path = os.path.join(os.path.dirname(__file__), '..')
     return os.path.abspath(path)
 
@@ -136,6 +134,16 @@ def is_qualifier(handle):
 
 def get_qualifier(handle):
     return handle & 2047
+
+def get_iter_type(obj):
+    if is_qualifier(obj[0]):
+        return 'QualifierIterator'
+    return 'ObjectIterator'
+
+def get_list_type(obj):
+    if is_qualifier(obj[0]):
+        return 'QualifierList'
+    return 'ObjectList'
 
 def get_directions(value):
     directions = []

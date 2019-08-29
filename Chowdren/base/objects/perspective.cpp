@@ -1,19 +1,25 @@
 #include "objects/perspective.h"
 #include "include_gl.h"
 #include "collision.h"
+#include "shader.h"
 #include <iostream>
-#include "render.h"
 
 PerspectiveObject::PerspectiveObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id)
 {
     collision = new InstanceBox(this);
 
-    set_shader(Render::PERSPECTIVE);
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    set_shader(perspective_shader);
 }
 
 PerspectiveObject::~PerspectiveObject()
 {
+    glDeleteTextures(1, &texture);
     delete collision;
 }
 
@@ -25,16 +31,27 @@ void PerspectiveObject::set_width(int width)
 
 void PerspectiveObject::draw()
 {
+    begin_draw();
+
     int box[4];
     get_screen_aabb(box);
-	Texture t = Render::copy_rect(box[0], box[1], box[2], box[3]);
-    begin_draw();
-    Render::disable_blend();
-    Render::draw_tex(x, y, x + width, y + height, Color(255, 255, 255, 255),
-                     t,
-                     back_texcoords[0], back_texcoords[1],
-                     back_texcoords[4], back_texcoords[5]);
-    Render::enable_blend();
+    glc_copy_color_buffer_rect(texture, box[0], box[1],
+                               box[2], box[3]);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(back_texcoords[0], back_texcoords[1]);
+    glVertex2d(x, y);
+    glTexCoord2f(back_texcoords[2], back_texcoords[3]);
+    glVertex2d(x + width, y);
+    glTexCoord2f(back_texcoords[4], back_texcoords[5]);
+    glVertex2d(x + width, y + height);
+    glTexCoord2f(back_texcoords[6], back_texcoords[7]);
+    glVertex2d(x, y + height);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+
     end_draw();
 }
 

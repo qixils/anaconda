@@ -43,5 +43,5 @@ FixedValue AdvancedDirection::get_closest(int n)
 
 float AdvancedDirection::get_object_angle(FrameObject * a, FrameObject * b)
 {
-    return ::get_angle(a->x, a->y, b->x, b->y);
+    return -::get_angle(a->x, a->y, b->x, b->y);
 }

@@ -1,18 +1,36 @@
-#include "shadercommon.h"
-#include "glslshader.h"
+#include "shader.h"
 #include "frameobject.h"
 #include "manager.h"
 #include "chowconfig.h"
 #include "fileio.h"
 #include "image.h"
+#include "glslshader.h"
 #include "collision.h"
 #include "datastream.h"
 #include "assetfile.h"
-#include "render.h"
 
-BaseShader * BaseShader::current = NULL;
+static bool background_initialized = false;
+static GLuint background_texture;
 
-BaseShader::BaseShader(unsigned int id, int flags,
+static void initialize_background()
+{
+    background_initialized = true;
+    glGenTextures(1, &background_texture);
+    glBindTexture(GL_TEXTURE_2D, background_texture);
+#ifdef CHOWDREN_QUICK_SCALE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+#else
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
+
+GLSLShader * GLSLShader::current = NULL;
+
+GLSLShader::GLSLShader(unsigned int id, int flags,
                        const char * texture_parameter)
 : initialized(false), id(id), flags(flags),
   texture_parameter(texture_parameter)
@@ -21,16 +39,16 @@ BaseShader::BaseShader(unsigned int id, int flags,
 
 static AssetFile fp;
 
-void BaseShader::initialize()
+void GLSLShader::initialize()
 {
     if (!fp.is_open())
         fp.open();
 
     fp.set_item(id, AssetFile::SHADER_DATA);
 
-    program = glCreateProgramObject();
-    GLhandleARB vert_shader = attach_source(fp, GL_VERTEX_SHADER_ARB);
-    GLhandleARB frag_shader = attach_source(fp, GL_FRAGMENT_SHADER_ARB);
+    program = glCreateProgram();
+    GLuint vert_shader = attach_source(fp, GL_VERTEX_SHADER);
+    GLuint frag_shader = attach_source(fp, GL_FRAGMENT_SHADER);
 
 #ifndef CHOWDREN_USE_GL
     glBindAttribLocation(program, POSITION_ATTRIB_IDX, POSITION_ATTRIB_NAME);
@@ -42,21 +60,23 @@ void BaseShader::initialize()
     glLinkProgram(program);
 
     GLint status;
-    glGetObjectParameteriv(program, GL_OBJECT_LINK_STATUS_ARB, &status);
+    glGetProgramiv(program, GL_LINK_STATUS, &status);
     if (status == GL_FALSE) {
         GLint info_len;
-        glGetObjectParameteriv(program, GL_OBJECT_INFO_LOG_LENGTH_ARB,
-                               &info_len);
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_len);
         GLchar * info_log = new GLchar[info_len + 1];
-        glGetInfoLog(program, info_len, NULL, info_log);
+        glGetProgramInfoLog(program, info_len, NULL, info_log);
         std::cout << "Linker failure: " << info_log << std::endl;
         delete[] info_log;
     }
 
-    glDetachObject(program, vert_shader);
-    glDetachObject(program, frag_shader);
+    glDetachShader(program, vert_shader);
+    glDetachShader(program, frag_shader);
 
-    glUseProgramObject(program);
+    if ((flags & SHADER_HAS_BACK) && !background_initialized)
+        initialize_background();
+
+    glUseProgram(program);
 
     // setup uniforms
     glUniform1i((GLint)get_uniform(TEXTURE_SAMPLER_NAME), 0);
@@ -70,18 +90,32 @@ void BaseShader::initialize()
         glUniform1i((GLint)get_uniform(texture_parameter), 2);
     }
 
-    current = NULL;
+    glUseProgram(0);
+
     initialize_parameters();
+
     initialized = true;
 }
 
-void BaseShader::initialize_parameters()
+void GLSLShader::initialize_parameters()
 {
 }
 
-GLhandleARB BaseShader::attach_source(FSFile & fp, GLenum type)
+GLuint GLSLShader::get_background_texture()
 {
-    GLhandleARB shader = glCreateShaderObject(type);
+    if (!(flags & SHADER_HAS_BACK))
+        return 0;
+    return background_texture;
+}
+
+bool GLSLShader::has_texture_param()
+{
+    return texture_parameter != NULL;
+}
+
+GLuint GLSLShader::attach_source(FSFile & fp, GLenum type)
+{
+    GLuint shader = glCreateShader(type);
 
     FileStream stream(fp);
     size_t size = stream.read_uint32();
@@ -94,23 +128,22 @@ GLhandleARB BaseShader::attach_source(FSFile & fp, GLenum type)
     glCompileShader(shader);
 
     GLint status;
-    glGetObjectParameteriv(shader, GL_OBJECT_COMPILE_STATUS_ARB, &status);
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE) {
         GLint info_len;
-        glGetObjectParameteriv(shader, GL_OBJECT_INFO_LOG_LENGTH_ARB,
-                               &info_len);
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
         GLchar * info_log = new GLchar[info_len + 1];
-        glGetInfoLog(shader, info_len, NULL, info_log);
+        glGetShaderInfoLog(shader, info_len, NULL, info_log);
         std::cout << "Compile error in " << type << ":" << std::endl <<
             info_log << std::endl;
         delete[] info_log;
     } else {
-        glAttachObject(program, shader);
+        glAttachShader(program, shader);
     }
     return shader;
 }
 
-void BaseShader::begin(FrameObject * instance, int width, int height)
+void GLSLShader::begin(FrameObject * instance, int width, int height)
 {
     if (!initialized)
         initialize();
@@ -118,34 +151,44 @@ void BaseShader::begin(FrameObject * instance, int width, int height)
     if (flags & SHADER_HAS_BACK) {
         int box[4];
         instance->get_screen_aabb(box);
-        Texture t = Render::copy_rect(box[0], box[1], box[2], box[3]);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, t);
-        glActiveTexture(GL_TEXTURE0);
+        glc_copy_color_buffer_rect(background_texture, box[0], box[1],
+                                   box[2], box[3]);
     }
 
-    if (current != this) {
-        glUseProgramObject(program);
-        current = this;
-    }
+    glUseProgram(program);
 
-    if (flags & SHADER_HAS_TEX_SIZE) {
+    if (flags & SHADER_HAS_TEX_SIZE)
         glUniform2f(size_uniform, 1.0f / width, 1.0f / height);
-    }
+
+    set_parameters(instance);
+
+    current = this;
 }
 
-void BaseShader::set_int(FrameObject * instance, int src, int uniform)
+void GLSLShader::set_parameters(FrameObject * instance)
+{
+
+}
+
+void GLSLShader::end(FrameObject * instance)
+{
+    current = NULL;
+
+    glUseProgram(0);
+}
+
+void GLSLShader::set_int(FrameObject * instance, int src, int uniform)
 {
     int val = (int)instance->get_shader_parameter(src);
     glUniform1i((GLint)uniform, val);
 }
 
-void BaseShader::set_float(FrameObject * instance, int src, int uniform)
+void GLSLShader::set_float(FrameObject * instance, int src, int uniform)
 {
     glUniform1f((GLint)uniform, instance->get_shader_parameter(src));
 }
 
-void BaseShader::set_vec4(FrameObject * instance, int src, int uniform)
+void GLSLShader::set_vec4(FrameObject * instance, int src, int uniform)
 {
     int val = (int)instance->get_shader_parameter(src);
     float a, b, c, d;
@@ -153,39 +196,7 @@ void BaseShader::set_vec4(FrameObject * instance, int src, int uniform)
     glUniform4f((GLint)uniform, a, b, c, d);
 }
 
-void BaseShader::set_image(FrameObject * instance, int src)
-{
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, (GLuint)instance->get_shader_parameter(src));
-    glActiveTexture(GL_TEXTURE0);
-}
-
-int BaseShader::get_uniform(const char * value)
+int GLSLShader::get_uniform(const char * value)
 {
     return glGetUniformLocation(program, value);
-}
-
-#define EQ_REVERSE_SUBTRACT GL_FUNC_REVERSE_SUBTRACT
-#define EQ_ADD GL_FUNC_ADD
-
-#define FUNC_DST_COLOR GL_DST_COLOR
-#define FUNC_ONE GL_ONE
-#define FUNC_SRC_ALPHA GL_SRC_ALPHA
-#define FUNC_ONE_MINUS_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
-#define FUNC_ZERO GL_ZERO
-#define FUNC_SRC_COLOR GL_SRC_COLOR
-
-#define set_blend_eqs(a, b) glBlendEquationSeparate(a, b)
-#define set_blend_eq(a) glBlendEquation(a)
-#define set_blend_func(a, b) glBlendFunc(a, b)
-#define commit_parameters(x)
-
-#include "shadercommon.cpp"
-
-void set_scale_uniform(float width, float height, float x_scale, float y_scale)
-{
-    glUniform1f(pixelscale_shader.x_scale, x_scale);
-    glUniform1f(pixelscale_shader.y_scale, y_scale);
-    glUniform1f(pixelscale_shader.x_size, width);
-    glUniform1f(pixelscale_shader.y_size, height);
 }

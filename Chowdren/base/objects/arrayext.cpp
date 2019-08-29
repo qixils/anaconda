@@ -203,7 +203,7 @@ void ArrayObject::expand(int x, int y, int z)
 ArrayObject::~ArrayObject()
 {
     if (global_data) {
-        global_data->value = data;
+        *global_data = data;
         return;
     }
     if (data.is_numeric)

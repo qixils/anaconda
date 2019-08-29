@@ -1,6 +1,8 @@
 from libcpp.vector cimport vector
 from mmfparser.common cimport allocate_memory
 from libc.string cimport memset
+cdef extern from "<algorithm>" namespace "std":
+    void sort[T, R](T first, T second, R comp)
 
 cdef extern from "./maxrects/MaxRectsBinPack.cpp" namespace "rbp":
     cdef struct RectSize:
@@ -28,8 +30,6 @@ cdef extern from "./maxrects/MaxRectsBinPack.cpp" namespace "rbp":
 cdef extern from "./maxrects/Rect.cpp":
     pass
 
-cdef extern from "./maxrects/frontend.cpp":
-    void sort_indexes(vector[int] & idx)
 
 from PIL import Image
 
@@ -80,6 +80,10 @@ cdef class MaxRects:
         return im
 
 
+cdef bint comp(int a, int b):
+    return a > b
+
+
 def pack_images(images, width, height):
     cdef list new_images = []
     cdef vector[RectSize] rects
@@ -107,7 +111,7 @@ def pack_images(images, width, height):
         maxrects.Init(width, height)
         maxrects.Insert(rects, dst, idx, RectBestShortSideFit)
         res.set_result(width, height, idx, dst, new_images)
-        sort_indexes(idx)
+        sort(idx.begin(), idx.end(), comp)
 
         for i in idx:
             rects.erase(rects.begin() + i)

@@ -7,9 +7,6 @@
 #include <iomanip>
 #include "md5.h"
 #include "intern.cpp"
-#include "overlap.cpp"
-#include "collision.cpp"
-#include "objects/active.h"
 
 #ifdef CHOWDREN_USE_VALUEADD
 #include "extra_keys.cpp"
@@ -246,7 +243,6 @@ void Layer::reset()
     scroll_x = scroll_y = 0;
     back = NULL;
 
-    update_position();
 #ifdef CHOWDREN_IS_3DS
     depth = 0.0f;
 #endif
@@ -274,6 +270,12 @@ void Layer::init(int index, double coeff_x, double coeff_y, bool visible,
         return;
 
     broadphase.init();
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    fbo_pos[0] = fbo_pos[1] = fbo_pos[2] = fbo_pos[3] = 0;
+    background_count = 0;
+    background_fbo_init = false;
+#endif
 }
 
 Layer::~Layer()
@@ -314,8 +316,7 @@ void Layer::scroll(int scroll_x, int scroll_y, int dx, int dy)
     for (it2 = background_instances.begin(); it2 != background_instances.end();
          ++it2) {
         FrameObject * object = *it2;
-        // XXX stupid
-        object->set_position(object->x + dx, object->y + dy);
+        // object->set_position(object->x + dx, object->y + dy);
         object->set_backdrop_offset(-dx, -dy);
     }
 #endif
@@ -332,8 +333,14 @@ void Layer::set_position(int x, int y)
 
     LayerInstances::iterator it;
 
+    for (it = instances.begin(); it != instances.end(); ++it) {
+        FrameObject * object = &*it;
+        if (object->flags & SCROLL)
+            continue;
+        object->set_position(object->x - dx, object->y - dy);
+    }
+
 #ifdef CHOWDREN_LAYER_WRAP
-    // XXX this is stupid
     if (wrap_x || wrap_y) {
         FlatObjectList::const_iterator it2;
         for (it2 = background_instances.begin();
@@ -350,67 +357,14 @@ void Layer::set_position(int x, int y)
             }
         }
     }
-
-    dx = -dx;
-    dy = -dy;
 #endif
 
-    for (it = instances.begin(); it != instances.end(); ++it) {
-        FrameObject * object = &*it;
-        if (object->flags & SCROLL)
-            continue;
-        object->set_position(object->x - dx, object->y - dy);
-    }
 }
-
-#define INACTIVE_X 64
-#define INACTIVE_Y 16
-#define KILL_X 480
-#define KILL_Y 300
 
 void Layer::update_position()
 {
-#ifdef CHOWDREN_LAYER_WRAP
-    // XXX this is stupid
-    off_x = scroll_x;
-    off_y = scroll_y;
-#else
     off_x = scroll_x + x;
     off_y = scroll_y + y;
-#endif
-    Frame * frame = manager.frame;
-    if (frame == NULL) {
-        for (int i = 0; i < 4; i++) {
-            inactive_box[i] = 0;
-        }
-        return;
-    }
-
-    int x = frame->off_x;
-    int y = frame->off_y;
-    int w = frame->width;
-    int h = frame->height;
-
-    int x1 = x - INACTIVE_X;
-    if (x1 < 0)
-        x1 = -KILL_X;
-
-    int x2 = x + WINDOW_WIDTH + INACTIVE_X;
-    if (x2 > w)
-        x2 = w + KILL_X;
-
-    int y1 = y - INACTIVE_Y;
-    if (y1 < 0)
-        y1 = -KILL_Y;
-
-    int y2 = y + WINDOW_HEIGHT + INACTIVE_Y;
-    if (y2 > h)
-        y2 = h + KILL_Y;
-
-    inactive_box[0] = x1 - off_x;
-    inactive_box[2] = x2 - off_x;
-    inactive_box[1] = y1 - off_y;
-    inactive_box[3] = y2 - off_y;
 }
 
 void Layer::add_background_object(FrameObject * instance)
@@ -420,6 +374,11 @@ void Layer::add_background_object(FrameObject * instance)
     else
         instance->depth = background_instances.back()->depth + 1;
     background_instances.push_back(instance);
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    if (instance->id == BACKGROUND_TYPE)
+        background_count++;
+#endif
 }
 
 void Layer::remove_background_object(FrameObject * instance)
@@ -505,7 +464,7 @@ void Layer::insert_object(FrameObject * instance, int index)
     unsigned int prev = it->depth;
     ++it;
     unsigned int next = it->depth;
-    unsigned int new_depth = prev + (next - prev) / 2;
+    unsigned int new_depth = (prev + next) / 2;
     instance->depth = new_depth;
     instances.insert(it, *instance);
 
@@ -537,11 +496,10 @@ void Layer::set_level(FrameObject * instance, int new_index)
     if (instance->flags & BACKGROUND)
         return;
     remove_object(instance);
-    if (new_index == -1 || new_index >= int(instances.size())) {
+    if (new_index == -1 || new_index >= int(instances.size()))
         add_object(instance);
-    } else {
+    else
         insert_object(instance, new_index);
-    }
 }
 
 int Layer::get_level(FrameObject * instance)
@@ -643,6 +601,12 @@ struct DrawCallback
     bool on_callback(void * data)
     {
         FrameObject * item = (FrameObject*)data;
+#ifdef CHOWDREN_BACKGROUND_FBO
+        // if (item->id == BACKGROUND_TYPE)
+        //     return true;
+        if (item->flags & BACKGROUND)
+            return true;
+#endif
         if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
             return true;
         if (!collide_box(item, aabb))
@@ -651,6 +615,34 @@ struct DrawCallback
         return true;
     }
 };
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+struct BackgroundDrawCallback
+{
+    FlatObjectList & list;
+    int * aabb;
+
+    BackgroundDrawCallback(FlatObjectList & list, int v[4])
+    : list(list), aabb(v)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        FrameObject * item = (FrameObject*)data;
+        // if (item->id != BACKGROUND_TYPE)
+        //     return true;
+        if (!(item->flags & BACKGROUND))
+            return true;
+        if (!(item->flags & VISIBLE) || item->flags & DESTROYING)
+            return true;
+        if (!collide_box(item, aabb))
+            return true;
+        list.push_back(item);
+        return true;
+    }
+};
+#endif
 
 inline bool sort_depth_comp(FrameObject * obj1, FrameObject * obj2)
 {
@@ -666,18 +658,24 @@ inline void sort_depth(FlatObjectList & list)
     std::sort(list.begin(), list.end(), sort_depth_comp);
 }
 
+inline bool sort_back_comp(FrameObject * obj1, FrameObject * obj2)
+{
+    return obj1->depth < obj2->depth;
+}
+
+inline void sort_back(FlatObjectList & list)
+{
+    std::sort(list.begin(), list.end(), sort_back_comp);
+}
+
 void Layer::draw(int display_x, int display_y)
 {
     if (!visible)
         return;
 
-#ifdef CHOWDREN_LAYER_WRAP
-    int x, y;
-    x = y = 0;
-#endif
-
-    Render::set_offset(-floor(display_x * coeff_x - x),
-                       -floor(display_y * coeff_y - y));
+    glLoadIdentity();
+    glTranslatef(-floor(display_x * coeff_x - x),
+                 -floor(display_y * coeff_y - y), 0.0);
 
 #ifdef CHOWDREN_IS_3DS
     glc_set_global_depth(depth);
@@ -688,6 +686,7 @@ void Layer::draw(int display_x, int display_y)
     int y1 = display_y * coeff_y - y;
     int x2 = x1+WINDOW_WIDTH;
     int y2 = y1+WINDOW_HEIGHT;
+
 
     PROFILE_BEGIN(Layer_draw_instances);
 
@@ -711,6 +710,112 @@ void Layer::draw(int display_x, int display_y)
 
     static FlatObjectList draw_list;
     draw_list.clear();
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    if (background_count > 25) {
+        if (v[0] < fbo_pos[0] || v[1] < fbo_pos[1] ||
+            v[2] > fbo_pos[2] || v[3] > fbo_pos[3])
+        {
+            glc_flush();
+            fbo_pos[0] = v[0] - FBO_BORDER;
+            fbo_pos[1] = v[1] - FBO_BORDER;
+            fbo_pos[2] = v[2] + FBO_BORDER;
+            fbo_pos[3] = v[3] + FBO_BORDER;
+
+            BackgroundDrawCallback callback(draw_list, fbo_pos);
+            broadphase.query(fbo_pos, callback);
+            // sort_back(draw_list);
+
+            if (!background_fbo_init) {
+                std::cout << "init back fbo: " << BACKGROUND_FBO_WIDTH
+                    << " " << BACKGROUND_FBO_HEIGHT << std::endl;
+                background_fbo.init(BACKGROUND_FBO_WIDTH,
+                                    BACKGROUND_FBO_HEIGHT);
+                background_fbo_init = true;
+            }
+            background_fbo.bind();
+            glViewport(0, 0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT);
+
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(0, BACKGROUND_FBO_WIDTH, BACKGROUND_FBO_HEIGHT, 0, -1, 1);
+
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
+
+            float t_x = -floor(off_x * coeff_x);
+            float t_y = -floor(off_y * coeff_y);
+            t_x += v[0] - fbo_pos[0];
+            t_y += v[1] - fbo_pos[1];
+            glTranslatef(t_x, t_y, 0.0f);
+
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            FlatObjectList::const_iterator it;
+            for (it = draw_list.begin(); it != draw_list.end(); ++it) {
+                FrameObject * obj = *it;
+                (*it)->draw();
+            }
+
+            glc_flush();
+
+            background_fbo.unbind();
+            glPopMatrix();
+
+            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            glPopMatrix();
+        }
+
+        glPushMatrix();
+        glLoadIdentity();
+
+        glEnable(GL_TEXTURE_2D);
+
+        float back_x1 = fbo_pos[0] - v[0];
+        float back_y1 = fbo_pos[1] - v[1];
+        float back_x2 = back_x1 + fbo_pos[2] - fbo_pos[0];
+        float back_y2 = back_y1 + fbo_pos[3] - fbo_pos[1];
+
+        glBindTexture(GL_TEXTURE_2D, background_fbo.get_tex());
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, background_fbo.v);
+        glVertex2f(back_x1, back_y1);
+        glTexCoord2f(background_fbo.u, background_fbo.v);
+        glVertex2f(back_x2, back_y1);
+        glTexCoord2f(background_fbo.u, 0.0f);
+        glVertex2f(back_x2, back_y2);
+        glTexCoord2f(0.0f, 0.0f);
+        glVertex2f(back_x1, back_y2);
+        glEnd();
+
+        glc_flush();
+
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+
+        glPopMatrix();
+    } else {
+        BackgroundDrawCallback callback(draw_list, v);
+        broadphase.query(v, callback);
+        sort_back(draw_list);
+
+        FlatObjectList::const_iterator it;
+        for (it = draw_list.begin(); it != draw_list.end(); ++it) {
+            FrameObject * obj = *it;
+            (*it)->draw();
+        }
+    }
+
+    draw_list.clear();
+#endif
     DrawCallback callback(draw_list, v);
     broadphase.query(v, callback);
 
@@ -736,13 +841,6 @@ void Layer::draw(int display_x, int display_y)
         (*it)->draw();
     }
 
-    if (blend_color.r != 255 || blend_color.g != 255 || blend_color.b != 255) {
-        Render::set_effect(Render::LAYERCOLOR);
-        Render::set_offset(0, 0);
-        Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, blend_color);
-        Render::disable_effect();
-    }
-
     PROFILE_END();
 }
 
@@ -760,10 +858,6 @@ FrameData::FrameData()
 }
 
 void FrameData::event_callback(int id)
-{
-}
-
-void FrameData::init()
 {
 }
 
@@ -847,33 +941,29 @@ void Frame::update_display_center()
     if (off_x == new_off_x && off_y == new_off_y)
         return;
 
-    int old_x = off_x;
-    int old_y = off_y;
-    off_x = new_off_x;
-    off_y = new_off_y;
-
     vector<Layer>::iterator it;
     for (it = layers.begin(); it != layers.end(); ++it) {
         Layer & layer = *it;
-        int x1 = old_x * layer.coeff_x;
-        int y1 = old_y * layer.coeff_y;
-        int x2 = off_x * layer.coeff_x;
-        int y2 = off_y * layer.coeff_y;
-        int layer_off_x = off_x - x2;
-        int layer_off_y = off_y - y2;
+        int x1 = off_x * layer.coeff_x;
+        int y1 = off_y * layer.coeff_y;
+        int x2 = new_off_x * layer.coeff_x;
+        int y2 = new_off_y * layer.coeff_y;
+        int layer_off_x = new_off_x - x2;
+        int layer_off_y = new_off_y - y2;
         layer.scroll(layer_off_x, layer_off_y, x2 - x1, y2 - y1);
     }
+
+    off_x = new_off_x;
+    off_y = new_off_y;
 }
 
-void Frame::set_width(int w, bool adjust)
+void Frame::set_width(int width, bool adjust)
 {
-    virtual_width = width = w;
     std::cout << "Set frame width: " << width << " " << adjust << std::endl;
 }
 
-void Frame::set_height(int h, bool adjust)
+void Frame::set_height(int height, bool adjust)
 {
-    virtual_height = height = h;
     std::cout << "Set frame height: " << height << " " << adjust << std::endl;
 }
 
@@ -1008,19 +1098,15 @@ bool Frame::update()
         timer_mul = manager.dt * timer_base;
     }
 
-    if (loop_count == 0) {
-        data->init();
-        update_objects();
-        data->on_start();
-    } else {
-        PROFILE_BEGIN(handle_pre_events);
-        data->handle_pre_events();
-        PROFILE_END();
+    PROFILE_BEGIN(handle_pre_events);
+    data->handle_pre_events();
+    PROFILE_END();
 
-        PROFILE_BEGIN(frame_update_objects);
-        update_objects();
-        PROFILE_END();
+    PROFILE_BEGIN(frame_update_objects);
+    update_objects();
+    PROFILE_END();
 
+    if (loop_count > 0) {
         PROFILE_BEGIN(clean_instances);
         clean_instances();
         PROFILE_END();
@@ -1042,14 +1128,24 @@ void Frame::draw(int remote)
 {
     PROFILE_BEGIN(frame_draw_start);
     // first, draw the actual window contents
-    Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
 #ifdef CHOWDREN_HAS_MRT
-    if (remote == CHOWDREN_REMOTE_TARGET) {
-        Render::clear(Color(0, 0, 0, 255));
-    } else if (remote != CHOWDREN_REMOTE_ONLY)
+    if (remote == CHOWDREN_REMOTE_TARGET)
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    else
 #endif
     {
-        Render::clear(background_color);
+        background_color.apply_clear_color();
+    }
+#ifdef CHOWDREN_HAS_MRT
+    if (remote != CHOWDREN_REMOTE_ONLY)
+#endif
+    {
+        glClear(GL_COLOR_BUFFER_BIT);
     }
 
     PROFILE_END();
@@ -1178,7 +1274,7 @@ void Frame::reset()
 // FrameObject
 
 FrameObject::FrameObject(int x, int y, int type_id)
-: x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), effect(Render::NONE),
+: x(x), y(y), id(type_id), flags(SCROLL | VISIBLE), shader(NULL),
   alterables(NULL), shader_parameters(NULL), direction(0),
   movement(NULL), movements(NULL), movement_count(0), collision(NULL),
   collision_flags(0)
@@ -1212,70 +1308,41 @@ FrameObject::~FrameObject()
 }
 
 #ifndef CHOWDREN_USE_DIRECT_RENDERER
-void FrameObject::draw_image(Image * img, int x, int y, Color c)
-{
-    img->upload_texture();
-    int x1 = x - img->hotspot_x;
-    int y1 = y - img->hotspot_y;
-    int x2 = x1 + img->width;
-    int y2 = y1 + img->height;
-    if (effect == Render::NONE) {
-        Render::draw_tex(x1, y1, x2, y2, c, img->tex);
-        return;
-    }
-    Render::set_effect(effect, this, img->width, img->height);
-    Render::draw_tex(x1, y1, x2, y2, c, img->tex);
-    Render::disable_effect();
-}
-
-void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
-                             float x_scale, float y_scale)
-{
-    if (effect == Render::NONE) {
-        img->draw(x, y, c, angle, x_scale, y_scale);
-        return;
-    }
-    Render::set_effect(effect, this, img->width, img->height);
-    img->draw(x, y, c, angle, x_scale, y_scale);
-    Render::disable_effect();
-}
-
-void FrameObject::draw_image(Image * img, int x, int y, Color c, float angle,
+void FrameObject::draw_image(Image * img, int x, int y, float angle,
                              float x_scale, float y_scale, bool flip_x)
 {
-    if (!flip_x) {
-        draw_image(img, x, y, c, angle, x_scale, y_scale);
-        return;
+    GLuint back_tex = 0;
+    bool has_tex_param = false;
+
+    if (shader != NULL) {
+        shader->begin(this, img);
+        back_tex = shader->get_background_texture();
+        has_tex_param = shader->has_texture_param();
     }
-    if (effect == Render::NONE) {
-        img->draw_flip_x(x, y, c, angle, x_scale, y_scale);
-        return;
-    }
-    Render::set_effect(effect, this, img->width, img->height);
-    img->draw_flip_x(x, y, c, angle, x_scale, y_scale);
-    Render::disable_effect();
+
+    img->draw(x, y, angle, x_scale, y_scale, flip_x, back_tex,
+              has_tex_param);
+
+    if (shader != NULL)
+        shader->end(this);
 }
 #endif
 
 void FrameObject::begin_draw(int width, int height)
 {
-    if (effect == Render::NONE)
-        return;
-	Render::set_effect(effect, this, width, height);
+    if (shader != NULL)
+        shader->begin(this, width, height);
 }
 
 void FrameObject::begin_draw()
 {
-    if (effect == Render::NONE)
-        return;
-    Render::set_effect(effect, this, width, height);
+    begin_draw(width, height);
 }
 
 void FrameObject::end_draw()
 {
-    if (effect == Render::NONE)
-        return;
-    Render::disable_effect();
+    if (shader != NULL)
+        shader->end(this);
 }
 
 void FrameObject::set_position(int new_x, int new_y)
@@ -1524,11 +1591,11 @@ int FrameObject::get_box_index(int index)
     return ret;
 }
 
-void FrameObject::set_shader(int value)
+void FrameObject::set_shader(Shader * value)
 {
     if (shader_parameters == NULL)
         shader_parameters = new ShaderParameters;
-    effect = value;
+    shader = value;
 }
 
 void FrameObject::set_shader_parameter(const std::string & name, double value)
@@ -1584,19 +1651,13 @@ void FrameObject::destroy()
 
 void FrameObject::set_level(int index)
 {
-#ifndef NDEBUG
-    std::cout << "Using slow path set_level() for " << get_name() << std::endl;
-#endif
-    index = std::max(0, index - 1);
+    index = int_max(0, index);
     layer->set_level(this, index);
 }
 
 int FrameObject::get_level()
 {
-#ifndef NDEBUG
-    std::cout << "Using slow path get_level() for " << get_name() << std::endl;
-#endif
-    return layer->get_level(this) + 1;
+    return depth;
 }
 
 void FrameObject::move_back()
@@ -1871,19 +1932,22 @@ void FrameObject::get_screen_aabb(int box[4])
     box[3] = aabb[3] + off_y;
 }
 
+#define INACTIVE_X 64
+#define INACTIVE_Y 16
+
 void FrameObject::update_inactive()
 {
     flags &= ~INACTIVE;
 
-    int * aabb = collision->aabb;
-    int * b = layer->inactive_box;
-
-    if (aabb[0] > b[2] || aabb[1] > b[3] || aabb[2] < b[0] || aabb[3] < b[1])
+    int box[4];
+    get_screen_aabb(box);
+    if (box[0] > WINDOW_WIDTH + INACTIVE_X ||
+        box[1] > WINDOW_HEIGHT + INACTIVE_Y ||
+        box[2] < -INACTIVE_X || box[3] < -INACTIVE_Y)
+    {
         flags |= INACTIVE;
+    }
 }
-
-int SavedSelection::offset = 0;
-FrameObject * SavedSelection::buffer[1024];
 
 // FixedValue
 
@@ -1895,20 +1959,8 @@ FixedValue::FixedValue(FrameObject * object)
 
 FixedValue::operator double() const
 {
-    uint64_t value = 0;
-    memcpy(&value, &object, sizeof(FrameObject*));
-
-#ifndef NDEBUG
-    if (value & 0x1) {
-        std::cout << "Invalid alignment for fixed value" << std::endl;
-    }
-#endif
-    // reposition the sign bit in the last bit
-    value |= (value & FIXED_SIGN_BIT) >> 63ULL;
-    value &= ~FIXED_SIGN_BIT;
-    value ^= FIXED_ENCODE_XOR;
-    double v2;
-    memcpy(&v2, &value, sizeof(uint64_t));
+    double v2 = 0.0;
+    memcpy(&v2, &object, sizeof(FrameObject*));
     return v2;
 }
 
@@ -1929,7 +1981,6 @@ FixedValue::operator FrameObject*() const
 
 unsigned int FixedValue::get_uint() const
 {
-    // return (object->id << 16) | (object->index & 0xFFFF);
     intptr_t val = intptr_t(object);
     return (unsigned int)val;
 }
@@ -1993,24 +2044,36 @@ FTTextureFont * get_font(int size)
 }
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color color, Color color2, int alpha)
+                   Color & color, Color & color2, int alpha)
 {
+    glDisable(GL_TEXTURE_2D);
+    glBegin(GL_QUADS);
     switch (gradient_type) {
         case NONE_GRADIENT:
-            color.set_alpha(alpha);
-            Render::draw_quad(x1, y1, x2, y2, color);
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y1);
+            glVertex2f(x2, y1);
+            glVertex2f(x2, y2);
+            glVertex2f(x1, y2);
             break;
         case VERTICAL_GRADIENT:
-            color.set_alpha(alpha);
-            color2.set_alpha(alpha);
-            Render::draw_vertical_gradient(x1, y1, x2, y2, color, color2);
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y1);
+            glVertex2f(x2, y1);
+            glColor4ub(color2.r, color2.g, color2.b, alpha);
+            glVertex2f(x2, y2);
+            glVertex2f(x1, y2);
             break;
         case HORIZONTAL_GRADIENT:
-            color.set_alpha(alpha);
-            color2.set_alpha(alpha);
-            Render::draw_horizontal_gradient(x1, y1, x2, y2, color, color2);
+            glColor4ub(color.r, color.g, color.b, alpha);
+            glVertex2f(x1, y2);
+            glVertex2f(x1, y1);
+            glColor4ub(color2.r, color2.g, color2.b, alpha);
+            glVertex2f(x2, y1);
+            glVertex2f(x2, y2);
             break;
     }
+    glEnd();
 }
 
 // File
@@ -2052,17 +2115,6 @@ void File::delete_file(const std::string & path)
         return;
 }
 
-bool File::copy_file(const std::string & src, const std::string & dst)
-{
-    std::string data;
-    if (!read_file(src.c_str(), data))
-        return false;
-    FSFile fp(dst.c_str(), "w");
-    fp.write(&data[0], data.size());
-    fp.close();
-    return true;
-}
-
 // MathHelper
 
 MathHelper math_helper;
@@ -2071,7 +2123,7 @@ MathHelper math_helper;
 
 int remap_button(int n)
 {
-#if defined(CHOWDREN_SNES_CONTROLLER)
+#ifdef CHOWDREN_SNES_CONTROLLER
     switch (n) {
         case CHOWDREN_BUTTON_X:
             return CHOWDREN_BUTTON_A;
@@ -2085,8 +2137,9 @@ int remap_button(int n)
             return CHOWDREN_BUTTON_START;
         case CHOWDREN_BUTTON_B:
             return n;
+        default:
+            return CHOWDREN_BUTTON_INVALID;
     }
-    return n;
 #else
     return n;
 #endif
@@ -2220,3 +2273,7 @@ int get_joystick_y(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
 }
+
+// for checking overlap
+
+vector<int> int_temp;

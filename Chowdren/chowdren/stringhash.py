@@ -10,11 +10,6 @@ def get_string_int_map(map_func, hash_func, string_map, case_sensitive=True):
         hashes = dict((v, k) for (k, v) in hash_data.strings.iteritems())
 
     writer.putmeth('int %s' % map_func, 'const std::string & in')
-    writer.putln('if (in.empty())')
-    writer.indent()
-    writer.putln('return -1;')
-    writer.dedent()
-
     if strings:
         writer.putlnc('unsigned int hash = %s(&in[0], in.size());',
                       hash_func)

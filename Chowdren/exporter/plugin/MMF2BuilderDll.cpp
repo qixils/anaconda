@@ -20,34 +20,30 @@
 #include <stdio.h>
 #include <string>
 
-#define BUILDER_ID 0x30000000
+#define BUILDER_ID 0x20000000
 
 LPCWSTR BUILD_NAMES[] = {
     L"Chowdren (Windows)",
     L"Chowdren (Windows + Source)",
-    L"Chowdren (Source)",
-    L"Chowdren (CCN)"
+    L"Chowdren (Source)"
 };
 
 LPCWSTR BUILD_FILTERS[] = {
-    L"Executable|*.exe|All files|*.*||",
-    L"Executable|*.exe|All files|*.*||",
-    L"CMake config|CMakeLists.txt||",
-    L"Sub-application|*.ccn|All files|*.*||"
+    L"EXE (Windows)|*.exe|All files|*.*||",
+    L"EXE (Windows)|*.exe|All files|*.*||",
+    L"ZIP (Source)|*.zip|All files|*.*||"
 };
 
 LPCWSTR SELECTOR_TITLES[] = {
     L"Save as Chowdren (Windows)",
     L"Save as Chowdren (Windows + Source)",
-    L"Save as Chowdren (Source)",
-    L"Save as Chowdren (CCN)"
+    L"Save as Chowdren (Source)"
 };
 
 LPCWSTR DEFAULT_EXTENSIONS[] = {
     L".exe",
     L".exe",
-    L".txt",
-    L".ccn"
+    L".zip"
 };
 
 BOOL APIENTRY DllMain( HANDLE hModule,
@@ -69,7 +65,7 @@ BOOL APIENTRY DllMain( HANDLE hModule,
 // Return the number of build types added by the dll
 int WINAPI GetNumberOfBuildTypes()
 {
-	return 4;
+	return 3;
 }
 
 // Return the name of a given build type
@@ -89,7 +85,7 @@ DWORD WINAPI GetBuildType(int idx)
 DWORD WINAPI GetBuildOptions(int idx)
 {
 		// return BUILDEROPTION_ZIP_CHUNKS | BUILDEROPTION_SAVE_IMAGES_AS_FILES | BUILDEROPTION_SAVE_SOUNDS_AS_FILES | BUILDEROPTION_SAVE_MUSICS_AS_FILES | BUILDEROPTION_PNG_WITH_ALPHA_ALWAYS;
-    return BUILDEROPTION_ZIP_CHUNKS;
+    return BUILDEROPTION_ZIP_CHUNKS | BUILDEROPTION_PNG_WITH_ALPHA_ALWAYS;
 }
 
 // Return the file filter to display in the file selector for a given build type when the user builds an application
@@ -127,10 +123,6 @@ BOOL WINAPI Build (LPCWSTR pTargetPathname, LPCWSTR pCCNPathname, int idx, DWORD
 
     memset(&siStartupInfo, 0, sizeof(siStartupInfo));
     memset(&piProcessInfo, 0, sizeof(piProcessInfo));
-    siStartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    siStartupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    siStartupInfo.hStdOutput =  GetStdHandle(STD_OUTPUT_HANDLE);
-    siStartupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
     siStartupInfo.cb = sizeof(siStartupInfo);
 
@@ -144,14 +136,13 @@ BOOL WINAPI Build (LPCWSTR pTargetPathname, LPCWSTR pCCNPathname, int idx, DWORD
     strAppDirectory = strAppDirectory.substr(0, strAppDirectory.rfind(L"\\"));
     const wchar_t * tempdirectory = strAppDirectory.c_str();
     wchar_t directory[MAX_PATH];
-    swprintf(directory, MAX_PATH, L"%s%s", tempdirectory, L"\\Data\\Runtime\\Chowdren\\");
+    swprintf(directory, L"%s%s", tempdirectory, L"\\Data\\Runtime\\Chowdren\\");
     wchar_t exe_path[MAX_PATH];
-    swprintf(exe_path, MAX_PATH, L"%s%s", directory, L"run.exe");
+    swprintf(exe_path, L"%s%s", directory, L"run.exe");
     // setting error mode to prevent "no disk" errors
     unsigned int error_mode = SetErrorMode(SEM_NOOPENFILEERRORBOX | SEM_FAILCRITICALERRORS);
     bool status = CreateProcessW(exe_path, commandline, 0, 0, FALSE,
-        CREATE_DEFAULT_ERROR_MODE | CREATE_NO_WINDOW, 0, directory,
-        &siStartupInfo, &piProcessInfo) == TRUE;
+        CREATE_DEFAULT_ERROR_MODE, 0, directory, &siStartupInfo, &piProcessInfo);
     bool ret;
     if (status)
     {

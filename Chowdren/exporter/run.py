@@ -1,88 +1,103 @@
-import sys
 import os
-import shutil
+import sys
+sys.path.append('..')
+sys.path.append('../..')
+from chowdren.common import call, makedirs
+from chowdren.converter import Converter
 
-class Logger(object):
-    data = ''
-    def __init__(self, queue):
-        self.queue = queue
+CMAKE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                          'CMake', 'bin', 'cmake.exe'))
 
-    def write(self, message):
-        self.data += message.replace('\r\n', '\n')
-        lines = self.data.split('\n')
-        self.data = lines[-1]
-        self.queue.put(('console', lines[:-1]))
+DISTRO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'MinGW'))
+MAKE_PATH = os.path.join(DISTRO_PATH, 'bin', 'make.exe')
+LIB_PATH = os.path.join(DISTRO_PATH, 'lib')
 
-    def flush(self):
-        pass
+BUILD_TYPES = {
+    0: 'win',
+    1: 'winsrc',
+    2: 'src'
+}
 
-def run_worker(input_queue, output_queue):
-    sys.stdout = Logger(output_queue)
-    sys.stderr = Logger(output_queue)
-    from builder import Builder, StopBuild
+class Arguments(object):
+    def __init__(self, args):
+        self.__dict__ = args
 
-    while True:
-        args = input_queue.get()
-        if args is None:
-            break
-        try:
-            builder = Builder(*args)
-            builder.run()
-            output_queue.put(('result', True))
-        except Exception, e:
-            import traceback
-            traceback.print_exc()
-            print 'Error occurred, stopping build...'
-            output_queue.put(('result', False))
-            break
+class Builder(object):
+    def __init__(self, build_type, src, target):
+        self.build_type = BUILD_TYPES[build_type]
+        self.src = src
 
-def start_worker(args):
-    from multiprocessing import Queue, Process
+        if self.build_type == 'win':
 
-    input_queue = Queue()
-    input_queue.put(args)
-    output_queue = Queue()
-    process = Process(target=run_worker, args=(input_queue, output_queue))
-    process.start()
+        self.target = os.path.abspath(src_dir)
+        self.build_dir = os.path.join(self.src_dir, 'build')
 
-    return (process, output_queue, input_queue)
+    def run(self):
+        self.convert()
+        self.set_environment()
+        self.create_project()
+        self.build_project()
+        if self.build_type == 'src':
+            return
+        self.copy_project()
 
-def run_gui(args):
-    from window import MainWindow
-    from PySide import QtGui
-    QtGui.QApplication.setStyle('plastique')
-    app = QtGui.QApplication(sys.argv)
-    window = MainWindow(*start_worker(args))
-    window.show()
-    sys.exit(app.exec_())
+    def convert(self):
+        args = {
+            'outdir': self.src_dir,
+            'dlls': False,
+            'filenames': [self.src],
+            'platform': 'generic',
+            'config': None,
+            'skipassets': False,
+            'ico': None,
+            'icns': None,
+            'copyright': None,
+            'company': None,
+            'author': None,
+            'version': None
+        }
 
-BUILD_TYPES = [
-    'win',
-    'winsrc',
-    'src',
-    'ccn'
-]
+        Converter(Arguments(args))
+
+    def create_project(self):
+        cwd = os.getcwd()
+        makedirs(self.build_dir)
+        os.chdir(self.build_dir)
+        call([CMAKE_PATH, '..', '-G', 'MinGW Makefiles',
+              '-DCMAKE_LIBRARY_PATH:PATH=%s' % LIB_PATH])
+        os.chdir(cwd)
+
+    def build_project(self):
+        cwd = os.getcwd()
+        os.chdir(self.build_dir)
+        call([MAKE_PATH, '-j4'])
+        os.chdir(cwd)
+
+    def run_project(self):
+        cwd = os.getcwd()
+        os.chdir(self.src_dir)
+        exe = os.path.join(self.build_dir, 'Chowdren.exe')
+        call([exe])
+        os.chdir(cwd)
+
+    def copy_exec
+
+    def set_environment(self):
+        os.environ['X_DISTRO'] = 'nuwen'
+        includes = (os.path.join(DISTRO_PATH, 'include'),
+                    os.path.join(DISTRO_PATH, 'include', 'freetype2'))
+        includes = ';'.join(includes)
+        path = os.environ['PATH'].split(';')
+        path = [os.path.join(DISTRO_PATH, 'bin'),
+                os.path.join(DISTRO_PATH, 'git', 'cmd')] + path
+        os.environ['PATH'] = ';'.join(path)
+        os.environ['C_INCLUDE_PATH'] = includes
+        os.environ['CPLUS_INCLUDE_PATH'] = includes
+        os.environ['SDL2DIR'] = LIB_PATH
 
 def main():
-    from multiprocessing import freeze_support
-    freeze_support()
-
-    build_type = BUILD_TYPES[int(sys.argv[1])]
-    src = sys.argv[2]
-
-    executable = src_dir = None
-    if build_type == 'win':
-        executable = sys.argv[3]
-    elif build_type == 'winsrc':
-        executable = sys.argv[3]
-        src_dir = os.path.join(os.path.dirname(executable), 'src')
-    elif build_type == 'src':
-        src_dir = os.path.dirname(sys.argv[3])
-    else:
-        shutil.copy(src, sys.argv[3])
-        return
-
-    run_gui(('generic', src, src_dir, executable))
+    builder = Builder(int(sys.argv[1]), sys.argv[2], sys.argv[3])
+    builder.run()
 
 if __name__ == '__main__':
     main()

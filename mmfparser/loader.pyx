@@ -19,14 +19,10 @@ cdef class DataLoader:
     def __init__(self, reader = None, parent = None, **settings):
         self.init(reader, parent, settings)
 
-    cdef bint init(self, ByteReader reader, DataLoader parent,
-                   dict settings) except False:
+    cdef bint init(self, ByteReader reader, DataLoader parent, dict settings):
         self.parent = parent
         self.settings = settings
-        IF IS_PYPY:
-            getattr(self, 'initialize')()
-        ELSE:
-            self.initialize()
+        self.initialize()
         if reader is not None:
             self.read(reader)
         return True
@@ -47,11 +43,8 @@ cdef class DataLoader:
         return
 
     cpdef read(self, ByteReader reader):
-        IF IS_PYPY:
-            return getattr(self, 'read')(reader)
-        ELSE:
-            raise NotImplementedError('%s has not implemented a read method' %
-                self.__class__.__name__)
+        raise NotImplementedError('%s has not implemented a read method' %
+            self.__class__.__name__)
 
     def generate(self):
         newReader = ByteReader()

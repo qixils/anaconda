@@ -28,9 +28,6 @@ class PlatformObject(ObjectWriter):
     update = True
     default_instance = 'default_platform_instance'
 
-    def has_sleep(self):
-        return False
-
     def initialize(self):
         self.add_event_callback('call_overlaps_obstacle')
         self.add_event_callback('call_overlaps_platform')

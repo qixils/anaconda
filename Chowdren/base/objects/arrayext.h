@@ -33,14 +33,8 @@ public:
         int x_pos, y_pos, z_pos;
     };
 
-    struct SavedArray
-    {
-        bool init;
-        ArrayData value;
-    };
-
     ArrayData data;
-    SavedArray * global_data;
+    ArrayData * global_data;
 
     ArrayObject(int x, int y, int type_id);
     ~ArrayObject();

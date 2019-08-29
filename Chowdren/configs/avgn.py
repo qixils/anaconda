@@ -83,6 +83,3 @@ def get_object_depth(converter, obj):
         return '(x_scale - 1.0f) * -0.5f'
     elif name == 'Glitch Gremlin':
         return '-0.1f'
-
-def use_webp(converter):
-    return False

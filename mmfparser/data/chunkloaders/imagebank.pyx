@@ -371,7 +371,7 @@ cdef class ImageItem(DataLoader):
             newReader = reader
         else:
             newReader = zlibdata.decompress(reader)
-
+        
         start = newReader.tell()
         
         if old:
@@ -400,7 +400,7 @@ cdef class ImageItem(DataLoader):
             self.transparent = newReader.readColor()
 
         cdef int decompressed
-        if self.flags['LZX']:
+        if debug and self.settings.get('unicode', False):
             decompressed = newReader.readInt()
             newReader = ByteReader(zlib.decompress(newReader.read()))
 
@@ -465,7 +465,6 @@ cdef class ImageItem(DataLoader):
             code.interact(local = locals())
             reader.openEditor()
             raise NotImplementedError('unknown graphic mode: %s' % self.graphicMode)
-
         readerData = reader.read()
         data = readerData
         cdef int alphaSize, imageSize
@@ -567,10 +566,8 @@ cdef class ImageBank(DataLoader):
         self.itemDict = {}
 
     cpdef read(self, ByteReader reader):
-        cdef bint java = self.settings.get('java', False)
-        cdef int build = self.settings['build']
+        java = self.settings.get('java', False)
         cdef int i
-        cdef int numberOfItems
         if not java:
             if self.settings.get('debug', False):
                 path = self.readString(reader)
@@ -583,8 +580,6 @@ cdef class ImageBank(DataLoader):
             numberOfItems = reader.readInt()
             for i in range(numberOfItems):
                 newItem = self.new(ImageItem, reader)
-                if build >= 284:
-                    newItem.handle -= 1
                 self.itemDict[newItem.handle] = newItem
         
         else:

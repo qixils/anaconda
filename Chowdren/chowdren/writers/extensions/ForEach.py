@@ -15,12 +15,6 @@ ON_LOOP = 0
 class StartForObject(ActionWriter):
     custom = True
     def write(self, writer):
-        self.reorder = self.converter.config.reorder_foreach()
-        if self.reorder:
-            return
-        self.write_foreach(writer)
-
-    def write_foreach(self, writer):
         writer.start_brace()
         eval_name = self.convert_index(0)
 
@@ -52,12 +46,8 @@ class StartForObject(ActionWriter):
                 selected = self.converter.get_object(obj)
                 writer.putlnc('foreach_instance_%s = %s;', name, selected)
             writer.putlnc('%s();', func_call)
+        # self.converter.write_container_check(self.group, writer)
         writer.end_brace()
-
-    def write_post(self, writer):
-        if not self.reorder:
-            return
-        self.write_foreach(writer)
 
 # PROFILE_FUNCTIONS = set(['sensor_engines_arms'])
 PROFILE_FUNCTIONS = set([])

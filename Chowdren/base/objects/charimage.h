@@ -73,10 +73,6 @@ public:
     void draw();
     std::string get_char(int index);
     int get_char_width(int alias, const std::string & c);
-    void set_char_width(int alias, const std::string & c, int width);
-    void set_clipping_width(int alias, const std::string & c, int width);
-    void load(int alias, const std::string & c, const std::string & path,
-              int x_hotspot, int y_hotspot);
 };
 
 #endif // CHOWDREN_CHARIMAGE_H

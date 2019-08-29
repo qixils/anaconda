@@ -2,7 +2,7 @@
 #define CHOWDREN_COMMON_H
 
 #include "chowconfig.h"
-#include "render.h"
+#include "include_gl.h"
 #include "profiler.h"
 #include "keydef.h"
 #include "keyconv.h"
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <string.h>
 #include "stringcommon.h"
+#include "shader.h"
 #include "datastream.h"
 #include <ctype.h>
 #include "globals.h"
@@ -34,7 +35,6 @@
 #include "input.h"
 #include "movement.h"
 #include "intern.h"
-#include "overlap.h"
 
 extern std::string newline_character;
 // string helpers
@@ -128,7 +128,7 @@ bool init_font();
 #define HORIZONTAL_GRADIENT 2
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color color, Color color2, int alpha);
+                   Color & color, Color & color2, int alpha);
 
 class File
 {
@@ -140,7 +140,6 @@ public:
     static bool directory_exists(const std::string & path);
     static void delete_file(const std::string & path);
     static bool file_readable(const std::string & path);
-    static bool copy_file(const std::string & src, const std::string & dst);
 };
 
 #include "extensions.h"
@@ -158,9 +157,40 @@ inline void reset_global_data()
 
 extern MathHelper math_helper;
 
-// get_single for ObjectList
+inline bool double_equals_exact(double a, double b)
+{
+    return memcmp(&a, &b, sizeof(double)) == 0;
+}
 
-inline FrameObject * get_single(ObjectList & list)
+inline FrameObject * get_object_from_fixed(double fixed)
+{
+    // -1 as a double is
+    // 00 00 00 00 00 00 F0 BF
+    // which is quite unlikely to be a memory address
+    if (double_equals_exact(fixed, 0.0) || double_equals_exact(fixed, -1.0))
+        return NULL;
+    FrameObject * p;
+    memcpy(&p, &fixed, sizeof(FrameObject*));
+    return p;
+}
+
+inline FrameObject * get_object_from_fixed(FixedValue fixed)
+{
+    return fixed.object;
+}
+
+inline void remove_list(FlatObjectList & a, FrameObject * obj)
+{
+    FlatObjectList::iterator it;
+    for (it = a.begin(); it != a.end(); ++it) {
+        if (*it != obj)
+            continue;
+        a.erase(it);
+        break;
+    }
+}
+
+inline FrameObject * get_single(const ObjectList & list)
 {
     return list.back_selection();
 }
@@ -170,7 +200,7 @@ inline FrameObject * get_single(ObjectList & list, int index)
     return list.get_wrapped_selection(index);
 }
 
-inline FrameObject * get_single(ObjectList & list, FrameObject * def)
+inline FrameObject * get_single(const ObjectList & list, FrameObject * def)
 {
     FrameObject * ret = list.back_selection();
     if (ret == NULL)
@@ -187,9 +217,7 @@ inline FrameObject * get_single(ObjectList & list, int index,
     return ret;
 }
 
-// get_single for QualifierList
-
-inline FrameObject * get_single(QualifierList & list)
+inline FrameObject * get_single(const QualifierList & list)
 {
     return list.back_selection();
 }
@@ -199,7 +227,7 @@ inline FrameObject * get_single(QualifierList & list, int index)
     return list.get_wrapped_selection(index);
 }
 
-inline FrameObject * get_single(QualifierList & list, FrameObject * def)
+inline FrameObject * get_single(const QualifierList & list, FrameObject * def)
 {
     FrameObject * ret = list.back_selection();
     if (ret == NULL)
@@ -216,42 +244,357 @@ inline FrameObject * get_single(QualifierList & list, int index,
     return ret;
 }
 
-// get_single for SavedSelection
+extern vector<int> int_temp;
 
-inline FrameObject * get_single(SavedSelection & list)
+// FrameObject vs FrameObject
+
+template <bool save>
+inline bool check_overlap(FrameObject * obj1, FrameObject * obj2)
 {
-    if (list.count <= 0)
-        return NULL;
-    return list.items[0];
+    if (!obj1->overlaps(obj2))
+        return false;
+    if (!save)
+        return true;
+    if (obj1->movement != NULL)
+        obj1->movement->add_collision(obj2);
+    if (obj2->movement != NULL)
+        obj2->movement->add_collision(obj1);
+    return true;
 }
 
-inline FrameObject * get_single(SavedSelection & list, int index)
+// ObjectList vs ObjectList
+
+template <bool save>
+inline bool check_overlap(ObjectList & list1, ObjectList & list2)
 {
-    if (list.count <= 0)
-        return NULL;
-    index %= list.count;
-    return list.items[index];
+    int size = list2.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    bool ret = false;
+    for (ObjectIterator it1(list1); !it1.end(); ++it1) {
+        FrameObject * instance = *it1;
+        InstanceCollision * col = instance->collision;
+        if (col == NULL) {
+            it1.deselect();
+            continue;
+        }
+        bool added = false;
+        for (ObjectIterator it2(list2); !it2.end(); ++it2) {
+            FrameObject * other = *it2;
+            if (other->collision == NULL) {
+                it2.deselect();
+                continue;
+            }
+            if (!check_overlap<save>(instance, other))
+                continue;
+            int_temp[it2.index-1] = 1;
+            added = ret = true;
+        }
+        if (!added)
+            it1.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    for (ObjectIterator it(list2); !it.end(); ++it) {
+        if (!int_temp[it.index-1])
+            it.deselect();
+    }
+
+    return true;
 }
 
-inline FrameObject * get_single(SavedSelection & list, FrameObject * def)
+// FrameObject vs ObjectList
+
+template <bool save>
+inline bool check_overlap(FrameObject * obj, ObjectList & list)
 {
-    if (list.count <= 0)
-        return def;
-    return list.items[0];
+    int size = list.size();
+    if (size <= 0)
+        return false;
+
+    CollisionBase * col = obj->collision;
+    if (col == NULL)
+        return false;
+
+    bool ret = false;
+    for (ObjectIterator it(list); !it.end(); ++it) {
+        FrameObject * other = *it;
+        if (other->collision == NULL) {
+            it.deselect();
+            continue;
+        }
+        if (!check_overlap<save>(obj, other)) {
+            it.deselect();
+            continue;
+        }
+        ret = true;
+    }
+
+    return ret;
 }
 
-inline FrameObject * get_single(SavedSelection & list, int index,
-                                FrameObject * def)
+template <bool save>
+inline bool check_overlap(ObjectList & list, FrameObject * obj)
 {
-    if (list.count <= 0)
-        return def;
-    index %= list.count;
-    return list.items[index];
+    return check_overlap<save>(obj, list);
 }
 
-// pick_random
+// QualifierList vs ObjectList
 
-inline FrameObject * pick_random(ObjectList & instances)
+template <bool save>
+inline bool check_overlap(QualifierList & list1, ObjectList & list2)
+{
+    int size = list1.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    bool ret = false;
+    for (ObjectIterator it1(list2); !it1.end(); ++it1) {
+        FrameObject * instance = *it1;
+        if (instance->collision == NULL) {
+            it1.deselect();
+            continue;
+        }
+        bool added = false;
+        int temp_offset = 0;
+        for (int i = 0; i < list1.count; i++) {
+            ObjectList & list = *list1.items[i];
+            for (ObjectIterator it2(list); !it2.end(); ++it2) {
+                FrameObject * other = *it2;
+                if (other->collision == NULL) {
+                    it2.deselect();
+                    continue;
+                }
+                if (!check_overlap<save>(instance, other))
+                    continue;
+                added = ret = true;
+                int_temp[temp_offset + it2.index - 1] = 1;
+            }
+            temp_offset += list.size();
+        }
+        if (!added)
+            it1.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    int total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); ++it) {
+            if (!int_temp[total_index + it.index - 1])
+                it.deselect();
+        }
+        total_index += list.size();
+    }
+
+    return true;
+}
+
+template <bool save>
+inline bool check_overlap(ObjectList & list1, QualifierList & list2)
+{
+    return check_overlap<save>(list2, list1);
+}
+
+// FrameObject vs QualifierList
+
+template <bool save>
+inline bool check_overlap(FrameObject * obj, QualifierList & list)
+{
+    int size = list.size();
+    if (size <= 0)
+        return false;
+
+    if (obj->collision == NULL)
+        return false;
+
+    int_temp.resize(size);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    bool ret = false;
+
+    int temp_offset = 0;
+    for (int i = 0; i < list.count; i++) {
+        ObjectList & list2 = *list.items[i];
+        for (ObjectIterator it(list2); !it.end(); ++it) {
+            FrameObject * other = *it;
+            if (other->collision == NULL) {
+                it.deselect();
+                continue;
+            }
+            if (!check_overlap<save>(obj, other)) {
+                it.deselect();
+                continue;
+            }
+            ret = true;
+        }
+    }
+
+    return ret;
+}
+
+template <bool save>
+inline bool check_overlap(QualifierList & list, FrameObject * instance)
+{
+    return check_overlap<save>(instance, list);
+}
+
+// QualifierList vs QualifierList
+
+template <bool save>
+inline bool check_overlap(QualifierList & list1, QualifierList & list2)
+{
+    int size = list1.size();
+    if (size <= 0)
+        return false;
+    int_temp.resize(size);
+    std::fill(int_temp.begin(), int_temp.end(), 0);
+
+    bool ret = false;
+    for (QualifierIterator it1(list2); !it1.end(); ++it1) {
+        FrameObject * instance = *it1;
+        if (instance->collision == NULL) {
+            it1.deselect();
+            continue;
+        }
+        bool added = false;
+
+        int temp_offset = 0;
+        for (int i = 0; i < list1.count; i++) {
+            ObjectList & list = *list1.items[i];
+            for (ObjectIterator it2(list); !it2.end(); ++it2) {
+                FrameObject * other = *it2;
+                if (other->collision == NULL) {
+                    it2.deselect();
+                    continue;
+                }
+                if (!check_overlap<save>(instance, other))
+                    continue;
+                added = ret = true;
+                int_temp[temp_offset + it2.index - 1] = 1;
+            }
+            temp_offset += list.size();
+        }
+        if (!added)
+            it1.deselect();
+    }
+
+    if (!ret)
+        return false;
+
+    int total_index = 0;
+    for (int i = 0; i < list1.count; i++) {
+        ObjectList & list = *list1.items[i];
+        for (ObjectIterator it(list); !it.end(); ++it) {
+            if (!int_temp[total_index + it.index - 1])
+                it.deselect();
+        }
+        total_index += list.size();
+    }
+
+    return true;
+}
+
+// ObjectList vs ObjectList
+
+inline bool check_not_overlap(ObjectList & list1, ObjectList & list2)
+{
+    for (ObjectIterator it1(list1); !it1.end(); ++it1) {
+        FrameObject * instance = *it1;
+        if (instance->collision == NULL)
+            continue;
+        ObjectList::iterator it2;
+        for (it2 = list2.begin(); it2 != list2.end(); ++it2) {
+            FrameObject * other = it2->obj;
+            if (!instance->overlaps(other))
+                continue;
+            return false;
+        }
+    }
+    return true;
+}
+
+// QualifierList vs ObjectList
+
+inline bool check_not_overlap(QualifierList & list1, ObjectList & list2)
+{
+    for (int i = 0; i < list1.count; i++) {
+        if (!check_not_overlap(*list1.items[i], list2))
+            return false;
+    }
+    return true;
+}
+
+inline bool check_not_overlap(ObjectList & list1, QualifierList & list2)
+{
+    for (int i = 0; i < list2.count; i++) {
+        if (!check_not_overlap(list1, *list2.items[i]))
+            return false;
+    }
+    return true;
+}
+
+// QualifierList vs QualifierList
+
+inline bool check_not_overlap(QualifierList & list1, QualifierList & list2)
+{
+    for (int i = 0; i < list1.count; i++) {
+        for (int ii = 0; ii < list2.count; ii++) {
+            if (!check_not_overlap(*list1.items[i], *list2.items[ii]))
+                return false;
+        }
+    }
+    return true;
+}
+
+// FrameObject vs ObjectList
+
+inline bool check_not_overlap(FrameObject * obj, ObjectList & list)
+{
+    CollisionBase * col = obj->collision;
+    if (col == NULL)
+        return true;
+    ObjectList::iterator it;
+    for (it = list.begin(); it != list.end(); ++it) {
+        FrameObject * other = it->obj;
+        if (!obj->overlaps(other))
+            continue;
+        return false;
+    }
+    return true;
+}
+
+// FrameObject vs QualifierList
+
+inline bool check_not_overlap(FrameObject * obj, QualifierList & list)
+{
+    CollisionBase * col = obj->collision;
+    if (col == NULL)
+        return true;
+    for (int i = 0; i < list.count; i++) {
+        ObjectList & list2 = *list.items[i];
+
+        ObjectList::iterator it;
+        for (it = list2.begin(); it != list2.end(); ++it) {
+            FrameObject * other = it->obj;
+            if (!obj->overlaps(other))
+                continue;
+            return false;
+        }
+    }
+    return true;
+}
+
+inline bool pick_random(ObjectList & instances)
 {
     int size = 0;
     for (ObjectIterator it(instances); !it.end(); ++it) {
@@ -262,19 +605,19 @@ inline FrameObject * pick_random(ObjectList & instances)
         size++;
     }
     if (size == 0)
-        return NULL;
+        return false;
     int index = randrange(size);
     for (ObjectIterator it(instances); !it.end(); ++it) {
         if (index == 0) {
             it.select_single();
-            return *it;
+            break;
         }
         index--;
     }
-    return NULL;
+    return true;
 }
 
-inline FrameObject * pick_random(QualifierList & instances)
+inline bool pick_random(QualifierList & instances)
 {
     int size = 0;
     for (QualifierIterator it(instances); !it.end(); ++it) {
@@ -285,16 +628,16 @@ inline FrameObject * pick_random(QualifierList & instances)
         size++;
     }
     if (size == 0)
-        return NULL;
+        return false;
     int index = randrange(size);
     for (QualifierIterator it(instances); !it.end(); ++it) {
         if (index == 0) {
             it.select_single();
-            return *it;
+            break;
         }
         index--;
     }
-    return NULL;
+    return true;
 }
 
 #ifdef CHOWDREN_USE_VALUEADD

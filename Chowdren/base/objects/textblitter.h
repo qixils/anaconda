@@ -53,11 +53,7 @@ public:
 
     TransparentColor transparent_color;
 
-    bool has_callback;
     int callback_line_count;
-    int callback_line;
-    int callback_char;
-    int callback_transparency;
 
     Image * draw_image;
     ReplacedImages replacer;
@@ -96,8 +92,6 @@ public:
     {
         return text;
     }
-
-    virtual void call_char_callback();
 };
 
 extern FrameObject * default_blitter_instance;

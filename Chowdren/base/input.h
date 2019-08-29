@@ -3,6 +3,13 @@
 
 #include "types.h"
 
+class InputState
+{
+public:
+    int key;
+    int state;
+};
+
 enum {
     CHOWDREN_BUTTON_INVALID = 0,
     CHOWDREN_BUTTON_A,
@@ -56,21 +63,8 @@ enum {
 class InputList
 {
 public:
-    struct InputState
-    {
-        int key;
-        char state;
-    };
-
     int last;
-    enum {
-        STATE_COUNT = 16,
-        STATE_PRESSED = 0,
-        STATE_HOLD = 1,
-        STATE_RELEASED = 2
-    };
-    int count;
-    InputState states[STATE_COUNT];
+    vector<InputState> items;
 
     InputList();
     void add(int v);

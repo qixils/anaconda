@@ -122,7 +122,7 @@ void Movement::set_direction(int value)
 
 void Movement::start()
 {
-    if (max_speed == 0 || speed > 0)
+    if (max_speed == 0)
         return;
     set_speed(max_speed);
 }
@@ -134,15 +134,11 @@ void Movement::reverse()
 
 void Movement::stop(bool collision)
 {
-    if (speed != 0)
-        max_speed = speed;
     set_speed(0);
 }
 
 void Movement::bounce(bool collision)
 {
-    if (speed != 0)
-        max_speed = speed;
     set_speed(0);
 }
 
@@ -342,9 +338,7 @@ void BallMovement::update()
     get_dir(instance->direction, add_x, add_y);
     double m = get_pixels(speed) * instance->frame->timer_mul;
     move(add_x * m, add_y * m);
-    if (deceleration != 0)
-        speed_change -= get_accelerator(deceleration)
-                        * instance->frame->timer_mul;
+    speed_change -= get_accelerator(deceleration) * instance->frame->timer_mul;
     int change = (int)speed_change;
     speed_change -= change;
     set_speed(int_max(0, speed + change));
@@ -400,7 +394,7 @@ void VectorMovement::update()
         return;
 
     float vel_x = speed * cos_deg(angle) * instance->frame->timer_mul;
-    float vel_y = speed * -sin_deg(angle) * instance->frame->timer_mul;
+    float vel_y = speed * sin_deg(angle) * instance->frame->timer_mul;
 
     // XXX implement
     // vel_x += mul * acc_x;

@@ -8,7 +8,11 @@
 #include "types.h"
 #include "platform.h"
 #include "chowconfig.h"
-#include "bitarray.h"
+#include <boost/dynamic_bitset.hpp>
+
+const std::string & get_image_path();
+void set_image_path(const std::string & path);
+void initialize_images();
 
 extern const float normal_texcoords[8];
 extern const float back_texcoords[8];
@@ -38,7 +42,7 @@ public:
     GLuint tex;
     unsigned char * image;
 #ifndef CHOWDREN_IS_WIIU
-    BitArray alpha;
+    boost::dynamic_bitset<> alpha;
 #endif
 
 #ifdef CHOWDREN_NO_NPOT
@@ -55,14 +59,19 @@ public:
     void load();
     void set_static();
     void upload_texture();
-    void draw(int x, int y, Color color, float angle = 0.0f,
-              float scale_x = 1.0f, float scale_y = 1.0f);
-    void draw_flip_x(int x, int y, Color color, float angle = 0.0f,
-                     float scale_x = 1.0f, float scale_y = 1.0f);
-    void draw(int x, int y, int src_x, int src_y, int w, int h, Color color);
+    void draw(int x1, int y1, int x2, int y2, bool flip_x, bool flip_y,
+              GLuint back = 0, bool has_tex_param = false);
+    void draw(int * coords, int count, GLuint back = 0,
+              bool has_tex_param = false);
+    void draw(int x, int y, float angle = 0.0f,
+              float scale_x = 1.0f, float scale_y = 1.0f,
+              bool flip_x = false, GLuint back = 0,
+              bool has_tex_param = false);
+    void draw(int x, int y, int src_x, int src_y, int w, int h);
     bool is_valid();
     void unload();
     void set_filter(bool linear);
+
     // inline methods
 
     bool get_alpha(int x, int y)
@@ -74,8 +83,8 @@ public:
             return c != 0;
         }
     #else
-        if (alpha.data != NULL)
-            return alpha.get(y * width + x) != 0;
+        if (!alpha.empty())
+            return alpha.test(y * width + x);
     #endif
         unsigned int * v = (unsigned int*)image + y * width + x;
         unsigned char c = ((unsigned char*)v)[3];

@@ -120,10 +120,7 @@ class CharImage(ObjectWriter):
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_text',
-    12 : '.x_off = %s',
-    43 : 'set_clipping_width',
-    45 : 'set_char_width',
-    47 : 'load'
+    12 : '.x_off = %s'
 })
 
 conditions = make_table(ConditionMethodWriter, {

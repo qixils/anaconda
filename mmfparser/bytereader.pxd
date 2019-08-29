@@ -22,10 +22,7 @@ cdef class ByteReader:
     cdef unsigned int start, pos, data_size, lastPosition
     cdef bytes original
     cdef bint shared
-
-    IF not IS_PYPY:
-        cdef FILE * fp
-
+    cdef FILE * fp
     cdef object python_fp
 
     cpdef int tell(self)
@@ -34,10 +31,10 @@ cdef class ByteReader:
     cpdef read(self, int size = ?)
     cpdef adjust(self, int to)
     cpdef size_t size(self)
-    cpdef short readByte(self, bint asUnsigned = ?) except? -10
-    cpdef int readShort(self, bint asUnsigned = ?) except? -10
-    cpdef float readFloat(self) except? -10
-    cpdef double readDouble(self) except? -10
+    cpdef short readByte(self, bint asUnsigned = ?)
+    cpdef int readShort(self, bint asUnsigned = ?)
+    cpdef float readFloat(self)
+    cpdef double readDouble(self)
     cpdef readInt(self, bint asUnsigned = ?)
     cpdef bytes readString(self, size=?)
     cpdef unicode readUnicodeString(self, size=?)

@@ -15,13 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
 
-import glob
 import sys
-import os
-import platform
-from setuptools import setup
+from setuptools import setup, Extension
 from Cython.Distutils import build_ext
-from Cython.Distutils.extension import Extension
 from Cython.Build import cythonize
 
 from Cython.Compiler import Options
@@ -41,31 +37,13 @@ include_dirs = ['./mmfparser/player']
 
 names = open('names.txt', 'rb').read().splitlines()
 
-is_pypy = platform.python_implementation() == 'PyPy'
-
-trans_start = os.environ.get('MMF_TRANS_START', None)
-compile_env = {'IS_PYPY': True, 'USE_TRANS': trans_start is not None}
-define_macros = []
-if trans_start is not None:
-    define_macros.append(('TRANS_START', trans_start))
-
-kw = dict(language='c++')
-
 for name in names:
     if name.startswith('#'):
         continue
-    ext_modules.append(Extension(name,
-                                 ['./' + name.replace('.', '/') + '.pyx'],
-                                 define_macros=define_macros,
-                                 include_dirs=include_dirs, **kw))
-
-webp_srcs = glob.glob('./mmfparser/webp/*/*.c')
-ext_modules.append(Extension('mmfparser.webp',
-                             ['./mmfparser/webp.pyx'] + webp_srcs,
-                             include_dirs=include_dirs + ['./mmfparser/webp'],
-                             **kw))
+    ext_modules.append(Extension(name, ['./' + name.replace('.', '/') + '.pyx'],
+        include_dirs = include_dirs, language='c++'))
 
 setup(
     name = 'mmfparser extensions',
-    ext_modules = cythonize(ext_modules, compile_time_env=compile_env)
+    ext_modules = cythonize(ext_modules)
 )

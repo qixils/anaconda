@@ -1,9 +1,6 @@
 #include "manager.h"
 #include "subapp.h"
 
-static bool has_ignore_controls = false;
-static bool ignore_controls = false;
-
 SubApplication::SubApplication(int x, int y, int id)
 : FrameObject(x, y, id)
 {
@@ -12,18 +9,8 @@ SubApplication::SubApplication(int x, int y, int id)
 
 SubApplication::~SubApplication()
 {
-    Frame * old_frame = manager.frame;
-    manager.frame = &subapp_frame;
-    subapp_frame.data->on_app_end();
-    manager.frame = old_frame;
-
 	if (current == this)
 		current = NULL;
-
-    if (has_ignore_controls) {
-        manager.ignore_controls = ignore_controls;
-        has_ignore_controls = false; 
-    }
 }
 
 void SubApplication::set_next_frame(int index)
@@ -52,7 +39,9 @@ void SubApplication::update()
         int next_frame = subapp_frame.next_frame;
         if (subapp_frame.index != -1)
             subapp_frame.on_end();
+        manager.frame = old_frame;
         set_frame(next_frame);
+        return;
     }
 
     bool ret = subapp_frame.update();
@@ -65,20 +54,19 @@ void SubApplication::update()
     if (ret)
         return;
     done = true;
-    manager.ignore_controls = old_ignore_controls;
     set_visible(false);
 }
 
 void SubApplication::set_frame(int index)
 {
     done = false;
-    subapp_frame.set_index(index);
+    Frame * old_frame = manager.frame;
+    manager.frame = &subapp_frame;
 
-    if (!has_ignore_controls) {
-        ignore_controls = manager.ignore_controls;
-        manager.ignore_controls = false;
-        has_ignore_controls = true; 
-    }
+    subapp_frame.set_index(index);
+    subapp_frame.on_start();
+
+    manager.frame = old_frame;
 }
 
 SubApplication * SubApplication::current = NULL;

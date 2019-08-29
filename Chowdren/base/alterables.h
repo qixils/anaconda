@@ -162,17 +162,6 @@ public:
     static void destroy(Alterables * ptr);
 };
 
-struct SavedAlterables
-{
-    bool init;
-    Alterables value;
-
-    SavedAlterables()
-    : init(false)
-    {
-    }
-};
-
 extern ObjectPool<Alterables> alterable_pool;
 
 inline Alterables * Alterables::create()

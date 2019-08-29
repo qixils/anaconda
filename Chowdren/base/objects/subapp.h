@@ -14,7 +14,6 @@ public:
     int frame_offset;
     bool done;
     bool starting;
-    bool old_ignore_controls;
 
     SubApplication(int x, int y, int id);
     ~SubApplication();

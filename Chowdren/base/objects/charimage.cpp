@@ -73,7 +73,7 @@ void CharacterImageObject::draw()
 
         int transparency = block.attribs.values[TRANSPARENT_ATTRIB];
         transparency = ((128 - transparency) * 255) / 128;
-        Color color(255, 255, 255, transparency);
+        glColor4ub(255, 255, 255, transparency);
 
         int alias_index = block.attribs.values[ALIAS_ATTRIB];
         CharacterImageAlias & alias = aliases[alias_index];
@@ -82,7 +82,7 @@ void CharacterImageObject::draw()
             unsigned char c = (unsigned char)block.text[i];
             CharacterImage & img = alias.charmap[c];
             if (img.image != NULL) {
-                img.image->draw(xx, yy, color);
+                img.image->draw(xx, yy);
             }
             xx += img.width + block.attribs.values[TRACKING_ATTRIB];
         }
@@ -387,52 +387,5 @@ std::string CharacterImageObject::get_char(int index)
 
 int CharacterImageObject::get_char_width(int alias, const std::string & c)
 {
-    CharacterImageAlias & a = aliases[alias];
-    unsigned char cc = (unsigned char)c[0];
-    return a.charmap[cc].width;
-}
-
-void CharacterImageObject::set_char_width(int alias, const std::string & c,
-                                          int width)
-{
-    CharacterImageAlias & a = aliases[alias];
-    unsigned char cc = (unsigned char)c[0];
-    a.charmap[cc].width = width;
-}
-
-void CharacterImageObject::set_clipping_width(int alias, const std::string & c,
-                                              int width)
-{
-    std::cout << "Set clip width: " << alias << " " << c << " " << width
-        << std::endl;
-}
-
-inline int get_load_point(int value, int max)
-{
-    if (value == 100000) {
-        return max / 2;
-    } else if (value == 110000) {
-        return max;
-    }
-    return value;
-}
-
-void CharacterImageObject::load(int alias, const std::string & c,
-                                const std::string & path,
-                                int x_hotspot, int y_hotspot)
-{
-    Image * new_image = get_image_cache(convert_path(path), 0, 0, 0, 0,
-                                        TransparentColor());
-
-    if (new_image == NULL) {
-        std::cout << "Could not load image " << path << std::endl;
-        return;
-    }
-
-    new_image->hotspot_x = get_load_point(x_hotspot, new_image->width);
-    new_image->hotspot_y = get_load_point(y_hotspot, new_image->height);
-
-    CharacterImageAlias & a = aliases[alias];
-    unsigned char cc = (unsigned char)c[0];
-    a.charmap[cc].image = new_image;
+    return 0;
 }

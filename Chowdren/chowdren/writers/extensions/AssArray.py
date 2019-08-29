@@ -8,7 +8,6 @@ class AssociateArray(ObjectWriter):
     key_count = 0
     class_name = 'AssociateArray'
     filename = 'assarray'
-    default_instance = 'default_assarray_instance'
 
     def write_init(self, writer):
         data = self.get_data()
@@ -58,7 +57,6 @@ actions = make_table(ActionMethodWriter, {
     44 : 'set_key',
     25 : EmptyAction, # set_file_saving_interval
     24 : EmptyAction, # set_file_loading_interval
-    26 : EmptyAction, # file_progress_set_to_load_entire_file_all_at_once
     28 : create_key_action('add_value'),
     29 : create_key_action('sub_value')
 })

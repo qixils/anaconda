@@ -67,25 +67,10 @@ class MoveObject(ActionMethodWriter):
         elif items[0].getName() == 'Min':
             self.min_case(writer)
             return
-        else:
-        # elif items[0].getName() is None:
-            # exp_writer = self.converter.get_expression_writer(items[0])
-            # from ValueAdd import GetValue
-            # if isinstance(exp_writer, GetValue):
-            # give up - maybe we can optimize using FrameObject pointers
-            # in the future
-            self.slow_case(writer)
-            return
 
         import code
         code.interact(local=locals())
         raise NotImplementedError()
-
-    def slow_case(self, writer):
-        converter = self.converter
-        with converter.iterate_object(self.get_object(), writer, copy=False):
-            set_obj = converter.get_object(self.get_object())
-            writer.putlnc('%s->set_level(%s);', set_obj, self.convert_index(1))
 
     def minus_case(self, writer):
         converter = self.converter

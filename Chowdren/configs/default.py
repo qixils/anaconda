@@ -1,13 +1,7 @@
 def init(converter):
-    converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
-    converter.add_define('CHOWDREN_QUICK_SCALE')
-    converter.add_define('CHOWDREN_POINT_FILTER')
-    converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
-
-def init_container(converter, container):
     pass
 
-def init_frame(converter, frame):
+def init_container(converter, container):
     pass
 
 def write_pre(converter, writer, group):
@@ -23,7 +17,7 @@ def use_iteration_index(converter):
     return True
 
 def use_global_alterables(converter, obj):
-    return True
+    return False
 
 def use_single_global_alterables(converter, obj):
     return True
@@ -55,7 +49,7 @@ def use_update_filtering(converter):
 def use_deferred_collisions(converter):
     return False
 
-def use_repeated_collisions(converter):
+def use_generated_collisions(converter):
     return False
 
 def use_image_flush(converter, frame):
@@ -86,25 +80,4 @@ def get_loop_call_names(converter, name):
     return None
 
 def get_fonts(converter):
-    return ('SmallFonts',)
-
-def use_edit_obj(converter):
-    return True
-
-def reorder_foreach(converter):
-    return False
-
-def use_webp(converter):
-    return False
-
-def use_condition_expression_iterator(converter):
-    return True
-
-def use_blitter_callback(converter, obj):
-    return False
-
-def get_string(converter, value):
-    return value
-
-def init_array_set_value(converter, event_writer):
-    pass
+    return ()

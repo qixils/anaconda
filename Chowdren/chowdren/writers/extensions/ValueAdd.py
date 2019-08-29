@@ -51,8 +51,6 @@ class SpreadValue(ActionMethodWriter):
         return parameter.objectInfo, parameter.objectType
 
 class SetAction(ActionMethodWriter):
-    has_object = True
-
     def write(self, writer):
         key = self.parameters[1].loader.items
         key = self.converter.convert_static_expression(key)
@@ -66,8 +64,7 @@ class SetAction(ActionMethodWriter):
 
     def get_object(self):
         parameter = self.parameters[0].loader
-        obj = parameter.objectInfo, parameter.objectType
-        return self.converter.filter_object_type(obj)
+        return parameter.objectInfo, parameter.objectType
 
 class SetValue(SetAction):
     func = 'set_value'
@@ -97,15 +94,7 @@ class GetExpression(ExpressionMethodWriter):
 
         last_exp = items[converter.item_index + 2]
         if last_exp.getName() != 'Virgule':
-            next_exp = items[converter.item_index + 1]
-            if next_exp.getName() != 'FixedValue':
-                return 'get_extra_dynamic('
-            if last_exp.getName() != 'Divide':
-                return 'get_extra_dynamic('
-            # silly Alonso
-            converter.item_index += 6
-            return '0.0'
-            
+            raise NotImplementedError()
         next_exp = items[converter.item_index + 1]
         obj = (next_exp.objectInfo, next_exp.objectType)
         obj = self.converter.get_object(obj, use_default=True)

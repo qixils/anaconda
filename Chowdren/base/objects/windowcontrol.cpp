@@ -2,7 +2,6 @@
 #include "chowconfig.h"
 #include "platform.h"
 #include <iostream>
-#include "manager.h"
 
 #ifdef CHOWDREN_USE_SUBAPP
 #include "subapp.h"
@@ -60,8 +59,6 @@ void WindowControl::set_position(int x, int y)
 
 void WindowControl::set_width(int w)
 {
-    float scale = w / float(WINDOW_WIDTH);
-    manager.set_window_scale(scale);
     std::cout << "Set window width: " << w << std::endl;
 }
 

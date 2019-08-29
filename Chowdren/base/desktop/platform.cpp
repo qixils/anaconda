@@ -17,17 +17,10 @@
 #include <SDL.h>
 #include <time.h>
 #include <boost/cstdint.hpp>
-#include "path.h"
-#include "render.h"
+
+using boost::uintmax_t;
 
 #define CHOWDREN_EXTRA_BILINEAR
-
-enum ScaleType
-{
-    BEST_FIT = 0,
-    BEST_FIT_INT = 1,
-    EXACT_FIT = 2
-};
 
 static Framebuffer screen_fbo;
 static SDL_Window * global_window = NULL;
@@ -36,7 +29,6 @@ static bool is_fullscreen = false;
 static bool hide_cursor = false;
 static bool has_closed = false;
 static Uint64 start_time;
-int scale_type = BEST_FIT;
 
 static int draw_x_size = 0;
 static int draw_y_size = 0;
@@ -49,26 +41,28 @@ PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
 PFNGLBLENDEQUATIONEXTPROC __glBlendEquationEXT;
 PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
 PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
-PFNGLCLIENTACTIVETEXTUREARBPROC __glClientActiveTextureARB;
+PFNGLMULTITEXCOORD2FARBPROC __glMultiTexCoord2fARB;
 PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
 PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
 PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
 
-PFNGLUSEPROGRAMOBJECTARBPROC __glUseProgramObjectARB;
-PFNGLDETACHOBJECTARBPROC __glDetachObjectARB;
-PFNGLGETINFOLOGARBPROC __glGetInfoLogARB;
-PFNGLGETOBJECTPARAMETERIVARBPROC __glGetObjectParameterivARB;
-PFNGLLINKPROGRAMARBPROC __glLinkProgramARB;
-PFNGLCREATEPROGRAMOBJECTARBPROC __glCreateProgramObjectARB;
-PFNGLATTACHOBJECTARBPROC __glAttachObjectARB;
-PFNGLCOMPILESHADERARBPROC __glCompileShaderARB;
-PFNGLSHADERSOURCEARBPROC __glShaderSourceARB;
-PFNGLCREATESHADEROBJECTARBPROC __glCreateShaderObjectARB;
-PFNGLUNIFORM1IARBPROC __glUniform1iARB;
-PFNGLUNIFORM2FARBPROC __glUniform2fARB;
-PFNGLUNIFORM1FARBPROC __glUniform1fARB;
-PFNGLUNIFORM4FARBPROC __glUniform4fARB;
-PFNGLGETUNIFORMLOCATIONARBPROC __glGetUniformLocationARB;
+PFNGLUSEPROGRAMPROC __glUseProgram;
+PFNGLDETACHSHADERPROC __glDetachShader;
+PFNGLGETPROGRAMINFOLOGPROC __glGetProgramInfoLog;
+PFNGLGETPROGRAMIVPROC __glGetProgramiv;
+PFNGLLINKPROGRAMPROC __glLinkProgram;
+PFNGLCREATEPROGRAMPROC __glCreateProgram;
+PFNGLATTACHSHADERPROC __glAttachShader;
+PFNGLGETSHADERINFOLOGPROC __glGetShaderInfoLog;
+PFNGLGETSHADERIVPROC __glGetShaderiv;
+PFNGLCOMPILESHADERPROC __glCompileShader;
+PFNGLSHADERSOURCEPROC __glShaderSource;
+PFNGLCREATESHADERPROC __glCreateShader;
+PFNGLUNIFORM1IPROC __glUniform1i;
+PFNGLUNIFORM2FPROC __glUniform2f;
+PFNGLUNIFORM1FPROC __glUniform1f;
+PFNGLUNIFORM4FPROC __glUniform4f;
+PFNGLGETUNIFORMLOCATIONPROC __glGetUniformLocation;
 #endif
 
 static bool check_opengl_extension(const char * name)
@@ -87,7 +81,6 @@ static bool check_opengl_extension(const char * name)
 const char * extensions[] = {
 #ifdef CHOWDREN_USE_GL
     "GL_EXT_framebuffer_object",
-    "GL_ARB_shader_objects",
     "GL_ARB_vertex_shader",
     "GL_ARB_fragment_shader",
     "GL_ARB_texture_non_power_of_two",
@@ -107,26 +100,7 @@ static void on_key(SDL_KeyboardEvent & e)
 {
     if (e.repeat != 0)
         return;
-    bool state = e.state == SDL_PRESSED;
-    int key = e.keysym.sym;
-
-    if (state && key == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT)) {
-        manager.set_window(!manager.fullscreen);
-        return;
-    }
-
-#ifdef CHOWDREN_USE_EDITOBJ
-    if (state && key == SDLK_v && (SDL_GetModState() & KMOD_CTRL) &&
-        SDL_HasClipboardText())
-    {
-        char * text = SDL_GetClipboardText();
-        manager.input += text;
-        SDL_free(text);
-        return;
-    }
-#endif
-
-    manager.on_key(key, state);
+    manager.on_key(e.keysym.sym, e.state == SDL_PRESSED);
 }
 
 static void on_mouse(SDL_MouseButtonEvent & e)
@@ -212,10 +186,6 @@ void platform_exit()
 
 void platform_poll_events()
 {
-#ifdef CHOWDREN_USE_EDITOBJ
-    manager.input.clear();
-#endif
-
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -238,11 +208,6 @@ void platform_poll_events()
                 on_joystick_button(e.cbutton.which, e.cbutton.button,
                                    e.cbutton.state == SDL_PRESSED);
                 break;
-#ifdef CHOWDREN_USE_EDITOBJ
-            case SDL_TEXTINPUT:
-                manager.input += e.text.text;
-                break;
-#endif
             case SDL_QUIT:
                 has_closed = true;
                 break;
@@ -288,19 +253,6 @@ void platform_get_mouse_pos(int * x, int * y)
     *y = (*y - draw_y_off) * (float(WINDOW_HEIGHT) / draw_y_size);
 }
 
-// #define CHOWDREN_USE_GL_DEBUG
-
-#ifndef NDEBUG
-static void APIENTRY on_debug_message(GLenum source, GLenum type, GLuint id,
-                                      GLenum severity, GLsizei length,
-                                      const GLchar * message,
-                                      GLvoid * param)
-{
-    std::cout << "OpenGL message (" << source << " " << type << " " << id <<
-        ")" << message << std::endl;
-}
-#endif
-
 void platform_create_display(bool fullscreen)
 {
     is_fullscreen = fullscreen;
@@ -319,10 +271,6 @@ void platform_create_display(bool fullscreen)
                         SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#endif
-
-#ifndef NDEBUG
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #endif
 
     int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
@@ -368,9 +316,9 @@ void platform_create_display(bool fullscreen)
     __glActiveTextureARB =
         (PFNGLACTIVETEXTUREARBPROC)
         SDL_GL_GetProcAddress("glActiveTextureARB");
-    __glClientActiveTextureARB =
-        (PFNGLACTIVETEXTUREARBPROC)
-        SDL_GL_GetProcAddress("glClientActiveTextureARB");
+    __glMultiTexCoord2fARB =
+        (PFNGLMULTITEXCOORD2FARBPROC)
+        SDL_GL_GetProcAddress("glMultiTexCoord2fARB");
 
     __glGenFramebuffersEXT =
         (PFNGLGENFRAMEBUFFERSEXTPROC)
@@ -383,70 +331,57 @@ void platform_create_display(bool fullscreen)
         SDL_GL_GetProcAddress("glBindFramebufferEXT");
 
     // shaders
-    __glUniform1iARB =
-        (PFNGLUNIFORM1IARBPROC)
-        SDL_GL_GetProcAddress("glUniform1iARB");
-    __glUseProgramObjectARB =
-        (PFNGLUSEPROGRAMOBJECTARBPROC)
-        SDL_GL_GetProcAddress("glUseProgramObjectARB");
-    __glDetachObjectARB =
-        (PFNGLDETACHOBJECTARBPROC)
-        SDL_GL_GetProcAddress("glDetachObjectARB");
-    __glGetInfoLogARB =
-        (PFNGLGETINFOLOGARBPROC)
-        SDL_GL_GetProcAddress("glGetInfoLogARB");
-    __glGetObjectParameterivARB =
-        (PFNGLGETOBJECTPARAMETERIVARBPROC)
-        SDL_GL_GetProcAddress("glGetObjectParameterivARB");
-    __glLinkProgramARB =
-        (PFNGLLINKPROGRAMARBPROC)
-        SDL_GL_GetProcAddress("glLinkProgramARB");
-    __glCreateProgramObjectARB =
-        (PFNGLCREATEPROGRAMOBJECTARBPROC)
-        SDL_GL_GetProcAddress("glCreateProgramObjectARB");
-    __glAttachObjectARB =
-        (PFNGLATTACHOBJECTARBPROC)
-        SDL_GL_GetProcAddress("glAttachObjectARB");
-    __glCompileShaderARB =
-        (PFNGLCOMPILESHADERARBPROC)
-        SDL_GL_GetProcAddress("glCompileShaderARB");
-    __glShaderSourceARB =
-        (PFNGLSHADERSOURCEARBPROC)
-        SDL_GL_GetProcAddress("glShaderSourceARB");
-    __glCreateShaderObjectARB =
-        (PFNGLCREATESHADEROBJECTARBPROC)
-        SDL_GL_GetProcAddress("glCreateShaderObjectARB");
-    __glUniform2fARB =
-        (PFNGLUNIFORM2FARBPROC)
-        SDL_GL_GetProcAddress("glUniform2fARB");
-    __glUniform1fARB =
-        (PFNGLUNIFORM1FARBPROC)
-        SDL_GL_GetProcAddress("glUniform1fARB");
-    __glUniform4fARB =
-        (PFNGLUNIFORM4FARBPROC)
-        SDL_GL_GetProcAddress("glUniform4fARB");
-    __glGetUniformLocationARB =
-        (PFNGLGETUNIFORMLOCATIONARBPROC)
-        SDL_GL_GetProcAddress("glGetUniformLocationARB");
-#endif
-
-#if !defined(NDEBUG) && defined(CHOWDREN_USE_GL_DEBUG)
-#define GL_DEBUG_OUTPUT 0x92E0
-	std::cout << "OpenGL debug enabled" << std::endl;
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-
-    PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallback =
-        (PFNGLDEBUGMESSAGECALLBACKARBPROC)
-        SDL_GL_GetProcAddress("glDebugMessageCallback");
-
-    PFNGLDEBUGMESSAGECONTROLARBPROC glDebugMessageControl =
-        (PFNGLDEBUGMESSAGECONTROLARBPROC)
-        SDL_GL_GetProcAddress("glDebugMessageControl");
-
-	glDebugMessageCallback((GLDEBUGPROCARB)on_debug_message, NULL);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL,
-                          GL_TRUE);
+    __glUniform1i =
+        (PFNGLUNIFORM1IPROC)
+        SDL_GL_GetProcAddress("glUniform1i");
+    __glUseProgram =
+        (PFNGLUSEPROGRAMPROC)
+        SDL_GL_GetProcAddress("glUseProgram");
+    __glDetachShader =
+        (PFNGLDETACHSHADERPROC)
+        SDL_GL_GetProcAddress("glDetachShader");
+    __glGetProgramInfoLog =
+        (PFNGLGETPROGRAMINFOLOGPROC)
+        SDL_GL_GetProcAddress("glGetProgramInfoLog");
+    __glGetProgramiv =
+        (PFNGLGETPROGRAMIVPROC)
+        SDL_GL_GetProcAddress("glGetProgramiv");
+    __glLinkProgram =
+        (PFNGLLINKPROGRAMPROC)
+        SDL_GL_GetProcAddress("glLinkProgram");
+    __glCreateProgram =
+        (PFNGLCREATEPROGRAMPROC)
+        SDL_GL_GetProcAddress("glCreateProgram");
+    __glAttachShader =
+        (PFNGLATTACHSHADERPROC)
+        SDL_GL_GetProcAddress("glAttachShader");
+    __glGetShaderInfoLog =
+        (PFNGLGETSHADERINFOLOGPROC)
+        SDL_GL_GetProcAddress("glGetShaderInfoLog");
+    __glGetShaderiv =
+        (PFNGLGETSHADERIVPROC)
+        SDL_GL_GetProcAddress("glGetShaderiv");
+    __glCompileShader =
+        (PFNGLCOMPILESHADERPROC)
+        SDL_GL_GetProcAddress("glCompileShader");
+    __glShaderSource =
+        (PFNGLSHADERSOURCEPROC)
+        SDL_GL_GetProcAddress("glShaderSource");
+    __glCreateShader =
+        (PFNGLCREATESHADERPROC)
+        SDL_GL_GetProcAddress("glCreateShader");
+    __glUniform2f =
+        (PFNGLUNIFORM2FPROC)
+        SDL_GL_GetProcAddress("glUniform2f");
+    __glUniform1f =
+        (PFNGLUNIFORM1FPROC)
+        SDL_GL_GetProcAddress("glUniform1f");
+    __glUniform4f =
+        (PFNGLUNIFORM4FPROC)
+        SDL_GL_GetProcAddress("glUniform4f");
+    __glGetUniformLocation =
+        (PFNGLGETUNIFORMLOCATIONPROC)
+        SDL_GL_GetProcAddress("glGetUniformLocation");
 #endif
 
     // check extensions
@@ -488,27 +423,10 @@ void platform_set_vsync(bool value)
     std::cout << "Set vsync failed: " << SDL_GetError() << std::endl;
 }
 
-bool platform_get_vsync()
-{
-    int vsync = SDL_GL_GetSwapInterval();
-    if (vsync != -1)
-        return vsync == 1;
-    switch (vsync_value) {
-        case 1:
-        case -1:
-            return true;
-        default:
-            return false;
-    }
-}
-
 #define CHOWDREN_DESKTOP_FULLSCREEN
 
 void platform_set_fullscreen(bool value)
 {
-    if (value == is_fullscreen)
-        return;
-    is_fullscreen = value;
 #ifdef CHOWDREN_DESKTOP_FULLSCREEN
     int flags;
     if (value)
@@ -540,9 +458,6 @@ void platform_begin_draw()
     screen_fbo.bind();
 }
 
-void set_scale_uniform(float width, float height,
-                       float x_scale, float y_scale);
-
 void platform_swap_buffers()
 {
     int window_width, window_height;
@@ -550,63 +465,119 @@ void platform_swap_buffers()
     bool resize = window_width != WINDOW_WIDTH ||
                   window_height != WINDOW_HEIGHT;
 
-    int use_scale_type = scale_type;
-    if (!is_fullscreen)
-        use_scale_type = BEST_FIT;
+    float real_aspect;
 
-    if (resize && use_scale_type == EXACT_FIT) {
-        draw_x_size = window_width;
-        draw_y_size = window_height;
-    } else if (resize) {
+    if (resize) {
         // aspect-aware resize
         float aspect_width = window_width / float(WINDOW_WIDTH);
         float aspect_height = window_height / float(WINDOW_HEIGHT);
 
-        float aspect = std::min(aspect_width, aspect_height);
-        if (use_scale_type == BEST_FIT_INT)
-            aspect = floor(aspect);
+        real_aspect = std::min(aspect_width, aspect_height);
 
+#ifdef CHOWDREN_QUICK_SCALE
+        float aspect = std::max(std::min(1.0f, real_aspect),
+                                float(floor(real_aspect)));
+#else
+        float aspect = real_aspect;
+#endif
         draw_x_size = aspect * WINDOW_WIDTH;
         draw_y_size = aspect * WINDOW_HEIGHT;
+
+        draw_x_off = (window_width - draw_x_size) / 2;
+        draw_y_off = (window_height - draw_y_size) / 2;
     } else {
+        draw_x_off = draw_y_off = 0;
         draw_x_size = WINDOW_WIDTH;
         draw_y_size = WINDOW_HEIGHT;
     }
 
-    draw_x_off = (window_width - draw_x_size) / 2;
-    draw_y_off = (window_height - draw_y_size) / 2;
-
     screen_fbo.unbind();
 
     // resize the window contents if necessary (fullscreen mode)
-    Render::set_view(0, 0, window_width, window_height);
-    Render::set_offset(0, 0);
-    Render::clear(0, 0, 0, 255);
+    glViewport(0, 0, window_width, window_height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_width, window_height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
 
     int x2 = draw_x_off + draw_x_size;
     int y2 = draw_y_off + draw_y_size;
 
+    glColor4f(1.0, 1.0, 1.0, 1.0);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, screen_fbo.get_tex());
+    glDisable(GL_BLEND);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0, 1.0);
+    glVertex2i(draw_x_off, draw_y_off);
+    glTexCoord2f(1.0, 1.0);
+    glVertex2i(x2, draw_y_off);
+    glTexCoord2f(1.0, 0.0);
+    glVertex2i(x2, y2);
+    glTexCoord2f(0.0, 0.0);
+    glVertex2i(draw_x_off, y2);
+    glEnd();
+    glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+
 #ifdef CHOWDREN_QUICK_SCALE
-    float x_scale = draw_x_size / float(WINDOW_WIDTH);
-    float y_scale = draw_y_size / float(WINDOW_WIDTH);
-    float use_effect = draw_x_size % WINDOW_WIDTH != 0 ||
-                       draw_y_size % WINDOW_HEIGHT != 0;
-    if (use_effect) {        
-        Render::set_effect(Render::PIXELSCALE);
-        set_scale_uniform(WINDOW_WIDTH, WINDOW_HEIGHT,
-                          draw_x_size / float(WINDOW_WIDTH),
-                          draw_y_size / float(WINDOW_HEIGHT));
+    if (draw_x_off != 0 || draw_y_off != 0) {
+        int draw_x_size2 = real_aspect * WINDOW_WIDTH;
+        int draw_y_size2 = real_aspect * WINDOW_HEIGHT;
+
+        int draw_x_off2 = (window_width - draw_x_size2) / 2;
+        int draw_y_off2 = (window_height - draw_y_size2) / 2;
+
+        x2 = draw_x_off2 + draw_x_size2;
+        y2 = draw_y_off2 + draw_y_size2;
+
+        static bool init_bilinear = false;
+        static GLuint scaletex;
+        if (!init_bilinear) {
+            init_bilinear = true;
+            glGenTextures(1, &scaletex);
+            glBindTexture(GL_TEXTURE_2D, scaletex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+                            GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                            GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                            GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                            GL_CLAMP_TO_EDGE);
+        } else {
+            glBindTexture(GL_TEXTURE_2D, scaletex);
+        }
+        glEnable(GL_TEXTURE_2D);
+        static int last_x = -1;
+        static int last_y = -1;
+        if (last_x != draw_x_size || last_y != draw_y_size) {
+            last_x = draw_x_size;
+            last_y = draw_y_size;
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, draw_x_size, draw_y_size,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        }
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, draw_x_off, draw_y_off,
+                            draw_x_size, draw_y_size);
+
+        glColor4f(1.0, 1.0, 1.0, 1.0);
+        glDisable(GL_BLEND);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 1.0);
+        glVertex2i(draw_x_off2, draw_y_off2);
+        glTexCoord2f(1.0, 1.0);
+        glVertex2i(x2, draw_y_off2);
+        glTexCoord2f(1.0, 0.0);
+        glVertex2i(x2, y2);
+        glTexCoord2f(0.0, 0.0);
+        glVertex2i(draw_x_off2, y2);
+        glEnd();
+        glEnable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
     }
-#endif
-
-    Render::disable_blend();
-	Render::draw_tex(draw_x_off, y2, x2, draw_y_off, Color(),
-                     screen_fbo.get_tex());
-    Render::enable_blend();
-
-#ifdef CHOWDREN_QUICK_SCALE
-    if (use_effect)
-        Render::disable_effect();
 #endif
 
     SDL_GL_SwapWindow(global_window);
@@ -635,11 +606,6 @@ void platform_set_display_scale(int scale)
     SDL_SetWindowPosition(global_window,
                           SDL_WINDOWPOS_CENTERED,
                           SDL_WINDOWPOS_CENTERED);
-}
-
-void platform_set_scale_type(int type)
-{
-    scale_type = type;
 }
 
 bool platform_has_focus()
@@ -681,104 +647,43 @@ const std::string & platform_get_language()
 // filesystem stuff
 
 #include <sys/stat.h>
+#include <boost/filesystem.hpp>
 
 size_t platform_get_file_size(const char * filename)
 {
-#ifndef _WIN32
-    struct stat path_stat;
-    if (stat(filename, &path_stat) != 0)
+    boost::system::error_code err;
+    uintmax_t ret = boost::filesystem::file_size(filename, err);
+    if (ret == uintmax_t(-1))
         return 0;
-    if (!S_ISREG(path_stat.st_mode))
-        return 0;
-    return path_stat.st_size;
-#else
-    WIN32_FILE_ATTRIBUTE_DATA fad;
-
-    if (GetFileAttributesExA(filename, GetFileExInfoStandard, &fad) == 0)
-        return 0;
-
-    if ((fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
-        return 0;
-
-    size_t size = (uint64_t(fad.nFileSizeHigh) << (sizeof(fad.nFileSizeLow)*8))
-                  + fad.nFileSizeLow;
-    return size;
-#endif
-}
-
-enum FileType
-{
-    NoneFile,
-    RegularFile,
-    Directory
-};
-
-static FileType get_file_type(const char * filename)
-{
-#ifndef _WIN32
-    struct stat path_stat;
-    if (stat(filename, &path_stat) != 0)
-        return NoneFile;
-    if (S_ISDIR(path_stat.st_mode))
-        return Directory;
-    if (S_ISREG(path_stat.st_mode))
-        return RegularFile;
-    return NoneFile;
-#else
-
-    DWORD attr(GetFileAttributesA(filename));
-    if (attr == 0xFFFFFFFF)
-        return NoneFile;
-    if (attr & FILE_ATTRIBUTE_DIRECTORY)
-        return Directory;
-    else
-        return RegularFile;
-#endif
+    return ret;
 }
 
 bool platform_path_exists(const std::string & value)
 {
-    return get_file_type(value.c_str()) != NoneFile;
+    boost::system::error_code err;
+    return boost::filesystem::exists(value, err);
 }
 
 bool platform_is_directory(const std::string & value)
 {
-    return get_file_type(value.c_str()) == Directory;
+    boost::system::error_code err;
+    return boost::filesystem::is_directory(value, err);
 }
 
 bool platform_is_file(const std::string & value)
 {
-    return get_file_type(value.c_str()) == RegularFile;
-}
-
-static bool create_dirs(const std::string & directory)
-{
-    if (directory.empty())
-        return true;
-
-    if (get_file_type(directory.c_str()) != NoneFile)
-        return true;
-
-    size_t slash = directory.find_last_of(PATH_SEP);
-    if (slash != std::string::npos) {
-        if (!create_dirs(directory.substr(0, slash)))
-            return false;
-    }
-
-#ifdef _WIN32
-    BOOL result = CreateDirectoryA(directory.c_str(), NULL);
-    if (CreateDirectoryA(directory.c_str(), NULL) == FALSE)
-        return false;
-#else
-    if (mkdir(directory.c_str(), S_IRWXU|S_IRWXG|S_IRWXO) != 0)
-        return false;
-#endif
-    return true;
+    boost::system::error_code err;
+    return boost::filesystem::is_regular_file(value, err);
 }
 
 void platform_create_directories(const std::string & value)
 {
-    create_dirs(value);
+    boost::filesystem::path path(value);
+    if (path.has_filename())
+        path.remove_filename();
+
+    boost::system::error_code err;
+    boost::filesystem::create_directories(path, err);
 }
 
 #ifdef _WIN32
@@ -881,8 +786,6 @@ public:
 
     float get_axis(SDL_GameControllerAxis n)
     {
-        if (n <= SDL_CONTROLLER_AXIS_INVALID || n >= SDL_CONTROLLER_AXIS_MAX)
-            return 0.0f;
         return float(SDL_GameControllerGetAxis(controller, n)) / float(0x7FFF);
     }
 
@@ -893,9 +796,6 @@ public:
 
     bool get_button(int b)
     {
-        if (b <= SDL_CONTROLLER_BUTTON_INVALID ||
-            b >= SDL_CONTROLLER_BUTTON_MAX)
-            return false;
         return get_button((SDL_GameControllerButton)b);
     }
 
@@ -1003,18 +903,7 @@ int get_joystick_last_press(int n)
 {
     if (!is_joystick_attached(n))
         return CHOWDREN_BUTTON_INVALID;
-    return remap_button(get_joy(n).last_press + 1);
-}
-
-extern std::string empty_string;
-
-const std::string & get_joystick_name(int n)
-{
-    if (!is_joystick_attached(n))
-        return empty_string;
-    static std::string ret;
-    ret = SDL_GameControllerName(get_joy(n).controller);
-    return ret;
+    return remap_button(get_joy(n).last_press+1);
 }
 
 bool is_joystick_attached(int n)
@@ -1039,6 +928,7 @@ bool any_joystick_pressed(int n)
     JoystickData & joy = get_joy(n);
     for (unsigned int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
         if (joy.get_button(i)) {
+            std::cout << "pressed: " << i << std::endl;
             return true;
         }
     }
@@ -1109,16 +999,16 @@ void open_url(const std::string & name)
 
 // file
 
-#ifdef CHOWDREN_AUTO_STEAMCLOUD
-#include "steam/steam_api.h"
-#include "steam/steamtypes.h"
+#ifdef CHOWDREN_ENABLE_STEAM
+#include "sdk/public/steam/steam_api.h"
+#include "sdk/public/steam/steamtypes.h"
 #include <sstream>
 #include "../path.h"
 #endif
 
 bool platform_remove_file(const std::string & file)
 {
-#ifdef CHOWDREN_AUTO_STEAMCLOUD
+#ifdef CHOWDREN_ENABLE_STEAM
     std::string base = get_path_filename(file);
     const char * base_c = base.c_str();
     if (SteamRemoteStorage()->FileExists(base_c)) {

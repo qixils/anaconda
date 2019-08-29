@@ -74,9 +74,7 @@ class Active(ObjectWriter):
         writer.putlnc('transparent = %s;', self.get_transparent())
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
-            writer.putln('forced_animation = current_animation = APPEARING;')
-        else:
-            writer.putln('current_animation = animation;')
+            writer.putln('forced_animation = APPEARING;')
         if len(animations) == 1 and DISAPPEARING in animations:
             writer.putln('flags |= FADEOUT;')
             self.destruct = True
@@ -462,28 +460,7 @@ class Counter(ObjectWriter):
             writer.putln('width = height = 0;')
         writer.putlnc('minimum = %s;', counter.minimum)
         writer.putlnc('maximum = %s;', counter.maximum)
-
-        if self.is_global():
-            self.global_name = self.get_global('Counter::SavedCounter')
-            writer.putlnc('if (%s.init)', self.global_name)
-            writer.indent()
-            writer.putlnc('set(%s.value);', self.global_name)
-            writer.dedent()
-            writer.putln('else')
-            writer.indent()
-            writer.putlnc('set(%s);', counter.initial)
-            writer.dedent()
-        else:
-            writer.putlnc('set(%s);', counter.initial)
-
-    def has_dtor(self):
-        return self.is_global()
-
-    def write_dtor(self, writer):
-        if not self.is_global():
-            return
-        writer.putlnc('%s.init = true;', self.global_name)
-        writer.putlnc('%s.value = value;', self.global_name)
+        writer.putlnc('set(%s);', counter.initial)
 
     def is_static_background(self):
         return False
@@ -530,9 +507,6 @@ class SubApplication(ObjectWriter):
     update = True
     filename = 'subapp'
     defines = ['CHOWDREN_USE_SUBAPP']
-
-    def has_sleep(self):
-        return False
 
     def write_init(self, writer):
         data = self.common.subApplication

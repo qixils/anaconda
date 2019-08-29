@@ -1,4 +1,4 @@
-#ifdef CHOWDREN_AUTO_STEAMCLOUD
+#ifdef CHOWDREN_ENABLE_STEAM
 #define HANDLE_BASE FileHandle
 
 #include <stdio.h>
@@ -157,7 +157,6 @@ public:
             real_mode = "rb";
         else
             real_mode = "wb";
-
 #ifdef FSFILE_CONVERT_PATH
         std::string file_string = convert_path(filename);
         const char * file_string_c = file_string.c_str();
@@ -212,7 +211,7 @@ void BaseFile::open(const char * filename, const char * mode)
             is_read = false;
             break;
     }
-#ifdef CHOWDREN_AUTO_STEAMCLOUD
+#ifdef CHOWDREN_ENABLE_STEAM
     HANDLE_BASE * new_handle = NULL;
     std::string base = get_path_filename(filename);
     if (is_read) {

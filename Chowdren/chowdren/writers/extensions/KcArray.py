@@ -24,26 +24,20 @@ class KcArray(ObjectWriter):
                     is_numeric, offset, x_size, y_size, z_size)
 
         if flags['Global']:
-            glob = self.get_global('ArrayObject::SavedArray')
-            writer.putlnc('global_data = &%s;', glob)
-            writer.putlnc('if (!%s.init) {', glob)
+            writer.putln('static ArrayData static_global_data;')
+            writer.putln('global_data = &static_global_data;')
+            writer.putln('static bool init = false;')
+            writer.putln('if (!init) {')
             writer.indent()
-            writer.putlnc('%s.init = true;', glob)
+            writer.putln('init = true;')
             writer.putln(init)
             writer.dedent()
             writer.putln('} else {')
             writer.indent()
-            writer.putlnc('data = %s.value;', glob)
+            writer.putln('data = static_global_data;')
             writer.end_brace()
         else:
             writer.putln(init)
-
-class SetValue(ActionMethodWriter):
-    method = 'set_value'
-
-    def __init__(self, *arg, **kw):
-        ActionMethodWriter.__init__(self, *arg, **kw)
-        self.converter.config.init_array_set_value(self)
 
 actions = make_table(ActionMethodWriter, {
     0 : '.data.x_pos = %s',
@@ -55,7 +49,7 @@ actions = make_table(ActionMethodWriter, {
     7 : 'set_string',
     13 : 'set_value',
     14 : 'set_value',
-    15 : SetValue, # xyz
+    15 : 'set_value', # xyz
     16 : 'set_string',
     18 : 'set_string', # with xyz
     8 : 'clear',
@@ -76,7 +70,6 @@ expressions = make_table(ExpressionMethodWriter, {
     6 : 'get_value',
     7 : 'get_value', # xyz
     8 : 'get_string',
-    9 : 'get_string', # xy
     10 : 'get_string' # with xyz
 })
 

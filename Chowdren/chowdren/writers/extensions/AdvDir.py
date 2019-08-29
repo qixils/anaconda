@@ -47,18 +47,8 @@ actions = make_table(ActionMethodWriter, {
 conditions = make_table(ConditionMethodWriter, {
 })
 
-class GetDistance(ExpressionMethodWriter):
-    has_object = False
-    method = 'get_distance'
-
-class GetDirection(ExpressionMethodWriter):
-    has_object = False
-    method = 'get_angle'
-
 expressions = make_table(ExpressionMethodWriter, {
-    1 : GetDirection,
-    8 : 'get_closest',
-    2 : GetDistance
+    8 : 'get_closest'
 })
 
 def get_object():

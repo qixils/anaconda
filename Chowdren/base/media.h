@@ -29,7 +29,6 @@ public:
     void set_frequency(double value);
     void set_position(double value);
     double get_position();
-    double get_frequency();
     double get_duration();
     void set_pan(double value);
     bool is_invalid();
@@ -79,7 +78,6 @@ public:
     double get_channel_volume(unsigned int channel);
     double get_channel_duration(unsigned int channel);
     double get_channel_frequency(unsigned int channel);
-    double get_channel_pan(unsigned int channel);
     bool is_sample_playing(unsigned int id);
     bool is_channel_playing(unsigned int channel);
     bool is_channel_valid(unsigned int channel);

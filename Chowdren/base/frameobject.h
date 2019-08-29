@@ -50,40 +50,9 @@ inline bool operator!=(FixedValue a, FixedValue b)
     return !(a == b);
 }
 
-inline bool double_equals_exact(double a, double b)
-{
-    return memcmp(&a, &b, sizeof(double)) == 0;
-}
-
-#define FIXED_ENCODE_XOR 0x7800000000000000ULL
-#define FIXED_SIGN_BIT (1ULL << 63ULL)
-
-inline FrameObject * get_object_from_fixed(double fixed)
-{
-    // -1 as a double is
-    // 00 00 00 00 00 00 F0 BF
-    // which is quite unlikely to be a memory address
-    if (double_equals_exact(fixed, 0.0) || double_equals_exact(fixed, -1.0))
-        return NULL;
-    uint64_t value;
-    memcpy(&value, &fixed, sizeof(uint64_t));
-    value ^= FIXED_ENCODE_XOR;
-    // reposition the last bit at the sign bit
-    value |= (value & 1ULL) << 63ULL;
-    value &= ~(1ULL);
-    FrameObject * p;
-    memcpy(&p, &value, sizeof(FrameObject*));
-    return p;
-}
-
-inline FrameObject * get_object_from_fixed(FixedValue fixed)
-{
-    return fixed.object;
-}
-
 inline bool operator==(double a, FixedValue b)
 {
-    return get_object_from_fixed(a) == b.object;
+    return memcmp(&a, &b.object, sizeof(FrameObject*)) == 0;
 }
 
 inline bool operator!=(double a, FixedValue b)
@@ -279,8 +248,8 @@ public:
     int direction;
     int id;
     Color blend_color;
-	int effect;
     Frame * frame;
+    Shader * shader;
     ShaderParameters * shader_parameters;
     int movement_count;
     Movement ** movements;
@@ -316,11 +285,11 @@ public:
     void set_visible(bool value);
     void set_blend_color(int color);
     virtual void draw();
-    void draw_image(Image * img, int x, int y, Color c);
-    void draw_image(Image * img, int x, int y, Color c, float angle,
-                    float x_scale, float y_scale);
-    void draw_image(Image * img, int x, int y, Color c, float angle,
-                    float x_scale, float y_scale, bool flip_x);
+#ifndef CHOWDREN_USE_DIRECT_RENDERER
+    void draw_image(Image * img, int x, int y, float angle = 0.0f,
+                    float scale_x = 1.0f, float scale_y = 1.0f,
+                    bool flip_x = false);
+#endif
     void begin_draw(int width, int height);
     void begin_draw();
     void end_draw();
@@ -329,7 +298,7 @@ public:
     bool mouse_over();
     bool overlaps(FrameObject * other);
     void set_layer(int layer);
-    void set_shader(int effect);
+    void set_shader(Shader * shader);
     void set_shader_parameter(const std::string & name, double value);
     void set_shader_parameter(const std::string & name, Image & image);
     void set_shader_parameter(const std::string & name, const Color & color);
@@ -408,6 +377,14 @@ public:
         return *extra_alterables;
     }
 #endif
+
+#ifdef CHOWDREN_USE_DIRECT_RENDERER
+    void draw_image(Image * img, int x, int y);
+    void draw_image(Image * img, int x, int y, float angle,
+                    float x_scale, float y_scale);
+    void draw_image(Image * img, int x, int y, float angle,
+                    float x_scale, float y_scale, bool flip_x);
+#endif
 };
 
 typedef vector<FrameObject*> FlatObjectList;
@@ -449,10 +426,11 @@ class ObjectList
 {
 public:
     FrameObject * back_obj;
-    ObjectListItems items;
-    typedef ObjectListItems::iterator iterator;
     unsigned int saved_start;
     vector<int> saved_items;
+
+    ObjectListItems items;
+    typedef ObjectListItems::iterator iterator;
 
     ObjectList()
     : back_obj(NULL)
@@ -515,11 +493,12 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
+    FrameObject * get_selection(int index);
 
     FrameObject * back_selection() const
     {
         if (!has_selection())
-            return back_obj;
+            return NULL;
         return items[items[0].next].obj;
     }
 
@@ -555,6 +534,12 @@ public:
         items[0].next = LAST_SELECTED;
     }
 
+    void copy(ObjectList & other)
+    {
+        back_obj = other.back_obj;
+        items = other.items;
+    }
+
     void remove(FrameObject * obj)
     {
         for (int i = obj->index+1; i < int(items.size()); i++) {
@@ -575,13 +560,12 @@ public:
     void save_selection();
     void restore_selection();
     void clear_saved_selection();
-    void copy(FlatObjectList & other);
 };
 
 class ObjectIterator
 {
 public:
-    ObjectListItem * items;
+    ObjectList & list;
     int index;
     int last;
     bool selected;
@@ -591,7 +575,7 @@ public:
 #endif
 
     ObjectIterator(ObjectList & list)
-    : items(&list.items[0]), index(list.items[0].next), last(0), selected(true)
+    : list(list), index(list.items[0].next), last(0), selected(true)
     {
 #ifdef CHOWDREN_ITER_INDEX
         current_index = 0;
@@ -600,7 +584,7 @@ public:
 
     FrameObject* operator*() const
     {
-        return items[index].obj;
+        return list.items[index].obj;
     }
 
     void operator++()
@@ -610,7 +594,7 @@ public:
 #endif
 
         last = selected ? index : last;
-        index = items[index].next;
+        index = list.items[index].next;
         selected = true;
     }
 
@@ -622,7 +606,7 @@ public:
     void deselect()
     {
         selected = false;
-        items[last].next = items[index].next;
+        list.items[last].next = list.items[index].next;
     }
 
     bool end() const
@@ -632,19 +616,15 @@ public:
 
     void select_single()
     {
-        items[0].next = index;
-        items[index].next = LAST_SELECTED;
+        list.items[0].next = index;
+        list.items[index].next = LAST_SELECTED;
     }
 };
 
 inline FrameObject * ObjectList::get_wrapped_selection(int index)
 {
-    if (!has_selection()) {
-        int size = items.size()-1;
-        if (size == 0)
-            return NULL;
-        return items[(size - 1) - (index % size) + 1].obj;
-    }
+    if (!has_selection())
+        return NULL;
     while (true) {
         for (ObjectIterator it(*this); !it.end(); ++it) {
             if (index == 0)
@@ -654,11 +634,22 @@ inline FrameObject * ObjectList::get_wrapped_selection(int index)
     }
 }
 
+inline FrameObject * ObjectList::get_selection(int index)
+{
+    for (ObjectIterator it(*this); !it.end(); ++it) {
+        if (index == 0)
+            return *it;
+        index--;
+    }
+    return NULL;
+}
+
 inline int ObjectList::get_selection_size()
 {
     int size = 0;
-    for (ObjectIterator it(*this); !it.end(); ++it)
+    for (ObjectIterator it(*this); !it.end(); ++it) {
         size++;
+    }
     return size;
 }
 
@@ -685,16 +676,18 @@ public:
     int size()
     {
         int size = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++) {
             size += items[i]->size();
+        }
         return size;
     }
 
     int get_selection_size()
     {
         int size = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++) {
             size += items[i]->get_selection_size();
+        }
         return size;
     }
 
@@ -744,16 +737,11 @@ public:
 
     FrameObject * back_selection() const
     {
-        FrameObject * back_obj = NULL;
         for (int i = 0; i < count; i++) {
-            ObjectList & list = *items[i];
-            if (back_obj == NULL)
-                back_obj = list.back_obj;
-            if (!list.has_selection())
-                continue;
-            return list.items[list.items[0].next].obj;
+            if (items[i]->has_selection())
+                return items[i]->back_selection();
         }
-        return back_obj;
+        return NULL;
     }
 
     FrameObject * operator[](int index)
@@ -791,6 +779,26 @@ public:
         }
     }
 
+    void copy(QualifierList & list)
+    {
+        if (items == NULL) {
+            // XXX this currently leaks, but we always declare copied lists
+            // as static variables, so we should never have to free anything
+            // anyway
+            count = list.count;
+            items = new ObjectList*[count+1];
+            for (int i = 0; i < count; i++) {
+                items[i] = new ObjectList;
+            }
+            items[count] = NULL;
+            last = items[count-1];
+        }
+
+        for (int i = 0; i < count; i++) {
+            items[i]->copy(*list.items[i]);
+        }
+    }
+
     void clear_saved_selection()
     {
         for (int i = 0; i < count; i++) {
@@ -813,14 +821,14 @@ public:
     }
 
     FrameObject * get_wrapped_selection(int index);
-    void copy(FlatObjectList & list);
+    FrameObject * get_selection(int index);
 };
 
 class QualifierIterator
 {
 public:
     ObjectList ** lists;
-    ObjectListItem * items;
+    ObjectList * list;
     int list_index;
     int index;
     int last;
@@ -841,19 +849,16 @@ public:
 
     FrameObject* operator*() const
     {
-        return items[index].obj;
+        return list->items[index].obj;
     }
 
     void next_list()
     {
         while (true) {
-            ObjectList * list = lists[list_index];
-            if (list == NULL) {
-                items = NULL;
+            list = lists[list_index];
+            if (list == NULL)
                 break;
-            }
-            items = &list->items[0];
-            index = items[0].next;
+            index = list->items[0].next;
             if (index != LAST_SELECTED)
                 break;
             list_index++;
@@ -866,7 +871,7 @@ public:
         current_index++;
 #endif
         last = selected ? index : last;
-        index = items[index].next;
+        index = list->items[index].next;
         selected = true;
         if (index != LAST_SELECTED)
             return;
@@ -883,12 +888,12 @@ public:
     void deselect()
     {
         selected = false;
-        items[last].next = items[index].next;
+        list->items[last].next = list->items[index].next;
     }
 
     bool end()
     {
-        return items == NULL;
+        return list == NULL;
     }
 
     void select_single()
@@ -898,33 +903,19 @@ public:
             ObjectList * iter = lists[n];
             if (iter == NULL)
                 break;
-            if (n != list_index)
+            if (iter != list)
                 iter->empty_selection();
             n++;
         }
-        items[0].next = index;
-        items[index].next = LAST_SELECTED;
+        list->items[0].next = index;
+        list->items[index].next = LAST_SELECTED;
     }
 };
 
 inline FrameObject * QualifierList::get_wrapped_selection(int index)
 {
-    int size = 0;
-    bool has_select = false;
-    for (int i = 0; i < count; i++) {
-        size += items[i]->size();
-        if (!items[i]->has_selection())
-            continue;
-        has_select = true;
-        break;
-    }
-
-    if (!has_select) {
-        if (size == 0)
-            return NULL;
-        return (*this)[(size - 1) - (index % size)];
-    }
-
+    if (!has_selection())
+        return NULL;
     while (true) {
         for (QualifierIterator it(*this); !it.end(); ++it) {
             if (index == 0)
@@ -934,15 +925,14 @@ inline FrameObject * QualifierList::get_wrapped_selection(int index)
     }
 }
 
-inline void QualifierList::copy(FlatObjectList & list)
+inline FrameObject * QualifierList::get_selection(int index)
 {
-    list.resize(size());
-    int index = 0;
     for (QualifierIterator it(*this); !it.end(); ++it) {
-        list[index] = *it;
-        index++;
+        if (index == 0)
+            return *it;
+        index--;
     }
-    list.resize(index);
+    return NULL;
 }
 
 // saving selection
@@ -990,83 +980,5 @@ inline int FrameObject::get_y()
 {
     return y + layer->off_y;
 }
-
-class SavedSelection
-{
-public:
-    static int offset;
-    static FrameObject * buffer[1024];
-
-    int count;
-    FrameObject ** items;
-
-    SavedSelection(SavedSelection & list)
-    : count(list.count), items(&buffer[offset])
-    {
-        for (int i = 0; i < count; ++i)
-            items[i] = list.items[i];
-        offset += count;
-    }
-
-    SavedSelection(ObjectList & list)
-    : count(0), items(&buffer[offset])
-    {
-        for (ObjectIterator it(list); !it.end(); ++it) {
-            items[count] = *it;
-            count++;
-        }
-        offset += count;
-        assert(offset <= 512);
-    }
-
-    SavedSelection(QualifierList & list)
-    : count(0), items(&buffer[offset])
-    {
-        for (QualifierIterator it(list); !it.end(); ++it) {
-            items[count] = *it;
-            count++;
-        }
-        offset += count;
-        assert(offset <= 512);
-    }
-
-    ~SavedSelection()
-    {
-        offset -= count;
-        assert(offset >= 0);
-    }
-};
-
-class SavedIterator
-{
-public:
-    int current_index;
-    SavedSelection & selection;
-
-    SavedIterator(SavedSelection & selection)
-    : selection(selection), current_index(0)
-    {
-    }
-
-    bool end()
-    {
-        return current_index >= selection.count;
-    }
-
-    void operator++()
-    {
-        ++current_index;
-    }
-
-    void operator++(int)
-    {
-        ++*this;
-    }
-
-    FrameObject* operator*() const
-    {
-        return selection.items[current_index];
-    }
-};
 
 #endif // CHOWDREN_FRAMEOBJECT_H

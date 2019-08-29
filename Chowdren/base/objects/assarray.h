@@ -88,6 +88,4 @@ public:
     bool has_key(int store, const std::string & key);
 };
 
-extern FrameObject * default_assarray_instance;
-
 #endif // CHOWDREN_ASSARRAY_H

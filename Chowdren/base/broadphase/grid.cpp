@@ -38,8 +38,7 @@ inline void remove_proxy(GridItemList & list, int proxy)
          ++it) {
         if (*it != proxy)
             continue;
-        *it = list.items.back();
-        list.items.pop_back();
+        list.items.erase(it);
         break;
     }
 }

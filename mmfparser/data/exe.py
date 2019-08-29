@@ -54,7 +54,3 @@ class ExecutableData(DataLoader):
         self.packData = packData
         self.gameData = self.new(GameData, reader)
         
-    def write(self, reader):
-        reader.write(self.executable)
-        self.packData.write(reader)
-        self.gameData.write(reader)

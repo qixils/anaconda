@@ -315,7 +315,7 @@ class GameData(DataLoader):
             newChunks.append(frame, False)
         newChunks.append(Protection())
         newChunks.append(self.images)
-        #newChunks.append(self.imageOffsets)
+        newChunks.append(self.imageOffsets)
         newChunks.append(self.new(ImageOffsets, bank = self.images))
         if self.fonts is not None:
             newChunks.append(self.fonts)

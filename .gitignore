@@ -1,6 +1,8 @@
 *.pyc
+*.pyd
 
 build/**
+Chowdren/base/lib/**
 
 .vscode/**
 .vs/**

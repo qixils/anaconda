@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/textblitter.h"
 #include "include_gl.h"
 #include "collision.h"
@@ -26,7 +43,6 @@ void TextBlitter::load(const std::string & filename)
     }
 
     image = new_image;
-    image->upload_texture();
 }
 
 TextBlitter::~TextBlitter()
@@ -48,8 +64,6 @@ void TextBlitter::initialize(const std::string & map_string)
         unsigned char c = (unsigned char)map_string[i];
         charmap[c] = i;
     }
-
-    image->upload_texture();
 }
 
 int TextBlitter::get_x_align()
@@ -243,16 +257,15 @@ std::string TextBlitter::get_map_char(int i)
     return charmap_str->substr(i, 1);
 }
 
-void TextBlitter::replace_color(int from, int to)
+void TextBlitter::replace_color(Color from, Color to)
 {
-    Color color1(from);
-    Color color2(to);
     replacer.replace(from, to);
 }
 
 void TextBlitter::set_transparent_color(int v)
 {
     transparent_color = v;
+    replacer.set_transparent(transparent_color);
 }
 
 void TextBlitter::update()
@@ -263,10 +276,8 @@ void TextBlitter::update()
     else
         image = draw_image;
 
-    if (!replacer.empty()) {
+    if (!replacer.empty())
         draw_image = replacer.apply(image, this->image);
-        draw_image->upload_texture();
-    }
 
     update_flash(flash_interval, flash_time);
 
@@ -284,6 +295,11 @@ void TextBlitter::flash(float value)
 void TextBlitter::set_animation_type(int value)
 {
     anim_type = value;
+}
+
+void TextBlitter::set_animation_speed(int value)
+{
+    anim_speed = value;
 }
 
 void TextBlitter::set_animation_parameter(int index, int value)
@@ -333,10 +349,10 @@ void TextBlitter::draw()
     else
         image = draw_image;
 
-    if (!replacer.empty()) {
+    if (!replacer.empty())
         draw_image = image = replacer.apply(image, this->image);
-        draw_image->upload_texture();
-    }
+
+    image->upload_texture();
 
     begin_draw();
 
@@ -346,12 +362,19 @@ void TextBlitter::draw()
     int yy = y + y_scroll;
     if (alignment & ALIGN_VCENTER)
         yy += height / 2 - lines.size() * char_height / 2
-              - (lines.size() - 1) * y_spacing;
+              - (lines.size()) * y_spacing / 2;
 
     int bottom_y = y + height;
 
+    int img_width = (image_width / char_width) * char_width;
+
+    int screen_y1 = 0 - (layer->off_y - frame->off_y);
+    int screen_y2 = screen_y1 + WINDOW_HEIGHT;
+
     for (int line_index = 0; line_index < int(lines.size()); ++line_index) {
-        if (yy <= y - y_add || yy >= bottom_y) {
+        if (yy <= y - y_add || yy >= bottom_y ||
+            yy + y_add <= screen_y1 || yy >= screen_y2)
+        {
             yy += y_add;
             continue;
         }
@@ -371,9 +394,9 @@ void TextBlitter::draw()
             unsigned char c = (unsigned char)line.start[i];
             c -= char_offset;
             int ci = charmap[c];
-            int img_x = (ci * char_width) % image_width;
+            int img_x = (ci * char_width) % img_width;
             img_x = clamp(img_x + x_off, 0, image->width);
-            int img_y = ((ci * char_width) / image_width) * char_height;
+            int img_y = ((ci * char_width) / img_width) * char_height;
             img_y = clamp(img_y + y_off, 0, image->height);
 
             float t_x1 = float(img_x) / float(image->width);
@@ -414,10 +437,10 @@ public:
     DefaultBlitter()
     : TextBlitter(0, 0, 0)
     {
-        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
         this->image = &dummy_image;
+        setup_default_instance(this);
     }
 };
 

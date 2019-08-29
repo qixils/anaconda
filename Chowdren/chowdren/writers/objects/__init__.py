@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers import BaseWriter
 from mmfparser.bytereader import ByteReader
 from chowdren.idpool import get_id
@@ -14,8 +31,11 @@ class ObjectWriter(BaseWriter):
     has_color = False
     update = False
     movement_count = 0
+    has_shoot = False
     default_instance = None
     has_collision_events = False
+    disable_kill = False
+    used_frames = 0
 
     def __init__(self, *arg, **kw):
         self.event_callbacks = {}
@@ -64,7 +84,7 @@ class ObjectWriter(BaseWriter):
         return ByteReader(self.common.extensionData)
 
     def has_movements(self):
-        return self.movement_count > 0
+        return self.movement_count > 0 or self.has_shoot
 
     def has_sleep(self):
         try:
@@ -81,6 +101,18 @@ class ObjectWriter(BaseWriter):
         except AttributeError:
             pass
         return False
+
+    def has_manual_sleep(self):
+        try:
+            return self.common.flags['ManualSleep']
+        except AttributeError:
+            pass
+        return True
+
+    def has_kill(self):
+        if not self.has_sleep() or self.disable_kill:
+            return False
+        return not self.common.flags['NeverKill']
 
     def has_updates(self):
         return self.update
@@ -133,6 +165,9 @@ class ObjectWriter(BaseWriter):
 
     def is_background(self):
         return self.common.isBackground()
+
+    def is_background_collider(self):
+        return self.is_static_background()
 
     def is_static_background(self):
         return self.is_background()
@@ -225,6 +260,16 @@ class ObjectWriter(BaseWriter):
 
             writer.indent()
 
+        runinfo = self.converter.get_runinfo(self.handle)
+        if runinfo is None:
+            pass
+            # print 'Missing runinfo:', self.data.name
+        else:
+            for k, v in runinfo.iteritems():
+                if v != 3:
+                    continue
+                writer.putlnc('alterables->values.set_fp(%s);', k)
+
         common = self.common
         if common.values:
             for index, value in enumerate(common.values.items):
@@ -260,7 +305,7 @@ class ObjectWriter(BaseWriter):
 
     def get_list_id(self):
         list_id = (self.data.name, self.class_name, self.has_updates(),
-                   self.has_movements(), self.has_sleep())
+                   self.has_movements())
         list_id = list_id + tuple(self.get_qualifiers())
         return list_id
 
@@ -277,6 +322,18 @@ class ObjectWriter(BaseWriter):
         self.converter.global_object_header.putlnc('extern %s %s;', typ, name)
         self.converter.global_object_code.putlnc('%s %s;', typ, name)
         return name
+
+    def set_used_frame(self, frame):
+        self.used_frames |= 1 << frame
+
+    def get_used_frames(self):
+        frames = self.used_frames
+        index = 0
+        while frames:
+            if frames & 1:
+                yield index
+            frames = frames >> 1
+            index += 1
 
     @staticmethod
     def write_application(converter):

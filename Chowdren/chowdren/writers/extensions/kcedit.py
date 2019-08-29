@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
@@ -36,11 +53,14 @@ class EditObject(ObjectWriter):
         data = self.get_data()
         width = data.readShort(True)
         height = data.readShort(True)
-        logFont = LogFont(data, old = True)
+        is_unicode = self.data.settings.get('unicode', False)
+        font = self.data.new(LogFont, data, old=not is_unicode)
         data.skipBytes(4 * 16) # custom colors?
         foregroundColor = data.readColor()
         backgroundColor = data.readColor()
         data.skipBytes(40) # text-style?
+        if is_unicode:
+            data.skipBytes(40)
         flags = EDIT_FLAGS.copy()
         flags.setFlags(data.readInt())
 
@@ -48,6 +68,15 @@ class EditObject(ObjectWriter):
         writer.putlnc('height = %s;', height)
         if flags['Password']:
             writer.putlnc('edit_flags |= PASSWORD;')
+        if flags['Multiline']:
+            writer.putlnc('edit_flags |= MULTILINE;')
+        if flags['ReadOnly']:
+            writer.putlnc('edit_flags |= READ_ONLY;')
+        if flags['HideOnStart']:
+            writer.putlnc('set_visible(false);')
+
+        if self.converter.config.use_gwen():
+            writer.putlnc('init_control();')
 
     @staticmethod
     def write_application(converter):
@@ -59,16 +88,22 @@ class EditObject(ObjectWriter):
         return self.converter.config.use_edit_obj()
 
 actions = make_table(ActionMethodWriter, {
+    4 : 'set_text',
     13 : 'set_visible(false)',
     12 : 'set_visible(true)',
-    4 : 'set_text'
+    16 : 'enable_focus',
+    18 : 'disable',
+    23 : 'set_limit',
+    30 : 'disable_focus',
+    33 : 'scroll_to_end'
 })
 
 conditions = make_table(ConditionMethodWriter, {
+    4 : 'get_focus'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
-    0 : 'get_text'
+    0 : 'get_text()'
 })
 
 def get_object():

@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/windowcontrol.h"
 #include "chowconfig.h"
 #include "platform.h"
@@ -129,4 +146,22 @@ void WindowControl::set_placement(int value)
     // 0=top/left, 1=top/middle, 2=top/right, 3=middle/left, 4=middle/middle
     // 5=middle/right, 6=bottom/left, 7=bottom/middle, 8=bottom/right.
     std::cout << "Set window placement: " << value << std::endl;
+}
+
+void WindowControl::set_title(const std::string & title)
+{
+    std::cout << "Set window title: " << title << std::endl;
+#ifdef CHOWDREN_USE_GWEN
+    manager.frame->gwen.title = title;
+#endif
+}
+
+void WindowControl::set_frame_width(int width, bool adjust)
+{
+    manager.frame->set_width(width, adjust);
+}
+
+void WindowControl::set_frame_height(int height, bool adjust)
+{
+    manager.frame->set_height(height, adjust);
 }

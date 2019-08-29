@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 
 from chowdren.common import get_animation_name, to_c, make_color
@@ -131,8 +148,9 @@ class TextBlitter(ObjectWriter):
         type_name = ANIMATION_NAMES[self.animation_type]
 
         if type_name not in ('None', 'Sin Wave'):
-            raise NotImplementedError('invalid blitter animation: %s'
-                                      % type_name)
+            print 'invalid blitter animation: %s' % type_name
+            # raise NotImplementedError('invalid blitter animation: %s'
+            #                           % type_name)
 
         if type_name == 'Sin Wave':
             writer.putln('anim_type = BLITTER_ANIMATION_SINWAVE;')
@@ -151,9 +169,7 @@ class TextBlitter(ObjectWriter):
         writer.putlnc('x_off = %s;', self.image_offset[0])
         writer.putlnc('y_off = %s;', self.image_offset[1])
         writer.putln('image = %s;' % self.converter.get_image(self.image))
-        writer.putlnc('image_width = %s;', (self.image_size[0] /
-                                            self.char_size[0]) *
-                                            self.char_size[0])
+        writer.putlnc('image_width = %s;', self.image_size[0])
         align_flags = []
         if self.horizontal_align == 0:
             align_flags.append('ALIGN_LEFT')
@@ -184,8 +200,9 @@ class TextBlitter(ObjectWriter):
         if self.flags & FLAGS_TRANSPARENT:
             writer.putlnc('transparent_color = %s;',
                           make_color(self.trans_color))
+
         writer.putlnc('wrap = %s;', bool(self.flags & FLAGS_WORDWRAPPING))
-        writer.putlnc('set_text(%r);', self.text)
+        writer.putlnc('set_text(%s);', self.converter.intern_string(self.text))
 
         writer.putlnc('has_callback = %s;', self.has_callback)
 
@@ -200,7 +217,7 @@ class ASCIIValue(ExpressionMethodWriter):
 
 actions = make_table(ActionMethodWriter, {
     0 : 'set_text',
-    4 : '.char_width = %s',
+    4 : 'set_char_width',
     5 : '.char_height = %s',
     6 : '.char_offset = %s',
     7 : 'set_charmap',
@@ -215,6 +232,7 @@ actions = make_table(ActionMethodWriter, {
     44 : 'set_x_spacing',
     45 : 'set_y_spacing',
     49 : 'append_text',
+    50 : 'set_animation_speed',
     51 : 'set_animation_type',
     52 : 'set_animation_parameter',
     56 : 'set_transparent_color',
@@ -246,6 +264,7 @@ expressions = make_table(ExpressionMethodWriter, {
     33 : 'get_line',
     34 : '.x_off',
     35 : '.y_off',
+    37 : '.anim_type',
     42 : 'get_map_char',
     43 : '.callback_char',
     44 : '.callback_line',

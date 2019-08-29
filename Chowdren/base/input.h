@@ -1,7 +1,31 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_INPUT_H
 #define CHOWDREN_INPUT_H
 
 #include "types.h"
+
+#define UNIFIED_POV_SIZE 4
+#define UNIFIED_BUTTON_MAX (128)
+#define UNIFIED_AXIS_SIZE 2
+#define UNIFIED_AXIS_MAX (UNIFIED_AXIS_SIZE * 8) //16
+#define UNIFIED_AXIS_0 UNIFIED_BUTTON_MAX
+#define UNIFIED_POV_0 (UNIFIED_AXIS_0 + UNIFIED_AXIS_MAX)
 
 enum {
     CHOWDREN_BUTTON_INVALID = 0,
@@ -86,13 +110,13 @@ public:
 };
 
 bool is_mouse_pressed(int button);
+bool is_mouse_pressed_once(int button);
+bool is_mouse_released_once(int button);
 bool is_key_pressed(int button);
-bool is_key_pressed(int key);
 bool is_any_key_pressed();
 bool is_any_key_pressed_once();
-bool is_mouse_pressed_once(int key);
-bool is_key_released_once(int key);
-bool is_key_pressed_once(int key);
+bool is_key_released_once(int button);
+bool is_key_pressed_once(int button);
 int get_last_key_pressed();
 
 int get_joystick_direction(int n);
@@ -103,8 +127,10 @@ int get_joystick_dpad_degrees(int n);
 int get_joystick_degrees(int n);
 int get_joystick_lt(int n);
 int get_joystick_rt(int n);
+int get_joystick_z(int n);
 int get_joystick_x(int n);
 int get_joystick_y(int n);
+float get_joystick_axis(int n, int axis);
 bool is_joystick_pressed_once(int n, int button);
 bool is_joystick_released_once(int n, int button);
 bool any_joystick_pressed_once(int n);
@@ -113,5 +139,6 @@ bool is_player_pressed(int player, int flags);
 bool is_player_pressed_once(int player, int flags);
 
 int remap_button(int n);
+int unremap_button(int n);
 
 #endif // CHOWDREN_INPUT_H

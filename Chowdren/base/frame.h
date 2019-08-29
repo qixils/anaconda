@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 // make sure frameobject.h is included first
 #ifndef CHOWDREN_FRAMEOBJECT_H
 #include "frameobject.h"
@@ -12,30 +29,21 @@
 #include "frameobject.h"
 #include "color.h"
 #include "instancemap.h"
+#include "bitarray.h"
 
+#ifdef CHOWDREN_PASTE_CACHE
+#include "fbo.h"
+#endif
+
+#ifdef CHOWDREN_USE_GWEN
+#include "gui/gwen.h"
+#endif
+
+class Background;
 class BackgroundItem;
 class CollisionBase;
 
 typedef vector<BackgroundItem*> BackgroundItems;
-
-class Background
-{
-public:
-    BackgroundItems items;
-    BackgroundItems col_items;
-
-    Background();
-    ~Background();
-    void reset(bool clear_items = true);
-    void destroy_at(int x, int y);
-    void paste(Image * img, int dest_x, int dest_y,
-               int src_x, int src_y, int src_width, int src_height,
-               int collision_type, const Color & color);
-    void draw(int v[4]);
-    CollisionBase * collide(CollisionBase * a);
-    CollisionBase * overlaps(CollisionBase * a);
-};
-
 typedef boost::intrusive::member_hook<FrameObject, LayerPos,
                                       &FrameObject::layer_pos> LayerHook;
 typedef boost::intrusive::list<FrameObject, LayerHook> LayerInstances;
@@ -57,6 +65,7 @@ public:
     bool wrap_x, wrap_y;
     Color blend_color;
     int inactive_box[4];
+    int kill_box[4];
 
 #ifdef CHOWDREN_IS_3DS
     float depth;
@@ -88,14 +97,71 @@ public:
     CollisionBase * test_background_collision(int x, int y);
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
-               int collision_type, const Color & color);
+               int collision_type, int effect, const Color & color);
     void draw(int off_x, int off_y);
+    void set_visible(bool value);
+    void show();
+    void hide();
 
 #ifdef CHOWDREN_HAS_MRT
     int remote;
     void set_remote(int value);
 #endif
 };
+
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+#include "image.h"
+#include "collision.h"
+#endif
+
+class Background
+{
+public:
+#ifdef CHOWDREN_PASTE_BROADPHASE
+    Broadphase items;
+    Broadphase col_items;
+#else
+    BackgroundItems items;
+    BackgroundItems col_items;
+#endif
+
+#ifdef CHOWDREN_PASTE_CACHE
+    struct BackgroundCache
+    {
+        bool dirty;
+        bool clear;
+        Framebuffer fbo;
+
+        BackgroundCache()
+        : dirty(false), clear(false)
+        {
+        }
+    };
+
+    BackgroundItems new_paste;
+    BackgroundCache * cache;
+    int cache_w, cache_h;
+#endif
+
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+    BitArray col;
+    int col_w, col_h;
+    Image col_img;
+    SpriteCollision back_col;
+#endif
+
+    Background(Layer * layer);
+    ~Background();
+    void reset(bool clear_items = true);
+    void destroy_at(int x, int y);
+    void paste(Image * img, int dest_x, int dest_y,
+               int src_x, int src_y, int src_width, int src_height,
+               int collision_type, int effect, const Color & color);
+    void draw(Layer * layer, int v[4]);
+    CollisionBase * collide(CollisionBase * a);
+    CollisionBase * overlaps(CollisionBase * a);
+};
+
 
 typedef void (*LoopCallback)(void*);
 
@@ -123,21 +189,21 @@ typedef hash_map<std::string, DynamicLoop> DynamicLoops;
 class GameManager;
 class GlobalValues;
 class GlobalStrings;
+class Backdrop;
 
 class FrameData
 {
 public:
     std::string name;
-    Frame * frame;
 
     FrameData();
-    virtual void event_callback(int id);
-    virtual void init();
-    virtual void on_start();
-    virtual void on_end();
-    virtual void on_app_end();
-    virtual void handle_events();
-    virtual void handle_pre_events();
+    virtual void event_callback(Frame * frame, int id);
+    virtual void init(Frame * frame);
+    virtual void on_start(Frame * frame);
+    virtual void on_end(Frame * frame);
+    virtual void on_app_end(Frame * frame);
+    virtual void handle_events(Frame * frame);
+    virtual void handle_pre_events(Frame * frame);
 };
 
 
@@ -166,6 +232,27 @@ public:
     int timer_base;
     float timer_mul;
 
+#ifdef CHOWDREN_USE_BACKMAGIC
+    FlatObjectList back_instances[MAX_BACK_ID];
+    Backdrop * back_obj;
+#endif
+
+#ifdef CHOWDREN_USE_GWEN
+    GwenData gwen;
+    int old_mouse_x;
+    int old_mouse_y;
+#endif
+
+#ifdef CHOWDREN_SUBAPP_FRAMES
+    bool is_mouse_pressed_once_frame(int button);
+    bool is_mouse_pressed_frame(int button);
+    int display_width, display_height;
+#else
+    // inline methods? these are very unique names anyway
+    #define is_mouse_pressed_frame is_mouse_pressed
+    #define is_mouse_pressed_once_frame is_mouse_pressed_once
+#endif
+
     FrameObject * col_instance_1;
     FrameObject * col_instance_2;
 
@@ -190,6 +277,7 @@ public:
     void get_mouse_pos(int * x, int * y);
     int get_mouse_x();
     int get_mouse_y();
+    bool mouse_in_zone(int x1, int y1, int x2, int y2);
     CollisionBase * test_background_collision(int x, int y);
     int get_background_mask(int x, int y);
     bool test_obstacle(int x, int y);
@@ -240,12 +328,12 @@ public:
 
     void event_callback(int id)
     {
-        data->event_callback(id);
+        data->event_callback(this, id);
     }
 
     void on_end()
     {
-        data->on_end();
+        data->on_end(this);
         reset();
     }
 

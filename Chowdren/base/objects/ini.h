@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_INI_H
 #define CHOWDREN_INI_H
 
@@ -33,9 +50,13 @@ public:
     std::string filename;
     std::string encrypt_key;
     unsigned int search_time;
+    bool changed;
 
     INI(int x, int y, int type_id);
     static void reset_global_data();
+#ifdef CHOWDREN_CACHE_INI
+    static void reset_cache();
+#endif
     static int _parse_handler(void* user, const char* section,
                               const char* name, const char* value);
     void parse_handler(const std::string & section, const std::string & name,
@@ -58,17 +79,22 @@ public:
                                       unsigned int index);
     const std::string & get_item_name(unsigned int index);
     const std::string & get_group_name(unsigned int index);
+
+    // value double
     double get_value(const std::string & group, const std::string & item,
                      double def=0.0);
     double get_value(const std::string & item, double def=0.0);
     double get_value_index(const std::string & group, unsigned int index);
     double get_value_index(unsigned int index);
     void set_value(const std::string & group, const std::string & item,
-                   int pad, double value);
-    void set_value(const std::string & group, const std::string & item,
                    double value);
-    void set_value(const std::string & item, int pad, double value);
     void set_value(const std::string & item, double value);
+    int get_value_int(const std::string & group, const std::string & item,
+                      int def=0);
+    int get_value_int(const std::string & item, int def=0);
+    void set_value_int(const std::string & group, const std::string & item,
+                       int value);
+    void set_value_int(const std::string & item, int value);
     void set_string(const std::string & group, const std::string & item,
                     const std::string & value);
     void set_string(const std::string & item, const std::string & value);

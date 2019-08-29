@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
@@ -96,12 +113,17 @@ class FileOperation(ActionMethodWriter):
         if load != LOAD_FILE:
             raise NotImplementedError()
         if path != KEEP_PATH:
+            print 'inipp15: path %s not implemented' % path
+            # raise NotImplementedError()
+        if clear not in (CLEAR_DATA, KEEP_DATA):
+            print 'inipp15: clear %s not implemented' % clear
+            # raise NotImplementedError()
+        merge = clear == KEEP_DATA
+        if flags & IMMEDIATE_SAVE:
             raise NotImplementedError()
-        if clear != KEEP_PATH:
-            raise NotImplementedError()
-        if flags != READ_ONLY:
-            raise NotImplementedError()
-        writer.put(to_c('load_file(%s, true, true, true);', filename))
+        read_only = (flags & READ_ONLY) != 0
+        writer.putc('load_file(%s, %s, %s, true);', filename, read_only,
+                    merge)
 
 SORT_BY_VALUE = 0
 SORT_BY_NAME = 9
@@ -142,11 +164,25 @@ class GetMD5(ExpressionMethodWriter):
     has_object = False
     method = 'get_md5'
 
+class SetValue(ActionMethodWriter):
+    def write(self, writer):
+        t = self.parameters[-2]
+        t = self.converter.convert_static_expression(t.loader.items)
+        t = eval(t)
+        if t == 0:
+            self.method = 'set_value_int'
+        elif t == 1:
+            self.method = 'set_value'
+        else:
+            raise NotImplementedError()
+        self.parameters.pop(-2)
+        ActionMethodWriter.write(self, writer)
+
 actions = make_table(ActionMethodWriter, {
     0 : 'set_group',
-    14 : 'set_value', # specified group
+    14 : SetValue, # specified group
     15 : 'set_string', # specified group
-    1 : 'set_value', # current group
+    1 : SetValue, # current group
     2 : 'set_string', # current group
     28 : 'delete_group',
     9 : 'delete_group',

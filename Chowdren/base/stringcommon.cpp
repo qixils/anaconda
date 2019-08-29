@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include <limits>
 #include <string>
 #include <stdio.h>
@@ -245,4 +262,38 @@ std::string fast_dtoa(double value)
         *wstr-- = '-';
     }
     return std::string(wstr + 1, &buffer[15] - wstr);
+}
+
+int fast_atoi(const std::string & src)
+{
+    if (src.empty())
+        return 0;
+    const char * p = &src[0];
+    const char * end = p + src.size();
+    int value = 0;
+    int sign = 1;
+
+    while (IS_WHITESPACE(*p) || *p == '0') {
+        INCREMENT_PTR();
+    }
+
+    switch (*p) {
+        case '-':
+            sign = -1;
+            INCREMENT_PTR();
+            break;
+        case '+':
+            INCREMENT_PTR();
+            break;
+        default:
+            break;
+    }
+
+    while (IS_DIGIT(*p)) {
+        value = value * 10 + (*p - '0');
+        INCREMENT_PTR();
+    }
+
+parse_end:
+    return value * sign;
 }

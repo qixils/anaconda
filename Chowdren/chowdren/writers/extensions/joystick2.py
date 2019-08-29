@@ -1,9 +1,26 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 
 from chowdren.common import get_animation_name, to_c, make_color
 
 from chowdren.writers.events import (StaticConditionWriter,
-    StaticActionWriter, StaticExpressionWriter, make_table,
+    ActionMethodWriter, StaticExpressionWriter, make_table,
     ConditionMethodWriter, ExpressionMethodWriter, EmptyAction,
     StaticConditionWriter, TrueCondition, FalseCondition)
 
@@ -14,9 +31,15 @@ class Joystick2(ObjectWriter):
     def write_init(self, writer):
         pass
 
-actions = make_table(StaticActionWriter, {
+class GlobalActionWriter(ActionMethodWriter):
+    def get_object(self):
+        return (None, None)
+
+actions = make_table(GlobalActionWriter, {
     0 : EmptyAction, # ignore control
     1 : EmptyAction, # restore control,
+    11 : 'create_joystick_rumble',
+    12 : 'start_joystick_rumble',
     35 : EmptyAction, # poll for devices, not necessary on SDL2
 })
 
@@ -37,7 +60,10 @@ conditions = make_table(GlobalConditionWriter, {
     27 : 'is_joystick_direction_changed',
     33 : TrueCondition, # is xbox controller
     26 : TrueCondition, # has point of view
-    8 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_UP)'
+    8 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_UP)',
+    9 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_DOWN)',
+    10 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_LEFT)',
+    11 : 'is_joystick_pressed(%s, CHOWDREN_BUTTON_DPAD_RIGHT)',
 })
 
 class GlobalExpressionWriter(ExpressionMethodWriter):
@@ -49,47 +75,48 @@ expressions = make_table(GlobalExpressionWriter, {
     1 : 'get_joystick_y',
     # on a 360, this is RT analog value
     # joystick2_get_axis_values_raw_z_value_2
-    2 : '.get_joystick_dummy(0.0f, ',
+    2 : 'get_joystick_z',
     # on a 360, this is the rotation value on the right thumb stick
     # joystick2_get_axis_values_raw_x_rotation_3
-    3 : '.get_joystick_dummy(0.0f, ',
+    3 : '.get_event_dummy(0.0f, ',
     # joystick2_get_axis_values_raw_y_rotation_4
-    4 : '.get_joystick_dummy(0.0f, ',
+    4 : '.get_event_dummy(0.0f, ',
     # joystick2_get_axis_values_raw_z_rotation_5
-    5 : '.get_joystick_dummy(0.0f, ',
+    5 : '.get_event_dummy(0.0f, ',
     6 : 'get_joystick_dpad_degrees',
     # joystick2_min_values_min_x_value_7
-    7 : '.get_joystick_dummy(-1000.0f, ',
+    7 : '.get_event_dummy(-1000.0f, ',
     # joystick2_min_values_min_y_value_8
-    8 : '.get_joystick_dummy(-1000.0f, ',
+    8 : '.get_event_dummy(-1000.0f, ',
     # joystick2_min_values_min_z_value_9
-    9 : '.get_joystick_dummy(0.0f, ',
+    9 : '.get_event_dummy(0.0f, ',
     # joystick2_min_values_min_x_rotation_10
-    10 : '.get_joystick_dummy(0.0f, ',
+    10 : '.get_event_dummy(0.0f, ',
     # joystick2_min_values_min_y_rotation_11
-    11 : '.get_joystick_dummy(0.0f, ',
+    11 : '.get_event_dummy(0.0f, ',
     # joystick2_min_values_min_z_rotation_12
-    12 : '.get_joystick_dummy(0.0f, ',
+    12 : '.get_event_dummy(0.0f, ',
     # joystick2_max_values_max_x_value_13
-    13 : '.get_joystick_dummy(1000.0f, ',
+    13 : '.get_event_dummy(1000.0f, ',
     # joystick2_max_values_max_y_value_14
-    14 : '.get_joystick_dummy(1000.0f, ',
+    14 : '.get_event_dummy(1000.0f, ',
     # joystick2_max_values_max_z_value_15
-    15 : '.get_joystick_dummy(0.0f, ',
+    15 : '.get_event_dummy(0.0f, ',
     # joystick2_max_values_max_x_rotation_16
-    16 : '.get_joystick_dummy(0.0f, ',
+    16 : '.get_event_dummy(0.0f, ',
     # joystick2_max_values_max_y_rotation_17
-    17 : '.get_joystick_dummy(0.0f, ',
+    17 : '.get_event_dummy(0.0f, ',
     # joystick2_max_values_max_z_rotation_18
-    18 : '.get_joystick_dummy(0.0f, ',
+    18 : '.get_event_dummy(0.0f, ',
     22 : 'get_joystick_last_press',
     26 : 'get_joystick_degrees',
     # joystick2_min_values_min_slider_value_29
-    29 : '.get_joystick_dummy(0.0f, ',
+    29 : '.get_event_dummy(0.0f, ',
     # joystick2_max_values_max_slider_value_30
-    30 : '.get_joystick_dummy(0.0f, ',
+    30 : '.get_event_dummy(0.0f, ',
     # joystick2_get_axis_values_raw_slider_value_31
-    31 : '.get_joystick_dummy(0.0f, '
+    31 : '.get_event_dummy(0.0f, ',
+    32 : 'get_joystick_name'
 })
 
 def get_object():

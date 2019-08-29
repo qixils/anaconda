@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 from chowdren.common import get_animation_name, to_c, make_color
 from chowdren.writers.events import (ComparisonWriter, ActionMethodWriter,
@@ -15,15 +32,19 @@ class AssociateArray(ObjectWriter):
         data.skipBytes(4)
         data.skipBytes(4) # width, height
         is_global = data.readByte() != 0
+        self.write_assarray(writer, is_global)
+
+    def write_assarray(self, writer, is_global):
         if is_global:
             writer.putln('map = &global_map;')
+            writer.putln('init_global();')
         else:
             writer.putln('map = new ArrayMap();')
 
     @staticmethod
     def write_application(converter):
         converter.add_define('CHOWDREN_ASSARRAY_STORE',
-                             AssociateArray.key_count)
+                             max(1, AssociateArray.key_count))
 
 objects = collections.defaultdict(dict)
 

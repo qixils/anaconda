@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/surface.h"
 #include "objects/active.h"
 #include "include_gl.h"
@@ -17,8 +34,9 @@ static bool has_fbo = false;
 SurfaceObject::SurfaceObject(int x, int y, int type_id)
 : FrameObject(x, y, type_id), selected_index(-1), displayed_index(-1),
   load_failed(false), dest_width(0), dest_height(0), dest_x(0), dest_y(0),
-  stretch_mode(0), effect(0), selected_image(NULL), displayed_image(NULL),
-  use_fbo_blit(false), use_image_blit(false), vert_index(0)
+  stretch_mode(0), blit_effect(0), selected_image(NULL), displayed_image(NULL),
+  use_fbo_blit(false), use_image_blit(false), vert_index(0), src_width(-1),
+  src_height(-1), use_blur(false)
 {
     if (!has_fbo) {
         has_fbo = true;
@@ -65,7 +83,7 @@ void SurfaceObject::draw()
     if (use_fbo_blit) {
         surface_fbo.bind();
 
-		int old_offset[2] = {Render::offset[0], Render::offset[1]};
+        Render::SavedViewportOffset saved;
         Render::set_view(0, 0, SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
         Render::set_offset(0, 0);
         Render::clear(clear_color);
@@ -83,9 +101,8 @@ void SurfaceObject::draw()
         }
         blit_images.clear();
 
-        Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-        Render::set_offset(old_offset[0], old_offset[1]);
         surface_fbo.unbind();
+        saved.restore();
 
         begin_draw(SURFACE_FBO_WIDTH, SURFACE_FBO_HEIGHT);
 
@@ -117,10 +134,9 @@ void SurfaceObject::draw()
 
             begin_draw(hh->width, hh->height);
             int off_x = x + hh->hotspot_x * img.scale_x;
-            int off_y = y + hh->hotspot_x * img.scale_x;
+            int off_y = y + hh->hotspot_y * img.scale_y;
             int draw_x = img.x + img.scroll_x;
             int draw_y = img.y + img.scroll_y;
-
             int w = hh->width * img.scale_x;
             int h = hh->height * img.scale_y;
 
@@ -145,6 +161,9 @@ void SurfaceObject::draw()
     } else {
         if (displayed_image->handle == NULL)
             return;
+
+        if (use_blur)
+            effect = Render::BLURADD;
 
         SurfaceImage & m = *displayed_image;
         Image * hh = m.handle;
@@ -193,8 +212,10 @@ void SurfaceObject::resize(int w, int h)
     collision->update_aabb();
 }
 
-void SurfaceObject::resize_source(int w, int h)
+void SurfaceObject::set_src_size(int w, int h)
 {
+    src_width = w;
+    src_height = h;
 }
 
 void SurfaceObject::resize_canvas(int x1, int y1, int x2, int y2)
@@ -215,8 +236,17 @@ void SurfaceObject::resize_canvas(int x1, int y1, int x2, int y2)
                                              y2);
 }
 
+#ifdef CHOWDREN_USE_CAPTURE
+#include "objects/capture.h"
+#endif
+
 void SurfaceObject::load(const std::string & filename,
                          const std::string & ignore_ext)
+{
+    load(filename);
+}
+
+void SurfaceObject::load(const std::string & filename)
 {
     if (selected_image == NULL)
         return;
@@ -225,10 +255,17 @@ void SurfaceObject::load(const std::string & filename,
     selected_image->transparent = Color(255, 0, 255); // old_trans;
 
     std::string path = convert_path(filename);
-    Image * image = get_image_cache(path, 0, 0, 0, 0,
-                                    selected_image->transparent);
+    Image * image = NULL;
+#ifdef CHOWDREN_USE_CAPTURE
+    if (!CaptureObject::filename.empty() &&
+        CaptureObject::filename == path)
+    {
+        image = &CaptureObject::image;
+    }
+#endif
+    if (image == NULL)
+        image = get_image_cache(path, 0, 0, 0, 0, selected_image->transparent);
     selected_image->set_image(image);
-
     if (image == NULL)
         load_failed = true;
 
@@ -275,8 +312,8 @@ void SurfaceObject::scroll(int x, int y, int wrap)
             SurfaceBlit & img = *it;
             img.scroll_x += x;
             img.scroll_y += y;
-            wrap_pos(img.scroll_x, img.x, img.image->width, image->width);
-            wrap_pos(img.scroll_y, img.y, img.image->height, image->height);
+            ::wrap_pos(img.scroll_x, img.x, img.image->width, image->width);
+            ::wrap_pos(img.scroll_y, img.y, img.image->height, image->height);
         }
         return;
     } else if (image == NULL || image->handle == NULL)
@@ -301,16 +338,22 @@ void SurfaceObject::blit(Active * obj)
     blit_images[index].y = dest_y * scale_y;
     dest_width *= scale_x;
     dest_height *= scale_y;
-    blit_images[index].scale_x = dest_width / double(img->width);
-    blit_images[index].scale_y = dest_height / double(img->height);
+    int img_w = src_width;
+    if (img_w == -1)
+        img_w = img->width;
+    int img_h = src_height;
+    if (img_h == -1)
+        img_h = img->height;
+    blit_images[index].scale_x = dest_width / double(img_w);
+    blit_images[index].scale_y = dest_height / double(img_h);
     blit_images[index].scroll_x = 0;
     blit_images[index].scroll_y = 0;
 
-    if (effect != 1 && effect != 11) {
-        std::cout << "Unsupported blit effect: " << effect << std::endl;
+    if (blit_effect != 1 && blit_effect != 11) {
+        std::cout << "Unsupported blit effect: " << blit_effect << std::endl;
         blit_images[index].effect = 1;
     } else
-        blit_images[index].effect = effect;
+        blit_images[index].effect = blit_effect;
 
     blit_images[index].image = img;
 }
@@ -322,7 +365,7 @@ void SurfaceObject::blit(SurfaceObject * obj, int image)
 
 void SurfaceObject::set_effect(int index)
 {
-    effect = index;
+    blit_effect = index;
 }
 
 void SurfaceObject::set_display_image(int index)
@@ -392,8 +435,14 @@ void SurfaceObject::blit_image(int image)
     blit_images.resize(index+1);
     blit_images[index].x = dest_x;
     blit_images[index].y = dest_y;
-    blit_images[index].scale_x = dest_width / double(img->width);
-    blit_images[index].scale_y = dest_height / double(img->height);
+    int img_w = src_width;
+    if (img_w == -1)
+        img_w = img->width;
+    int img_h = src_height;
+    if (img_h == -1)
+        img_h = img->height;
+    blit_images[index].scale_x = dest_width / double(img_w);
+    blit_images[index].scale_y = dest_height / double(img_h);
     blit_images[index].image = img;
     blit_images[index].scroll_x = 0;
     blit_images[index].scroll_y = 0;
@@ -404,7 +453,9 @@ void SurfaceObject::apply_matrix(double div, double offset, double iterations,
                                  double x2y1, double x2y2, double x2y3,
                                  double x3y1, double x3y2, double x3y3)
 {
-    std::cout << "Apply matrix not implemented" << std::endl;
+    use_blur = true;
+    set_shader_parameter("radius", 2.25f);
+    //std::cout << "Apply matrix not implemented" << std::endl;
 }
 
 void SurfaceObject::save(const std::string & filename,
@@ -463,6 +514,7 @@ int SurfaceObject::get_image_width(int index)
 
 void SurfaceObject::clear_alpha(int index)
 {
+    blend_color.a = index;
 }
 
 void SurfaceObject::draw_rect(int x, int y, int w, int h, Color color,

@@ -1,4 +1,5 @@
 from chowdren.key import convert_key
+import os
 
 def init(converter):
     converter.add_define('CHOWDREN_IS_FP')
@@ -6,7 +7,10 @@ def init(converter):
     converter.add_define('CHOWDREN_POINT_FILTER')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
     converter.add_define('CHOWDREN_STEAM_APPID', 248310)
-    converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
+    # converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
+    converter.add_define('CHOWDREN_TEXTURE_GC')
+    converter.add_define('CHOWDREN_FORCE_REMOTE')
+    converter.add_define('CHOWDREN_DISABLE_DPAD_BUTTONS')
 
     frameitems = converter.game.frameItems
     for item in frameitems.itemDict.itervalues():
@@ -27,6 +31,11 @@ def init(converter):
                 values[index] = convert_key(values[index])
 
     values = converter.game.globalValues.items
+
+    basename = os.path.basename(converter.games[0].filename)
+    if 'e3' in basename or 'expo' in basename:
+        converter.add_define('CHOWDREN_DISABLE_WRITE')
+        converter.add_define('CHOWDREN_IS_DEMO')
     # values[0] = 1
     # values[1] = 4
     # values[4] = 1
@@ -42,16 +51,25 @@ def init(converter):
 def fix_light_rays(converter, instances):
     new_instances = []
     rays = []
+    heads = []
+    heads_2 = []
+    heads_3 = []
     for item in instances:
         frameitem = item[1]
         obj = (frameitem.handle, frameitem.objectType)
         writer = converter.get_object_writer(obj)
         if writer.data.name.startswith('Light ray'):
             rays.append(item)
+        elif writer.data.name == 'Boss_MantalithHead':
+            heads.append(item)
+        elif writer.data.name == 'Boss_MantalithHead 2':
+            heads_2.append(item)
+        elif writer.data.name == 'Boss_MantalithHead 3':
+            heads_3.append(item)
         else:
             new_instances.append(item)
 
-    return new_instances + rays
+    return new_instances + rays + heads_2 + heads_3 + heads
 
 order_fixers = {
     'Relic Maze 5': fix_light_rays
@@ -126,7 +144,10 @@ alterable_int_objects = [
     ('CrystalCursor', None),
     ('GimmickRisingSwingPiece_', [0, 1, 8]),
     ('BossKujackerTail', None),
-    ('HazardOrbitBeam_', None)
+    ('HazardOrbitBeam_', None),
+    ('BG13Layer1_', None),
+    ('BossShadeBeastEye_', [3]),
+    ('BossSatelliteArm_', [3])
 ]
 
 def use_alterable_int(converter, expression):
@@ -152,6 +173,20 @@ def use_counter_int(converter, expression):
         if name.startswith(check_name):
             return True
     return False
+
+def use_image_preload(converter):
+    return True
+
+def use_frame_preload(converter):
+    return converter.platform_name != '3ds'
+
+def use_image_flush(converter, frame):
+    if frame.name in ('Update Records', 'Unlocked!', 'Black Load',
+                      'Continue?', 'Bonus Stage'):
+        return False
+    if frame.name.startswith('Scene -'):
+        return False
+    return True
 
 LOOP_NAMES = (
     'Player01DetectSensorMain',
@@ -210,7 +245,53 @@ def use_condition_expression_iterator(converter):
 def get_string(converter, value):
     value = value.replace('gamepad.cfg', 'control_gamepad.cfg')
     value = value.replace('keyboard.cfg', 'control_keyboard.cfg')
+    if converter.platform_name != 'generic':
+        value = value.replace('./records.dat',
+                              '%s/records.dat' % converter.platform.save_dir)
+        value = value.replace('./file',
+                              '%s/file' % converter.platform.save_dir)
+        value = value.replace('./save',
+                              '%s/save' % converter.platform.save_dir)
     return value
+
+def get_missing_image(converter, image):
+    print 'bad image, selecting first instead:', image
+    print converter.current_write_object.name
+    return converter.image_indexes.itervalues().next()
+
+from PIL import Image
+
+def get_images(converter):
+    if converter.platform_name == '3ds':
+        return {}
+
+    images = {}
+    # if not converter.platform_name == 'wiiu':
+    #     return images
+    obj = converter.find_frameitem("GUI_ScoreTimeRings")
+    data = obj.properties.loader.animations.loadedAnimations
+
+    path = os.path.join(os.path.dirname(__file__), 'fp')
+
+    for name, anim in (('Stopped', 0), ('Jumping', 7)):
+        for i in xrange(10):
+            handle = data[anim].loadedDirections[4].frames[i]
+            image_name = 'GUI_ScoreTimeRings %s %s.png' % (name, i)
+            image_path = os.path.join(path, image_name)
+            images[handle] = Image.open(image_path).convert('RGBA')
+
+    obj = converter.find_frameitem("GUI_WeaponSlot")
+    data = obj.properties.loader.animations.loadedAnimations
+    image_path = os.path.join(path, 'GUI_WeaponSlot Jumping.png')
+    handle = data[7].loadedDirections[0].frames[0]
+    images[handle] = Image.open(image_path).convert('RGBA')
+
+    obj = converter.find_frameitem("PL_SignUp 2")
+    image_path = os.path.join(path, 'PL_SignUp 2.png')
+    handle = obj.properties.loader.image
+    images[handle] = Image.open(image_path).convert('RGBA')
+
+    return images
 
 def init_array_set_value(converter, event_writer):
     if event_writer.get_object_writer().data.name != 'MapData':

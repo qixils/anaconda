@@ -1,8 +1,36 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 import sys
 sys.path.append('..')
 import freetype
+from freetype.raw import _lib
+from freetype.ft_structs import FT_Bitmap
 from ctypes import byref
 from mmfparser.bytereader import ByteReader
+from PIL import Image
+
+FT_GlyphSlot_Embolden = _lib.FT_GlyphSlot_Embolden
+FT_Bitmap_Embolden = _lib.FT_Bitmap_Embolden
+FT_Bitmap_Convert = _lib.FT_Bitmap_Convert
+FT_Bitmap_New = _lib.FT_Bitmap_New
+FT_Bitmap_Done = _lib.FT_Bitmap_Done
+FT_GlyphSlot_Own_Bitmap = _lib.FT_GlyphSlot_Own_Bitmap
+FT_Bitmap_Copy = _lib.FT_Bitmap_Copy
 
 """
 XXX use kerning information?
@@ -19,9 +47,15 @@ struct Glyph
     uint8 data[width * height];
 };
 
+enum FontFlags
+{
+    BOLD = 1 << 0  
+};
+
 struct Font
 {
-    uint32 size;
+    uint16 size;
+    uint16 flags;
     float width;
     float height;
     float ascender;
@@ -37,31 +71,80 @@ struct FontBank
 };
 """
 
+BOLD_AMOUNT = 64
+
 class Glyph(object):
     def __init__(self, generator, char):
         self.char = char
         self.font = generator.font
         self.glyph = glyph = generator.font.glyph
-        self.advance = (glyph.advance.x / 64.0, glyph.advance.y / 64.0)
+
+        bold = 0
+        if generator.bold:
+            bold = BOLD_AMOUNT
+
+        self.advance = ((glyph.advance.x + bold) / 64.0,
+                        glyph.advance.y / 64.0)
         box = self.get_cbox()
         self.x1 = box.xMin / 64.0
         self.y1 = box.yMin / 64.0
         self.x2 = box.xMax / 64.0
         self.y2 = box.yMax / 64.0
         real_glyph = glyph.get_glyph()
-        bitmap_glyph = real_glyph.to_bitmap(freetype.FT_RENDER_MODE_NORMAL, 0,
-                                            True)
+        if generator.monochrome:
+            mode = freetype.FT_RENDER_MODE_MONO
+        else:
+            mode = freetype.FT_RENDER_MODE_NORMAL
+        bitmap_glyph = real_glyph.to_bitmap(mode, 0, True)
         self.corner = (bitmap_glyph.left, bitmap_glyph.top)
         bitmap = bitmap_glyph.bitmap
+
+        destroy_bitmaps = []
+        if generator.monochrome:
+            new_bitmap = FT_Bitmap()
+            destroy_bitmaps.append(new_bitmap)
+            FT_Bitmap_New(byref(new_bitmap))
+            FT_Bitmap_Convert(freetype.get_handle(), byref(bitmap._FT_Bitmap),
+                              byref(new_bitmap), 1)
+            bitmap = freetype.Bitmap(new_bitmap)
+
+        if generator.bold:
+            new_bitmap = FT_Bitmap()
+            destroy_bitmaps.append(new_bitmap)
+            FT_Bitmap_Copy(freetype.get_handle(), byref(bitmap._FT_Bitmap),
+                           byref(new_bitmap))
+            err = FT_Bitmap_Embolden(freetype.get_handle(),
+                                     byref(new_bitmap),
+                                     BOLD_AMOUNT, 0)
+            bitmap = freetype.Bitmap(new_bitmap)
+
         self.width = bitmap.width
         self.height = bitmap.rows
-        self.buf = bitmap.buffer
+        self.buf = ''
+        if generator.monochrome:
+            for c in bitmap.buffer:
+                self.buf += chr(c * 255)
+        else:
+            for c in bitmap.buffer:
+                self.buf += chr(c)
+
+
+        for bitmap in destroy_bitmaps:
+            FT_Bitmap_Done(freetype.get_handle(), byref(bitmap))
 
     def get_cbox(self):
         outline = self.glyph.outline
         bbox = freetype.FT_BBox()
         freetype.FT_Outline_Get_CBox(byref(outline._FT_Outline), byref(bbox))
         return freetype.BBox(bbox)
+
+    def get_data(self):
+        return self.buf
+
+    def get_image(self):
+        data = self.get_data()
+        image = Image.frombytes('L', (self.width, self.height), data)
+        return image
 
     def write(self, writer):
         writer.writeInt(ord(self.char), True)
@@ -75,18 +158,18 @@ class Glyph(object):
         writer.writeFloat(self.corner[1])
         writer.writeInt(self.width)
         writer.writeInt(self.height)
-        buf = ''
-        for c in self.buf:
-            buf += chr(c)
-        writer.write(buf)
+        writer.write(self.get_data())
 
 
 RESOLUTION = 96
-
+BOLD = 1 << 0
 
 class Font(object):
-    def __init__(self, name, charset, size=None, pixel_size=None):
+    def __init__(self, name, charset, size=None, pixel_size=None, bold=False,
+                 monochrome=True):
         self.size = size
+        self.monochrome = monochrome
+        self.bold = bold
         font = self.font = freetype.Face(name)
 
         if pixel_size is not None:
@@ -109,6 +192,7 @@ class Font(object):
             charcode, agindex = font.get_next_char(charcode, agindex)
         for c in charset:
             self.load_char(c)
+        space_glyph = self.load_char(' ', force=True)
 
     def get_width(self):
         size = self.font.size
@@ -129,7 +213,8 @@ class Font(object):
             return size.height / 64.0
 
     def load_char(self, c, force=False):
-        self.font.load_char(c, freetype.FT_LOAD_FORCE_AUTOHINT)
+        flags = freetype.FT_LOAD_FORCE_AUTOHINT
+        self.font.load_char(c, flags)
         glyph = Glyph(self, c)
         if (glyph.x1 == 0.0 and glyph.y1 == 0.0 and
             glyph.x2 == 0.0 and glyph.y2 == 0.0 and not force):
@@ -138,11 +223,27 @@ class Font(object):
         self.glyph_dict[c] = glyph
         return glyph
 
+    def get_sheet(self):
+        width = sum(glyph.width for glyph in self.glyphs)
+        height = max(glyph.height for glyph in self.glyphs)
+        image = Image.new('L', (width, height), 1)
+        x = 0
+        for glyph in self.glyphs:
+            if glyph.width == 0 or glyph.height == 0:
+                continue
+            image.paste(glyph.get_image(), (x, 0))
+            x += glyph.width
+        return image
+
     def get_glyph(self, c):
         return self.glyph_dict[c]
 
     def write(self, writer):
-        writer.writeInt(self.size)
+        writer.writeShort(self.size, True)
+        flags = 0
+        if self.bold:
+            flags |= BOLD
+        writer.writeShort(flags, True)
         writer.writeFloat(self.width)
         writer.writeFloat(self.height)
         writer.writeFloat(self.ascender)

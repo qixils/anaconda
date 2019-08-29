@@ -1,11 +1,33 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "collision.h"
 #include "gencol.cpp"
 
-bool collide_direct(CollisionBase * a, CollisionBase * b, int * aabb_2)
+template <bool check>
+inline bool collide_template(CollisionBase * a, CollisionBase * b,
+                             int * aabb_2)
 {
     int * aabb_1 = a->aabb;
-    if (!collides(aabb_1, aabb_2))
-        return false;
+
+    if (check) {
+        if (!collides(aabb_1, aabb_2))
+            return false;
+    }
 
     if ((a->flags & BOX_COLLISION) && (b->flags & BOX_COLLISION))
         return true;
@@ -97,4 +119,38 @@ bool collide_direct(CollisionBase * a, CollisionBase * b, int * aabb_2)
                     return true;
             }
     }
+}
+
+bool collide_direct(CollisionBase * a, CollisionBase * b)
+{
+    return collide_template<false>(a, b, b->aabb);
+}
+
+bool collide(CollisionBase * a, CollisionBase * b)
+{
+    return collide_template<true>(a, b, b->aabb);
+}
+
+bool collide(CollisionBase * a, CollisionBase * b, int * aabb_2)
+{
+    return collide_template<true>(a, b, aabb_2);
+}
+
+void save_bitarray(const char * filename, BitArray & array,
+                   int width, int height)
+{
+    FSFile fp(filename, "w");
+    if (!fp.is_open())
+        return;
+    FileStream stream(fp);
+    stream.write_uint32(width);
+    stream.write_uint32(height);
+    for (int y = 0; y < height; ++y)
+    for (int x = 0; x < width; ++x) {
+        if (array.get(y * width + x))
+            stream.write_uint8(0xFF);
+        else
+            stream.write_uint8(0x00);
+    }
+    fp.close();
 }

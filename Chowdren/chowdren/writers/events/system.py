@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from mmfparser.data.chunkloaders.objectinfo import SEMITRANSPARENT_EFFECT
 from chowdren.writers.events import (ActionWriter, ConditionWriter,
     ExpressionWriter, ComparisonWriter, ActionMethodWriter,
@@ -5,13 +22,14 @@ from chowdren.writers.events import (ActionWriter, ConditionWriter,
     make_expression, make_comparison, EmptyAction, FalseCondition)
 from chowdren.common import (get_method_name, to_c, make_color,
                              parse_direction, get_flag_direction,
-                             TEMPORARY_GROUP_ID, is_qualifier)
+                             is_qualifier, get_qualifier)
 from chowdren.writers.objects import ObjectWriter
 from chowdren import shader
 from collections import defaultdict
 from chowdren.key import convert_key
 from mmfparser.bitdict import BitDict
 from chowdren.idpool import get_id
+from chowdren import transition
 from chowdren.shader import INK_EFFECTS, NATIVE_SHADERS
 
 def get_loop_running_name(name):
@@ -29,6 +47,9 @@ def get_repeat_name(group):
 def get_restrict_name(group):
     return 'restrict_%s' % group.unique_id
 
+def get_foreach_name(name, converter):
+    return 'foreach_%s_%s' % (name, converter.current_frame_index)
+
 PROFILE_LOOPS = set([])
 
 class SystemObject(ObjectWriter):
@@ -37,12 +58,15 @@ class SystemObject(ObjectWriter):
     def __init__(self, converter):
         self.converter = converter
         self.data = None
+        self.foreach_names = {}
+        self.foreach_force_write = set()
 
     def write_frame(self, writer):
         self.write_group_activated(writer)
         self.write_loops(writer)
         self.write_foreach(writer)
         self.write_collisions(writer)
+        self.write_clicked(writer)
 
     def write_start(self, writer):
         for name in self.loops.keys():
@@ -71,7 +95,9 @@ class SystemObject(ObjectWriter):
     def write_group_activated(self, writer):
         self.group_activations = defaultdict(list)
         for group in self.converter.always_groups_dict['OnGroupActivation']:
-            cond = group.conditions[0]
+            for cond in group.conditions:
+                if cond.data.getName() == 'OnGroupActivation':
+                    break
             container = cond.container
             check_name = cond.get_group_check()
             group.add_member('bool %s' % check_name, 'true')
@@ -283,6 +309,69 @@ class SystemObject(ObjectWriter):
 
         writer.end_brace()
 
+    def write_clicked(self, writer):
+        converter = self.converter
+        objs = defaultdict(list)
+        clicks = set()
+        objs_to_qual = defaultdict(set)
+        for group in self.get_conditions('ObjectClicked'):
+            cond = group.conditions[0].data
+            mouse_key = converter.convert_parameter(cond.items[0])
+            clicks.add(mouse_key)
+            data = cond.items[1].loader
+            obj = (data.objectInfo, data.objectType)
+            for new_obj in converter.resolve_qualifier(obj):
+                objs[(new_obj, mouse_key)].append(group)
+                objs_to_qual[new_obj].add(obj)
+
+        if not objs:
+            return
+
+        objs = objs.items()
+        objs.sort(key=lambda x: x[0][0])
+
+        writer.add_member('FrameObject * clicked_obj')
+
+        obj_funcs = []
+        for (obj, mouse_key), groups in objs:
+            object_class = converter.get_object_class(obj[1])
+            for qual_obj in objs_to_qual[obj]:
+                converter.set_object(qual_obj,
+                                     '((%s)clicked_obj)' % object_class)
+            key_name = mouse_key.split('_')[-1].lower()
+            name = 'on_click_%s_%s_%s_%s' % (obj[0], obj[1], key_name,
+                                             converter.current_frame_index)
+            name = converter.write_generated(name, writer, groups)
+            obj_funcs.append((obj, mouse_key, name))
+
+        event_name = 'test_clicked_%s' % converter.current_frame_index
+        writer.putmeth('void %s' % event_name)
+
+        test_click = []
+        for click in clicks:
+            test_click.append('is_mouse_pressed_once_frame(%s)' % click)
+        test_click = '!(%s)' % ' || '.join(test_click)
+        writer.putlnc('if (%s) return;', test_click)
+
+        for (obj, mouse_key, func) in obj_funcs:
+            writer.putlnc('if (is_mouse_pressed_once_frame(%s)) {', mouse_key)
+            writer.indent()
+
+            converter.start_flat_iteration(obj, writer)
+            obj = converter.get_object(obj)
+            writer.putlnc('if (%s->mouse_over()) {', obj)
+            writer.indent()
+            writer.putlnc('clicked_obj = %s;', obj)
+            writer.putlnc('%s();', func)
+            writer.end_brace()
+            converter.end_flat_iteration(obj, writer)
+
+            writer.end_brace()
+        writer.end_brace()
+
+        # pregroup, precedence 1
+        converter.add_custom_group(event_name, 1)
+
     def write_foreach(self, writer):
         loops = defaultdict(list)
         loop_objects = {}
@@ -296,16 +385,33 @@ class SystemObject(ObjectWriter):
         self.foreach_names = {}
         self.converter.begin_events()
         for real_name, groups in loops.iteritems():
+            force_write = real_name in self.foreach_force_write
             obj = loop_objects[real_name]
             name = get_method_name(real_name)
             instance_name = 'foreach_instance_' + name
             writer.add_member('FrameObject * %s' % instance_name)
             object_class = self.converter.get_object_class(obj[1])
-            self.converter.set_object(obj, '((%s)%s)' % (object_class,
-                                                         instance_name))
-            name = 'foreach_%s_%s' % (name, self.converter.current_frame_index)
-            name = self.converter.write_generated(name, writer, groups)
-            self.foreach_names[real_name] = name
+            set_value = '((%s)%s)' % (object_class, instance_name)
+            self.converter.set_object(obj, set_value)
+            for qual_obj in self.converter.resolve_qualifier(obj):
+                self.converter.set_object(qual_obj, set_value)
+
+            name = get_foreach_name(name, self.converter)
+            new_name = self.converter.write_generated(name, writer, groups)
+            self.foreach_names[real_name] = new_name
+            if force_write and new_name != name:
+                print 'creating wrapper for', real_name
+                # XXX add call rewrite feature
+                writer.putmeth('void %s' % new_name)
+                writer.putlnc('%s();', new_name)
+                writer.end_brace()
+            self.foreach_force_write.discard(real_name)
+
+        for name in self.foreach_force_write:
+            print 'creating dummy wrapper for', name
+            name = get_foreach_name(get_method_name(name), self.converter)
+            writer.putmeth('void %s' % name)
+            writer.end_brace()
 
     def write_loops(self, writer):
         self.loop_names = set()
@@ -313,6 +419,7 @@ class SystemObject(ObjectWriter):
         self.loop_pos = {}
         loops = self.loops = defaultdict(list)
         self.dynamic_loops = set()
+
         for loop_group in self.get_conditions('OnLoop'):
             parameter = loop_group.conditions[0].data.items[0]
             items = parameter.loader.items
@@ -320,19 +427,28 @@ class SystemObject(ObjectWriter):
             if name is None:
                 # try and get config to give us a loop name
                 name = self.converter.config.get_loop_name(parameter)
-            if name is None:
-                name = self.converter.convert_parameter(parameter)
-                if name not in self.loop_name_warnings:
-                    print 'dynamic "on loop" not implemented:', name
-                    self.loop_name_warnings.add(name)
-                continue
+                if hasattr(name, '__iter__'):
+                    names = name
+                else:
+                    names = (name,)
+            else:
+                names = (name,)
 
-            if name == 'Clear Filter':
-                # KU-specific hack
-                continue
-            self.loop_names.add(name.lower())
-            loops[name].append(loop_group)
-            self.loop_pos[name] = loop_group.global_id
+            for name in names:
+                if name is None:
+                    name = self.converter.convert_parameter(parameter)
+                    if name not in self.loop_name_warnings:
+                        print 'dynamic "on loop" not implemented:', name
+                        self.loop_name_warnings.add(name)
+                    continue
+
+                if name == 'Clear Filter':
+                    # KU-specific hack
+                    continue
+
+                self.loop_names.add(name.lower())
+                loops[name].append(loop_group)
+                self.loop_pos[name] = loop_group.global_id
 
         if not loops:
             return
@@ -513,14 +629,15 @@ class OnBackgroundCollision(CollisionCondition):
             func_name = 'overlaps_background'
         writer.put('%s()' % func_name)
 
-class ObjectInvisible(ConditionWriter):
-    def write(self, writer):
-        writer.put('flags & VISIBLE')
+class ObjectInvisible(ConditionMethodWriter):
+    method = 'get_visible'
 
     def is_negated(self):
         return True
 
 class MouseOnObject(ConditionWriter):
+    negate_select = False
+
     def get_object(self):
         data = self.data.items[0].loader
         return data.objectInfo, data.objectType
@@ -536,12 +653,15 @@ class Always(ConditionWriter):
 
 class MouseClicked(ConditionWriter):
     is_always = True
+    pre_event = True
 
     def write(self, writer):
-        writer.put('is_mouse_pressed_once(%s)' % self.convert_index(0))
+        writer.put('is_mouse_pressed_once_frame(%s)' % self.convert_index(0))
 
 class ObjectClicked(ConditionWriter):
-    is_always = True
+    # is_always = True
+    # pre_event = True
+    # precedence = 1
 
     def get_object(self):
         data = self.data.items[1].loader
@@ -549,7 +669,7 @@ class ObjectClicked(ConditionWriter):
 
     def write(self, writer):
         writer.put('mouse_over() && '
-                   'is_mouse_pressed_once(%s)' % self.convert_index(0))
+                   'is_mouse_pressed_once_frame(%s)' % self.convert_index(0))
 
 KEY_FLAGS = BitDict(
     'Up',
@@ -645,7 +765,7 @@ class TimerEvery(ConditionWriter):
         time = self.parameters[0].loader
         time = getattr(time, 'delay', None) or time.timer
         seconds = time / 1000.0
-        name = 'every_%s' % TEMPORARY_GROUP_ID
+        name = 'every_%s' % self.get_id(self)
         self.group.add_member('float %s' % name, '0.0f')
         event_break = self.converter.event_break
         writer.putln('%s += manager.dt;' % name)
@@ -656,6 +776,10 @@ class AnimationFinished(ConditionWriter):
     is_always = True
 
     def write(self, writer):
+        generated = self.group.conditions[0] is self
+        if generated:
+            writer.put('animation_finished == %s' % self.convert_index(0))
+            return
         writer.put('is_animation_finished(%s)' % self.convert_index(0))
 
 class PathFinished(ConditionMethodWriter):
@@ -703,7 +827,7 @@ class RestrictFor(ConditionWriter):
         self.group.add_member('float %s' % name, 'frame_time')
 
 def write_not_always(writer, ace):
-    name = 'not_always_%s' % TEMPORARY_GROUP_ID
+    name = 'not_always_%s' % ace.get_id(ace)
     ace.group.add_member('unsigned int %s' % name, 'loop_count')
     event_break = ace.converter.event_break
     writer.putln('if (%s > loop_count) {' % (name))
@@ -723,7 +847,7 @@ class OnceCondition(ConditionWriter):
     custom = True
     def write(self, writer):
         event_break = self.converter.event_break
-        name = 'once_condition_%s' % TEMPORARY_GROUP_ID
+        name = 'once_condition_%s' % self.get_id(self)
         self.group.add_member('bool %s' % name, 'false')
         writer.putlnc('if (%s) %s', name, event_break)
         writer.putlnc('%s = true;', name)
@@ -759,6 +883,12 @@ class NumberOfObjects(ComparisonWriter):
         return '%s.size()' % self.converter.get_object_list(obj,
                                                             allow_single=True)
 
+class MouseInZone(ConditionMethodWriter):
+    def write(self, writer):
+        zone = self.parameters[0].loader
+        writer.putc('mouse_in_zone(%s, %s, %s, %s)',
+                    zone.x1, zone.y1, zone.x2, zone.y2)
+
 class CompareObjectsInZone(ComparisonWriter):
     has_object = False
     iterate_objects = False
@@ -790,6 +920,19 @@ class NoObjectsInZone(ConditionWriter):
     def write_pre(self, writer):
         obj = (self.data.objectInfo, self.data.objectType)
         self.obj_list = self.converter.create_list(obj, writer)
+
+class AllDestroyed(ConditionWriter):
+    is_always = True
+    custom = True
+
+    def write(self, writer):
+        obj = (self.data.objectInfo, self.data.objectType)
+        obj_list = self.converter.create_list(obj, writer)
+        writer.putlnc('if (%s.size() != 0) %s', obj_list,
+                      self.converter.event_break)
+        generated = self is self.group.conditions[0]
+        if generated:
+            write_not_always(writer, self)
 
 class PickCondition(ConditionWriter):
     custom = True
@@ -883,6 +1026,7 @@ class PickFlagOn(PickAlterableCondition):
                               ' it.deselect();', index)
         writer.end_brace()
 
+
 class PickFromFixed(PickCondition):
     def write_pick(self, writer, objs):
         writer.start_brace()
@@ -898,6 +1042,7 @@ class PickFromFixed(PickCondition):
 
 class CompareFixedValue(ConditionWriter):
     custom = True
+    force_single = False
     def write(self, writer):
         obj = self.get_object()
         converter = self.converter
@@ -908,13 +1053,15 @@ class CompareFixedValue(ConditionWriter):
         is_equal = comparison == '=='
         has_selection = obj in converter.has_selection
         is_instance = value.endswith('get_fixed()')
-        test_all = has_selection or not is_equal or not is_instance
+        test_all = (has_selection or not is_equal or
+                    (not is_instance and not self.force_single))
         if is_instance:
             instance_value = value.replace('->get_fixed()', '')
         else:
             instance_value = 'get_object_from_fixed(%s)' % value
 
         fixed_name = 'fixed_test_%s' % self.get_id(self)
+
         writer.putln('FrameObject * %s = %s;' % (fixed_name, instance_value))
         is_single = (converter.has_single(obj) or
                      not converter.has_multiple_instances(obj))
@@ -940,7 +1087,8 @@ class CompareFixedValue(ConditionWriter):
             writer.putlnc('if (!%s.has_selection()) %s', list_name,
                           converter.event_break)
         else:
-            converter.set_object(obj, fixed_name)
+            class_name = self.converter.get_object_class(obj[1])
+            converter.set_object(obj, '((%s)%s)' % (class_name, fixed_name))
 
 class FacingInDirection(ConditionWriter):
     def write(self, writer):
@@ -972,6 +1120,45 @@ class LeavingPlayfield(CollisionCondition):
         self.add_collision_objects(self.get_object())
 
 # actions
+
+class AlterableAction(ActionMethodWriter):
+    def __init__(self, *arg, **kw):
+        ActionMethodWriter.__init__(self, *arg, **kw)
+        return
+        obj = self.get_object()
+        runinfo = self.converter.get_runinfo(obj)
+        if runinfo is None:
+            self.method += '_int'
+            return
+        index_param = self.parameters[0].loader
+        if index_param.isExpression:
+            items = index_param.items
+            if len(items) != 2 or items[0].getName() != 'Long':
+                index = None
+            else:
+                index = items[0].loader.value
+        else:
+            index = index_param.value
+        if index is None:
+            pass
+
+    def write(self, writer):
+        ActionMethodWriter.write(self, writer)
+        obj = self.get_object()
+        if is_qualifier(obj[0]):
+            name = (get_qualifier(obj[0]), self.converter.game_index)
+        else:
+            name = self.converter.get_object_writer(obj).data.name
+        writer.put(' // %s' % repr(name))
+
+class SetAlterableValue(AlterableAction):
+    method = 'alterables->values.set'
+
+class AddToAlterable(AlterableAction):
+    method = 'alterables->values.add'
+
+class SubtractFromAlterable(AlterableAction):
+    method = 'alterables->values.sub'
 
 class CollisionAction(ActionWriter):
     def write(self, writer):
@@ -1051,7 +1238,9 @@ class CreateBase(ActionWriter):
         return self.converter.filter_object_type((object_info, None))
 
     def get_details(self):
-        return self.convert_index(0)
+        details = self.convert_index(0)
+        details['is_shoot'] = self.is_shoot
+        return details
 
     def write_set(self, writer, set_index, parent_info, object_info,
                   create_set, multi):
@@ -1103,7 +1292,7 @@ class CreateBase(ActionWriter):
             parent = 'parent'
 
         for details in create_set:
-            is_shoot = self.is_shoot
+            is_shoot = details['is_shoot']
             x = str(details['x'])
             y = str(details['y'])
             direction = None
@@ -1149,6 +1338,7 @@ class CreateBase(ActionWriter):
             else:
                 writer.putlnc('%s.add_back();', list_name)
             if is_shoot:
+                self.converter.get_object_writer(object_info).has_shoot = True
                 writer.putlnc('%s->shoot(new_obj, %s, %s);', parent,
                               details['shoot_speed'], direction)
                 # object_class = self.converter.get_object_class(
@@ -1300,7 +1490,7 @@ class SwapPosition(ActionWriter):
         config = self.group.config
         swap_name = config.get('swap_name', None)
         if swap_name is None:
-            swap_name = 'swap_%s' % TEMPORARY_GROUP_ID
+            swap_name = 'swap_%s' % self.get_id(self)
             config['swap_name'] = swap_name
             writer.putlnc('static FlatObjectList %s;', swap_name)
             writer.putlnc('%s.clear();', swap_name)
@@ -1402,7 +1592,14 @@ class Foreach(ActionWriter):
         if real_name is None:
             raise NotImplementedError()
         name = get_method_name(real_name)
-        func_call = self.converter.system_object.foreach_names[real_name]
+        if real_name not in self.converter.system_object.foreach_names:
+            self.converter.system_object.foreach_force_write.add(real_name)
+            func_call = get_foreach_name(name, self.converter)
+            # writer.end_brace()
+            # print 'foreach error! nested foreach not implemented yet'
+            # return
+        else:
+            func_call = self.converter.system_object.foreach_names[real_name]
         with self.converter.iterate_object(obj, writer):
             selected = self.converter.get_object(obj)
             writer.putlnc('foreach_instance_%s = %s;', name, selected)
@@ -1416,10 +1613,10 @@ class StartLoop(ActionWriter):
     def get_name(self):
         parameter = self.parameters[0]
         items = parameter.loader.items
-        return self.converter.convert_static_expression(items)
-
-    def get_dynamic_name(self):
-        return self.convert_index(0)
+        name = self.converter.convert_static_expression(items)
+        if name is not None:
+            return name
+        return self.converter.config.get_dynamic_loop_call_name(parameter)
 
     def get_loop_names(self, loops):
         if self.get_name() is not None:
@@ -1448,6 +1645,8 @@ class StartLoop(ActionWriter):
                 if real_name not in self.loop_warnings:
                     print 'Could not find loop %r' % real_name
                     print '(ignoring all future instances)'
+                    writer.putlnc('// could not find loop %s',
+                                  real_name)
                     self.loop_warnings.add(real_name)
                 return
             loop_funcs = self.converter.system_object.loop_funcs
@@ -1523,6 +1722,7 @@ class StartLoop(ActionWriter):
         writer.start_brace()
         if is_dynamic:
             dynamic_end = 'dynamic_%s_end' % self.get_id(self)
+            writer.putlnc('if (loops == NULL) goto %s;', dynamic_end)
             writer.putlnc('DynamicLoops::iterator dyn_it = '
                           '(*loops).find(%s);', self.convert_index(0))
             writer.putlnc('if (dyn_it == (*loops).end()) goto %s;',
@@ -1535,6 +1735,9 @@ class StartLoop(ActionWriter):
         writer.putln('%s = 0;' % index_name)
         writer.putln('while (%s) {' % comparison)
         writer.indent()
+
+        self.converter.config.write_loop(real_name, self, writer)
+
         writer.putln('%s;' % func_call)
         writer.putln('if (!%s) break;' % running_name)
         writer.putln('%s++;' % index_name)
@@ -1552,10 +1755,10 @@ class StartLoop(ActionWriter):
             self.converter.clear_selection()
             self.group.force_multiple = set()
         else:
-            writer.putln('// %r' % selection_after)
+            # writer.putln('// %r' % selection_after)
             self.converter.has_selection.update(selection_after)
             self.converter.saved_selections.update(selection_after.iterkeys())
-            writer.putln('// %r' % self.converter.has_selection)
+            # writer.putln('// %r' % self.converter.has_selection)
 
 
 class DeactivateGroup(ActionWriter):
@@ -1660,11 +1863,9 @@ class SetFrameAction(ActionWriter):
             return
         if fade.duration == 0:
             return
-        color = fade.color
         writer.putln('if (loop_count != 0)')
         writer.indent()
-        writer.putln(to_c('manager.set_fade(%s, %s);', make_color(
-            color), 1.0 / (fade.duration / 1000.0)))
+        transition.write(writer, fade, True)
         writer.dedent()
 
 class JumpToFrame(SetFrameAction):
@@ -1738,9 +1939,8 @@ class SetEffect(ActionWriter):
             obj = self.converter.get_object(self.get_object())
             name = self.parameters[0].loader.value
             if name == '':
-                shader_name = 'NULL'
-            else:
-                shader_name = shader.get_name(name)
+                name = None
+            shader_name = shader.get_name(name)
             writer.putlnc('%s->set_shader(%s);', obj, shader_name)
 
 class SpreadValue(ActionWriter):
@@ -1761,6 +1961,9 @@ class PlayerAction(ActionMethodWriter):
         player = self.data.objectInfo + 1
         if player != 1:
             return
+        self.write_player(writer)
+
+    def write_player(self, writer):
         return ActionMethodWriter.write(self, writer)
 
 class IgnoreControls(PlayerAction):
@@ -1768,6 +1971,25 @@ class IgnoreControls(PlayerAction):
 
 class RestoreControls(PlayerAction):
     method = '.manager.ignore_controls = false'
+
+KEY_INDEXES = {
+    0 : 'up',
+    1 : 'down',
+    2 : 'left',
+    3 : 'right',
+    4 : 'button1',
+    5 : 'button2',
+    6 : 'button3',
+    7 : 'button4'
+}
+
+class ChangeInputKey(PlayerAction):
+    custom = True
+
+    def write_player(self, writer):
+        index = int(self.convert_index(0))
+        player_key = KEY_INDEXES[index]
+        writer.putlnc('manager.%s = %s;', player_key, self.convert_index(1))
 
 # expressions
 
@@ -1802,7 +2024,7 @@ class DivideExpression(ConstantExpression):
 
     def get_string(self):
         if self.converter.config.use_safe_division():
-            return '/math_helper/'
+            return '/MathHelper()/'
         return self.value
 
 class ModulusExpression(ConstantExpression):
@@ -1855,6 +2077,9 @@ class GlobalValueExpression(ExpressionWriter):
             func = 'global_values->get'
         return '%s(%s)' % (func, self.data.loader.value)
 
+class GlobalValueDynamic(ExpressionMethodWriter):
+    method = '.global_values->get(-1 + '
+
 class GlobalStringExpression(ExpressionWriter):
     def get_string(self):
         return 'global_strings->get(%s)' % self.data.loader.value
@@ -1894,7 +2119,12 @@ class GetLoopIndex(ExpressionWriter):
         else:
             size = 2
             next_exp = items[converter.item_index + 1]
-            name = next_exp.loader.value
+            if next_exp.getName() != 'String':
+                name = converter.config.get_dynamic_loop_index(next_exp)
+                if name is None:
+                    return 'get_loop_index('
+            else:
+                name = next_exp.loader.value
         converter.item_index += size
         index_name = get_loop_index_name(name)
         return index_name
@@ -1910,6 +2140,9 @@ class SampleExpression(ExpressionWriter):
         name = converter.assets.get_sound_id(next_exp.loader.value)
         converter.item_index += 2
         return '%s(%s)' % (self.value, name)
+
+class GetSampleVolume(SampleExpression):
+    value = 'media.get_sample_volume'
 
 class GetSamplePosition(SampleExpression):
     value = 'media.get_sample_position'
@@ -1933,6 +2166,41 @@ class FixedValue(ExpressionMethodWriter):
             pass
         return 'get_fixed()'
 
+class ApplicationDrive(ExpressionWriter):
+    def get_string(self):
+        converter = self.converter
+        items = converter.expression_items
+        next_exp = items[converter.item_index + 1]
+        if next_exp.getName() != 'Plus':
+            return 'get_app_dir()'
+        next_exp = items[converter.item_index + 2]
+        if next_exp.getName() != 'ApplicationDirectory':
+            return 'get_app_dir()'
+        next_exp = items[converter.item_index + 3]
+        if next_exp.getName() != 'Plus':
+            return 'get_app_dir()'
+        next_exp = items[converter.item_index + 4]
+        if next_exp.getName() != 'String':
+            converter.item_index += 2
+            return 'get_app_path()'
+        converter.item_index += 3
+        next_exp.loader.value = './' + next_exp.loader.value
+        return ''
+
+class ApplicationPath(ExpressionWriter):
+    def get_string(self):
+        converter = self.converter
+        items = converter.expression_items
+        next_exp = items[converter.item_index + 1]
+        if next_exp.getName() != 'Plus':
+            return 'get_app_path()'
+        next_exp = items[converter.item_index + 2]
+        if next_exp.getName() != 'String':
+            return 'get_app_path()'
+        converter.item_index += 1
+        next_exp.loader.value = './' + next_exp.loader.value
+        return ''
+
 actions = make_table(ActionMethodWriter, {
     'CreateObject' : CreateObject,
     'Shoot' : ShootObject,
@@ -1942,10 +2210,10 @@ actions = make_table(ActionMethodWriter, {
     'SwapPosition' : SwapPosition,
     'SetX' : 'set_x',
     'SetY' : 'set_y',
-    'SetAlterableValue' : 'alterables->values.set',
-    'AddToAlterable' : 'alterables->values.add',
+    'SetAlterableValue' : SetAlterableValue,
+    'AddToAlterable' : AddToAlterable,
     'SpreadValue' : SpreadValue,
-    'SubtractFromAlterable' : 'alterables->values.sub',
+    'SubtractFromAlterable' : SubtractFromAlterable,
     'SetAlterableString' : 'alterables->strings.set',
     'AddCounterValue' : 'add',
     'SubtractCounterValue' : 'subtract',
@@ -2084,8 +2352,20 @@ actions = make_table(ActionMethodWriter, {
     # ignore extract/release file actions, we just load directly when using the
     # temporary dir
     'ExtractBinaryFile' : EmptyAction,
-    'ReleaseBinaryFile' : EmptyAction
+    'ReleaseBinaryFile' : EmptyAction,
+    'Wrap' : 'wrap_pos',
+    'ChangeInputKey' : ChangeInputKey,
+
+    # menu actions. don't implement yet.
+    'UncheckMenu' : 'uncheck_menu',
+    'CheckMenu' : 'check_menu',
+    'ActivateMenu' : 'activate_menu',
+    'DeactivateMenu' : 'deactivate_menu',
 })
+
+class AlwaysFalse(FalseCondition):
+    def is_negated(self):
+        return False
 
 conditions = make_table(ConditionMethodWriter, {
     'CompareAlterableValue' : make_comparison('alterables->values.get(%s)'),
@@ -2100,9 +2380,9 @@ conditions = make_table(ConditionMethodWriter, {
     'Compare' : make_comparison('%s'),
     'IsOverlapping' : IsOverlapping,
     'OnCollision' : OnCollision,
-    'ObjectVisible' : '.flags & VISIBLE',
+    'ObjectVisible' : 'get_visible',
     'ObjectInvisible' : ObjectInvisible,
-    'WhileMousePressed' : 'is_mouse_pressed',
+    'WhileMousePressed' : 'is_mouse_pressed_frame',
     'MouseOnObject' : MouseOnObject,
     'Always' : Always,
     'MouseClicked' : MouseClicked,
@@ -2164,7 +2444,12 @@ conditions = make_table(ConditionMethodWriter, {
     'MouseWheelDown' : FalseCondition,
     'MouseWheelUp' : FalseCondition,
     'OnLoop' : FalseCondition, # if not a generated group, this is always false
-    'VsyncEnabled' : 'platform_get_vsync'
+    'VsyncEnabled' : 'platform_get_vsync',
+    'AllDestroyed' : AllDestroyed,
+    'MouseInZone' : MouseInZone,
+
+    # menu conditions, don't implement yet
+    'MenuChecked' : 'is_menu_checked'
 })
 
 expressions = make_table(ExpressionMethodWriter, {
@@ -2184,19 +2469,19 @@ expressions = make_table(ExpressionMethodWriter, {
     'Minus' : MinusExpression,
     'Virgule' : VirguleExpression,
     'Parenthesis' : ParenthesisExpression,
-    'Modulus' : '.%math_helper%',
-    'AND' : '.&math_helper&',
-    'OR' : '.|math_helper|',
-    'XOR' : '.^math_helper^',
-    'Random' : 'randrange',
-    'ApplicationPath' : 'get_app_path()',
+    'Modulus' : '.%MathHelper()%',
+    'AND' : '.&MathHelper()&',
+    'OR' : '.|MathHelper()|',
+    'XOR' : '.^MathHelper()^',
+    'Random' : 'randrange_event',
+    'ApplicationPath' : ApplicationPath,
     'AlterableValue' : AlterableValueExpression,
     'AlterableValueIndex' : AlterableValueIndexExpression,
     'AlterableStringIndex' : 'alterables->strings.get',
     'AlterableString' : AlterableStringExpression,
     'GlobalString' : GlobalStringExpression,
     'GlobalValue' : GlobalValueExpression,
-    'GlobalValueExpression' : '.global_values->get(-1 + ',
+    'GlobalValueExpression' : GlobalValueDynamic,
     'YPosition' : 'get_y()',
     'XPosition' : 'get_x()',
     'ActionX' : 'get_action_x()',
@@ -2218,6 +2503,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'GetAngle' : 'get_angle()',
     'FrameHeight' : '.height',
     'FrameWidth' : '.width',
+    'GetVirtualWidth' : '.virtual_width',
     'StringLength' : 'string_size',
     'Find' : 'string_find',
     'ReverseFind' : 'string_rfind',
@@ -2232,10 +2518,12 @@ expressions = make_table(ExpressionMethodWriter, {
     'ObjectRight' : 'get_box_index(2)',
     'ObjectTop' : 'get_box_index(1)',
     'ObjectBottom' : 'get_box_index(3)',
+    'GetWidth' : 'get_generic_width()',
+    'GetHeight' : 'get_generic_height()',
     'GetDirection' : 'get_direction()',
     'GetXScale' : '.x_scale',
     'GetYScale' : '.y_scale',
-    'Power' : '.*math_helper*',
+    'Power' : '.*MathHelper()*',
     'SquareRoot' : 'sqrt',
     'Asin' : 'asin_deg',
     'Atan2' : 'atan2_deg',
@@ -2251,6 +2539,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'Ceil' : 'get_ceil',
     'GetMainVolume' : 'media.get_main_volume()',
     'GetChannelPosition' : '.media.get_channel_position(-1 +',
+    'GetSampleVolume' : GetSampleVolume,
     'GetSamplePosition' : GetSamplePosition,
     'GetSampleDuration' : GetSampleDuration,
     'GetChannelVolume' : '.media.get_channel_volume(-1 +',
@@ -2266,7 +2555,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'ObjectCount' : ObjectCount,
     'CounterMaximumValue' : '.maximum',
     'ApplicationDirectory' : 'get_app_dir()',
-    'ApplicationDrive' : 'get_app_drive()',
+    'ApplicationDrive' : ApplicationDrive,
     'TimerValue' : '.(frame_time * 1000.0)',
     'TimerHundreds' : '.(int(frame_time * 100) % 100)',
     'CounterValue': CounterValue,
@@ -2281,6 +2570,7 @@ expressions = make_table(ExpressionMethodWriter, {
     'TemporaryPath' : 'get_temp_path()',
     'GetCollisionMask' : 'get_background_mask',
     'FontColor' : 'blend_color.get_int()',
+    'FontName' : 'get_font_name',
     'RGBCoefficient' : 'blend_color.get_int()',
     'MovementNumber' : 'get_movement()->index',
     'FrameBackgroundColor' : 'background_color.get_int()',

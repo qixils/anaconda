@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_MATH_H
 #define CHOWDREN_MATH_H
 
@@ -18,6 +35,11 @@
 inline float mod(float a, float b)
 {
     return a - b * floor(a / b);
+}
+
+inline int mod(int a, int b)
+{
+    return a - b * (a / b);
 }
 
 template <class T>
@@ -103,6 +125,14 @@ inline int get_angle_int(int x1, int y1, int x2, int y2)
     return int(get_angle(x1, y1, x2, y2));
 }
 
+inline float get_angle_rad(float x1, float y1, float x2, float y2)
+{
+    float v = atan2(y1 - y2, x2 - x1);
+    if (v < 0.0f)
+        v += rad(360.0f);
+    return v;
+}
+
 inline int get_angle_int(int x, int y)
 {
     return get_angle_int(0, 0, x, y);
@@ -160,6 +190,18 @@ inline T clamp(T val)
 {
     T x = val > 1 ? 1 : val;
     return x < 0 ? 0 : x;
+}
+
+inline double int_pow(double value, int ex)
+{
+    double result = 1.0;
+    while (ex) {
+        if (ex & 1)
+            result *= value;
+        ex >>= 1;
+        value *= value;
+    }
+    return result;
 }
 
 inline int get_abs(int v)
@@ -246,6 +288,12 @@ inline bool collides(int a[4], int b[4])
     return a[2] > b[0] && a[3] > b[1] && a[0] < b[2] && a[1] < b[3];
 }
 
+inline bool contains(int b[4], int s[4])
+{
+    return s[0] >= b[0] && s[1] >= b[1] &&
+           s[2] <= b[2] && s[3] <= b[3];
+}
+
 inline void rect_union(int a_x1, int a_y1, int a_x2, int a_y2,
                        int b_x1, int b_y1, int b_x2, int b_y2,
                        int & r_x1, int & r_y1, int & r_x2, int & r_y2)
@@ -310,18 +358,27 @@ inline void get_dir(int dir, float & x, float & y)
     y = -sin(r);
 }
 
+inline int get_dir_diff_abs(int d1, int d2)
+{
+    return get_min(get_abs(d1 - d2), get_min(get_abs(d1 - d2 - 360),
+                                             get_abs(d1 - d2 + 360)));
+}
+
 // random
 
 inline int randrange(int range)
 {
-    if (range == 0)
-        return 0;
-    return cross_rand() / (CROSS_RAND_MAX / range + 1);
+    return (range * cross_rand()) / (CROSS_RAND_MAX + 1);
+}
+
+inline int randrange_event(int range)
+{
+    return randrange(range & 0xFFFF);
 }
 
 inline float randrange(float a, float b)
 {
-    return a + cross_rand() / (CROSS_RAND_MAX/(b-a));
+    return a + (cross_rand() * (b - a)) / (CROSS_RAND_MAX + 1.0f);
 }
 
 inline bool random_chance(int a, int b)

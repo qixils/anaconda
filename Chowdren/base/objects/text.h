@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_TEXT_H
 #define CHOWDREN_TEXT_H
 
@@ -19,6 +36,7 @@ public:
     bool initialized;
     int alignment;
     bool bold, italic;
+    std::string font_name;
     FTTextureFont * font;
     std::string draw_text;
     bool draw_text_set;
@@ -43,6 +61,7 @@ public:
     int get_width();
     int get_height();
     void update_draw_text();
+    const std::string & get_font_name();
 };
 
 class FontInfo
@@ -55,5 +74,7 @@ public:
     static void set_width(FrameObject * obj, int w);
     static void set_scale(FrameObject * obj, float scale);
 };
+
+extern FrameObject * default_text_instance;
 
 #endif // CHOWDREN_TEXT_H

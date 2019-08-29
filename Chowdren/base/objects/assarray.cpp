@@ -1,20 +1,49 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/assarray.h"
 #include "objects/blowfish.cpp"
 #include "fileio.h"
 #include <iostream>
 #include "stringcommon.h"
+#include "datastream.h"
 
 #define ARRAY_MAGIC "ASSBF1.0"
+
+static vector<AssociateArray*> arrays;
 
 AssociateArray::AssociateArray(int x, int y, int type_id)
 : FrameObject(x, y, type_id), store()
 {
 }
 
+void AssociateArray::init_global()
+{
+    arrays.push_back(this);
+}
+
 AssociateArray::~AssociateArray()
 {
-    if (map != &global_map)
+    if (map != &global_map) {
         delete map;
+        return;
+    }
+    arrays.erase(std::remove(arrays.begin(), arrays.end(), this),
+                 arrays.end());
 }
 
 void AssociateArray::set_key(const std::string & key)
@@ -143,6 +172,14 @@ void AssociateArray::clear()
     for (int i = 0; i < CHOWDREN_ASSARRAY_STORE; ++i)
         store[i] = NULL;
     map->clear();
+    if (map != &global_map)
+        return;
+    vector<AssociateArray*>::iterator it;
+    for (it = arrays.begin(); it != arrays.end(); ++it) {
+        AssociateArray * array = *it;
+        for (int i = 0; i < CHOWDREN_ASSARRAY_STORE; ++i)
+            array->store[i] = NULL;
+    }
 }
 
 bool AssociateArray::has_key(const std::string & key)
@@ -218,12 +255,13 @@ const std::string & AssociateArray::get_key(ArrayAddress addr)
     return addr.it->first;
 }
 
-void AssociateArray::save(BaseStream & stream, int method)
+template <typename T>
+inline void save_assarray(AssociateArray & array, T & stream, int method)
 {
     stream.write(ARRAY_MAGIC, sizeof(ARRAY_MAGIC)-1);
 
     ArrayMap::iterator it;
-    for (it = map->begin(); it != map->end(); it++) {
+    for (it = array.map->begin(); it != array.map->end(); it++) {
         AssociateArrayItem & item = it->second;
         std::string key = it->first;
         encode_method(key, method);
@@ -250,8 +288,9 @@ void AssociateArray::save(const std::string & path, int method)
         std::cout << "Could not save associate array: " << path << std::endl;
         return;
     }
-    FileStream stream(fp);
-    save(stream, method);
+    WriteStream stream;
+    save_assarray(*this, stream, method);
+    stream.save(fp);
     fp.close();
 }
 
@@ -259,7 +298,7 @@ void AssociateArray::save_encrypted(const std::string & path, int method)
 {
     std::stringstream ss;
     DataStream stream(ss);
-    save(stream, method);
+    save_assarray(*this, stream, method);
     std::string src = ss.str();
     std::string dst;
     cipher.encrypt(&dst, src);

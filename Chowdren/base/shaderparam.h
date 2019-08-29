@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_SHADERPARAM_H
 #define CHOWDREN_SHADERPARAM_H
 
@@ -18,6 +35,7 @@ unsigned int hash_shader_parameter(const char * str, unsigned int len);
 #define SHADER_PARAM_FSY 98
 #define SHADER_PARAM_FSX 103
 #define SHADER_PARAM_FFADE 35
+#define SHADER_PARAM_FPERIODS 153
 #define SHADER_PARAM_YOFF 129
 #define SHADER_PARAM_FANGLE 66
 #define SHADER_PARAM_IINVERT 132
@@ -25,6 +43,7 @@ unsigned int hash_shader_parameter(const char * str, unsigned int len);
 #define SHADER_PARAM_FORIGINALPOWER 159
 #define SHADER_PARAM_Y_SIZE 151
 #define SHADER_PARAM_SATURATION 130
+#define SHADER_PARAM_FAMPLITUDE 115
 #define SHADER_PARAM_FBRGB 25
 #define SHADER_PARAM_VERTICAL 68
 #define SHADER_PARAM_RR 2

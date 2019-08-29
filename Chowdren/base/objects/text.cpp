@@ -1,8 +1,26 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/text.h"
 #include "collision.h"
 #include "common.h"
+#include "utfconv.h"
 
-// Active
+// Text
 
 Text::Text(int x, int y, int type_id)
 : FrameObject(x, y, type_id), initialized(false), current_paragraph(0),
@@ -20,11 +38,21 @@ Text::~Text()
 void Text::add_line(const std::string & text)
 {
     paragraphs.push_back(text);
-    if (!initialized) {
-        initialized = true;
-        this->text = text;
-    }
+    if (initialized)
+        return;
+    initialized = true;
+    this->text = text;
+
+#ifdef CHOWDREN_FORCE_TEXT_LAYOUT
+    if (layout != NULL)
+        return;
+
+    set_width(width);
+    layout->SetAlignment((TextAlignment)alignment);
+#endif
 }
+
+#define LAYOUT_USE_ALIGNMENT
 
 void Text::draw()
 {
@@ -38,28 +66,42 @@ void Text::draw()
     }
 
     update_draw_text();
+
+    if (effect == Render::PIXELOUTLINE) {
+        Render::set_effect(Render::FONTOUTLINE, this,
+                           font->textureWidth, font->textureHeight);
+        FTTextureFont::custom_shader = true;
+    }
+
+    double off_y = y + font->Ascender();
+
     FTTextureFont::color = blend_color;
     if (layout != NULL) {
-        FTBBox bb = layout->BBox(draw_text.c_str(), -1);
-        double off_y = y + font->Ascender();
-        layout->Render(draw_text.c_str(), -1, FTPoint(x, int(off_y)));
+        int lines = layout->get_lines(draw_text.c_str(), -1);
+        double box_h = lines * font->LineHeight();
+        if (alignment & ALIGN_VCENTER) {
+            off_y += (height - box_h) * 0.5;
+        } else if (alignment & ALIGN_BOTTOM) {
+            off_y += box_h;
+        }
+        int off_yy = int(off_y);
+        layout->Render(draw_text.c_str(), -1, FTPoint(x, off_yy));
     } else {
-        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
-        double box_w = box.Upper().X() - box.Lower().X();
-        // double box_h = box.Upper().Y() - box.Lower().Y();
-        double off_x = x;
-        double off_y = y + font->Ascender();
-
-        if (alignment & ALIGN_HCENTER)
-            off_x += 0.5 * (width - box_w);
-        else if (alignment & ALIGN_RIGHT)
-            off_x += width - box_w;
-
         if (alignment & ALIGN_VCENTER) {
             off_y += height * 0.5 - font->LineHeight() * 0.5;
         } else if (alignment & ALIGN_BOTTOM) {
             off_y += font->LineHeight();
         }
+
+        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
+        double box_w = box.Upper().X() - box.Lower().X();
+        // double box_h = box.Upper().Y() - box.Lower().Y();
+        double off_x = x;
+
+        if (alignment & ALIGN_HCENTER)
+            off_x += 0.5 * (width - box_w);
+        else if (alignment & ALIGN_RIGHT)
+            off_x += width - box_w;
 
 #ifdef CHOWDREN_BIG_FONT_OFFY
         if (font == big_font)
@@ -68,10 +110,17 @@ void Text::draw()
         font->Render(draw_text.c_str(), -1, FTPoint(int(off_x), int(off_y)),
                      FTPoint());
     }
+
+    if (effect == Render::PIXELOUTLINE) {
+        Render::disable_effect();
+        FTTextureFont::custom_shader = false;
+    }
 }
 
 void Text::set_string(const std::string & value)
 {
+    if (text == value)
+        return;
     text = value;
     draw_text_set = false;
 }
@@ -130,19 +179,7 @@ void Text::update_draw_text()
 #ifdef CHOWDREN_TEXT_USE_UTF8
     draw_text = text;
 #else
-    // convert from windows-1252 to utf-8
-    std::string::const_iterator it;
-    draw_text.clear();
-    for (it = text.begin(); it != text.end(); ++it) {
-        char c = *it;
-        unsigned char cc = (unsigned char)c;
-        if (cc < 128) {
-            draw_text.push_back(c);
-        } else {
-            draw_text.push_back(char(0xC2 + (cc > 0xBF)));
-            draw_text.push_back(char(cc & 0x3F + 0x80));
-        }
-    }
+    convert_windows1252_to_utf8(text, draw_text);
 #endif
     if (layout != NULL)
         return;
@@ -188,6 +225,11 @@ int Text::get_height()
     return (int)(bb.Upper().Y() - bb.Lower().Y());
 }
 
+const std::string & Text::get_font_name()
+{
+    return font_name;
+}
+
 // FontInfo
 
 int FontInfo::get_width(FrameObject * obj)
@@ -210,4 +252,19 @@ void FontInfo::set_scale(FrameObject * obj, float scale)
     ((Text*)obj)->set_scale(scale);
 }
 
+
 std::string FontInfo::vertical_tab("\x0B");
+
+class DefaultText : public Text
+{
+public:
+    DefaultText()
+    : Text(0, 0, 0)
+    {
+        collision = new InstanceBox(this);
+        setup_default_instance(this);
+    }
+};
+
+static DefaultText default_text;
+FrameObject * default_text_instance = &default_text;

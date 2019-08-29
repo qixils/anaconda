@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -34,7 +51,7 @@ NATIVE_SHADERS = {
     'HardMix.fx' : None,
     'Overlay.fx' : None,
     'Lens.fx' : 'lens',
-    'LinearDodge.fx' : None,
+    'LinearDodge.fx' : 'lineardodge',
     'SoftLight.fx' : None,
     'PinLight.fx' : None,
     'Invert' : 'invert',
@@ -58,13 +75,23 @@ NATIVE_SHADERS = {
     'PixelOutline_alphacoef support.fx' : 'pixeloutline',
     'BrightnessSaturationBg.fx' : 'brightsatbg',
     'BgBlur.fx' : 'bgblur',
+    'Blur.fx' : 'blur',
+    'Display.fx' : 'display',
+    'PixelOutline.fx' : 'pixeloutline', # change?
+    'LinearBurn.fx' : 'linearburn',
 
     # missing effects
     'CRT.fx' : None,
     'FlipY.fx' : None,
-    'ChannelBlurAdd.fx' : None,
+    'ChannelBlurAdd.fx' : 'channelbluradd',
     'DualGlow.fx' : None,
     'DropShadow.fx' : None,
+
+    # new HFA missing effects
+    'OffsetStationaryParam.fx' : None,
+    'Colorizer with blur.fx' : None,
+    'BrightnessSaturation.fx' : None,
+
 
     # unsupported in HWA
     'XOR' : None,

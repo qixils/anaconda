@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 
 from chowdren.common import get_animation_name, to_c, make_color
@@ -210,6 +227,17 @@ class MoveObject(ActionMethodWriter):
         parameter = self.parameters[0].loader
         return (parameter.objectInfo, parameter.objectType)
 
+class SetAlpha(ActionMethodWriter):
+    method = 'set_alpha_coefficient(%s-1, %s)'
+
+class SetEffect(ActionMethodWriter):
+    custom = True
+
+    def write(self, writer):
+        name = self.parameters[1].loader.value
+        if name != '':
+            raise NotImplementedError()
+
 class SetByName(ActionMethodWriter):
     def write(self, writer):
         name = self.converter.convert_static_expression(
@@ -281,9 +309,22 @@ class GetYByName(GetByName):
     def get_string_layer(self, index, layer):
         return 'layers[%s].y' % index
 
+class CheckByName(ConditionMethodWriter):
+    has_object = False
+
+    def write(self, writer):
+        name = self.converter.convert_static_expression(
+            self.parameters[0].loader.items)
+        index, layer = get_layer(self.converter, name)
+        self.write_layer(index, writer)
+
+class IsVisibleByName(CheckByName):
+    def write_layer(self, layer, writer):
+        writer.putc('layers[%s].visible', layer)
+
 class IsVisible(ConditionMethodWriter):
     has_object = False
-    method = 'layers[%s+1].visible'
+    method = 'layers[%s-1].visible'
 
 class GetObjectLevel(ExpressionMethodWriter):
     has_object = False
@@ -313,12 +354,15 @@ actions = make_table(ActionMethodWriter, {
     27 : 'sort_alt_decreasing',
     31 : 'show_layer(%s-1)',
     32 : 'hide_layer(%s-1)',
+    44 : SetEffect,
+    46 : SetAlpha,
     47 : 'set_rgb(%s-1, %s)',
     50 : SetAlphaByName
 })
 
 conditions = make_table(ConditionMethodWriter, {
-    10 : IsVisible
+    10 : IsVisible,
+    11 : IsVisibleByName
 })
 
 expressions = make_table(ExpressionMethodWriter, {

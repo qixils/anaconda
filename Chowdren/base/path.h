@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_PATH_H
 #define CHOWDREN_PATH_H
 
@@ -6,6 +23,12 @@
 #include "stringcommon.h"
 
 #define PATH_SEP "\\/"
+
+#ifdef _WIN32
+#define PATH_SEP_SINGLE "\\"
+#else
+#define PATH_SEP_SINGLE "/"
+#endif
 
 inline std::string get_app_path()
 {
@@ -57,6 +80,16 @@ inline std::string get_path_ext(const std::string & path)
         ext = path.substr(pos + 1);
     to_lower(ext);
     return ext;
+}
+
+inline std::string join_path(const std::string & a, const std::string & b)
+{
+    if (a.empty())
+        return b;
+    char c = a[a.size()-1];
+    if (c == '\\' || c == '/')
+        return a + b;
+    return a + PATH_SEP_SINGLE + b;
 }
 
 inline void make_ascii(std::string & path)

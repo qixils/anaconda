@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_MANAGER_H
 #define CHOWDREN_MANAGER_H
 
@@ -9,6 +26,7 @@
 #include "input.h"
 #include "pool.h"
 #include "chowconfig.h"
+#include "transition.h"
 
 class Frame;
 
@@ -16,6 +34,9 @@ class GameManager
 {
 public:
     Frame * frame;
+#ifdef CHOWDREN_SUBAPP_FRAMES
+    Frame * main_frame;
+#endif
     GlobalValues * values;
     GlobalStrings * strings;
     FPSLimiter fps_limit;
@@ -23,9 +44,13 @@ public:
     bool app_fullscreen, fullscreen;
     int off_x, off_y, x_size, y_size;
     int mouse_x, mouse_y;
+
+    // transition
     Color fade_color;
     float fade_dir;
     float fade_value;
+    Transition::Type fade_type;
+
     int score;
     int lives;
     bool player_died;
@@ -42,7 +67,7 @@ public:
     InputList keyboard;
     InputList mouse;
 
-#ifdef CHOWDREN_USE_EDITOBJ
+#if defined(CHOWDREN_USE_EDITOBJ) || defined(CHOWDREN_USE_GWEN)
     std::string input;
 #endif
 
@@ -72,7 +97,7 @@ public:
     bool is_fullscreen();
     void run();
     void reset_globals();
-    void set_fade(const Color & color, float dir);
+    void set_fade(Transition::Type type, const Color & color, float dir);
     void draw_fade();
 
 #ifdef CHOWDREN_USE_JOYTOKEY
@@ -83,6 +108,8 @@ public:
     int axis_values[CHOWDREN_AXIS_MAX-1];
     int last_axis;
     bool axis_moved;
+    bool pad_selected;
+    bool pad_disconnected;
 
     int simulate_count;
     struct SimulateKey
@@ -103,6 +130,7 @@ public:
     void simulate_key(int key);
     void map_button(int button, const std::string & key);
     void map_axis(int axis, const std::string & neg, const std::string & pos);
+    void reset_map();
 #endif
 };
 

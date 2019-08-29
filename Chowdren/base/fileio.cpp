@@ -1,13 +1,31 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "fileio.h"
 
 // BaseFile
 
 BaseFile::BaseFile()
-: handle(NULL), closed(true)
+: handle(NULL), flags(CLOSED)
 {
 }
 
 BaseFile::BaseFile(const char * filename, const char * mode)
+: handle(NULL), flags(CLOSED)
 {
     open(filename, mode);
 }
@@ -25,11 +43,6 @@ size_t BaseFile::get_size()
     size_t size = tell();
     seek(pos);
     return size;
-}
-
-bool BaseFile::is_open()
-{
-    return !closed;
 }
 
 // BufferedFile
@@ -52,7 +65,7 @@ void BufferedFile::open(const char * filename, const char * mode)
     pos = buf_pos = buf_size = 0;
     fp.open(filename, mode);
 
-    if (fp.closed || *mode != 'r')
+    if (!fp.is_open() || *mode != 'r')
         return;
 
     buffer = malloc(READ_BUFFER_SIZE);
@@ -131,7 +144,7 @@ size_t BufferedFile::write(const void * data, size_t size)
 
 void BufferedFile::close()
 {
-    if (fp.closed)
+    if (!fp.is_open())
         return;
     fp.close();
     free(buffer);

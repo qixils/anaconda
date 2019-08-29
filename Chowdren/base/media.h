@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_MEDIA_H
 #define CHOWDREN_MEDIA_H
 
@@ -9,6 +26,7 @@ class SoundData;
 
 namespace ChowdrenAudio
 {
+    void create_audio_preload(const std::string & path);
     class SoundBase;
 }
 
@@ -68,6 +86,7 @@ public:
     void set_sample_pan(unsigned int id, double pan);
     void set_sample_position(unsigned int id, double pos);
     void set_sample_frequency(unsigned int id, double freq);
+    double get_sample_volume(unsigned int id);
     double get_sample_position(unsigned int id);
     double get_sample_duration(unsigned int id);
     void stop_sample(unsigned int id);
@@ -85,10 +104,12 @@ public:
     bool is_channel_valid(unsigned int channel);
     void add_file(unsigned int id, const std::string & fn);
     void add_cache(unsigned int id, FSFile & fp);
-    void add_data(unsigned int id, FSFile & fp, size_t size, AudioType type);
+    void add_cache(unsigned int id);
     double get_main_volume();
     void set_main_volume(double volume);
 };
+
+Media::AudioType get_audio_type(const std::string & filename);
 
 extern Media media;
 

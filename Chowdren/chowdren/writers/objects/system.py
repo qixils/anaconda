@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 from chowdren.writers.objects import ObjectWriter
 from mmfparser.data.chunkloaders.objectinfo import (QUICKBACKDROP, BACKDROP,
     ACTIVE, TEXT, QUESTION, SCORE, LIVES, COUNTER, RTF, SUBAPPLICATION)
@@ -6,7 +23,8 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING, DISAPPEARING)
-from chowdren.common import get_animation_name, to_c, make_color
+from chowdren.common import (get_animation_name, to_c, make_color,
+                             get_method_name)
 
 def get_closest_directions(direction, dir_dict):
     try:
@@ -55,6 +73,7 @@ class Active(ObjectWriter):
     default_instance = 'default_active_instance'
     filename = 'active'
     destruct = False
+    use_door_fadeout = False
 
     def write_init(self, writer):
         common = self.common
@@ -64,14 +83,27 @@ class Active(ObjectWriter):
         writer.putlnc('if (!%s) {', self.initialized_name)
         writer.indent()
         writer.putlnc('%s = true;', self.initialized_name)
+        scale_method = self.converter.config.get_scale_method(self) 
         for name, images in self.images:
             for image_index, image in enumerate(images):
                 writer.putlnc('%s[%s] = %s;', name, image_index, image)
+                if scale_method is None:
+                    continue
+                writer.putlnc('%s[%s]->set_filter(%s);', name, image_index,
+                              scale_method)
         writer.end_brace()
         flags = common.newFlags
-        writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
-        writer.putlnc('auto_rotate = %s;', bool(flags['AutomaticRotation']))
-        writer.putlnc('transparent = %s;', self.get_transparent())
+
+        fade = common.fadeOut
+        if fade and fade.name in ('FADE', 'DOOR'):
+            writer.putlnc('fade_duration = %s;', fade.duration / 1000.0)
+            if fade.name == 'DOOR':
+                self.use_door_fadeout = True
+
+        if flags['AutomaticRotation']:
+            writer.putlnc('active_flags |= AUTO_ROTATE;')
+        if self.get_transparent():
+            writer.putlnc('active_flags |= TRANSPARENT;')
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
             writer.putln('forced_animation = current_animation = APPEARING;')
@@ -81,7 +113,19 @@ class Active(ObjectWriter):
             writer.putln('flags |= FADEOUT;')
             self.destruct = True
 
-        writer.putln('initialize_active();')
+        writer.putlnc('initialize_active(%s);', flags['CollisionBox'])
+
+    def write_class(self, writer):
+        if not self.use_door_fadeout:
+            return
+        writer.putmeth('void draw')
+        writer.putlnc('if (flags & FADEOUT) {')
+        writer.indent()
+        writer.putlnc('draw_door_fadeout();')
+        writer.putlnc('return;')
+        writer.end_brace()
+        writer.putlnc('Active::draw();')
+        writer.end_brace()
 
     def has_updates(self):
         if not self.converter.config.use_update_filtering():
@@ -125,8 +169,9 @@ class Active(ObjectWriter):
         prefix = self.new_class_name.lower()
         for animation_index in sorted(animations):
             animation = animations[animation_index]
-            single_loop = animation.getName() in ('Appearing', 'Disappearing')
-            # writer.putmeth('void init_anim_%s' % animation_index)
+            anim_name = animation.getName()
+            if anim_name == 'Appearing' and direction.repeat == 0:
+                print 'Problematic appearing?', self.data.name
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
             direction_map = {}
@@ -143,15 +188,13 @@ class Active(ObjectWriter):
                 loop_count = direction.repeat
                 if loop_count == 0:
                     loop_count = -1
-                if single_loop and loop_count == -1:
-                    loop_count = 1
 
                 direction_name = 'direction_%s' % dir_prefix
                 writer.putlnc('static Direction %s = {%s, %s, %s, %s, %s, %s, '
                               '%s};', direction_name, direction_index,
                               direction.minSpeed, direction.maxSpeed,
-                              direction.backTo, loop_count, images_name,
-                              image_count)
+                              direction.backTo, loop_count, image_count,
+                              images_name)
                 direction_map[direction_index] = '&%s' % direction_name
 
             directions = []
@@ -208,9 +251,16 @@ class Backdrop(ObjectWriter):
             raise NotImplementedError
 
     def write_init(self, writer):
+        if self.data.name is not None:
+            name_id = 'BACK_ID_' + get_method_name(self.data.name).upper()
+            writer.putraw('#ifdef %s' % name_id)
+            writer.putlnc('manager.frame->back_instances[%s].push_back(this);',
+                          name_id)
+            writer.putraw('#endif')
+
         image = self.converter.get_image(self.common.image)
         writer.putln('image = %s;' % image)
-        if self.data.name.endswith('(DRC)'):
+        if self.data.name and self.data.name.endswith('(DRC)'):
             writer.putraw('#if defined(CHOWDREN_IS_WIIU) || '
                           'defined(CHOWDREN_EMULATE_WIIU)')
             writer.putln('remote = CHOWDREN_REMOTE_TARGET;')
@@ -314,6 +364,7 @@ class Text(ObjectWriter):
     use_alterables = True
     has_color = True
     filename = 'text'
+    default_instance = 'default_text_instance'
 
     def initialize(self):
         pass
@@ -321,16 +372,26 @@ class Text(ObjectWriter):
     def write_init(self, writer):
         text = self.common.text
         lines = [paragraph.value for paragraph in text.items]
-        for paragraph in text.items:
-            writer.putln(to_c('add_line(%r);', paragraph.value))
-        # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('blend_color = %s;' % make_color(text.items[0].color))
+
         font = text.items[0].font
-        writer.putln('bold = font%s.bold;' % font)
-        writer.putln('italic = font%s.italic;' % font)
-        writer.putln('font = get_font(font%s.size);' % font)
+        font_info = self.converter.fonts[font]
+
+        writer.putlnc('bold = %s;', font_info.isBold())
+        writer.putlnc('italic = %s;', bool(font_info.italic))
+        writer.putlnc('font_name = %r;', font_info.faceName)
+
+        flags = []
+        if font_info.isBold():
+            flags.append('FTTextureFont::BOLD')
+        flags = ' | '.join(flags)
+        if not flags:
+            flags = '0'
+
+        writer.putlnc('font = get_font(%s, %s);', font_info.getSize(),
+                      flags)
 
         paragraph = text.items[0]
         if paragraph.flags['HorizontalCenter']:
@@ -346,6 +407,8 @@ class Text(ObjectWriter):
         else:
             vertical = 'ALIGN_TOP'
         writer.putln('alignment = %s | %s;' % (horizontal, vertical))
+        for paragraph in text.items:
+            writer.putln(to_c('add_line(%r);', paragraph.value))
 
     def is_background(self):
         return False
@@ -360,7 +423,6 @@ class RTFText(ObjectWriter):
     def write_init(self, writer):
         text = self.common.rtf
         writer.putln(to_c('add_line("");',))
-        # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('blend_color = Color(0, 0, 0);')
@@ -437,8 +499,8 @@ class Counter(ObjectWriter):
                 writer.putlnc('image_count = %s;', size)
             else:
                 print 'type', counters.getDisplayType(), 'not implemented'
-                return
-                raise NotImplementedError
+                writer.putln('type = HIDDEN_COUNTER;')
+                writer.putln('width = height = 0;')
 
             if display_type in (VERTICAL_BAR, HORIZONTAL_BAR):
                 fill_type = shape_object.fillType
@@ -569,6 +631,22 @@ class SubApplication(ObjectWriter):
             frame_offset = self.converter.frame_map[(filename, 0)]
             writer.putlnc('frame_offset = %s;', frame_offset)
             start_frame = 0
+
+        if self.converter.config.use_subapp_frames() and flags['Docked']:
+            dock = data.getDockedPosition()
+            if dock == 'Top':
+                writer.putlnc('set_position(0, 0);')
+                writer.putlnc('width = 4096;')
+                writer.putlnc('subapp_flags |= IS_DOCKED;')
+
+        if self.converter.config.use_gwen():
+            if flags['Popup'] and flags['Caption']:
+                writer.putlnc('init_window();')
+            else:
+                writer.putlnc('init_frame();')
+
+            if flags['Popup']:
+                writer.putlnc('subapp_flags |= IS_POPUP;')
 
         writer.putlnc('restart(%s);', start_frame)
 

@@ -1,7 +1,23 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include <stdlib.h>
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -24,8 +40,10 @@ GameManager manager;
 #include "fonts.h"
 #include "crossrand.h"
 #include "media.h"
+#include "crashdump.cpp"
+#include "transition.cpp"
 
-#if defined(CHOWDREN_IS_DESKTOP)
+#if defined(CHOWDREN_IS_DESKTOP) || defined(CHOWDREN_IS_ANDROID)
 #include "SDL.h"
 #endif
 
@@ -33,8 +51,15 @@ GameManager manager;
 #include <emscripten/emscripten.h>
 #endif
 
-#ifndef NDEBUG
+#ifdef CHOWDREN_USE_GWEN
+#include "gui/gwen.h"
+#endif
+
+// #define CHOWDREN_USER_PROFILER
+
+#if !defined(NDEBUG)
 #define CHOWDREN_SHOW_DEBUGGER
+#define SHOW_STATS
 #endif
 
 GameManager::GameManager()
@@ -48,12 +73,19 @@ GameManager::GameManager()
 
 static Frames static_frames;
 
+#ifdef CHOWDREN_USER_PROFILER
+static FSFile user_log;
+#endif
+
 void GameManager::init()
 {
+#ifdef CHOWDREN_USER_PROFILER
+    user_log.open("log.txt", "w");
+#endif
+
 #ifdef CHOWDREN_USE_PROFILER
     PROFILE_SET_DAMPING(0.0);
 #endif
-    frame = &static_frames;
 
 #ifdef CHOWDREN_IS_DEMO
     idle_timer_started = false;
@@ -65,6 +97,8 @@ void GameManager::init()
     axis_moved = false;
     last_axis = -1;
     deadzone = 0.4f;
+    pad_selected = false;
+    pad_disconnected = false;
     for (int i = 0; i < CHOWDREN_BUTTON_MAX-1; i++)
         key_mappings[i] = -1;
     for (int i = 0; i < CHOWDREN_AXIS_MAX-1; i++) {
@@ -74,29 +108,48 @@ void GameManager::init()
     }
 #endif
 
+    frame = &static_frames;
+
+#ifdef CHOWDREN_SUBAPP_FRAMES
+    frame->display_width = WINDOW_START_WIDTH;
+    frame->display_height = WINDOW_START_HEIGHT;
+    main_frame = frame;
+#endif
+
     platform_init();
+    media.init();
     set_window(false);
 
     // application setup
     preload_images();
     reset_globals();
     setup_keys(this);
-    media.init();
 
     // setup random generator from start
     cross_srand((unsigned int)platform_get_global_time());
 
-    fps_limit.set(FRAMERATE);
+    fps_limit.start();
+    set_framerate(FRAMERATE);
 
     int start_frame = 0;
 #if defined(CHOWDREN_IS_AVGN)
     start_frame = 0;
 #elif defined(CHOWDREN_IS_HFA)
     start_frame = 0;
+    lives = 5;
 #elif defined(CHOWDREN_IS_FP)
     player_died = false;
     lives = 3;
     start_frame = 0;
+    // values->set(1, 2);
+    // values->set(12, 2);
+#elif defined(CHOWDREN_IS_NAH)
+    platform_set_scale_type(2);
+    start_frame = 0;
+    // set_local("fre");
+    // values->set(13, 25);
+    // strings->set(23, "OBJETS");
+    // strings->set(9, "-fre");
 #else
     start_frame = 0;
 #endif
@@ -133,12 +186,6 @@ void GameManager::set_window(bool fullscreen)
 
     // OpenGL init
     Render::init();
-
-#ifdef CHOWDREN_VSYNC
-    platform_set_vsync(true);
-#else
-    platform_set_vsync(false);
-#endif
 }
 
 void GameManager::set_window_scale(int scale)
@@ -190,6 +237,22 @@ int GameManager::update_frame()
     PROFILE_FUNC();
 #endif
     double dt = fps_limit.dt;
+
+// #ifdef SHOW_STATS
+//     if (dt > (1.2 / fps_limit.framerate)) {
+//         std::cout << "Bad frame: " << dt << " " << (1.0 / dt) << std::endl;
+//         std::cout << last_events << " " << last_draw << std::endl;
+//     }
+// #endif
+
+
+#ifdef CHOWDREN_SUBAPP_FRAMES
+    int w, h;
+    platform_get_size(&w, &h);
+    frame->display_width = w;
+    frame->display_height = h;
+#endif
+
     if (fade_dir != 0.0f) {
         fade_value += fade_dir * (float)dt;
         if (fade_value <= 0.0f || fade_value >= 1.0f) {
@@ -241,6 +304,18 @@ int GameManager::update_frame()
 void GameManager::set_framerate(int framerate)
 {
     fps_limit.set(framerate);
+#ifdef CHOWDREN_VSYNC
+    static bool vsync_temp = false;
+    if (framerate < 100) {
+        if (!vsync_temp)
+            return;
+        platform_set_vsync(true);
+        vsync_temp = false;
+        return;
+    }
+    vsync_temp = true;
+    platform_set_vsync(false);
+#endif
 }
 
 #ifdef CHOWDREN_IS_DEMO
@@ -250,9 +325,6 @@ FTTextureFont * get_font(int size);
 
 void GameManager::draw()
 {
-    if (!window_created)
-        return;
-
     int window_width, window_height;
     platform_get_size(&window_width, &window_height);
     if (window_width <= 0 || window_height <= 0)
@@ -269,7 +341,7 @@ void GameManager::draw()
     platform_begin_draw();
     PROFILE_END();
 
-#ifdef CHOWDREN_USE_SUBAPP
+#if defined(CHOWDREN_USE_SUBAPP) && !defined(CHOWDREN_SUBAPP_FRAMES)
     Frame * render_frame;
     if (SubApplication::current != NULL &&
         SubApplication::current->flags & VISIBLE) {
@@ -321,6 +393,14 @@ void GameManager::draw()
 
     Render::set_offset(0, 0);
 
+#if defined(CHOWDREN_USE_SUBAPP) && defined(CHOWDREN_SUBAPP_FRAMES)
+    SubApplication::draw_frames();
+    Render::set_offset(0, 0);
+    frame->gwen.update();
+    frame->gwen.canvas->RenderCanvas();
+    Render::set_offset(0, 0);
+#endif
+
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
         std::string date(__DATE__);
@@ -346,9 +426,7 @@ void GameManager::draw_fade()
     if (fade_dir == 0.0f)
         return;
     Render::set_offset(0, 0);
-    Color c = fade_color;
-    c.set_alpha(int(fade_value * 255));
-    Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, c);
+    Transition::draw(manager.fade_type, fade_value, fade_color);
 }
 
 void GameManager::set_frame(int index)
@@ -370,8 +448,7 @@ void GameManager::set_frame(int index)
     if (index == -2) {
         platform_begin_draw();
         media.stop_samples();
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        Render::clear(Color(0, 0, 0, 255));
         platform_swap_buffers();
 #ifdef CHOWDREN_IS_DEMO
         reset_timer = 0.0;
@@ -383,15 +460,22 @@ void GameManager::set_frame(int index)
 
     std::cout << "Setting frame: " << index << std::endl;
 
+#ifdef CHOWDREN_USER_PROFILER
+    std::string logline = "Setting frame: " + number_to_string(index) + "\n";
+    user_log.write(&logline[0], logline.size());
+#endif
+
     frame->set_index(index);
 
     std::cout << "Frame set" << std::endl;
 }
 
-void GameManager::set_fade(const Color & color, float fade_dir)
+void GameManager::set_fade(Transition::Type type, const Color & color,
+                           float dir)
 {
+    fade_type = type;
     fade_color = color;
-    this->fade_dir = fade_dir;
+    fade_dir = dir;
     if (fade_dir < 0.0f)
         fade_value = 1.0f;
     else
@@ -471,6 +555,28 @@ void GameManager::simulate_key(int key_int)
 
 void GameManager::map_button(int button, const std::string & key)
 {
+    if (button >= UNIFIED_AXIS_0 && button < UNIFIED_POV_0) {
+        button = button - UNIFIED_AXIS_0;
+        int axis = button / 2;
+        int is_neg = button - axis * 2;
+        axis++;
+        if (axis == CHOWDREN_AXIS_INVALID || axis >= CHOWDREN_AXIS_MAX)
+            return;
+        int old_key;
+        int key_int = -1;
+        if (!key.empty())
+            key_int = translate_string_to_key(key);
+        if (is_neg) {
+            old_key = axis_neg_mappings[axis-1];
+            axis_neg_mappings[axis-1] = key_int;
+        } else {
+            old_key = axis_pos_mappings[axis-1];
+            axis_pos_mappings[axis-1] = key_int;
+        }
+        if (old_key != -1 && old_key != key_int)
+            keyboard.remove(old_key);
+        return;
+    }
     button++;
     if (button == CHOWDREN_BUTTON_INVALID || button >= CHOWDREN_BUTTON_MAX)
         return;
@@ -507,14 +613,40 @@ void GameManager::map_axis(int axis,
     axis_pos_mappings[axis-1] = key;
 }
 
-#endif
+void GameManager::reset_map()
+{
+    for (int i = 0; i < CHOWDREN_BUTTON_MAX-1; i++) {
+        int old_key = key_mappings[i];
+        if (old_key != -1)
+            keyboard.remove(old_key);
+        key_mappings[i] = -1;
+    }
+    for (int i = 0; i < CHOWDREN_AXIS_MAX-1; i++) {
+        int old_key = axis_pos_mappings[i];
+        if (old_key != -1)
+            keyboard.remove(old_key);
+        axis_pos_mappings[i] = -1;
+        old_key = axis_neg_mappings[i];
+        if (old_key != -1)
+            keyboard.remove(old_key);
+        axis_neg_mappings[i] = -1;
+        axis_values[i] = 0;
+    }
+}
 
-#ifndef NDEBUG
-#define SHOW_STATS
 #endif
 
 bool GameManager::update()
 {
+#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+    static int save_time = 0;
+    save_time--;
+    if (save_time <= 0) {
+        save_alterable_debug();
+        save_time += 60;
+    }
+#endif
+
 #ifdef SHOW_STATS
     bool show_stats = false;
     static int measure_time = 0;
@@ -523,6 +655,13 @@ bool GameManager::update()
         measure_time = 200;
         show_stats = true;
     }
+#endif
+
+#ifdef CHOWDREN_USER_PROFILER
+    static int frame = 0;
+    frame++;
+    std::stringstream ss;
+    ss << "Frame " << frame << ": " << fps_limit.dt << " ";
 #endif
 
     // update input
@@ -541,8 +680,6 @@ bool GameManager::update()
     joystick_press_flags = new_control & ~(joystick_flags);
     joystick_release_flags = joystick_flags & ~(new_control);
     joystick_flags = new_control;
-
-    fps_limit.start();
 
 #ifdef CHOWDREN_USE_JOYTOKEY
     for (int i = 0; i < simulate_count; i++) {
@@ -601,6 +738,12 @@ bool GameManager::update()
 
         last_move = new_move;
     }
+
+    static bool last_connected = false;
+    bool connected = is_joystick_attached(1);
+    pad_selected = connected && last_connected != connected;
+    pad_disconnected = !connected && last_connected != connected;
+    last_connected = connected;
 #endif
 
     // update mouse position
@@ -620,6 +763,9 @@ bool GameManager::update()
 
         int ret = update_frame();
 
+#ifdef CHOWDREN_USER_PROFILER
+        ss << (platform_get_time() - event_update_time) << " ";
+#endif
 #ifdef SHOW_STATS
         if (show_stats)
             std::cout << "Event update took " <<
@@ -631,13 +777,17 @@ bool GameManager::update()
         else if (ret == 2)
             return true;
 
-        if (window_created && platform_display_closed())
+        if (platform_display_closed())
             return false;
     }
 
     double draw_time = platform_get_time();
 
     draw();
+
+#ifdef CHOWDREN_USER_PROFILER
+    ss << (platform_get_time() - draw_time) << " ";
+#endif
 
 #ifdef SHOW_STATS
     if (show_stats) {
@@ -652,13 +802,24 @@ bool GameManager::update()
 
     fps_limit.finish();
 
+#ifdef CHOWDREN_USER_PROFILER
+    ss << "\n";
+    std::string logline = ss.str();
+    user_log.write(&logline[0], logline.size());
+#endif
+
 #ifdef CHOWDREN_USE_PROFILER
     static int profile_time = 0;
     profile_time -= 1;
     if (profile_time <= 0) {
         profile_time += 500;
         PROFILE_UPDATE();
-        PROFILE_OUTPUT("data:/profile.txt");
+        std::string path = SDL_AndroidGetExternalStoragePath();
+        path = path + "/profile.txt";
+        std::cout << "Profile path: " << path << std::endl;
+        FILE * fp = fopen(path.c_str(), "wb");
+        PROFILE_OUTPUT_STREAM(fp);
+        fclose(fp);
     }
 #endif
 
@@ -683,8 +844,8 @@ void GameManager::run()
         if (!update())
             break;
     }
-    frame->data->on_app_end();
-    frame->data->on_end();
+    frame->data->on_app_end(frame);
+    frame->data->on_end(frame);
     media.stop();
     platform_exit();
 #endif
@@ -809,23 +970,6 @@ bool is_mouse_pressed(int button)
     return manager.mouse.is_pressed(button);
 }
 
-bool is_key_pressed(int button)
-{
-    if (button < 0)
-        return false;
-    return manager.keyboard.is_pressed(button);
-}
-
-bool is_any_key_pressed()
-{
-    return manager.keyboard.is_any_pressed();
-}
-
-bool is_any_key_pressed_once()
-{
-    return manager.keyboard.is_any_pressed_once();
-}
-
 bool is_mouse_pressed_once(int key)
 {
     if (key < 0)
@@ -833,8 +977,48 @@ bool is_mouse_pressed_once(int key)
     return manager.mouse.is_pressed_once(key);
 }
 
+bool is_mouse_released_once(int key)
+{
+    if (key < 0)
+        return false;
+    return manager.mouse.is_released_once(key);
+}
+
+bool is_key_pressed(int button)
+{
+#ifdef CHOWDREN_USE_GWEN
+    if (Gwen::KeyboardFocus)
+        return false;
+#endif
+    if (button < 0)
+        return false;
+    return manager.keyboard.is_pressed(button);
+}
+
+bool is_any_key_pressed()
+{
+#ifdef CHOWDREN_USE_GWEN
+    if (Gwen::KeyboardFocus)
+        return false;
+#endif
+    return manager.keyboard.is_any_pressed();
+}
+
+bool is_any_key_pressed_once()
+{
+#ifdef CHOWDREN_USE_GWEN
+    if (Gwen::KeyboardFocus)
+        return false;
+#endif
+    return manager.keyboard.is_any_pressed_once();
+}
+
 bool is_key_released_once(int key)
 {
+#ifdef CHOWDREN_USE_GWEN
+    if (Gwen::KeyboardFocus)
+        return false;
+#endif
     if (key < 0)
         return false;
     return manager.keyboard.is_released_once(key);
@@ -842,6 +1026,10 @@ bool is_key_released_once(int key)
 
 bool is_key_pressed_once(int key)
 {
+#ifdef CHOWDREN_USE_GWEN
+    if (Gwen::KeyboardFocus)
+        return false;
+#endif
     if (key < 0)
         return false;
     return manager.keyboard.is_pressed_once(key);
@@ -924,6 +1112,13 @@ static int get_joystick_control_flags(int n)
     flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_DOWN);
     flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_LEFT);
     flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_RIGHT);
+
+#ifdef CHOWDREN_IS_DESKTOP
+    // extra joystick flags
+    for (int i = 0; i < 8; i++) {
+        flags |= get_joystick_flag(n, CHOWDREN_BUTTON_DPAD_RIGHT+1+i);
+    }
+#endif
     return flags;
 }
 
@@ -970,36 +1165,36 @@ bool is_player_pressed_once(int player, int flags)
 
 // main function
 
+#ifdef _WIN32
+static void open_console()
+{
+#ifndef CHOWDREN_SHOW_DEBUGGER
+    if (getenv("CHOWDREN_SHOW_DEBUGGER") == NULL)
+        return;
+#endif
+    AllocConsole();
+    freopen("CONIN$", "r", stdin);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+    std::ios::sync_with_stdio();
+}
+#endif
+
 int main(int argc, char *argv[])
 {
-#if defined(_WIN32) && defined(CHOWDREN_SHOW_DEBUGGER)
-    int outHandle, errHandle, inHandle;
-    FILE *outFile, *errFile, *inFile;
-    AllocConsole();
-    CONSOLE_SCREEN_BUFFER_INFO coninfo;
-    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &coninfo);
+    install_crash_handler();
 
-    outHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_OUTPUT_HANDLE),
-                                _O_TEXT);
-    errHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_ERROR_HANDLE),
-                                _O_TEXT);
-    inHandle = _open_osfhandle((intptr_t)GetStdHandle(STD_INPUT_HANDLE),
-                               _O_TEXT);
-
-    outFile = _fdopen(outHandle, "w" );
-    errFile = _fdopen(errHandle, "w");
-    inFile =  _fdopen(inHandle, "r");
-
-    *stdout = *outFile;
-    *stderr = *errFile;
-    *stdin = *inFile;
-
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
-    setvbuf(stdin, NULL, _IONBF, 0);
-
-    std::ios::sync_with_stdio();
+#ifdef _WIN32
+    open_console();
 #endif
+
+#ifdef CHOWDREN_ENABLE_STEAM
+    extern int init_steam();
+    int ret = init_steam();
+    if (ret != 0)
+        return ret;
+#endif
+
     manager.run();
     return 0;
 }

@@ -1,5 +1,28 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
+// #define TEST_SDL_AUDIO
+
 #ifdef CHOWDREN_IS_DESKTOP
+#if defined(CHOWDREN_IS_ANDROID) || defined(TEST_SDL_AUDIO)
+#include "desktop/audiosdl.h"
+#else
 #include "desktop/audio.h"
+#endif
 #else
 #include "audio.h"
 #endif
@@ -16,7 +39,7 @@ inline double clamp_sound(double val)
     return std::max(0.0, std::min(val, 100.0));
 }
 
-inline Media::AudioType get_audio_type(const std::string & filename)
+Media::AudioType get_audio_type(const std::string & filename)
 {
     Media::AudioType type;
     if (get_path_ext(filename) == "wav")
@@ -89,6 +112,13 @@ public:
     {
         // load immediately
         buffer = new ChowdrenAudio::Sample(fp, type, size);
+    }
+
+    SoundMemory(unsigned int id, unsigned char * data, Media::AudioType type,
+                size_t size)
+    : SoundData(id), buffer(NULL)
+    {
+        buffer = new ChowdrenAudio::Sample(data, type, size);
     }
 
     void load(ChowdrenAudio::SoundBase ** source)
@@ -228,44 +258,80 @@ bool Channel::is_stopped()
 
 // Media
 
+static unsigned char * startup_data;
+static unsigned int startup_size;
+
+#ifdef USE_FILE_PRELOAD
+#include "audiopreload.h"
+#endif
+
 void Media::init()
 {
     ChowdrenAudio::open_audio();
 
+#ifdef USE_FILE_PRELOAD
+    preload_audio();
+#endif
+
+    double start_time = platform_get_time();
+
     AssetFile fp;
     fp.open();
+
+#ifdef CHOWDREN_IS_WIIU
+    // experimental code to load faster
+    unsigned int start = AssetFile::get_offset(0, AssetFile::SOUND_DATA);
+    unsigned int size = AssetFile::get_size(AssetFile::SOUND_DATA);
+    startup_data = new unsigned char[size];
+    startup_size = size;
+    fp.seek(start);
+	fp.read(startup_data, size);
+
+    for (int i = 0; i < SOUND_COUNT; i++) {
+        add_cache(i);
+    }
+
+	delete[] startup_data;
+#else
     for (int i = 0; i < SOUND_COUNT; i++) {
         fp.set_item(i, AssetFile::SOUND_DATA);
         add_cache(i, fp);
     }
+#endif
+
+    std::cout << "Sound bank took " << (platform_get_time() - start_time)
+        << std::endl;
 }
 
 void Media::stop()
 {
     stop_samples();
-
-    for (int i = 0; i < SOUND_COUNT; i++) {
-        delete sounds[i];
-    }
-
     ChowdrenAudio::close_audio();
 }
 
 void Media::play(SoundData * data, int channel, int loop)
 {
     if (channel == -1) {
+        Channel * channelp;
         for (channel = 0; channel < 32; channel++) {
-            Channel & channelp = channels[channel];
-            if (!channelp.is_stopped() || channelp.locked)
-                continue;
-            // unspecified channel does not inherit settings
-            channelp.volume = 100;
-            channelp.frequency = 0;
-            channelp.pan = 0;
-            break;
+            channelp = &channels[channel];
+            if (channelp->is_stopped() && !channelp->locked)
+                break;
         }
-        if (channel == 32)
-            return;
+        if (channel == 32) {
+            for (channel = 0; channel < 32; channel++) {
+                channelp = &channels[channel];
+                if (!channelp->locked)
+                    break;
+
+            }
+            if (channel == 32)
+                return;
+        }
+        // unspecified channel does not inherit settings
+        channelp->volume = 100;
+        channelp->frequency = 0;
+        channelp->pan = 0;
     }
     channels[channel].play(data, loop);
 }
@@ -273,9 +339,20 @@ void Media::play(SoundData * data, int channel, int loop)
 void Media::play(const std::string & in, int channel, int loop)
 {
     std::string filename = convert_path(in);
-    size_t size = platform_get_file_size(filename.c_str());
+    size_t size;
+#ifdef USE_FILE_PRELOAD
+    ChowdrenAudio::AudioPreload * preload;
+    preload = ChowdrenAudio::get_audio_preload(filename);
+    if (preload != NULL) {
+        size = preload->size;
+    } else
+#endif
+    {
+        size = platform_get_file_size(filename.c_str());
+    }
     if (size <= 0) {
-        std::cout << "Audio file does not exist: " << filename << std::endl;
+        std::cout << "Audio file does not exist: " << filename
+            << std::endl;
         return;
     }
     AudioType type = get_audio_type(filename);
@@ -396,6 +473,14 @@ double Media::get_sample_position(unsigned int id)
     return channel->get_position();
 }
 
+double Media::get_sample_volume(unsigned int id)
+{
+    Channel * channel = get_sample(id);
+    if (channel == NULL)
+        return 0.0;
+    return channel->volume;
+}
+
 double Media::get_sample_duration(unsigned int id)
 {
     Channel * channel = get_sample(id);
@@ -498,9 +583,9 @@ bool Media::is_channel_valid(unsigned int channel)
     return channel < 32;
 }
 
-#ifdef CHOWDREN_IS_DESKTOP
+#if defined(CHOWDREN_IS_DESKTOP)
 #define OGG_STREAM_THRESHOLD_MB 0.5
-#elif CHOWDREN_IS_3DS
+#elif defined(CHOWDREN_IS_3DS) || defined(CHOWDREN_IS_ANDROID)
 #define OGG_STREAM_THRESHOLD_MB 0.1
 #else
 #define OGG_STREAM_THRESHOLD_MB 0.75
@@ -530,9 +615,14 @@ void Media::add_file(unsigned int id, const std::string & fn)
     sounds[id] = data;
 }
 
-void Media::add_cache(unsigned int id, FSFile & fp)
+void Media::add_cache(unsigned int id)
 {
-    FileStream stream(fp);
+    ArrayStream stream((char*)startup_data, startup_size);
+    unsigned int start = AssetFile::get_offset(0, AssetFile::SOUND_DATA);
+    unsigned int offset = AssetFile::get_offset(id, AssetFile::SOUND_DATA);
+    unsigned int stream_offset = offset - start;
+    stream.seek(stream_offset);
+
     AudioType type = (AudioType)stream.read_uint32();
     if (type == NONE)
         return;
@@ -543,11 +633,41 @@ void Media::add_cache(unsigned int id, FSFile & fp)
     if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
         (!is_wav && size <= OGG_STREAM_THRESHOLD))
     {
+        data = new SoundMemory(id, &startup_data[stream.pos], type, size);
+    } else {
+        unsigned int data_offset = stream.pos - stream_offset;
+        data = new SoundCache(id, offset + data_offset, type, size);
+    }
+    media.sounds[id] = data;
+}
+
+void Media::add_cache(unsigned int id, FSFile & fp)
+{
+    FileStream stream(fp);
+    AudioType type = (AudioType)stream.read_uint32();
+    if (type == NONE)
+        return;
+    unsigned int size = stream.read_uint32();
+    size_t pos = fp.tell();
+
+    bool is_wav = type == WAV;
+    SoundData * data;
+    if ((is_wav && size <= WAV_STREAM_THRESHOLD) ||
+        (!is_wav && size <= OGG_STREAM_THRESHOLD))
+    {
+#ifdef CHOWDREN_IS_3DS
         data = new SoundMemory(id, fp, type, size);
+#else
+        unsigned char * sound_data = new unsigned char[size];
+        fp.read(sound_data, size); 
+        data = new SoundMemory(id, sound_data, type, size);
+        delete[] sound_data;
+#endif
     } else {
         data = new SoundCache(id, fp.tell(), type, size);
     }
-    sounds[id] = data;
+    media.sounds[id] = data;
+    fp.seek(pos + size);
 }
 
 double Media::get_main_volume()

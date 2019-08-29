@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 /* inih -- simple .INI file parser
 
 inih is released under the New BSD license (see LICENSE.txt). Go to the project
@@ -14,6 +31,7 @@ http://code.google.com/p/inih/
 #include <sstream>
 #include <istream>
 #include "platform.h"
+#include "utfconv.h"
 
 inline int is_space(unsigned char c)
 {
@@ -70,10 +88,10 @@ static bool at_end(std::istream & input)
 
 #define MAX_INI_STRING 50
 
-int ini_parse_string(const std::string & s,
-                     int (*handler)(void*, const char*, const char*,
-                                    const char*),
-                     void* user)
+int ini_parse_string_impl(const std::string & s,
+                          int (*handler)(void*, const char*, const char*,
+                                         const char*),
+                          void* user)
 {
     std::istringstream input(s);
 
@@ -144,4 +162,26 @@ int ini_parse_string(const std::string & s,
     }
 
     return error;
+}
+
+int ini_parse_string(const std::string & s,
+                     int (*handler)(void*, const char*, const char*,
+                                    const char*),
+                     void* user)
+{
+    if (s.size() >= 2 && (unsigned char)s[0] == 0xFF
+        && (unsigned char)s[1] == 0xFE)
+    {
+        std::string out;
+        convert_utf16_to_utf8(s, out);
+        return ini_parse_string_impl(out, handler, user);
+    }
+
+#ifdef CHOWDREN_INI_USE_UTF8
+    std::string out;
+    convert_windows1252_to_utf8(s, out);
+    return ini_parse_string_impl(out, handler, user);
+#else
+    return ini_parse_string_impl(s, handler, user);
+#endif
 }

@@ -1,9 +1,37 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef INCLUDE_GL_H
 #define INCLUDE_GL_H
 
-#ifdef CHOWDREN_IS_DESKTOP
+#if defined(CHOWDREN_USE_D3D) || defined(CHOWDREN_USE_GL) || \
+    defined(CHOWDREN_USE_GLES2)
 
-#ifdef CHOWDREN_USE_GL
+#ifdef CHOWDREN_USE_D3D
+
+#ifndef NDEBUG
+#define D3D_DEBUG_INFO
+#endif
+
+#include <d3d9.h>
+
+#elif CHOWDREN_USE_GL
+// SDL_opengl.h defines WIN32_LEAN_AND_MEAN
+#undef WIN32_LEAN_AND_MEAN
 #include <SDL_opengl.h>
 
 extern PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
@@ -12,6 +40,7 @@ extern PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
 extern PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
 extern PFNGLCLIENTACTIVETEXTUREARBPROC __glClientActiveTextureARB;
 extern PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
+extern PFNGLDELETEFRAMEBUFFERSEXTPROC __glDeleteFramebuffersEXT;
 extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
 extern PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
 
@@ -37,6 +66,7 @@ extern PFNGLGETUNIFORMLOCATIONARBPROC __glGetUniformLocationARB;
 #define glActiveTexture __glActiveTextureARB
 #define glClientActiveTexture __glClientActiveTextureARB
 #define glGenFramebuffers __glGenFramebuffersEXT
+#define glDeleteFramebuffers __glDeleteFramebuffersEXT
 #define glBindFramebuffer __glBindFramebufferEXT
 #define glFramebufferTexture2D __glFramebufferTexture2DEXT
 
@@ -60,10 +90,27 @@ extern PFNGLGETUNIFORMLOCATIONARBPROC __glGetUniformLocationARB;
 #include <SDL_opengles.h>
 
 #elif CHOWDREN_USE_GLES2
+
 #include <SDL_opengles2.h>
+#include "shadercommon.h"
+
+#define glCreateProgramObject glCreateProgram
+#define glCreateShaderObject glCreateShader
+#define glGetInfoLog glGetShaderInfoLog
+#define GL_VERTEX_SHADER_ARB GL_VERTEX_SHADER
+#define GL_FRAGMENT_SHADER_ARB GL_FRAGMENT_SHADER
+#define GL_OBJECT_COMPILE_STATUS_ARB GL_COMPILE_STATUS
+#define GL_OBJECT_INFO_LOG_LENGTH_ARB GL_INFO_LOG_LENGTH
+#define GL_OBJECT_LINK_STATUS_ARB GL_LINK_STATUS
+#define glDetachObject glDetachShader
+#define glAttachObject glAttachShader
+#define glUseProgramObject glUseProgram
+#define GLhandleARB GLuint
 
 #endif // CHOWDREN_USE_GL
 
-#endif // CHOWDREN_IS_DESKTOP
+#undef TRANSPARENT
+
+#endif
 
 #endif // INCLUDE_GL_H

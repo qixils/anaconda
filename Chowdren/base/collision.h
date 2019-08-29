@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_COLLISION_H
 #define CHOWDREN_COLLISION_H
 
@@ -24,7 +41,8 @@ enum CollisionType
 enum CollisionFlags
 {
     BOX_COLLISION = 1 << 0,
-    LADDER_OBSTACLE = 1 << 1
+    LADDER_OBSTACLE = 1 << 1,
+    DISABLED = 1 << 2
 };
 
 class CollisionBase
@@ -213,8 +231,8 @@ inline void transform_rect(float xx, float yy, float co, float si,
 #define INTEGER_GET_BIT
 
 #ifdef INTEGER_GET_BIT
-#define CONVERT_SCALER(x) (int((x) * 0x7FFF))
-#define GET_SCALER_RESULT(x) ((x) >> 15)
+#define CONVERT_SCALER(x) (int((x) * 0x8000))
+#define GET_SCALER_RESULT(x) ((x) / 0x8000)
 #else
 #define CONVERT_SCALER(x) x
 #define GET_SCALER_RESULT(x) (int(x))
@@ -240,8 +258,8 @@ public:
 
     SpriteCollision(FrameObject * instance = NULL)
     : InstanceCollision(instance, SPRITE_COLLISION, 0), image(NULL),
-      angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f),
-      si(0.0f), hotspot_x(0), hotspot_y(0), width(0), height(0), x_t(0), y_t(0)
+      angle(0.0f), x_scale(1.0f), y_scale(1.0f), co(1.0f), si(0.0f),
+      hotspot_x(0), hotspot_y(0), width(0), height(0), x_t(0), y_t(0)
     {
     }
 
@@ -263,15 +281,36 @@ public:
     void set_angle(float value)
     {
         angle = value;
-        float r = rad(angle);
-        co = cos(r);
-        si = sin(r);
+        if (value == 0.0f) {
+            co = 1.0f;
+            si = 0.0;
+        } else if (value == 90.0f) {
+            co = 0.0f;
+            si = 1.0f;
+        } else if (value == 180.0f) {
+            co = -1.0;
+            si = 0.0f;
+        } else if (value == 270.0f) {
+            co = 0.0f;
+            si = -1.0f;
+        } else {
+            float r = rad(angle);
+            co = cos(r);
+            si = sin(r);
+        }
         update_transform();
     }
 
     void set_scale(float value)
     {
         x_scale = y_scale = value;
+        update_transform();
+    }
+
+    void set_scale(float sx, float sy)
+    {
+        x_scale = sx;
+        y_scale = sy;
         update_transform();
     }
 
@@ -296,7 +335,7 @@ public:
             height = image->height;
             new_hotspot_x = hotspot_x;
             new_hotspot_y = hotspot_y;
-            x_t = y_t = 0;
+            x_t = y_t = 0;        
             if (flags & BOX_COLLISION)
                 type = SPRITE_BOX;
             else
@@ -306,7 +345,6 @@ public:
         }
 
         type = TRANSFORM_SPRITE_COLLISION;
-
         float xx = image->width * x_scale;
         float yy = image->height * y_scale;
         float x_scale_inv = 1.0f / x_scale;
@@ -315,7 +353,7 @@ public:
         if (no_rotate) {
             co_divx = CONVERT_SCALER(x_scale_inv);
             co_divy = CONVERT_SCALER(y_scale_inv);
-            si_divx = si_divy = 0.0f;
+            si_divx = si_divy = 0;
             width = int(xx);
             height = int(yy);
             x_t = y_t = 0;
@@ -417,12 +455,13 @@ public:
     int dest_x, dest_y, src_x, src_y, src_width, src_height;
     Color color;
     Image * image;
+    int effect;
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
                    int src_width, int src_height, const Color & color)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), image(img), color(color),
-      CollisionBase(BACKGROUND_ITEM, 0)
+      effect(Render::NONE), CollisionBase(BACKGROUND_ITEM, 0)
     {
         aabb[0] = dest_x;
         aabb[1] = dest_y;
@@ -432,16 +471,26 @@ public:
 
     void draw()
     {
-        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height, color);
+        Render::set_effect(effect);
+        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height,
+                    color);
+        Render::disable_effect();
+    }
+
+    void draw(int a)
+    {
+        Render::set_effect(effect);
+        Color c = color;
+        c.a = a;
+        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height, c);
+        Render::disable_effect();
     }
 };
 
-bool collide_direct(CollisionBase * a, CollisionBase * b, int * aabb_2);
-
-inline bool collide(CollisionBase * a, CollisionBase * b)
-{
-    return collide_direct(a, b, b->aabb);
-}
+bool collide(CollisionBase * a, CollisionBase * b, int * aabb_2);
+bool collide(CollisionBase * a, CollisionBase * b);
+void save_bitarray(const char * filename, BitArray & array,
+                   int width, int height);
 
 inline bool collide_box(FrameObject * a, int v[4])
 {

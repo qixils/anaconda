@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/layerext.h"
 #include "chowconfig.h"
 
@@ -8,9 +25,8 @@ bool LayerObject::sort_reverse;
 double LayerObject::def;
 
 LayerObject::LayerObject(int x, int y, int type_id)
-: FrameObject(x, y, type_id), current_layer(0)
+: FrameObject(x, y, type_id), current_layer(-1)
 {
-
 }
 
 void LayerObject::set_layer(int value)
@@ -20,12 +36,12 @@ void LayerObject::set_layer(int value)
 
 void LayerObject::hide_layer(int index)
 {
-    frame->layers[index].visible = false;
+    frame->layers[index].hide();
 }
 
 void LayerObject::show_layer(int index)
 {
-    frame->layers[index].visible = true;
+    frame->layers[index].show();
 }
 
 void LayerObject::set_position(int index, int x, int y)
@@ -64,6 +80,7 @@ void LayerObject::set_alpha_coefficient(int index, int alpha)
         FrameObject * obj = *it;
         obj->blend_color.set_alpha_coefficient(alpha);
     }
+    layer->blend_color.set_alpha_coefficient(alpha);
 }
 
 double LayerObject::get_alterable(const FrameObject & instance)
@@ -73,23 +90,28 @@ double LayerObject::get_alterable(const FrameObject & instance)
     return instance.alterables->values.get(sort_index);
 }
 
-bool LayerObject::sort_func(const FrameObject & a, const FrameObject & b)
+bool LayerObject::sort_func_dec(const FrameObject & a, const FrameObject & b)
 {
     double value1 = get_alterable(a);
     double value2 = get_alterable(b);
-    if (sort_reverse)
-        return value1 < value2;
-    else
-        return value1 > value2;
+    return value1 < value2;
+}
+
+bool LayerObject::sort_func_inc(const FrameObject & a, const FrameObject & b)
+{
+    double value1 = get_alterable(a);
+    double value2 = get_alterable(b);
+    return value1 > value2;
 }
 
 void LayerObject::sort_alt_decreasing(int index, double def)
 {
     sort_index = index;
-    sort_reverse = true;
     this->def = def;
+    if (current_layer == -1)
+        current_layer = layer->index;
     Layer * layer = &frame->layers[current_layer];
-    layer->instances.sort(sort_func);
+    layer->instances.sort(sort_func_dec);
     layer->reset_depth();
 }
 

@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import sys
 import shutil
@@ -28,7 +45,8 @@ from chowdren.writers.events.system import SystemObject
 from chowdren.writers.objects.system import system_objects
 from chowdren.common import (get_method_name, get_class_name, check_digits,
     to_c, make_color, parse_direction, get_base_path, get_root_path, makedirs,
-    is_qualifier, get_qualifier, TEMPORARY_GROUP_ID)
+    is_qualifier, get_qualifier, TEMPORARY_GROUP_ID, TEMPORARY_GROUP_NAME,
+    get_color_tuple)
 from chowdren.writers.extensions import load_extension_module
 from chowdren.key import VK_TO_SDL, VK_TO_NAME, convert_key, KEY_TO_NAME
 from chowdren import extra
@@ -47,38 +65,26 @@ import audioop
 import struct
 import hashlib
 import cPickle
+import multiprocessing
+from chowdren.local import write_locals
+from chowdren import transition
+from chowdren.runinfo import RunInfo
 
 WRITE_SOUNDS = True
 PROFILE = False
-PROFILE_GROUPS = PROFILE and True
+PROFILE_GROUPS = PROFILE and False
 PROFILE_DRAW = PROFILE and False
 PROFILE_EVENTS = PROFILE and False
 PROFILE_OBJECTS = PROFILE and False
 
 # enabled for porting
-NATIVE_EXTENSIONS = True
+if getattr(sys, 'frozen', False) or platform.node() != 'matpow2':
+    NATIVE_EXTENSIONS = False
+else:
+    NATIVE_EXTENSIONS = True
 
 if NATIVE_EXTENSIONS and sys.platform == 'win32':
     from mmfparser.extension import loadLibrary, LoadedExtension
-
-LICENSE = ("""\
-// Copyright (c) Mathias Kaerlev 2012.
-//
-// This file is part of Chowdren.
-//
-// Chowdren is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Chowdren is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Chowdren.  If not, see <http://www.gnu.org/licenses/>.\
-""")
 
 def get_hash(data):
     return hashlib.md5(data).digest()
@@ -147,6 +153,8 @@ if sys.platform == 'win32':
     MMF_BASE = get_install_path() or ''
 
 MMF_PATH = os.path.join(MMF_BASE, 'Extensions')
+MMF_UNICODE_PATH = os.path.join(MMF_BASE, 'Extensions', 'Unicode')
+MMF_RUNTIME = os.path.join(MMF_BASE, 'Data', 'Runtime', 'Unicode')
 MMF_EXT = '.mfx'
 
 EXTENSION_ALIAS = {
@@ -154,8 +162,13 @@ EXTENSION_ALIAS = {
 }
 
 IGNORE_EXTENSIONS = set([
-    'kcwctrl', 'SteamChowdren', 'ChowdrenFont', 'INI++'
+    'kcwctrl', 'SteamChowdren', 'ChowdrenFont', 'INI++', 'MMKPathPlanner',
+    'Layer'
 ])
+
+if sys.platform == 'win32':
+    paths = ';'.join((MMF_RUNTIME,))
+    os.environ['PATH'] += ';' + paths
 
 def load_native_extension(name):
     if not NATIVE_EXTENSIONS or sys.platform != 'win32' or not MMF_BASE:
@@ -169,7 +182,11 @@ def load_native_extension(name):
         pass
     cwd = os.getcwd()
     os.chdir(MMF_BASE)
-    library = loadLibrary(os.path.join(MMF_PATH, name + MMF_EXT))
+    for path in (MMF_PATH, MMF_UNICODE_PATH):
+        path = os.path.join(path, name + MMF_EXT)
+        if os.path.isfile(path):
+            break
+    library = loadLibrary(path)
     os.chdir(cwd)
     if library is None:
         print 'could not load', name
@@ -179,41 +196,6 @@ def load_native_extension(name):
     extension = LoadedExtension(library, False)
     native_extension_cache[name] = extension
     return extension
-
-def get_color_number(value):
-    return (value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16)
-
-def get_system_color(index):
-    if index == 0xFFFF:
-        return None
-    if index & (1 << 31) != 0:
-        return get_color_number(index)
-    try:
-        return ACTIVE_BOX_COLORS[index]
-    except KeyError:
-        return (0, 0, 0)
-
-def read_system_color(reader):
-    return get_system_color(reader.readInt(True))
-
-active_picture_flags = BitDict(
-    'Resize',
-    'HideOnStart',
-    'TransparentBlack',
-    'TransparentFirstPixel',
-    'FlippedHorizontally',
-    'FlippedVertically',
-    'Resample',
-    'WrapModeOff',
-)
-
-button_flags = BitDict(
-    'HideOnStart',
-    'DisableOnStart',
-    'TextOnLeft',
-    'Transparent',
-    'SystemColor'
-)
 
 key_flags = BitDict(
     'Up',
@@ -225,9 +207,6 @@ key_flags = BitDict(
     'Fire3',
     'Fire4'
 )
-
-def get_color_tuple(value):
-    return value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16
 
 DEFAULT_CHARMAP = ''.join([chr(item) for item in xrange(32, 256)])
 
@@ -253,6 +232,14 @@ class EventContainer(object):
         self.end_label = '%s_end' % self.code_name
         self.check_ids = itertools.count()
         converter.config.init_container(self)
+
+    def get_dynamics(self):
+        containers = set()
+        for container in self.tree:
+            if container.is_static:
+                continue
+            containers.add(container)
+        return containers
 
     def add_child(self, child):
         self.children.append(child)
@@ -280,6 +267,12 @@ def fix_conditions(conditions):
         conditions.pop(0)
     return conditions
 
+class CustomGroup(object):
+    global_id = 0
+    def __init__(self, name, precedence):
+        self.event_name = name
+        self.precedence = precedence
+
 class EventGroup(object):
     global_id = None
     local_id = None
@@ -299,9 +292,10 @@ class EventGroup(object):
     in_place = False
     pre_event = False
     post_event = False
+    precedence = 0
 
     def __init__(self, converter, conditions, actions, container, global_id,
-                 or_index, not_always, or_type):
+                 not_always, or_type):
         self.converter = converter
         self.conditions = fix_conditions(conditions)
         self.actions = actions
@@ -312,7 +306,6 @@ class EventGroup(object):
         self.config = {}
         self.global_id = global_id
         self.not_always = not_always
-        self.or_index = or_index
         self.or_type = or_type
         self.force_multiple = set()
         self.ids = {}
@@ -323,17 +316,22 @@ class EventGroup(object):
             return self.ids[key]
         except KeyError:
             pass
-        new_id = '%s_%s' % (TEMPORARY_GROUP_ID, len(self.ids))
+        new_id = '%s_%s' % (self.unique_id, len(self.ids))
         self.ids[key] = new_id
         return new_id
 
     def set_groups(self, converter, groups):
-        is_simple = converter.config.use_simple_or()
+        if self.or_type is not None:
+            # reassign action groups just in case
+            for action in self.actions:
+                action.group = self
+
         if len(groups) == 1:
             self.name = 'event_%s' % TEMPORARY_GROUP_ID
             self.unique_id = TEMPORARY_GROUP_ID
             return
-        self.unique_id = '%s_%s' % (TEMPORARY_GROUP_ID, self.or_index)
+        self.unique_id = '%s_%s' % (TEMPORARY_GROUP_ID, groups.index(self))
+        is_simple = converter.config.use_simple_or()
         if is_simple:
             self.name = 'event_or_%s' % self.unique_id
             return
@@ -369,8 +367,7 @@ class EventGroup(object):
         self.name = self.get_or_name()
         # self.or_exit = 'goto %s_end;' % last_group.get_or_name()
         self.or_result = 'or_result_%s' % TEMPORARY_GROUP_ID
-        self.or_temp_result = 'or_temp_result_%s_%s' % (TEMPORARY_GROUP_ID,
-                                                        self.or_index)
+        self.or_temp_result = 'or_temp_result_%s' % self.unique_id
 
     def get_or_name(self):
         return 'or_event_%s' % self.unique_id
@@ -402,6 +399,10 @@ class EventGroup(object):
             raise NotImplementedError()
         new_id = '%s_%s' % (self.global_id, self.converter.current_frame_index)
         data = data.replace(TEMPORARY_GROUP_ID, new_id)
+        container_name = 'None'
+        if self.container:
+            container_name = self.container.name
+        data = data.replace(TEMPORARY_GROUP_NAME, container_name)
         return data
 
     def fire_write_callbacks(self):
@@ -494,6 +495,12 @@ class MultiFileWriter(CodeWriter):
         self.putln('')
         self.index += 1
 
+    def ensure(self, count):
+        if self.function_count + count < self.max_count:
+            return
+        self.open_next()
+        self.function_count = 0
+
     def putmeth(self, name, *arg, **kw):
         self.function_count += 1
         if self.function_count >= self.max_count:
@@ -561,7 +568,13 @@ def fix_sound(data, extension):
     data = str(data)
     if extension != 'wav':
         return data
-    wav = wave.open(StringIO(data), 'rb')
+    try:
+        wav = wave.open(StringIO(data), 'rb')
+    except wave.Error:
+        print 'Could not convert wave. Probably ADPCM?'
+        with open('unsupported/%s.wav' % hash(data), 'wb') as fp:
+            fp.write(data)
+        return data
     channels, width, rate, frame_count, comptype, compname = wav.getparams()
     if width == 2:
         return data
@@ -591,10 +604,10 @@ class Converter(object):
 
         # DLL architecture
         self.use_dlls = args.dlls
+        self.use_zlib = args.zlib
         self.event_hash_id = 0
 
         self.clear_selection()
-        self.container_tree = []
         self.collision_objects = set()
         self.iterated_index = self.iterated_object = self.iterated_name = None
         self.in_actions = self.in_condition_expression = False
@@ -627,6 +640,7 @@ class Converter(object):
             self.games.append(game)
 
         self.game = self.games[0]
+        self.is_unicode = self.game.settings.get('unicode', False)
 
         if args.ico is not None:
             shutil.copy(args.ico, self.get_filename('icon.ico'))
@@ -649,11 +663,14 @@ class Converter(object):
         version = args.version or '1.0.0.0'
         version_number = ', '.join(version.split('.'))
         copyright = fix_quotes(args.copyright or game.author)
+        self.build = game.productBuild
         self.base_path = get_base_path()
         self.root_path = get_root_path()
-        self.info_dict = dict(company = company, version = version,
-            copyright = copyright, description = game.name,
-            version_number = version_number, name = game.name)
+        self.platform_name = args.platform or 'generic'
+        self.info_dict = dict(company=company, version=version,
+                              copyright=copyright, description=game.name,
+                              version_number=version_number, name=game.name,
+                              platform=self.platform_name)
 
         base_path = self.base_path
         if args.copy_base:
@@ -661,13 +678,21 @@ class Converter(object):
             shutil.rmtree(new_base, ignore_errors=True)
             shutil.copytree(self.base_path, new_base)
             base_path = '${CMAKE_CURRENT_SOURCE_DIR}/base'
+            shutil.move(os.path.join(new_base, 'build.py'), self.outdir)
         else:
             base_path = self.base_path.replace('\\', '/')
         self.info_dict['base_path'] = base_path
 
         # assets, platform and config
-        self.platform_name = args.platform or 'generic'
-        self.config = ConfigurationFile(self, args.config)
+        config_path = args.config
+        if config_path is not None:
+            if config_path.endswith('.py'):
+                config_path = os.path.join(self.root_path, args.config)
+            else:
+                config_path = os.path.join(self.root_path, 'configs',
+                                           config_path + '.py')
+
+        self.config = ConfigurationFile(self, config_path)
         self.config.init()
         self.assets = Assets(self, args.skipassets)
         self.platform = platform_classes[self.platform_name](self)
@@ -693,6 +718,7 @@ class Converter(object):
         fonts_file = self.open_code('fonts.cpp')
         fonts_file.putln('#include "fonts.h"')
         font_cache = set()
+        self.fonts = {}
         for game in self.games:
             if not game.fonts:
                 continue
@@ -704,6 +730,7 @@ class Converter(object):
                                   logfont.getSize(),
                                   logfont.isBold(), bool(logfont.italic),
                                   bool(logfont.underline), cpp=False)
+                self.fonts[font.handle] = logfont
                 if font_line in font_cache:
                     continue
                 font_cache.add(font_line)
@@ -752,6 +779,7 @@ class Converter(object):
 
         # these are game-specific
         self.object_names = {}
+        self.object_class_index = 0
         self.all_objects = {}
         self.name_to_item = {}
         self.object_types = {}
@@ -759,6 +787,9 @@ class Converter(object):
         self.object_lists = {}
         self.object_cache = {}
         self.global_object_data = {}
+        self.back_ids = {}
+        self.name_to_writer = defaultdict(list)
+        self.qualifier_objects = defaultdict(set)
 
         self.extension_includes = set()
         self.extension_sources = set()
@@ -766,6 +797,9 @@ class Converter(object):
         self.application_writers = set()
 
         self.type_ids = itertools.count(2)
+
+        # runinfo
+        self.runinfo = RunInfo(self, self.get_filename('runinfo.dat'))
 
         for game_index, game in enumerate(self.games):
             self.game_index = game_index
@@ -804,13 +838,20 @@ class Converter(object):
             frame_dict = dict(enumerate(game.frames))
             frame_dict = self.config.get_frames(game, frame_dict)
             for frame in frame_dict.itervalues():
+                print 'Write frame:', frame.offset_index
                 self.write_frame(frame.offset_index, frame, event_file,
                                  lists_file, lists_header)
 
         # write object updates
+        event_file.ensure(1)
         update_calls = defaultdict(list)
         updated_objs = set()
         updaters = {}
+        obj_keys = {}
+        list_to_writers = defaultdict(set)
+        special_objs = set()
+
+        # assimilate objects that share their list
         for handle, writer in self.all_objects.iteritems():
             self.game_index = handle[2]
             self.game = self.games[self.game_index]
@@ -820,16 +861,24 @@ class Converter(object):
             has_updates = writer.has_updates()
             has_movements = writer.has_movements()
             has_sleep = writer.has_sleep()
+            has_kill = writer.has_kill()
             if not has_updates and not has_movements:
                 continue
+            key = (writer.class_name, has_updates, has_movements, has_sleep,
+                   has_kill)
             list_name = self.get_object_list(handle)
-            if list_name in updated_objs:
-                continue
+            list_to_writers[list_name].add(writer)
+            if list_name not in special_objs and list_name in updated_objs:
+                if list_name in obj_keys and obj_keys[list_name] != key:
+                    print 'Using custom update for %s' % list_name
+                    special_objs.add(list_name)
+                else:
+                    continue
+            obj_keys[list_name] = key
             updated_objs.add(list_name)
 
             func_name = 'update_%s_%s' % (writer.class_name.lower(),
                                           len(updaters))
-            key = (writer.class_name, has_updates, has_movements, has_sleep)
             func_name = updaters.get(key, None)
             has_func = func_name is not None
             if not has_func:
@@ -858,8 +907,12 @@ class Converter(object):
             event_file.indent()
             event_file.putln('continue;')
             event_file.dedent()
-            if has_sleep:
+            if has_kill:
+                event_file.putln('instance->update_kill();')
+            elif has_sleep:
                 event_file.putln('instance->update_inactive();')
+
+            if has_sleep:
                 event_file.putln('if (instance->flags & INACTIVE)')
                 event_file.indent()
                 event_file.putln('continue;')
@@ -877,12 +930,58 @@ class Converter(object):
 
             event_file.end_brace()
 
+        for k, v in update_calls.iteritems():
+            v[:] = [obj for obj in v if obj not in special_objs]
+
         event_file.putmeth('void update_objects')
         for func_name, lists in update_calls.iteritems():
+            if not lists:
+                continue
+            if 'pathplanner' not in func_name:
+                continue
             event_file.add_member('ObjectList * %s_list[%s]' % (func_name,
                                                                 len(lists)))
             event_file.putlnc('%s(%s_list, %s);', func_name, func_name,
                               len(lists))
+
+        for func_name, lists in update_calls.iteritems():
+            if not lists:
+                continue
+            if 'pathplanner' in func_name:
+                continue
+            event_file.add_member('ObjectList * %s_list[%s]' % (func_name,
+                                                                len(lists)))
+            event_file.putlnc('%s(%s_list, %s);', func_name, func_name,
+                              len(lists))
+        frame_objs = defaultdict(list)
+        for obj in special_objs:
+            writers = list_to_writers[obj]
+            for writer in list_to_writers[obj]:
+                for frame_index in writer.get_used_frames():
+                    frame_objs[frame_index].append((writer, obj))
+
+        if frame_objs:
+            event_file.putln('ObjectList * special_list[1];')
+            event_file.putlnc('switch (index) {')
+            event_file.indent()
+            for frame_index, objs in frame_objs.iteritems():
+                event_file.putlnc('case %s:', frame_index)
+                event_file.indent()
+                for (writer, list_name) in objs:
+                    has_updates = writer.has_updates()
+                    has_movements = writer.has_movements()
+                    has_sleep = writer.has_sleep()
+                    has_kill = writer.has_kill()
+                    key = (writer.class_name, has_updates, has_movements,
+                           has_sleep, has_kill)
+                    updater = updaters[key]
+                    event_file.putlnc('special_list[0] = &%s;', list_name)
+                    event_file.putlnc('%s(special_list, 1);', updater)
+
+                event_file.putln('break;')
+                event_file.dedent()
+            event_file.end_brace()
+
         event_file.end_brace()
 
         event_file.putmeth('Frames', init_list=['Frame()'])
@@ -911,7 +1010,6 @@ class Converter(object):
         event_file.putln('break;')
         event_file.dedent()
         event_file.end_brace()
-        event_file.putln('data->frame = this;')
         event_file.end_brace()
 
         if not self.assets.skip:
@@ -923,7 +1021,7 @@ class Converter(object):
 
             self.assets.write_preload(handles)
 
-        if self.config.use_image_preload():
+        if self.config.use_frame_preload():
             for frame_index in self.processed_frames:
                 images = self.frame_images.get(frame_index - 1, ())
                 event_file.putmeth('void load_frame_%s_images' % frame_index)
@@ -978,14 +1076,30 @@ class Converter(object):
 
         frames_file.close()
 
+        preload_file = self.open_code('audiopreload.h')
+        preload_file.putln('#include "media.h"')
+
+        preload_file.putmeth('void preload_audio')
+        for path in self.config.get_audio_preloads():
+            preload_file.putlnc('ChowdrenAudio::create_audio_preload(%r);',
+                                path)
+        preload_file.end_brace()
+        preload_file.close()
+
         strings_file = self.open_code('intern.cpp')
+        strings_file.putlnc('#include <string>')
+        strings_file.putlnc('#include "image.h"')
         strings_header = self.open_code('intern.h')
         strings_header.start_guard('CHOWDREN_STRINGS_H')
         strings_header.putln('#include <string>')
         for value, name in self.strings.iteritems():
-            strings_file.putlnc('const std::string %s(%r, %s);', name, value,
+            strings_file.putlnc('std::string %s(%r, %s);', name, value,
                                 len(value), cpp=False)
-            strings_header.putlnc('extern const std::string %s;', name)
+            strings_header.putlnc('extern std::string %s;', name)
+
+        local_dict = self.config.get_locals()
+        write_locals(local_dict, strings_file, strings_header, self)
+
         strings_header.close_guard('CHOWDREN_STRINGS_H')
         strings_file.close()
         strings_header.close()
@@ -1009,10 +1123,34 @@ class Converter(object):
         config_file.putdefine('COPYRIGHT', game.copyright)
         config_file.putdefine('ABOUT', game.aboutText)
         config_file.putdefine('AUTHOR', game.author)
-        config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
-        config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+
+        config_file.putdefine('WINDOW_START_WIDTH', header.windowWidth)
+        config_file.putdefine('WINDOW_START_HEIGHT', header.windowHeight)
+        if self.config.use_subapp_frames():
+            config_file.putlnc('int get_display_width();')
+            config_file.putlnc('int get_display_height();')
+            config_file.putlnc('int get_total_display_width();')
+            config_file.putlnc('int get_total_display_height();')
+            config_file.putlnc('#define WINDOW_WIDTH %s',
+                               'get_display_width()')
+            config_file.putlnc('#define WINDOW_HEIGHT %s',
+                               'get_display_height()')
+            config_file.putlnc('#define WINDOW_TOTAL_WIDTH %s',
+                               'get_total_display_width()')
+            config_file.putlnc('#define WINDOW_TOTAL_HEIGHT %s',
+                               'get_total_display_height()')
+        else:
+            config_file.putdefine('WINDOW_WIDTH', header.windowWidth)
+            config_file.putdefine('WINDOW_HEIGHT', header.windowHeight)
+            config_file.putdefine('WINDOW_TOTAL_WIDTH', header.windowWidth)
+            config_file.putdefine('WINDOW_TOTAL_HEIGHT', header.windowHeight)
+            # config_file.putdefine('DISPLAY_WIDTH', header.windowWidth)
+            # config_file.putdefine('DISPLAY_HEIGHT', header.windowHeight)
+
         config_file.putdefine('FRAMERATE', header.frameRate)
         config_file.putdefine('MAX_OBJECT_ID', self.max_type_id)
+        config_file.putdefine('MAX_BACK_ID', len(self.back_ids))
+        config_file.putdefine('CHOWDREN_FUSION_BUILD', self.build)
         if header.newFlags['SamplesOverFrames']:
             config_file.putln('#define CHOWDREN_SAMPLES_OVER_FRAMES')
         if header.newFlags['VSync']:
@@ -1027,9 +1165,15 @@ class Converter(object):
             config_file.putdefine('CHOWDREN_PRELOAD_IMAGES')
         if self.config.use_deferred_collisions():
             config_file.putdefine('CHOWDREN_DEFER_COLLISIONS')
+        if self.config.use_gwen():
+            self.add_define('CHOWDREN_USE_GWEN')
+        if self.config.use_subapp_frames():
+            self.add_define('CHOWDREN_SUBAPP_FRAMES')
 
         for (name, value) in self.defines:
-            config_file.putdefine(name, value or '')
+            if value is None:
+                value = ''
+            config_file.putdefine(name, value)
 
         config_file.close_guard("CHOWDREN_CONFIG_H")
         config_file.close()
@@ -1050,6 +1194,14 @@ class Converter(object):
                    for item in self.extension_sources]
         ext_srcs.sort()
 
+        cmake_defines = []
+        for (name, value) in self.defines:
+            if value is None:
+                value = '1'
+            cmake_defines.append('set(%s %s)' % (name, value))
+
+        cmake_defines = '\n'.join(cmake_defines)
+
         self.format_file('Application.cmake', 'CMakeLists.txt',
                          event_srcs=get_cmake_list('EVENTSRCS',
                                                    event_file.sources),
@@ -1058,12 +1210,19 @@ class Converter(object):
                          object_srcs=get_cmake_list('OBJECTSRCS',
                                                     objects_file.sources),
                          extension_srcs=get_cmake_list('EXTSRCS', ext_srcs),
+                         defines=cmake_defines,
                          use_dlls=repr(self.use_dlls).upper())
         self.copy_file('icon.icns', overwrite=False)
         self.info_dict['event_srcs'] = event_file.sources
         self.info_dict['frame_srcs'] = self.frame_srcs
         self.info_dict['object_srcs'] = objects_file.sources
         self.info_dict['ext_srcs'] = list(self.extension_sources)
+
+        with open(self.get_filename('strings.py'), 'wb') as fp:
+            fp.write(repr(self.strings.keys()))
+
+        with open(self.get_filename('qualifiers.py'), 'wb') as fp:
+            fp.write(repr(dict(self.qualifier_objects)))
 
         if not self.assets.skip:
             self.write_config(self.info_dict, 'config.py')
@@ -1083,6 +1242,12 @@ class Converter(object):
         print 'EXPRESSIONS'
         print default_writers['expressions'].checked.most_common()
 
+    def find_frameitem(self, name):
+        for frameitem in self.game.frameItems.itemDict.itervalues():
+            if frameitem.name != name:
+                continue
+            return frameitem
+
     def add_define(self, name, value=None):
         self.defines.add((name, value))
 
@@ -1092,13 +1257,19 @@ class Converter(object):
         image_hashes = {}
         new_entries = []
         maxrects_images = []
+
         image_index = 0
         for game_index, game in enumerate(self.games):
             if not game.images:
                 continue
+            self.game_index = game_index
+
+            custom_images = self.config.get_images()
             for image in game.images.itemDict.itervalues():
-                pil_image = Image.fromstring('RGBA', (image.width,
-                    image.height), image.getImageData())
+                pil_image = custom_images.get(image.handle, None)
+                if pil_image is None:
+                    pil_image = Image.frombytes('RGBA', (image.width,
+                        image.height), image.getImageData())
 
                 handle = (image.handle, game_index)
                 colors = pil_image.getcolors(1)
@@ -1134,19 +1305,52 @@ class Converter(object):
         # for file_index, rects in enumerate(maxrects):
         #     rects.get().save('./testmaxrects/atlas%s.png' % file_index)
 
+        from chowdren.imageworker import worker
+        in_queue = multiprocessing.Queue()
+        worker_count = 8
+        workers = []
+        use_zopfli = not self.use_zlib
+        if use_zopfli:
+            print 'Using zopfli for compression'
+        else:
+            print 'Using zlib for compression'
+
+        for _ in xrange(worker_count):
+            p = multiprocessing.Process(target=worker,
+                                        args=(in_queue, use_zopfli))
+            p.start()
+            workers.append(p)
+
+        def get_image_path(image_hash):
+            image_hash = image_hash.encode('hex')
+            return self.get_filename('image_cache', '%s.dat' % image_hash)
+
         for i, (image, image_hash) in enumerate(new_entries):
-            # image_hash = image_hash.encode('hex')
-            # cache_path = self.get_filename('image_cache',
-            #                                '%s_%s.png' % (image_hash,
-            #                                               self.platform_name))
-            # if os.path.isfile(cache_path):
+            cache_path = get_image_path(image_hash)
+            if not os.path.isfile(cache_path):
+                pil_image = maxrects_images[i]
+                p = (i * 100) / len(new_entries)
+                in_queue.put((pil_image.tobytes(), i, p, cache_path))
             #     temp = open(cache_path, 'rb').read()
             # else:
+            #     p = (i * 100) / len(new_entries)
+            #     print 'Caching image', image.handle, '(%s%%)' % p
             #     temp = self.platform.get_image(maxrects_images[i])
             #     open(cache_path, 'wb').write(temp)
-            temp = self.platform.get_image(maxrects_images[i])
-            arg = (image.xHotspot, image.yHotspot,
+
+        for i in xrange(worker_count):
+            in_queue.put(None)
+
+        for worker in workers:
+            worker.join()
+
+        for i, (image, image_hash) in enumerate(new_entries):
+            cache_path = get_image_path(image_hash)
+            temp = open(cache_path, 'rb').read()
+            arg = (image.width, image.height,
+                   image.xHotspot, image.yHotspot,
                    image.actionX, image.actionY, temp)
+
             self.assets.add_image(*arg)
 
         self.image_count = image_index
@@ -1176,7 +1380,7 @@ class Converter(object):
                 continue
             for packfile in files.items:
                 data = str(packfile.data)
-                name = os.path.basename(packfile.name)
+                name = packfile.name.replace('\\', '/').split('/')[-1]
                 print 'filename:', name
                 self.assets.add_file(name, data)
 
@@ -1192,7 +1396,7 @@ class Converter(object):
             with open(frag_path, 'rb') as fp:
                 frag = fp.read()
 
-            data = self.platform.get_shader(vert, frag)
+            data = self.platform.get_shader(shader, vert, frag)
             self.assets.add_shader(shader, data)
 
         for font in self.config.get_fonts():
@@ -1207,6 +1411,10 @@ class Converter(object):
         cache['indexes'] = self.image_indexes
         cache['count'] = self.image_count
         self.assets.write_cache(cache)
+
+    def add_custom_group(self, func, precedence):
+        group = CustomGroup(func, precedence)
+        self.custom_pre_groups.append(group)
 
     def write_frame(self, frame_index, frame, event_file, lists_file,
                     lists_header):
@@ -1229,6 +1437,7 @@ class Converter(object):
         self.static_instances = {}
         object_writers = []
 
+        self.custom_pre_groups = []
         self.system_object = SystemObject(self)
         object_writers.append(self.system_object)
 
@@ -1238,6 +1447,7 @@ class Converter(object):
             all_startup_infos.add(obj)
             try:
                 object_writer = self.get_object_writer(obj)
+                object_writer.set_used_frame(self.current_frame_index)
                 if object_writer not in object_writers:
                     object_writers.append(object_writer)
                 if object_writer.static:
@@ -1261,7 +1471,7 @@ class Converter(object):
                 startup_instances.append((instance, frameitem))
             if not create_startup:
                 self.multiple_instances.add(obj)
-            if object_writer.has_autodestruct():
+            elif object_writer.has_autodestruct():
                 self.multiple_instances.add(obj)
 
         events = frame.events
@@ -1269,13 +1479,18 @@ class Converter(object):
         self.qualifier_names = {}
         self.qualifiers = {}
         self.qualifier_types = {}
+        self.qualifier_runinfo = {}
         qualifier_setup = {}
         for qualifier in events.qualifier_list:
             qual_obj = (qualifier.objectInfo, qualifier.type)
             object_infos = qualifier.resolve_objects(self.game.frameItems)
-            object_infos = tuple(
-                [self.filter_object_type((info, qualifier.type))
-                for info in object_infos])
+
+            runinfo = self.runinfo.get_qualifier(qualifier.getQualifier())
+            self.qualifier_runinfo[qual_obj] = runinfo
+            object_infos = [self.filter_object_type((info, qualifier.type))
+                            for info in object_infos]
+            object_infos.sort()
+            object_infos = tuple(object_infos)
             self.qualifiers[qual_obj] = object_infos
             self.qualifier_types[qual_obj] = qualifier.type
 
@@ -1398,7 +1613,7 @@ class Converter(object):
             generated_group_index = None
             new_always_groups = []
             all_groups = []
-            for or_index, conditions in enumerate(condition_groups):
+            for conditions in condition_groups:
                 if not conditions:
                     continue
                 first_writer = conditions[0]
@@ -1421,7 +1636,7 @@ class Converter(object):
 
                 new_group = EventGroup(self, conditions, actions,
                     current_container, new_group_index,
-                    or_index, not_always, or_type)
+                    not_always, or_type)
                 all_groups.append(new_group)
                 name = self.get_condition_name(first_condition)
 
@@ -1429,6 +1644,7 @@ class Converter(object):
                 new_group.in_place = first_writer.in_place
                 new_group.pre_event = first_writer.pre_event
                 new_group.post_event = first_writer.post_event
+                new_group.precedence = first_writer.precedence
 
                 if is_always or force_always:
                     new_always_groups.append(new_group)
@@ -1451,6 +1667,13 @@ class Converter(object):
 
             new_always_groups.sort(key=lambda x: x.global_id)
             always_groups.extend(new_always_groups)
+
+
+        for obj in all_startup_infos:
+            if obj in self.multiple_instances:
+                continue
+            # XXX this is a hack
+            self.get_object_writer(obj).disable_kill = True
 
         for k, v in containers.iteritems():
             if k in changed_containers:
@@ -1491,7 +1714,7 @@ class Converter(object):
 
         self.frame_images[frame_index] = startup_images
 
-        frame_file.putmeth('void init')
+        frame_file.putmeth('void init', 'Frame * frame')
         frame_file.putlnc('%s%s();', events_ref, start_name)
         frame_file.end_brace()
 
@@ -1528,7 +1751,7 @@ class Converter(object):
         if self.config.use_image_flush(frame):
             start_writer.putlnc('reset_image_cache();')
 
-        if self.config.use_image_preload():
+        if self.config.use_frame_preload():
             start_writer.putlnc('load_frame_%s_images();', frame_index + 1)
 
         if self.config.use_image_flush(frame):
@@ -1544,6 +1767,15 @@ class Converter(object):
                                 layer_index, layer_index,
                                 layer.xCoefficient, layer.yCoefficient,
                                 visible, wrap_horizontal, wrap_vertical)
+            effect = layer.effect
+            if effect is None:
+                continue
+            inkEffect = effect.inkEffect
+            if inkEffect & HWA_EFFECT or inkEffect == SHADER_EFFECT:
+                b, g, r = get_color_tuple(effect.inkEffectValue)
+                a = (effect.inkEffectValue & 0xFF000000) >> 24
+                start_writer.putlnc('layers[%s].blend_color = %s;',
+                                    layer_index, make_color((r, g, b, a)))
 
         start_writer.putraw('#ifdef CHOWDREN_HAS_MRT')
         for layer_index, layer in enumerate(frame.layers.items):
@@ -1567,12 +1799,24 @@ class Converter(object):
         start_writer.putraw('#endif')
 
         # set up qualifiers
-        for name, instances in qualifier_setup.iteritems():
-            start_writer.putlnc('static ObjectList* '
-                                '%s_instances[] = {%s, NULL};',
-                                name, ', '.join(instances))
-            start_writer.putlnc('%s.set(%s, &%s_instances[0]);', name,
-                                len(instances), name)
+        if self.config.use_subapp_frames():
+            for name, instances in qualifier_setup.iteritems():
+                start_writer.putlnc('static ObjectList* %s_instances[%s+1];',
+                                    name, len(instances))
+                for instance_index, list_name in enumerate(instances):
+                    start_writer.putlnc('%s_instances[%s] = %s;',
+                                        name, instance_index, list_name)
+                start_writer.putlnc('%s_instances[%s] = NULL;', name,
+                                    len(instances))
+                start_writer.putlnc('%s.set(%s, &%s_instances[0]);', name,
+                                    len(instances), name)
+        else:
+            for name, instances in qualifier_setup.iteritems():
+                start_writer.putlnc('static ObjectList* '
+                                    '%s_instances[] = {%s, NULL};',
+                                    name, ', '.join(instances))
+                start_writer.putlnc('%s.set(%s, &%s_instances[0]);', name,
+                                    len(instances), name)
 
         startup_instances = self.config.get_startup_instances(
             startup_instances)
@@ -1602,7 +1846,7 @@ class Converter(object):
             end_name = self.write_generated(end_name, event_file,
                                             frame_end_groups)
 
-        frame_file.putmeth('void on_end')
+        frame_file.putmeth('void on_end', 'Frame * frame')
         if frame_end_groups:
             frame_file.putlnc('%s%s();', events_ref, end_name)
         frame_file.putlnc('%sreset();', events_ref)
@@ -1614,12 +1858,12 @@ class Converter(object):
             end_name = self.write_generated(end_name, event_file,
                                             app_end_groups)
 
-            frame_file.putmeth('void on_app_end')
+            frame_file.putmeth('void on_app_end', 'Frame * frame')
             frame_file.putlnc('%s%s();', events_ref, end_name)
             frame_file.end_brace()
 
         # write event callbacks
-        frame_file.putmeth('void event_callback', 'int id')
+        frame_file.putmeth('void event_callback', 'Frame * frame', 'int id')
         if self.event_callbacks:
             frame_file.putln('switch (id) {')
             frame_file.indent()
@@ -1677,21 +1921,38 @@ class Converter(object):
 
         # write main 'always' handler
         handle_name = 'handle_frame_%s_events' % (frame_index+1)
-        frame_file.putmeth('void handle_events')
+        frame_file.putmeth('void handle_events', 'Frame * frame')
         frame_file.putlnc('%s%s();', events_ref, handle_name)
         frame_file.end_brace()
 
         event_file.putmeth('void %s' % handle_name)
+
+        self.config.write_frame_pre(event_file)
+
         event_file.putlnc('test_collisions_%s();', frame_index)
 
         end_markers = []
 
-        call_groups = first_groups + call_groups + last_groups
+        def cmp_group(a, b):
+            v = cmp(a.precedence, b.precedence)
+            if v != 0:
+                return v
+            return cmp(a.global_id, b.global_id)
+
+        # add custom groups
+        pre_groups.extend(self.custom_pre_groups)
+
+        for group_list in (first_groups, last_groups, pre_groups):
+            group_list.sort(cmp=cmp_group)
+        call_groups = first_groups + ['check'] + call_groups + last_groups
 
         if PROFILE_GROUPS:
             prof_ids = defaultdict(int)
 
         for group in call_groups:
+            if group == 'check':
+                event_file.putlnc('if (next_frame != -1) return;')
+                continue
             if group.is_container_mark:
                 container = group.container
                 if container.is_static:
@@ -1706,11 +1967,9 @@ class Converter(object):
                     event_file.putln('if (!%s) goto %s;' % (
                         container.code_name, container.end_label))
                     end_markers.insert(0, container.end_label)
-                    self.container_tree.insert(0, container)
                 elif group.mark == 'GroupEnd':
                     end_markers.remove(container.end_label)
                     event_file.put_label(container.end_label)
-                    self.container_tree.remove(container)
 
                     if PROFILE_GROUPS:
                         event_file.putlnc('PROFILE_END();')
@@ -1725,7 +1984,7 @@ class Converter(object):
 
         # pre-events
         handle_name = 'handle_frame_%s_pre_events' % (frame_index+1)
-        frame_file.putmeth('void handle_pre_events')
+        frame_file.putmeth('void handle_pre_events', 'Frame * frame')
         frame_file.putlnc('%s%s();', events_ref, handle_name)
         frame_file.end_brace()
 
@@ -1745,7 +2004,7 @@ class Converter(object):
             event_start_name = self.write_generated(event_start_name,
                                                     event_file,
                                                     start_groups)
-            frame_file.putmeth('void on_start')
+            frame_file.putmeth('void on_start', 'Frame * frame')
             frame_file.putlnc('%s%s();', events_ref, event_start_name)
             frame_file.end_brace()
 
@@ -1762,8 +2021,7 @@ class Converter(object):
             if fade.duration == 0:
                 print 'invalid fade duration:', fade.duration
             else:
-                start_writer.putlnc('manager.set_fade(%s, %s);',
-                    make_color(fade.color), -1.0 / (fade.duration / 1000.0))
+                transition.write(start_writer, fade, False)
 
         event_file.putmeth('void %s' % start_name)
         event_file.putcode(start_writer)
@@ -1780,7 +2038,8 @@ class Converter(object):
                     continue
                 object_type, num = k
                 object_class = self.get_object_class(object_type)
-                missing_groups.append((object_class, num))
+                name = self.get_condition_name(v[0].conditions[0].data)
+                missing_groups.append((object_class, num, name))
             print 'unimplemented generated groups in %r: %r' % (
                 frame.name, missing_groups)
 
@@ -1789,13 +2048,16 @@ class Converter(object):
     def write_objects(self, items, objects_file, objects_header,
                       lists_header):
         for frameitem in items:
+            self.current_write_object = frameitem
             name = frameitem.name
             self.name_to_item[(name, self.game_index)] = frameitem
             handle = (frameitem.handle, frameitem.objectType, self.game_index)
+            source_id = self.object_class_index
             if name is None:
                 class_name = 'Object%s' % handle[0]
             else:
-                class_name = get_class_name(name) + '_' + str(handle[0])
+                class_name = (get_class_name(name) + '_' + str(source_id))
+            self.object_class_index += 1
             object_type = frameitem.properties.objectType
             try:
                 object_writer = self.get_object_impl(object_type)(
@@ -1804,6 +2066,7 @@ class Converter(object):
                 print 'not implemented:', repr(frameitem.name), object_type,
                 print handle
                 continue
+            self.name_to_writer[name].append(object_writer)
             object_writer.new_class_name = class_name
             object_writer.object_type = object_type
             object_writer.handle = handle
@@ -1813,10 +2076,11 @@ class Converter(object):
             self.all_objects[handle] = object_writer
             type_handle = (handle[0], self.game_index)
             self.object_types[type_handle] = object_type
+            if extra.is_special_object(name):
+                continue
             self.extension_includes.update(object_writer.get_includes())
             self.extension_sources.update(object_writer.get_sources())
-            if (object_writer.static or extra.is_special_object(name)
-                or object_writer.class_name == 'Undefined'):
+            if object_writer.static or object_writer.class_name == 'Undefined':
                 continue
 
             if object_writer.is_static_background():
@@ -1827,6 +2091,7 @@ class Converter(object):
             object_writer.type_id = object_type_id
             object_writer.game_index = self.game_index
 
+            self.config.init_obj(object_writer)
             object_code = self.write_object(object_writer).get_data()
 
             object_hash_data = object_code.replace(class_name, '')
@@ -1911,6 +2176,9 @@ class Converter(object):
         # write qualifiers in comments so the object aliases properly
         try:
             qualifiers = common.qualifiers[:]
+            name = object_writer.data.name
+            for qualifier in qualifiers:
+                self.qualifier_objects[(qualifier, self.game_index)].add(name)
             qualifiers.sort()
             qualifiers = [str(item) for item in qualifiers]
             qualifiers = ', '.join(qualifiers)
@@ -1924,6 +2192,8 @@ class Converter(object):
 
         if object_writer.is_background():
             objects_file.putln('flags |= BACKGROUND;')
+            if object_writer.is_background_collider():
+                objects_file.putln('flags |= BACKGROUND_COL;')
 
         if not object_writer.is_visible():
             objects_file.putln('set_visible(false);')
@@ -1935,7 +2205,6 @@ class Converter(object):
 
         shader_name = None
         if frameitem.shaderId is not None:
-            # raise NotImplementedError('has shader')
             ink_effect = SHADER_EFFECT
         else:
             ink_effect = frameitem.inkEffect
@@ -2053,10 +2322,10 @@ class Converter(object):
             if PROFILE:
                 objects_file.putlnc('PROFILE_BLOCK(%s_draw);', class_name)
             if depth is not None:
-                objects_file.putlnc('glc_set_depth(%s);', depth)
+                objects_file.putlnc('Render::set_depth(%s);', depth)
             objects_file.putlnc('%s::draw();', subclass)
             if depth is not None:
-                objects_file.putlnc('glc_set_depth(0.0f);')
+                objects_file.putlnc('Render::set_depth(0.0f);')
             objects_file.end_brace()
 
         objects_file.end_brace(True)
@@ -2080,7 +2349,11 @@ class Converter(object):
     def get_image_handle(self, value, game_index=None):
         if game_index is None:
             game_index = self.game_index
-        return self.image_indexes[(value, game_index)]
+        value = (value, game_index)
+        try:
+            return self.image_indexes[value]
+        except KeyError:
+            return self.config.get_missing_image(value)
 
     def iterate_groups(self, groups):
         index = 0
@@ -2158,11 +2431,11 @@ class Converter(object):
         if is_qual:
             writer.putlnc('for (int i = 0; i < %s.count; i++)', list_name)
             list_name = '(*%s.items[i])' % list_name
-        writer.putlnc('for (ObjectList::iterator %s = %s.begin(); '
-                      '%s != %s.end(); ++%s) {',
-                      name, list_name, name, list_name, name)
-        self.set_iterator(object_info, list_name, '%s->obj' % name)
+        writer.putlnc('for (int ii = 0; ii < %s.size(); ++ii) {',
+                      list_name)
         writer.indent()
+        writer.putlnc('FrameObject * %s = %s[ii];', name, list_name)
+        self.set_iterator(object_info, list_name, name)
 
     def end_flat_iteration(self, object_info, writer, name='it'):
         writer.end_brace()
@@ -2234,7 +2507,7 @@ class Converter(object):
             writer.putlnc('movement_count = %s;', count)
             writer.putlnc('movements = new Movement*[%s];', count)
         has_init = False
-        move_start = True
+        global_move_start = True
         for movement_index, movement in enumerate(movements):
             def set_start_dir(direction):
                 if movement_index != 0 or not direction:
@@ -2243,10 +2516,11 @@ class Converter(object):
                               parse_direction(direction))
 
             movement_name = movement.getName()
+            move_start = movement.movingAtStart != 0
             if movement_name == 'Extension':
                 movement_name = movement.loader.name.lower()
             elif movement_index == 0:
-                move_start = movement.movingAtStart != 0
+                global_move_start = move_start
             set_start_dir(movement.directionAtStart)
             sets = {}
             extra = []
@@ -2254,6 +2528,7 @@ class Converter(object):
                 movement_class = 'BallMovement'
                 sets['max_speed'] = movement.loader.speed
                 sets['deceleration'] = movement.loader.deceleration
+                extra.append('randomizer = %s' % movement.loader.randomizer)
             elif movement_name == 'Path':
                 movement_class = 'PathMovement'
                 path = movement.loader
@@ -2324,18 +2599,20 @@ class Converter(object):
             has_init = True
             writer.putlnc('%s = new %s(this);', name, movement_class)
             writer.putlnc('%s->index = %s;', name, movement_index)
+            if move_start:
+                writer.putlnc('%s->flags |= Movement::MOVE_AT_START;',
+                              name)
             name = '((%s*)%s)' % (movement_class, name)
             for k, v in sets.iteritems():
                 writer.putlnc('%s->set_%s(%s);', name, k, v)
             for line in extra:
                 writer.putlnc('%s->%s;', name, line)
 
-        # XXX: we don't support "move at start == false" for multi movements
         if has_init:
             if has_list:
                 writer.putlnc('set_movement(0);')
-            elif move_start:
-                writer.putlnc('movement->start();')
+            else:
+                writer.putlnc('((%s*)movement)->init();', movement_class)
             obj.movement_count = count
         else:
             obj.movement_count = 0
@@ -2411,11 +2688,15 @@ class Converter(object):
     def write_events(self, name, writer, groups, triggered=False,
                      pre_calls=None, post_calls=None):
         names = pre_calls or []
+        containers = [None] * len(names)
         selections = self.has_single_selection
+        col_objs = self.collision_objects
         for new_groups in self.iterate_groups(groups):
             self.has_single_selection = selections
+            self.collision_objects = col_objs
             names.append(self.write_event_function(writer, new_groups,
                                                    triggered))
+            containers.append(new_groups[0].container)
 
         if post_calls is not None:
             names.extend(post_calls)
@@ -2429,7 +2710,26 @@ class Converter(object):
             self.event_wrappers[wrapper_hash] = name
 
         writer.putmeth('void %s' % name)
-        for event_name in names:
+        names.append(None)
+        containers.append(None)
+        current_tree = set()
+        for event_index, event_name in enumerate(names):
+            container = containers[event_index]
+            if container is None:
+                container_tree = set()
+            else:    
+                container_tree = container.get_dynamics()
+            new_containers = container_tree - current_tree
+            old_containers = current_tree - container_tree
+            current_tree = container_tree
+            for container in old_containers:
+                writer.put_label(container.end_label)
+            for container in new_containers:
+                writer.putlnc('if (!%s) goto %s;',
+                              container.code_name,
+                              container.end_label)
+            if event_name is None:
+                continue
             writer.putlnc('%s();', event_name)
         writer.end_brace()
         return name
@@ -2441,17 +2741,15 @@ class Converter(object):
 
     def get_event_code(self, group, triggered=False):
         group.set_groups(self, self.current_groups)
+        self.is_triggered = triggered
         self.current_group = group
         self.current_event_id = group.global_id
         actions = group.actions
-        conditions = group.conditions
         container = group.container
         has_container_check = False
         if container:
             is_static = all([item.is_static for item in container.tree])
             has_container_check = not is_static
-        if triggered:
-            conditions = conditions[1:]
         writer = CodeWriter()
         writer.putln('// event %s' % TEMPORARY_GROUP_ID)
         event_break = self.event_break = 'goto %s_end;' % group.name
@@ -2471,12 +2769,17 @@ class Converter(object):
             writer.putlnc('PROFILE_BLOCK(event_%s);', group.global_id)
 
         self.config.write_pre(writer, group)
+
+        conditions = group.conditions
+        if triggered:
+            conditions = conditions[1:]
+
         if conditions or has_container_check:
             if has_container_check:
                 condition = self.get_container_check(container)
                 writer.putln('if (!(%s)) %s' % (condition, event_break))
-            elif container:
-                writer.putln('// group: %s' % container.name)
+            else:
+                writer.putlnc('// group: %s', TEMPORARY_GROUP_NAME)
 
             condition_index = -1
             while condition_index < len(conditions) - 1:
@@ -2497,6 +2800,7 @@ class Converter(object):
                     except KeyError:
                         pass
                 write_conditions = [condition_writer]
+                global_select_obj = condition_writer.use_select()
                 if obj in self.has_single_selection:
                     object_name = self.has_single_selection[obj]
                     self.set_iterator(obj, None, object_name)
@@ -2514,6 +2818,8 @@ class Converter(object):
                                 break
                             if next_cond.iterate_objects is False:
                                 break
+                            global_select_obj = (global_select_obj or
+                                                 next_cond.use_select())
                             condition_index += 1
 
                         write_conditions = conditions[start_index:
@@ -2529,6 +2835,7 @@ class Converter(object):
                         object_name = '(*it)'
 
                 for write_condition in write_conditions:
+                    select_obj = write_condition.use_select()
                     negated = not write_condition.is_negated()
                     writer.putindent()
                     if negated:
@@ -2553,13 +2860,17 @@ class Converter(object):
                     if negated:
                         writer.put(')')
                     if has_multiple:
-                        writer.put(') { it.deselect(); continue; }\n')
+                        if select_obj:
+                            writer.put(') { it.deselect(); continue; }\n')
+                        else:
+                            writer.putc(') %s\n', event_break)
 
                 if has_multiple:
                     writer.end_brace()
                     writer.indented = False
-                    writer.putlnc('if (!%s.has_selection()) %s',
-                                  selected_name, event_break)
+                    if global_select_obj:
+                        writer.putlnc('if (!%s.has_selection()) %s',
+                                      selected_name, event_break)
                 else:
                     writer.put(') %s\n' % event_break)
                 self.set_iterator(None)
@@ -2654,7 +2965,6 @@ class Converter(object):
                     action_index += 1
 
                 write_actions = actions[start_index:action_index+1]
-
                 list_name = self.create_list(obj, writer)
                 iter_type = self.get_iter_type(obj)
                 writer.putlnc('for (%s it(%s); !it.end(); '
@@ -2911,6 +3221,8 @@ class Converter(object):
 
             end = len(out)
 
+            print out
+
             while True:
                 end = out.rindex('),', 0, end)
                 if out[end-1] != '(':
@@ -2978,13 +3290,25 @@ class Converter(object):
         list_name = self.get_object_list(object_info)
 
         clear_lists = set()
+        obj_single = None
 
         has_col = False
+        set_lists = []
+
         for obj in objs:
+            single = self.get_single(obj)
+            if single is not None:
+                print 'using single for clear list'
+                writer.putlnc('%s.select_single_check(%s);',
+                              self.object_lists[obj + (self.game_index,)],
+                              single)
+                has_col = True
+                continue
             if self.has_common_objects(obj, self.has_selection):
                 has_col = True
             else:
                 clear_lists.add(self.get_object_list(obj))
+            set_lists.append(obj)
 
         if has_col:
             writer.putln('// icache destruction')
@@ -2994,7 +3318,7 @@ class Converter(object):
         for obj_list in clear_lists:
             writer.putlnc('%s.clear_selection();', obj_list)
 
-        for obj in objs:
+        for obj in set_lists:
             if obj == object_info:
                 continue
             self.set_list(obj, self.get_object_list(obj))
@@ -3026,6 +3350,13 @@ class Converter(object):
         elif obj == self.iterated_object:
             return True
         return False
+
+    def get_runinfo(self, obj):
+        if len(obj) == 2:
+            obj = obj + (self.game_index,)
+        if is_qualifier(obj[0]):
+            return self.qualifier_runinfo.get(obj, None)
+        return self.runinfo.objects.get(obj, None)
 
     def get_object(self, obj, as_list=False, use_default=False, index=None):
         handle = obj[0]
@@ -3136,6 +3467,7 @@ class Converter(object):
         except Exception, e:
             data = self.get_object_writer(obj).data
             name = self.get_type_name(data.objectType)
+            print name
             raise e
 
     def get_object_class(self, object_type, star=True):
@@ -3147,10 +3479,17 @@ class Converter(object):
         except (KeyError, ValueError):
             return None
 
+    def get_extension_module(self, ext):
+        if self.is_unicode:
+            mod = load_extension_module(ext.name + 'Unicode', False)
+            if mod is not None:
+                return mod
+        return load_extension_module(ext.name, True)
+
     def get_object_impl(self, object_type):
         if object_type >= EXTENSION_BASE:
             ext = self.game.extensions.fromHandle(object_type - EXTENSION_BASE)
-            writer_module = load_extension_module(ext.name)
+            writer_module = self.get_extension_module(ext)
             return writer_module.get_object()
         else:
             return system_objects[object_type]
@@ -3193,7 +3532,7 @@ class Converter(object):
                     try:
                         menu_entry = menu_dict[num]
                     except KeyError, e:
-                        print 'could not load menu', num, extension_name, key
+                        # print 'could not load menu', num, extension_name, key
                         menu_entry = []
                 # print 'unnamed:', extension_name, num, menu_entry, key
                 # print '%r' % menu_entry
@@ -3221,7 +3560,7 @@ class Converter(object):
             num = item.getExtensionNum()
             if num >= 0:
                 extension = self.get_extension(item)
-                writer_module = load_extension_module(extension.name)
+                writer_module = self.get_extension_module(extension)
                 key = num
         if writer_module is None:
             writer_module = system_writers

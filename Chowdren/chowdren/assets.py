@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 """
 Assets file
 
@@ -27,6 +44,18 @@ Shaders:
 Files:
     uint32 size
     data
+
+Texture map proposal:
+Images:
+    X, Y hotspot (short)
+    X, Y action point (short)
+    Texture_map (short)
+    X, Y pos in map (short)
+    W, H size in map (short)
+
+Texture maps:
+    W, H map size
+    PNG image (or zlib data?)
 """
 
 NONE_TYPE, WAV_TYPE, OGG_TYPE, NATIVE_TYPE = xrange(4)
@@ -37,6 +66,7 @@ AUDIO_TYPES = {
 }
 
 import os
+import sys
 from chowdren.shader import get_shader_programs
 from chowdren.common import get_method_name, get_sized_data
 from chowdren.stringhash import get_string_int_map
@@ -79,32 +109,46 @@ class Assets(object):
         data = ByteReader()
         header_size = ((len(self.images) + len(self.sounds) + len(self.fonts) +
                        len(self.shaders) + len(self.files)) * 4
-                      + len(self.images) * 2)
+                      + len(self.images) * 2 + 5 * 4)
 
         # image preload
         self.use_count_offset = header.tell()
         for _ in xrange(len(self.images)):
             header.writeShort(0, True)
 
+        start = data.tell()
         for image in self.images:
             header.writeInt(data.tell() + header_size, True)
             data.write(image)
+        image_size = data.tell() - start
 
+        start = data.tell()
         for sound in self.sounds:
             header.writeInt(data.tell() + header_size, True)
             data.write(sound)
+        sound_size = data.tell() - start
 
+        start = data.tell()
         for font in self.fonts:
             header.writeInt(data.tell() + header_size, True)
             data.write(font)
+        font_size = data.tell() - start
 
+        start = data.tell()
         for shader in self.shaders:
             header.writeInt(data.tell() + header_size, True)
             data.write(shader)
+        shader_size = data.tell() - start
 
+        start = data.tell()
         for packfile in self.files:
             header.writeInt(data.tell() + header_size, True)
             data.write(packfile)
+        packfile_size = data.tell() - start
+
+        for size in (image_size, sound_size, font_size, shader_size,
+                     packfile_size):
+            header.writeInt(size, True)
 
         self.fp.write(str(header))
         self.fp.write(str(data))
@@ -206,8 +250,10 @@ class Assets(object):
     def get_sound_id(self, name):
         return self.sound_ids.get(name.lower(), 'INVALID_ASSET_ID')
 
-    def add_image(self, hot_x, hot_y, act_x, act_y, data):
+    def add_image(self, width, height, hot_x, hot_y, act_x, act_y, data):
         writer = ByteReader()
+        writer.writeShort(width, True)
+        writer.writeShort(height, True)
         writer.writeShort(hot_x)
         writer.writeShort(hot_y)
         writer.writeShort(act_x)

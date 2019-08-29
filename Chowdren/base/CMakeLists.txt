@@ -3,76 +3,119 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 endif()
 
 if (APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7" CACHE STRING "")
-    set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk" CACHE STRING "")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.6" CACHE STRING "")
 endif()
 
 set(CMAKE_MODULE_PATH "${CHOWDREN_BASE_DIR}/cmake")
 
-if (NOT CMAKE_CROSSCOMPILING)
-    include_directories("${CHOWDREN_BASE_DIR}/include/desktop")
-    set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/desktop"
-        ${CMAKE_INCLUDE_PATH})
-    include_directories("${CHOWDREN_BASE_DIR}/desktop")
+if (CMAKE_CROSSCOMPILING AND NOT APPLE)
+    set(CROSSCOMPILING 1)
+endif()
 
-    if (EMSCRIPTEN)
-        set(PLATFORM_CPP "${CHOWDREN_BASE_DIR}/desktop/emscriptenplatform.cpp")
-    else()
-        set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/platform.cpp)
-    endif()
+if (NOT CROSSCOMPILING)
+    include_directories("${CHOWDREN_BASE_DIR}/include/desktop")
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/desktop")
+    include_directories("${CHOWDREN_BASE_DIR}/desktop")
+    set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/desktop/platform.cpp)
+endif()
+
+if (ANDROID)
+    include_directories("${CHOWDREN_BASE_DIR}/include/android")
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/android")
+    include_directories("${CHOWDREN_BASE_DIR}/android")
+    set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/android/platform.cpp)
+    set(PLATFORM_SRCS
+        ${CHOWDREN_BASE_DIR}/android/glslshader.cpp
+        ${CHOWDREN_BASE_DIR}/android/fbo.cpp
+        ${PLATFORM_SRCS}
+    )
+endif()
+
+if (EMSCRIPTEN)
+    include_directories("${CHOWDREN_BASE_DIR}/include/emscripten")
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/emscripten")
+    include_directories("${CHOWDREN_BASE_DIR}/emscripten")
+    set(PLATFORM_CPP ${CHOWDREN_BASE_DIR}/emscripten/platform.cpp)
+    set(PLATFORM_SRCS
+        ${CHOWDREN_BASE_DIR}/emscripten/glslshader.cpp
+        ${CHOWDREN_BASE_DIR}/emscripten/fbo.cpp
+        ${PLATFORM_SRCS}
+    )
+    set(EMSCRIPTEN_FLAGS "-s USE_SDL=2 -s TOTAL_MEMORY=67108864 -s FULL_ES2=1")
+    set(CMAKE_EXE_LINKER_FLAGS
+        "${CMAKE_EXE_LINKER_FLAGS} ${EMSCRIPTEN_FLAGS} --preload-file Assets.dat")
+    add_definitions(${EMSCRIPTEN_FLAGS})
+    add_definitions("-Wno-warn-absolute-paths")
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
 endif()
 
 include_directories("${CHOWDREN_BASE_DIR}/include")
 include_directories("${CHOWDREN_BASE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
-set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include" ${CMAKE_INCLUDE_PATH})
+list(APPEND CMAKE_INCLUDE_PATH ${CHOWDREN_BASE_DIR}/include)
 
 option(USE_BOX2D "Use Box2D" OFF)
 option(USE_PYTHON "Use Python" OFF)
-option(USE_STEAM "Use Steam (otherwise emulate)" OFF)
-option(ENABLE_STEAM "Enable Steam" ON)
+option(USE_STEAM "Use Steam" OFF)
 option(EMULATE_WIIU "Emulate Wii U features" OFF)
 
-if (CMAKE_CROSSCOMPILING)
+if (ANDROID OR EMSCRIPTEN)
+    set(USE_GLES2 ON)
+elseif (CROSSCOMPILING)
     set(USE_GL OFF)
     set(USE_GLES2 OFF)
     set(USE_GLES1 OFF)
-elseif (EMSCRIPTEN)
-    set(USE_GLES2 ON)
-else()
-    option(USE_GL "Use OpenGL" ON)
-    option(USE_GLES1 "Use OpenGL ES 1" OFF)
-    option(USE_GLES2 "Use OpenGL ES 2" OFF)
+    set(USE_D3D OFF)
+elseif (APP_PLATFORM STREQUAL "generic")
+    set(USE_GL ON)
+elseif (APP_PLATFORM STREQUAL "d3d")
+    set(USE_D3D ON)
 endif()
 
 if(EMSCRIPTEN)
     add_definitions(-DCHOWDREN_IS_EMSCRIPTEN)
 endif()
 
-if (NOT CMAKE_CROSSCOMPILING)
-    add_definitions(-DCHOWDREN_IS_DESKTOP)
-endif()
-
 if (USE_GL)
     add_definitions(-DCHOWDREN_USE_GL)
+elseif (USE_D3D)
+    add_definitions(-DCHOWDREN_USE_D3D)
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} "d3d9.lib")
 elseif (USE_GLES1)
     add_definitions(-DCHOWDREN_USE_GLES1)
 elseif (USE_GLES2)
     add_definitions(-DCHOWDREN_USE_GLES2)
 endif()
 
-if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
+if (ANDROID)
+    add_definitions(-DCHOWDREN_IS_ANDROID -DUSE_ASSET_MANAGER)
+    include(AndroidNdkGdb)
+    android_ndk_gdb_enable()
+elseif (NOT CROSSCOMPILING)
+    add_definitions(-DCHOWDREN_IS_DESKTOP)
+endif()
+
+if (NOT CROSSCOMPILING)
     set(PLATFORM_SRCS
         ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
         ${CHOWDREN_BASE_DIR}/desktop/fbo.cpp
+        ${CHOWDREN_BASE_DIR}/desktop/tinyfiledialogs.c
         ${PLATFORM_SRCS}
     )
+
+    if (APPLE)
+        set(PLATFORM_SRCS
+            ${CHOWDREN_BASE_DIR}/desktop/tinyfiledialogs.m
+            ${PLATFORM_SRCS}
+        )
+    endif()
 endif()
 
 set(SRCS
     ${OBJECTSRCS}
     fonts.cpp
     lists.cpp
+    intern.cpp
     ${CHOWDREN_BASE_DIR}/render.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/keyconv.cpp
@@ -88,6 +131,7 @@ set(SRCS
     ${CHOWDREN_BASE_DIR}/broadphase.cpp
     ${CHOWDREN_BASE_DIR}/profiler.cpp
     ${CHOWDREN_BASE_DIR}/stringcommon.cpp
+    ${CHOWDREN_BASE_DIR}/crossrand.cpp
     ${PLATFORM_SRCS}
     ${FRAMESRCS}
     ${EVENTSRCS}
@@ -95,23 +139,20 @@ set(SRCS
 )
 
 if (USE_STEAM)
-    add_definitions(-DCHOWDREN_USE_STEAM)
-    if (ENABLE_STEAM)
-        add_definitions(-DCHOWDREN_ENABLE_STEAM)
-        include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
-        if (WIN32)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
-        elseif (APPLE)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
-        else()
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
-        endif()
+    add_definitions(-DCHOWDREN_ENABLE_STEAM)
+    include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
+    if (WIN32)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
+    elseif (APPLE)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
+    else()
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
     endif()
 endif()
 
@@ -166,12 +207,79 @@ if (USE_BOX2D)
     )
 endif()
 
+if (CHOWDREN_USE_GWEN)
+    set(GWEN_DIR "${CHOWDREN_BASE_DIR}/staticlibs/gwen")
+    include_directories("${CHOWDREN_BASE_DIR}/include/staticlibs")
+    set(SRCS
+        ${SRCS}
+        ${CHOWDREN_BASE_DIR}/gui/gwen.cpp
+        ${GWEN_DIR}/GwenAnim.cpp
+        ${GWEN_DIR}/GwenBaseRender.cpp
+        ${GWEN_DIR}/GwenChowdrenPlatform.cpp
+        ${GWEN_DIR}/GwenChowdrenRender.cpp
+        ${GWEN_DIR}/GwenControlList.cpp
+        ${GWEN_DIR}/GwenDragAndDrop.cpp
+        ${GWEN_DIR}/GwenEvents.cpp
+        ${GWEN_DIR}/GwenMain.cpp
+        ${GWEN_DIR}/GwenHook.cpp
+        ${GWEN_DIR}/GwenInputHandler.cpp
+        ${GWEN_DIR}/GwenSkin.cpp
+        ${GWEN_DIR}/GwenToolTip.cpp
+        ${GWEN_DIR}/GwenUtility.cpp
+        ${GWEN_DIR}/Controls/GwenBase.cpp
+        ${GWEN_DIR}/Controls/GwenButton.cpp
+        ${GWEN_DIR}/Controls/GwenCanvas.cpp
+        ${GWEN_DIR}/Controls/GwenCheckBox.cpp
+        ${GWEN_DIR}/Controls/GwenCrossSplitter.cpp
+        ${GWEN_DIR}/Controls/GwenDockBase.cpp
+        ${GWEN_DIR}/Controls/GwenDockedTabControl.cpp
+        ${GWEN_DIR}/Controls/GwenDragger.cpp
+        ${GWEN_DIR}/Controls/GwenComboBox.cpp
+        ${GWEN_DIR}/Controls/GwenHorizontalScrollBar.cpp
+        ${GWEN_DIR}/Controls/GwenHorizontalSlider.cpp
+        ${GWEN_DIR}/Controls/GwenImagePanel.cpp
+        ${GWEN_DIR}/Controls/GwenLabel.cpp
+        ${GWEN_DIR}/Controls/GwenLabelClickable.cpp
+        ${GWEN_DIR}/Controls/GwenListBox.cpp
+        ${GWEN_DIR}/Controls/GwenMenu.cpp
+        ${GWEN_DIR}/Controls/GwenMenuItem.cpp
+        ${GWEN_DIR}/Controls/GwenMenuStrip.cpp
+        ${GWEN_DIR}/Controls/GwenNumericUpDown.cpp
+        ${GWEN_DIR}/Controls/GwenProgressBar.cpp
+        ${GWEN_DIR}/Controls/GwenRadioButton.cpp
+        ${GWEN_DIR}/Controls/GwenRadioButtonController.cpp
+        ${GWEN_DIR}/Controls/GwenRectangle.cpp
+        ${GWEN_DIR}/Controls/GwenResizableControl.cpp
+        ${GWEN_DIR}/Controls/GwenResizer.cpp
+        ${GWEN_DIR}/Controls/GwenRichLabel.cpp
+        ${GWEN_DIR}/Controls/GwenScrollBar.cpp
+        ${GWEN_DIR}/Controls/GwenScrollBarBar.cpp
+        ${GWEN_DIR}/Controls/GwenScrollBarButton.cpp
+        ${GWEN_DIR}/Controls/GwenScrollControl.cpp
+        ${GWEN_DIR}/Controls/GwenSlider.cpp
+        ${GWEN_DIR}/Controls/GwenSplitterBar.cpp
+        ${GWEN_DIR}/Controls/GwenTabButton.cpp
+        ${GWEN_DIR}/Controls/GwenTabControl.cpp
+        ${GWEN_DIR}/Controls/GwenTabStrip.cpp
+        ${GWEN_DIR}/Controls/GwenText.cpp
+        ${GWEN_DIR}/Controls/GwenTextBox.cpp
+        ${GWEN_DIR}/Controls/GwenTextBoxNumeric.cpp
+        ${GWEN_DIR}/Controls/GwenVerticalScrollBar.cpp
+        ${GWEN_DIR}/Controls/GwenVerticalSlider.cpp
+        ${GWEN_DIR}/Controls/GwenWindowCanvas.cpp
+        ${GWEN_DIR}/Controls/GwenWindowControl.cpp
+    )
+endif()
+
 if (EMULATE_WIIU)
     add_definitions(-DCHOWDREN_EMULATE_WIIU)
     add_definitions(-DCHOWDREN_HAS_MRT)
 endif()
 
 if(WIN32)
+    add_definitions(-D_WINSOCKAPI_)
+    add_definitions(-DWIN32_LEAN_AND_MEAN)
+    add_definitions(-DNOMINMAX)
     if (MINGW)
         set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} imm32 version)
         set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/mingw"
@@ -180,15 +288,15 @@ if(WIN32)
         set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/win32"
             ${CMAKE_LIBRARY_PATH})
     endif()
-    set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/win32"
-        ${CMAKE_INCLUDE_PATH})
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/win32")
     set(SRCS ${SRCS} resource.rc)
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} winmm)
 elseif(APPLE)
     set(CMAKE_LIBRARY_PATH "${CHOWDREN_BASE_DIR}/lib/osx"
         ${CMAKE_LIBRARY_PATH})
-    set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/osx"
-        ${CMAKE_INCLUDE_PATH})
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/osx")
+    # for frameworks
+    list(APPEND CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/lib/osx")
     find_library(CARBON_LIBRARY Carbon)
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} ${CARBON_LIBRARY})
 endif()
@@ -199,6 +307,9 @@ if(MSVC)
             "Name of generator toolset." FORCE)
     elseif(MSVC12)
         SET(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING
+            "Name of generator toolset." FORCE)
+    elseif(MSVC14)
+        SET(CMAKE_GENERATOR_TOOLSET "v140_xp" CACHE STRING
             "Name of generator toolset." FORCE)
     endif()
 
@@ -220,11 +331,9 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()
 
-if(APPLE OR LINUX)
+if(LINUX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
-    if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
-    endif()
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
 endif()
 
 if(APPLE)
@@ -235,11 +344,7 @@ if(APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "${APP_VERSION}")
     set(MACOSX_BUNDLE_COPYRIGHT "${APP_COPYRIGHT}")
     set(DATA_SRCS ${DATA_SRCS} "${CMAKE_SOURCE_DIR}/${MACOSX_BUNDLE_ICON_FILE}")
-    # set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 endif()
-
-# include alsoft.conf
-# set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 
 if(LINUX)
     set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/run.sh")
@@ -268,17 +373,17 @@ add_definitions(-DBOOST_ALL_NO_LIB)
 add_definitions(-DBOOST_NO_EXCEPTIONS)
 add_definitions(-DBOOST_EXCEPTION_DISABLE)
 
-include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
-if (NOT NO_STATIC_OGG)
-    # libogg
-    file(GLOB LIBOGG_C
-         "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
-    file(GLOB LIBVORBIS_C
-         "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
-    set(VORBIS_INCLUDE_DIR
-        "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
-    set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
-endif()
+# include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
+# if (NOT NO_STATIC_OGG)
+#     # libogg
+#     file(GLOB LIBOGG_C
+#          "${CHOWDREN_BASE_DIR}/staticlibs/libogg/src/*.c")
+#     file(GLOB LIBVORBIS_C
+#          "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib/*.c")
+#     set(VORBIS_INCLUDE_DIR
+#         "${CHOWDREN_BASE_DIR}/staticlibs/libvorbis/lib")
+#     set(SRCS ${LIBOGG_C} ${LIBVORBIS_C} ${SRCS})
+# endif()
 
 if (USE_WEBP)
     file(GLOB WEBP_C
@@ -288,7 +393,52 @@ if (USE_WEBP)
     set(SRCS ${WEBP_C} ${SRCS})
 endif()
 
-if (NOT CMAKE_CROSSCOMPILING)
+if (ANDROID)
+    find_package(OpenGLES2 REQUIRED)
+
+    add_definitions(-DGL_GLEXT_PROTOTYPES -DSDL_RENDER_DISABLED)
+    set(SDL_ROOT ${CHOWDREN_BASE_DIR}/staticlibs/SDL2)
+    set(SDL2_INCLUDE_DIR ${SDL_ROOT}/include)
+    set(PLATFORM_LIBRARIES
+        dl
+        log
+        android
+        m
+        ${PLATFORM_LIBRARIES})
+    file(GLOB SDL_SRCS
+         ${SDL_ROOT}/src/*.c
+         ${SDL_ROOT}/src/audio/*.c
+         ${SDL_ROOT}/src/audio/android/*.c
+         ${SDL_ROOT}/src/audio/dummy/*.c
+         ${SDL_ROOT}/src/atomic/SDL_atomic.c
+         ${SDL_ROOT}/src/atomic/SDL_spinlock.c
+         ${SDL_ROOT}/src/core/android/*.c
+         ${SDL_ROOT}/src/cpuinfo/*.c
+         ${SDL_ROOT}/src/dynapi/*.c
+         ${SDL_ROOT}/src/events/*.c
+         ${SDL_ROOT}/src/file/*.c
+         ${SDL_ROOT}/src/haptic/*.c
+         ${SDL_ROOT}/src/haptic/dummy/*.c
+         ${SDL_ROOT}/src/joystick/*.c
+         ${SDL_ROOT}/src/joystick/android/*.c
+         ${SDL_ROOT}/src/loadso/dlopen/*.c
+         ${SDL_ROOT}/src/power/*.c
+         ${SDL_ROOT}/src/power/android/*.c
+         ${SDL_ROOT}/src/filesystem/dummy/*.c
+         ${SDL_ROOT}/src/render/*.c
+         ${SDL_ROOT}/src/stdlib/*.c
+         ${SDL_ROOT}/src/thread/*.c
+         ${SDL_ROOT}/src/thread/pthread/*.c
+         ${SDL_ROOT}/src/timer/*.c
+         ${SDL_ROOT}/src/timer/unix/*.c
+         ${SDL_ROOT}/src/video/*.c
+         ${SDL_ROOT}/src/video/android/*.c
+         ${SDL_ROOT}/src/main/android/SDL_android_main.c
+    )
+    set(SRCS ${SDL_SRCS} ${SRCS})
+endif()
+
+if (NOT CROSSCOMPILING)
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)
     if (USE_GL)
@@ -299,16 +449,33 @@ if (NOT CMAKE_CROSSCOMPILING)
 endif()
 
 set(EXE_NAME "Chowdren")
-add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
-include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${WEBP_INCLUDE_DIR})
-target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
-    ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES}
-    ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES})
+if (ANDROID)
+    add_library(${EXE_NAME} SHARED ${SRCS})
+    android_ndk_gdb_debuggable(${EXE_NAME}) 
+else()
+    add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
+endif()
+
+include_directories(
+    ${OPENALSOFT_INCLUDE_DIR}
+    ${SDL2_INCLUDE_DIR}
+    ${BOX2D_INCLUDE_DIR}
+    ${WEBP_INCLUDE_DIR}
+)
+
+target_link_libraries(
+    ${EXE_NAME}
+    ${SDL2_LIBRARY}
+    ${OPENGL_LIBRARY}
+    ${OPENALSOFT_LIBRARY}
+    ${PYTHON_LIBRARIES}
+    ${PLATFORM_LIBRARIES}
+    ${BOX2D_LIBRARY}
+    ${OPENGLES2_LIBRARIES}
+)
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
-
 set(BIN_DIR ".")
 set(DATA_PATH ".")
 if(APPLE)

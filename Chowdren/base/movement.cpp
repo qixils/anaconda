@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "movement.h"
 #include "frameobject.h"
 #include "common.h"
@@ -66,8 +83,10 @@ int get_movement_direction(int v)
 
 Movement::Movement(FrameObject * instance)
 : instance(instance), speed(0), add_x(0), add_y(0), max_speed(0),
-  back_col(false)
+  back_col(false), flags(0)
 {
+    old_x = instance->x;
+    old_y = instance->y;
 }
 
 Movement::~Movement()
@@ -103,6 +122,8 @@ void Movement::look_at(int x, int y)
 void Movement::set_max_speed(int v)
 {
     max_speed = v;
+    if (speed > max_speed)
+        set_speed(max_speed);
 }
 
 int Movement::get_speed()
@@ -120,6 +141,12 @@ void Movement::set_direction(int value)
 
 }
 
+void Movement::init()
+{
+    if (flags & MOVE_AT_START)
+        start();
+}
+
 void Movement::start()
 {
     if (max_speed == 0 || speed > 0)
@@ -134,15 +161,11 @@ void Movement::reverse()
 
 void Movement::stop(bool collision)
 {
-    if (speed != 0)
-        max_speed = speed;
     set_speed(0);
 }
 
 void Movement::bounce(bool collision)
 {
-    if (speed != 0)
-        max_speed = speed;
     set_speed(0);
 }
 
@@ -331,30 +354,132 @@ StaticMovement::StaticMovement(FrameObject * instance)
 // BallMovement
 
 BallMovement::BallMovement(FrameObject * instance)
-: Movement(instance), speed_change(0.0)
+: Movement(instance), speed_change(0.0), stop_speed(0)
 {
 
 }
 
+void BallMovement::init()
+{
+    if (flags & MOVE_AT_START)
+        set_speed(max_speed);
+    else
+        stop_speed = max_speed;
+}
+
+const int rebond_list[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+	21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 30, 31, 0, 1, 4, 3, 2, 1, 0,
+	31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 24, 25, 26, 27, 27, 28, 28,
+	28, 28, 29, 29, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 16, 17,
+	18, 19, 19, 20, 20, 20, 20, 21, 21, 22, 23, 24, 25, 28, 27, 26, 25, 0, 31,
+	30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 20, 21, 22, 22,
+	23, 24, 24, 24, 24, 25, 26, 27, 28, 29, 30, 8, 7, 6, 5, 4, 8, 9, 10, 11,
+	11, 12, 12, 12, 12, 13, 13, 14, 15, 16, 17, 20, 19, 18, 17, 16, 15, 14, 13,
+	12, 11, 10, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 16, 15, 14, 13,
+	12, 11, 10, 9, 8, 12, 13, 14, 15, 15, 16, 16, 16, 16, 17, 17, 18, 19, 20,
+	21, 24, 23, 22, 21, 20, 19, 18, 17, 16, 17, 18, 19, 20, 21, 22, 23, 24, 23,
+	22, 21, 20, 19, 18, 17, 16, 17, 18, 19, 20, 21, 22, 23, 24, 23, 22, 21, 20,
+	19, 18, 17, 3, 3, 4, 4, 4, 4, 5, 5, 6, 7, 8, 9, 12, 11, 10, 9, 8, 7, 6, 5,
+	4, 3, 2, 1, 0, 31, 30, 29, 28, 0, 1, 2, 0, 0, 1, 1, 2, 3, 4, 5, 8, 7, 6, 5,
+	4, 3, 2, 1, 0, 31, 30, 29, 28, 27, 26, 25, 24, 28, 29, 30, 31, 31, 0, 0, 0,
+	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+	22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 0, 31, 30, 29, 28, 27, 26, 25, 24,
+	25, 26, 27, 28, 29, 30, 31, 0, 31, 30, 29, 28, 27, 25, 25, 24, 25, 26, 27,
+	28, 29, 30, 31, 0, 4, 5, 6, 7, 7, 8, 8, 8, 8, 9, 9, 10, 11, 12, 13, 16, 15,
+	14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+	7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1, 16,
+	15, 14, 13, 12, 11, 10, 9, 8, 9, 10, 11, 12, 13, 14, 15, 16, 15, 14, 13,
+	12, 11, 10, 9, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+	10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+	29, 30, 31
+};
+
+const int plus_angles_try[] = {-4, 4, -4, 4, -4, 4};
+
 void BallMovement::update()
 {
+    if (stop_speed != 0 || speed == 0) {
+        instance->set_animation(STOPPED);
+        return;
+    } else
+        instance->set_animation(WALKING);
     double add_x, add_y;
     get_dir(instance->direction, add_x, add_y);
     double m = get_pixels(speed) * instance->frame->timer_mul;
-    move(add_x * m, add_y * m);
+
+    if (speed > 100 && has_back_col) {
+        double move_x = add_x * m;
+        double move_y = add_y * m;
+
+        int steps = 4;
+
+        move_x /= steps;
+        move_y /= steps;
+
+        old_x = instance->x;
+        old_y = instance->y;
+
+        clear_collisions();
+
+        for (int i = 0; i < steps; ++i) {        
+            this->add_x += move_x;
+            this->add_y += move_y;
+            double xx = floor(this->add_x);
+            double yy = floor(this->add_y);
+            this->add_x -= xx;
+            this->add_y -= yy;
+            instance->set_position(instance->x + xx,
+                                   instance->y + yy);
+
+            if (instance->overlaps_background())
+                break;
+        }
+    } else {
+        move(add_x * m, add_y * m);
+    }
     if (deceleration != 0)
         speed_change -= get_accelerator(deceleration)
                         * instance->frame->timer_mul;
     int change = (int)speed_change;
     speed_change -= change;
-    set_speed(int_max(0, speed + change));
+    speed = int_max(0, speed + change);
+}
+
+void BallMovement::start()
+{
+    if (stop_speed == 0)
+        return;
+    speed = stop_speed;
+    stop_speed = 0;
+}
+
+void BallMovement::set_speed(int speed)
+{
+    this->speed = speed;
+    stop_speed = 0;
+}
+
+void BallMovement::stop(bool collision)
+{
+    if (stop_speed != 0)
+        return;
+    stop_speed = speed;
+    speed = 0;
 }
 
 void BallMovement::bounce(bool collision)
 {
+    if (stop_speed != 0)
+        return;
+#ifdef CHOWDREN_IS_AVGN
     fix_position();
 
-    float angle = rad(instance->direction * 11.25f);
+    int direction = instance->direction;
+
+    float angle = rad(direction * 11.25f);
+
     float found_a = -1.0f;
     for (float a = 0.0f; a < (CHOW_PI*2.0f); a += (CHOW_PI*2.0f) / 16.0f) {
         float x_move = 10.0f * cos(angle + a);
@@ -379,6 +504,80 @@ void BallMovement::bounce(bool collision)
         angle -= 2.0 * CHOW_PI;
 
     instance->set_direction(deg(angle) / 11.25f, false);
+
+    if (back_col)
+        instance->flags &= ~REPEAT_BACK_COLLISION;
+    else
+        instance->collision_flags = 0;
+#else
+    add_x = add_y = 0;
+
+    if (collision) {
+        if (back_col)
+            has_back_col = true;
+        push_out();
+    }
+
+    int x = instance->x;
+    int y = instance->y;
+    x -= 8;
+    y -= 8;
+    int rebond = 0;
+    if (test_position(x, y))
+        rebond |= 0x01;
+    x += 16;
+    if (test_position(x, y))
+        rebond |= 0x02;
+    y += 16;
+    if (test_position(x, y))
+        rebond |= 0x04;
+    x -= 16;
+    if (test_position(x, y))
+        rebond |= 0x08;
+    int value = rebond_list[rebond * 32 + instance->direction];
+    if (test_direction(value, 8)) {
+		int angles = 4;
+        int angles2 = angles;
+        bool is_free = false;
+        while (true) {
+            value -= angles;
+            value &= 31;
+            if (!test_direction(value, 8)) {
+                is_free = true;
+                break;
+            }
+            value += 2 * angles;
+            value &= 31;
+            if (!test_direction(value, 8)) {
+                is_free = true;
+                break;
+            }
+            value -= angles;
+            value &= 31;
+            angles += angles2;
+            if (angles <= 16)
+                break;
+        }
+        if (!is_free)
+            value = randrange(32);
+    }
+
+    int rnd = randrange(100);
+    if (rnd < randomizer) {
+        rnd >>= 2;
+        if (rnd < 25) {
+            rnd -= 12;
+            rnd &= 31;
+            if (!test_direction(rnd, 8))
+                value = rnd;
+        }
+    }
+
+    instance->set_direction(value);
+
+    if (back_col)
+        instance->flags &= ~REPEAT_BACK_COLLISION;
+#endif
 }
 
 void BallMovement::set_deceleration(int value)
@@ -391,12 +590,12 @@ void BallMovement::set_deceleration(int value)
 VectorMovement::VectorMovement(FrameObject * instance)
 : Movement(instance), angle(0.0)
 {
-
+    flags |= MOVE_STOPPED;
 }
 
 void VectorMovement::update()
 {
-    if (speed <= 0)
+    if (speed <= 0 || flags & MOVE_STOPPED)
         return;
 
     float vel_x = speed * cos_deg(angle) * instance->frame->timer_mul;
@@ -408,6 +607,19 @@ void VectorMovement::update()
 
     move(vel_x * 0.01f, vel_y * 0.01f);
     instance->set_animation(WALKING);
+}
+
+void VectorMovement::stop(bool collision)
+{
+    flags |= MOVE_STOPPED;
+}
+
+void VectorMovement::start()
+{
+    if (!(flags & MOVE_STOPPED))
+        return;
+    flags &= ~MOVE_STOPPED;
+    Movement::start();
 }
 
 void VectorMovement::look_at(int x, int y)
@@ -564,27 +776,26 @@ void PathMovement::reverse()
 // PinballMovement
 
 PinballMovement::PinballMovement(FrameObject * instance)
-: Movement(instance), x_speed(0.0f), y_speed(0.0f), stopped(true)
+: Movement(instance), x_speed(0.0f), y_speed(0.0f)
 {
-
+    flags |= MOVE_STOPPED;
 }
 
 void PinballMovement::start()
 {
-    if (!stopped)
+    if (!(flags & MOVE_STOPPED))
         return;
-    stopped = false;
+    flags &= ~MOVE_STOPPED;
     Movement::start();
     get_dir(instance->direction, x_speed, y_speed);
     x_speed *= speed;
     y_speed *= speed;
+    instance->set_animation(WALKING);
 }
 
 void PinballMovement::stop(bool collision)
 {
-    if (stopped)
-        return;
-    stopped = true;
+    flags |= MOVE_STOPPED;
 }
 
 void PinballMovement::set_direction(int value)
@@ -597,19 +808,17 @@ void PinballMovement::set_direction(int value)
 
 float get_pinball_angle(float x, float y)
 {
-    float d = get_length(x, y);
-    if (d == 0.0f)
-        return 0.0f;
-    float angle = acos(x / d);
-    if (y > 0.0f)
-        angle = 2.0 * CHOW_PI - angle;
-    return angle;
+    return get_angle_rad(0.0f, 0.0f, x, y);
 }
 
 void PinballMovement::update()
 {
-    if (stopped)
+    if (flags & MOVE_STOPPED) {
+        instance->set_animation(STOPPED);       
         return;
+    }
+    instance->set_animation(WALKING);
+
     y_speed += gravity / 10.0f;
     float m = instance->frame->timer_mul;
     float angle = get_pinball_angle(x_speed, y_speed);
@@ -662,8 +871,8 @@ void PinballMovement::bounce(bool collision)
         angle -= 2.0 * CHOW_PI;
 
     // add some randomness
-    angle += randrange(-0.3f, 0.3f);
-    dist += randrange(0.0f, 15.0f);
+    // angle += randrange(-0.3f, 0.3f);
+    // dist += randrange(0.0f, 15.0f);
 
     x_speed = dist * cos(angle);
     y_speed = -dist * sin(angle);

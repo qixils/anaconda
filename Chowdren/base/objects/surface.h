@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_SURFACE_H
 #define CHOWDREN_SURFACE_H
 
@@ -80,6 +97,7 @@ public:
     FRAMEOBJECT_HEAD(SurfaceObject)
 
     // Edit-time flags
+    bool use_blur;
     bool display_selected;
     bool use_abs_coords;
 
@@ -89,8 +107,9 @@ public:
     vector<SurfaceBlit> blit_images;
     int dest_width, dest_height;
     int dest_x, dest_y;
+    int src_width, src_height;
     int stretch_mode;
-    int effect;
+    int blit_effect;
 
     // Image array
     vector<SurfaceImage> images;
@@ -111,14 +130,12 @@ public:
     vector<SurfaceQuad> quads;
     vector<SurfaceLine> lines;
 
-    // Image blit
-
-
     SurfaceObject(int x, int y, int type_id);
     ~SurfaceObject();
     void update();
     void draw();
     void load(const std::string & filename, const std::string & ignore_ext);
+    void load(const std::string & filename);
     void resize(int w, int h);
     void resize_canvas(int x, int y, int w, int h);
     void set_stretch_mode(int mode);
@@ -149,7 +166,7 @@ public:
     int get_edit_height();
     int get_image_width(int index);
     void scroll(int x, int y, int wrap);
-    void resize_source(int w, int h);
+    void set_src_size(int w, int h);
     void draw_line(int x1, int y1, int x2, int y2, Color color, int width);
     void draw_polygon(int x, int y, Color color, int outline_size,
                       Color outline);

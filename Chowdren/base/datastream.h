@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_DATASTREAM_H
 #define CHOWDREN_DATASTREAM_H
 
@@ -6,6 +23,7 @@
 #include <string.h>
 #include <algorithm>
 
+template <class T>
 class BaseStream
 {
 public:
@@ -143,32 +161,61 @@ public:
         read_delim(str, '\n');
     }
 
-    // subclasses implements this
+    // subclasses implement these
+    void write(const char * data, size_t len)
+    {
+        ((T*)this)->write(data, len);
+    }
 
-    virtual void write(const char * data, size_t len) = 0;
-    virtual bool read(char * data, size_t len) = 0;
-    virtual void seek(size_t pos) = 0;
-    virtual bool at_end() = 0;
+    unsigned int read(char * data, size_t len)
+    {
+        return ((T*)this)->read(data, len);
+    }
+
+    bool seek(size_t pos)
+    {
+        return ((T*)this)->seek(pos);
+    }
+
+    bool seek(size_t pos, int whence)
+    {
+        return ((T*)this)->seek(pos, whence);
+    }
+
+    bool at_end()
+    {
+        return ((T*)this)->at_end();
+    }
+
+    size_t tell()
+    {
+        return ((T*)this)->tell();
+    }
 };
 
-class FileStream : public BaseStream
+class FileStream : public BaseStream<FileStream>
 {
 public:
     FSFile & fp;
 
     FileStream(FSFile & fp)
-    : BaseStream(), fp(fp)
+    : fp(fp)
     {
     }
 
-    bool read(char * data, size_t len)
+    unsigned int read(char * data, size_t len)
     {
-        return fp.read(data, len) == len;
+        return fp.read(data, len);
     }
 
     void seek(size_t pos)
     {
         fp.seek(pos);
+    }
+
+    void seek(size_t pos, int whence)
+    {
+        fp.seek(pos, whence);
     }
 
     bool at_end()
@@ -180,9 +227,14 @@ public:
     {
         fp.write(data, len);
     }
+
+    size_t tell()
+    {
+        return fp.tell();
+    }
 };
 
-class DataStream : public BaseStream
+class DataStream : public BaseStream<DataStream>
 {
 public:
     std::stringstream & stream;
@@ -192,14 +244,30 @@ public:
     {
     }
 
-    bool read(char * data, size_t len)
+    unsigned int read(char * data, size_t len)
     {
-        return !stream.read(data, len).eof();
+        stream.read(data, len);
+        return stream.gcount();
     }
 
     void seek(size_t pos)
     {
         stream.seekg(pos);
+    }
+
+    void seek(size_t pos, int whence)
+    {
+        switch (whence) {
+            case SEEK_SET:
+                stream.seekg(pos, std::stringstream::beg);
+                break;
+            case SEEK_CUR:
+                stream.seekg(pos, std::stringstream::cur);
+                break;
+            case SEEK_END:
+                stream.seekg(pos, std::stringstream::end);
+                break;
+        }
     }
 
     bool at_end()
@@ -211,9 +279,42 @@ public:
     {
         stream.write(data, len);
     }
+
+    size_t tell()
+    {
+        return stream.tellg();
+    }
 };
 
-class StringStream : public BaseStream
+class WriteStream : public DataStream
+{
+public:
+    std::stringstream stream;
+
+    WriteStream()
+    : DataStream(stream)
+    {
+    }
+
+    ~WriteStream()
+    {
+    }
+
+    std::string get_string()
+    {
+        return stream.str();
+    }
+
+    void save(FSFile & fp)
+    {
+        std::string data = stream.str();
+        if (data.empty())
+            return;
+        fp.write(&data[0], data.size());
+    }
+};
+
+class StringStream : public BaseStream<StringStream>
 {
 public:
     const std::string & str;
@@ -224,13 +325,13 @@ public:
     {
     }
 
-    bool read(char * data, size_t len)
+    unsigned int read(char * data, size_t len)
     {
         if (str.size() - pos < len)
-            return false;
+            return 0;
         memcpy(data, &str[pos], len);
         pos += len;
-        return true;
+        return len;
     }
 
     void seek(size_t p)
@@ -245,6 +346,79 @@ public:
 
     void write(const char * data, size_t len)
     {
+    }
+
+    size_t tell()
+    {
+        return pos;
+    }
+};
+
+class ArrayStream : public BaseStream<ArrayStream>
+{
+public:
+    char * array;
+    size_t size;
+    size_t pos;
+
+    ArrayStream(char * array, size_t size)
+    : array(array), size(size), pos(0)
+    {
+    }
+
+    ArrayStream()
+    : pos(0), array(NULL), size(0)
+    {
+    }
+
+    void init(char * array, size_t size)
+    {
+        this->array = array;
+        this->size = size;
+        pos = 0;
+    }
+
+    unsigned int read(char * data, size_t len)
+    {
+        if (size - pos < len)
+            return 0;
+        memcpy(data, &array[pos], len);
+        pos += len;
+        return len;
+    }
+
+    void seek(size_t p)
+    {
+        pos = std::max(size_t(0), std::min(p, size));
+    }
+
+    void seek(size_t p, int whence)
+    {
+        switch (whence) {
+            case SEEK_SET:
+                seek(p);
+                break;
+            case SEEK_CUR:
+                seek(pos + p);
+                break;
+            case SEEK_END:
+                seek(size - p);
+                break;
+        }
+    }
+
+    bool at_end()
+    {
+        return pos == size;
+    }
+
+    void write(const char * data, size_t len)
+    {
+    }
+
+    size_t tell()
+    {
+        return pos;
     }
 };
 

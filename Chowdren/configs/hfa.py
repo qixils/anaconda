@@ -8,12 +8,14 @@ def init(converter):
     converter.add_define('CHOWDREN_INI_FILTER_QUOTES')
     converter.add_define('CHOWDREN_INI_KEEP_ORDER')
     converter.add_define('CHOWDREN_FORCE_TRANSPARENT')
+    converter.add_define('CHOWDREN_16BIT_IMAGE')
     converter.add_define('CHOWDREN_VSYNC')
     converter.add_define('CHOWDREN_IS_HFA')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
     converter.add_define('CHOWDREN_DISABLE_DISPLAY0_EXT')
     converter.add_define('CHOWDREN_AUTOSAVE_ON_CHANGE') # this is stupid
     converter.add_define('CHOWDREN_SAVE_PATH', 'data/savegames')
+    converter.add_define('CHOWDREN_USE_CRASHDUMP')
 
     # hack to turn on high-resolution lighting system images
     values = converter.game.globalValues.items
@@ -61,7 +63,8 @@ def use_image_preload(converter):
 
 global_objects = [
     'Scrolling',
-    'Map_MainObject'
+    'Map_MainObject',
+    'joy2key'
 ]
 
 def use_global_alterables(converter, obj):
@@ -112,17 +115,58 @@ def get_startup_instances(converter, instances):
 
         new_instances += text_blitters
         return new_instances
+    elif converter.current_frame_index == 26:
+        # remove Active 10
+        new_instances = []
+        for item in instances:
+            frameitem = item[1]
+            obj = (frameitem.handle, frameitem.objectType)
+            writer = converter.get_object_writer(obj)
+            if writer.data.name == 'Active 10':
+                converter.multiple_instances.add(obj)
+                continue
+            new_instances.append(item)
+        return new_instances
     return instances
+
+def find_obj(converter, name):
+    for item in converter.startup_instances:
+        frameitem = item[1]
+        if frameitem.name == name:
+            break
+    else:
+        raise KeyError()
+    handle = (frameitem.handle, frameitem.objectType, converter.game_index)
+    return handle
 
 def write_frame_post(converter, writer):
     if converter.current_frame_index != 26:
         return
-    for item in converter.startup_instances:
-        frameitem = item[1]
-        if frameitem.name == 'Active 4':
-            break
-    handle = (frameitem.handle, frameitem.objectType, converter.game_index)
-    writer.putlnc('%s->move_front();', converter.get_object(handle))
+
+    active_4 = find_obj(converter, 'Active 4')
+    writer.putlnc('%s->move_front();', converter.get_object(active_4))
+
+    # Layer:
+    # big_light: 1
+    # Active 5: 2
+    # Active 6: 3
+    # Active 7: 4
+    # Active 8: 5
+    # Demo fade out: 6
+    # FG Bloom: 7
+    # Demo fade out 2: 8
+    # Active 9: 10
+    # Active 11: 11
+    # light: 12
+    # Demo fade out main menu: 14
+
+    # need to fix order because of stupid MMF reordering
+    fg_bloom = find_obj(converter, 'FG Bloom effect')
+    demo_fade_out = find_obj(converter, 'Demo fade out')
+
+    writer.putlnc('%s->move_front(%s);', converter.get_object(fg_bloom),
+                  converter.get_object(demo_fade_out))
+
 
 def use_safe_create(converter):
     return True
@@ -141,7 +185,7 @@ def get_frames(converter, game, frames):
             indexes = indexes + (77,)
         # indexes = (6,)
     else:
-        indexes = (0, 1, 2, 3, 4, 5, 6, 7)
+        indexes = (0, 1, 2, 3, 4, 5, 6, 7, 8)
     for index in indexes:
         new_frames[index] = frames[index]
     return new_frames
@@ -158,5 +202,28 @@ def use_blitter_callback(converter, obj):
     return frame_index in (None, 6)
 
 def get_string(converter, value):
-    value = value.replace('controls.ini', 'controlsc.ini')
+    value = value.replace('controls.ini', 'controls_final.ini')
     return value
+
+scale_objs = (
+    ('Active', 1262, 1233),
+    ('Active 5', 274, 231),
+    ('Active 10', 100, 100)
+)
+
+def get_scale_method(converter, obj):
+    if obj.game_index != 0:
+        return None
+    bank = converter.games[0].images
+    images = obj.get_images()
+    for (scale_name, img_w, img_h) in scale_objs:
+        if obj.data.name != scale_name:
+            continue
+        for image in images:
+            image = bank.itemDict[image]
+            if image.width != img_w:
+                break
+            if image.height != img_h:
+                break
+            return True
+    return None

@@ -1,3 +1,20 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 class Shader(object):
     def __init__(self, name, asset_name, has_back=False, has_tex_size=False,
                  tex_param=None):
@@ -148,8 +165,8 @@ shader_coldirblur.add_uniform('fCoeff', 'float')
 shader_perspective = Shader('Perspective', 'perspective', has_tex_size=True)
 shader_perspective.add_uniform('effect', 'int')
 shader_perspective.add_uniform('direction', 'int')
-shader_perspective.add_uniform('zoom', 'float')
-shader_perspective.add_uniform('offset', 'float')
+shader_perspective.add_uniform('zoom', 'int')
+shader_perspective.add_uniform('offset', 'int')
 shader_perspective.add_uniform('sine_waves', 'int')
 
 shader_9g = Shader('NinePatch', '9g', has_tex_size=True)
@@ -178,6 +195,21 @@ shader_pixelscale.add_uniform('x_scale', 'float')
 shader_pixelscale.add_uniform('y_scale', 'float')
 shader_pixelscale.add_uniform('x_size', 'float')
 shader_pixelscale.add_uniform('y_size', 'float')
+
+shader_lineardodge = Shader('LinearDodge', 'lineardodge', has_back=True)
+
+shader_linearburn = Shader('LinearBurn', 'linearburn', has_back=True)
+
+shader_display = Shader('Display', 'display')
+shader_display.add_uniform('fPeriods', 'float')
+shader_display.add_uniform('fOffset', 'float')
+shader_display.add_uniform('fAmplitude', 'float')
+
+shader_blur = Shader('Blur', 'blur', has_tex_size=True)
+shader_blur.add_uniform('radius', 'float')
+
+shader_fontoutline = Shader('FontOutline', 'fontoutline', has_tex_size=True)
+shader_fontoutline.add_uniform('color', 'vec4')
 
 shader_texture = Shader('Texture', 'texture')
 shader_font = Shader('Font', 'font')
@@ -213,6 +245,11 @@ SHADERS = [
     shader_brightsatbg,
     shader_bgblur,
     shader_pixelscale,
+    shader_blur,
     shader_texture,
-    shader_font
+    shader_font,
+    shader_linearburn,
+    shader_lineardodge,
+    shader_display,
+    shader_fontoutline
 ]

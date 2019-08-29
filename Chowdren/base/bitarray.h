@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_BITARRAY_H
 #define CHOWDREN_BITARRAY_H
 
@@ -9,7 +26,7 @@
 #define alloca _alloca
 #endif
 
-#elif defined(CHOWDREN_IS_DESKTOP)
+#elif defined(CHOWDREN_IS_DESKTOP) || defined(CHOWDREN_IS_WIIU)
 #include <alloca.h>
 #else
 #include <stdlib.h>
@@ -20,7 +37,7 @@
 class BaseBitArray
 {
 public:
-    typedef unsigned long word_t;
+    typedef unsigned int word_t;
     enum {
         WORD_SIZE = sizeof(word_t) * 8
     };
@@ -32,14 +49,19 @@ public:
     {
     }
 
-    unsigned long get(int index)
+    unsigned int get(unsigned int index)
     {
-        return data[index / WORD_SIZE] & (1 << (index % WORD_SIZE));
+        return data[index / WORD_SIZE] & (1U << (index % WORD_SIZE));
     }
 
-    void set(int index)
+    void set(unsigned int index)
     {
-        data[index / WORD_SIZE] |= 1 << (index % WORD_SIZE);
+        data[index / WORD_SIZE] |= 1U << (index % WORD_SIZE);
+    }
+
+    void unset(unsigned int index)
+    {
+        data[index / WORD_SIZE] &= ~(1U << (index % WORD_SIZE));
     }
 };
 

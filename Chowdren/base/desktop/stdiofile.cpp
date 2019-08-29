@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifdef CHOWDREN_AUTO_STEAMCLOUD
 #define HANDLE_BASE FileHandle
 
@@ -144,6 +161,13 @@ class StandardFile : public FileHandle
 #else
 #define HANDLE_BASE StandardFile
 
+// convert path on Linux/Mac
+#if !defined(FSFILE_CONVERT_PATH) && defined(CHOWDREN_IS_DESKTOP)
+#if !defined(_WIN32) && (defined(__APPLE__) || defined(__linux))
+#define FSFILE_CONVERT_PATH
+#endif
+#endif
+
 class StandardFile
 #endif
 {
@@ -153,10 +177,11 @@ public:
     StandardFile(BaseFile * parent, const char * filename, bool is_read)
     {
         const char * real_mode;
-        if (is_read)
+        if (is_read) {
             real_mode = "rb";
-        else
+        } else {
             real_mode = "wb";
+        }
 
 #ifdef FSFILE_CONVERT_PATH
         std::string file_string = convert_path(filename);
@@ -165,7 +190,8 @@ public:
 #else
         fp = fopen(filename, real_mode);
 #endif
-        parent->closed = fp == NULL;
+        if (fp == NULL)
+            parent->flags |= BaseFile::CLOSED;
     }
 
     bool seek(size_t v, int origin)
@@ -203,6 +229,7 @@ public:
 
 void BaseFile::open(const char * filename, const char * mode)
 {
+    flags = 0;
     bool is_read;
     switch (*mode) {
         case 'r':
@@ -210,6 +237,7 @@ void BaseFile::open(const char * filename, const char * mode)
             break;
         case 'w':
             is_read = false;
+            flags |= WRITE;
             break;
     }
 #ifdef CHOWDREN_AUTO_STEAMCLOUD
@@ -224,20 +252,19 @@ void BaseFile::open(const char * filename, const char * mode)
     }
     if (new_handle == NULL) {
         new_handle = new StandardFile(this, filename, is_read);
-        if (closed) {
+        if (flags & CLOSED) {
             delete new_handle;
             return;
         }
     }
 #else
     HANDLE_BASE * new_handle = new StandardFile(this, filename, is_read);
-    if (closed) {
+    if (flags & CLOSED) {
         delete new_handle;
         return;
     }
 #endif
     handle = (void*)new_handle;
-    closed = false;
 }
 
 bool BaseFile::seek(size_t v, int origin)
@@ -267,10 +294,10 @@ bool BaseFile::at_end()
 
 void BaseFile::close()
 {
-    if (closed)
+    if (flags & CLOSED)
         return;
     HANDLE_BASE * h = (HANDLE_BASE*)handle;
     h->close();
     delete h;
-    closed = true;
+    flags |= CLOSED;
 }

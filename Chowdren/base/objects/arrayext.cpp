@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #include "objects/arrayext.h"
 #include "chowconfig.h"
 #include "fileio.h"
@@ -90,7 +107,9 @@ void ArrayObject::load(const std::string & filename)
 void ArrayObject::save(const std::string & filename)
 {
     FSFile fp(convert_path(filename).c_str(), "w");
-    FileStream stream(fp);
+    if (!fp.is_open())
+        return;
+    WriteStream stream;
 
     stream.write(CT_ARRAY_MAGIC, sizeof(CT_ARRAY_MAGIC));
     stream.write_int16(ARRAY_MAJOR_VERSION);
@@ -115,9 +134,8 @@ void ArrayObject::save(const std::string & filename)
         }
     }
 
+    stream.save(fp);
     fp.close();
-
-    std::cout << "saved: " << filename << std::endl;
 }
 
 ArrayNumber ArrayObject::get_value(int x, int y, int z)

@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_MATHHELPER_H
 #define CHOWDREN_MATHHELPER_H
 
@@ -6,120 +23,77 @@
 
 struct MathHelper
 {
-    double lhs;
-    int lhs_int;
 };
 
 template <class T>
-class DivideHelper
+class MathHelperValue
 {
 public:
-    T lhs;
+    T value;
 
-    DivideHelper(T lhs)
-    : lhs(lhs)
+    MathHelperValue(T value)
+    : value(value)
     {
     }
 };
 
-// Divide Helper
-
-template <class T, class U>
-inline typename boost::common_type<T, U>::type
-operator/(const DivideHelper<T> & lhs, U rhs)
+class MathHelperInt
 {
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
+public:
+    int value;
 
-#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
+    MathHelperInt(int value)
+    : value(value)
+    {
+    }
+};
 
-template <class T>
-inline DynamicNumber operator/(const DivideHelper<T> & lhs, DynamicNumber rhs)
+class MathHelperDouble
 {
-    if (rhs == 0)
-        return 0;
-    return DynamicNumber(lhs.lhs) / rhs;
-}
+public:
+    double value;
 
-template <class T>
-inline DynamicNumber operator/(const DivideHelper<DynamicNumber> & lhs, T rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / DynamicNumber(rhs);
-}
-
-inline DynamicNumber operator/(const DivideHelper<DynamicNumber> & lhs,
-                               DynamicNumber rhs)
-{
-    if (rhs == 0)
-        return 0;
-    return lhs.lhs / rhs;
-}
-
-#endif
+    MathHelperDouble(double value)
+    : value(value)
+    {
+    }
+};
 
 // safe divide
 
 template <class T>
-inline DivideHelper<T> operator/(T lhs, MathHelper& rhs)
+inline MathHelperValue<T> operator/(T lhs, MathHelper rhs)
 {
-    return DivideHelper<T>(lhs);
+    return MathHelperValue<T>(lhs);
 }
 
-#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
-
-inline DivideHelper<DynamicNumber> operator/(DynamicNumber lhs,
-                                             MathHelper& rhs)
+template <class T, class U>
+inline typename boost::common_type<T, U>::type
+operator/(MathHelperValue<T> lhs, U rhs)
 {
-    return DivideHelper<DynamicNumber>(lhs);
+    if (rhs == 0)
+        return 0;
+    return lhs.value / rhs;
 }
-
-#endif
 
 // power
 
-inline MathHelper & operator*(double lhs, MathHelper& rhs)
+inline MathHelperDouble operator*(double lhs, MathHelper rhs)
 {
-    rhs.lhs = lhs;
-    return rhs;
+    return MathHelperDouble(lhs);
 }
 
-inline double operator*(const MathHelper& lhs, double rhs)
+inline double operator*(MathHelperDouble lhs, int rhs)
 {
-    return pow(lhs.lhs, rhs);
+    return int_pow(lhs.value, rhs);
 }
 
-#ifdef CHOWDREN_USE_DYNAMIC_NUMBER
-
-inline MathHelper & operator*(DynamicNumber lhs, MathHelper& rhs)
+inline double operator*(MathHelperDouble lhs, double rhs)
 {
-    rhs.lhs = double(lhs);
-    return rhs;
+    return pow(lhs.value, rhs);
 }
-
-inline double operator*(const MathHelper& lhs, DynamicNumber rhs)
-{
-    return pow(lhs.lhs, double(rhs));
-}
-
-#endif
 
 // float modulus
-
-template <class T>
-class ModulusHelper
-{
-public:
-    T lhs;
-
-    ModulusHelper(T lhs)
-    : lhs(lhs)
-    {
-    }
-};
 
 // safe divide
 
@@ -145,57 +119,54 @@ inline unsigned int get_mod(unsigned int a, unsigned int b)
 
 template <class T, class U>
 inline typename boost::common_type<T, U>::type
-operator%(const ModulusHelper<T> & lhs, U rhs)
+operator%(const MathHelperValue<T> & lhs, U rhs)
 {
     if (rhs == 0)
         return 0;
-    return get_mod((typename boost::common_type<T, U>::type)(lhs.lhs),
+    return get_mod((typename boost::common_type<T, U>::type)(lhs.value),
                    (typename boost::common_type<T, U>::type)(rhs));
 }
 
 template <class T>
-inline ModulusHelper<T> operator%(T lhs, MathHelper& rhs)
+inline MathHelperValue<T> operator%(T lhs, MathHelper rhs)
 {
-    return ModulusHelper<T>(lhs);
+    return MathHelperValue<T>(lhs);
 }
 
 // bitwise AND
 
-inline MathHelper & operator&(int lhs, MathHelper& rhs)
+inline MathHelperInt operator&(int lhs, MathHelper rhs)
 {
-    rhs.lhs_int = lhs;
-    return rhs;
+    return MathHelperInt(lhs);
 }
 
-inline int operator&(const MathHelper& lhs, int rhs)
+inline int operator&(MathHelperInt lhs, int rhs)
 {
-    return lhs.lhs_int & rhs;
+    return lhs.value & rhs;
 }
 
 // bitwise OR
 
-inline MathHelper & operator|(int lhs, MathHelper& rhs)
+inline MathHelperInt operator|(int lhs, MathHelper rhs)
 {
-    rhs.lhs_int = lhs;
-    return rhs;
+    return MathHelperInt(lhs);
 }
 
-inline int operator|(const MathHelper& lhs, int rhs)
+inline int operator|(MathHelperInt lhs, int rhs)
 {
-    return lhs.lhs_int | rhs;
+    return lhs.value | rhs;
 }
 
 // bitwise XOR
 
-inline MathHelper & operator^(int lhs, MathHelper& rhs)
+inline MathHelperInt operator^(int lhs, MathHelper rhs)
 {
-    rhs.lhs_int = lhs;
-    return rhs;
+    return MathHelperInt(lhs);
 }
 
-inline int operator^(const MathHelper& lhs, int rhs)
+inline int operator^(MathHelperInt lhs, int rhs)
 {
-    return lhs.lhs_int ^ rhs;
+    return lhs.value ^ rhs;
 }
 
 #endif // CHOWDREN_MATHHELPER_H

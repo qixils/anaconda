@@ -1,3 +1,20 @@
+// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef CHOWDREN_FRAMEOBJECT_H
 #define CHOWDREN_FRAMEOBJECT_H
 
@@ -55,8 +72,10 @@ inline bool double_equals_exact(double a, double b)
     return memcmp(&a, &b, sizeof(double)) == 0;
 }
 
-#define FIXED_ENCODE_XOR 0x7800000000000000ULL
 #define FIXED_SIGN_BIT (1ULL << 63ULL)
+#define FIXED_EXP1 (1ULL << 62ULL)
+#define FIXED_EXPMASK (0x7FF0000000000000ULL)
+#define FIXED_FIRST (FIXED_SIGN_BIT | FIXED_EXP1)
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
@@ -67,10 +86,9 @@ inline FrameObject * get_object_from_fixed(double fixed)
         return NULL;
     uint64_t value;
     memcpy(&value, &fixed, sizeof(uint64_t));
-    value ^= FIXED_ENCODE_XOR;
-    // reposition the last bit at the sign bit
-    value |= (value & 1ULL) << 63ULL;
-    value &= ~(1ULL);
+    value &= ~FIXED_FIRST;
+    value |= (value & 3ULL) << 62ULL;
+    value &= ~(3ULL);
     FrameObject * p;
     memcpy(&p, &value, sizeof(FrameObject*));
     return p;
@@ -100,12 +118,17 @@ enum ObjectFlags
     SCROLL = (1 << 2),
     FADEOUT = (1 << 3),
     BACKGROUND = (1 << 4),
-    GLOBAL = (1 << 5),
-    INACTIVE = (1 << 6),
-    HAS_COLLISION_CACHE = (1 << 7),
-    HAS_COLLISION = (1 << 8),
-    DEFER_COLLISIONS = (1 << 9),
-    REPEAT_BACK_COLLISION = (1 << 10)
+    BACKGROUND_COL = (1 << 5),
+    GLOBAL = (1 << 6),
+    INACTIVE = (1 << 7),
+    HAS_COLLISION_CACHE = (1 << 8),
+    HAS_COLLISION = (1 << 9),
+    DEFER_COLLISIONS = (1 << 10),
+    REPEAT_BACK_COLLISION = (1 << 11),
+    LAYER_VISIBLE = (1 << 12),
+    DISABLE_COL = (1 << 13),
+
+    ALL_VISIBLE = VISIBLE | LAYER_VISIBLE
 };
 
 enum AnimationIndex
@@ -266,6 +289,7 @@ class FrameObject
 public:
 #ifndef NDEBUG
     std::string name;
+    
 #endif
     int x, y;
     Layer * layer;
@@ -286,6 +310,7 @@ public:
     Movement ** movements;
     Movement * movement;
     int collision_flags;
+
 #ifdef CHOWDREN_USE_BOX2D
     int body;
 #endif
@@ -293,6 +318,47 @@ public:
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables * extra_alterables;
 #endif
+
+#ifdef CHOWDREN_USE_PATHPLANNER
+    struct PathNode
+    {
+        int x, y;
+    };
+
+    struct PathAgent
+    {
+        int x, y, dest_x, dest_y;
+        vector<PathNode> nodes;
+        int flags;
+        FrameObject * planner;
+        FrameObject * obj;
+        int node_reached;
+
+        PathAgent();
+        ~PathAgent();
+        bool at_destination();
+        bool not_at_destination();
+        bool is_stopping();
+    };
+
+    PathAgent * agent;
+#endif
+
+#ifdef CHOWDREN_USE_MOVEIT
+    struct MoveData
+    {
+        int src_x, src_y;
+        int dst_x, dst_y;
+        int step;
+        int cycles;
+
+        MoveData(int src_x, int src_y, int dst_x, int dst_y, int cycles);
+        ~MoveData();
+    };
+
+    MoveData * move_data;
+#endif
+
     static ObjectPool<FrameObject> pool;
     virtual ~FrameObject();
     virtual void dealloc()
@@ -314,6 +380,10 @@ public:
     virtual void set_angle(float angle, int quality = 0);
     void create_alterables();
     void set_visible(bool value);
+    bool get_visible()
+    {
+        return (flags & ALL_VISIBLE) == ALL_VISIBLE;
+    }
     void set_blend_color(int color);
     virtual void draw();
     void draw_image(Image * img, int x, int y, Color c);
@@ -346,6 +416,8 @@ public:
     FixedValue get_fixed();
     bool outside_playfield();
     int get_box_index(int index);
+    int get_generic_width();
+    int get_generic_height();
     bool overlaps_background();
     bool overlaps_background_save();
     void clear_movements();
@@ -355,6 +427,7 @@ public:
     void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();
     void look_at(int x, int y);
+    void wrap_pos();
     void rotate_toward(int dir);
     void update_flash(float interval, float & time);
     bool test_direction(int value);
@@ -364,6 +437,7 @@ public:
     virtual void set_backdrop_offset(int dx, int dy);
     void get_screen_aabb(int box[4]);
     void update_inactive();
+    void update_kill();
     bool is_near_border(int border);
 
     ShaderParameter * find_shader_parameter(unsigned int hash)
@@ -572,6 +646,17 @@ public:
         items[obj->index].next = LAST_SELECTED;
     }
 
+    void select_single_check(FrameObject * obj)
+    {
+        if (empty())
+            return;
+        if (obj->id != (*this)[0]->id) {
+            empty_selection();
+            return;
+        }
+        select_single(obj);
+    }
+
     void save_selection();
     void restore_selection();
     void clear_saved_selection();
@@ -771,7 +856,7 @@ public:
     void select_single(FrameObject * obj)
     {
         int i;
-        for (i = 0; i < count; i++) {
+        for (i = 0; i < count; ++i) {
             ObjectList & list = *items[i];
             if (list.empty()) {
                 list.empty_selection();
@@ -782,6 +867,7 @@ public:
                 continue;
             }
             list.select_single(obj);
+            ++i;
             break;
         }
 

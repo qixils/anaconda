@@ -1,8 +1,59 @@
+# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.
+
 import string
 import os
 import subprocess
 import sys
 from mmfparser.bytereader import ByteReader
+
+CPP_LICENSE = '''// Copyright (c) Mathias Kaerlev 2012-2015.
+//
+// This file is part of Anaconda.
+//
+// Anaconda is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Anaconda is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.'''
+
+PY_LICENSE = '''# Copyright (c) Mathias Kaerlev 2012-2015.
+#
+# This file is part of Anaconda.
+#
+# Anaconda is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Anaconda is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Anaconda.  If not, see <http://www.gnu.org/licenses/>.'''
 
 def get_base_path():
     return os.path.join(get_root_path(), 'base')
@@ -128,6 +179,9 @@ def to_c(format_spec, *args, **kw):
         new_args.append(arg)
     return format_spec % tuple(new_args)
 
+def get_color_tuple(value):
+    return (value & 0xFF, (value & 0xFF00) >> 8, (value & 0xFF0000) >> 16)
+
 def make_color(value):
     return 'Color(%s)' % ', '.join([str(item) for item in value])
 
@@ -224,3 +278,4 @@ def get_sized_data(data):
     return str(writer)
 
 TEMPORARY_GROUP_ID = 'thisisthetempid'
+TEMPORARY_GROUP_NAME = 'thisisthetempgroupname'

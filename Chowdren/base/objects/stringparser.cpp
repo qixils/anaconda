@@ -1,5 +1,6 @@
 #include "objects/stringparser.h"
 #include "stringcommon.h"
+#include "common.h"
 #include "fileio.h"
 
 StringParser::StringParser(int x, int y, int id)
@@ -16,6 +17,12 @@ void StringParser::add_delimiter(const std::string & v)
         return;
     }
     delimiters += v;
+}
+
+void StringParser::reset_delimiters()
+{
+    delimiters.clear();
+    has_split = false;
 }
 
 void StringParser::load(const std::string & filename)
@@ -98,4 +105,9 @@ std::string StringParser::remove(const std::string & sub)
     std::string ret = value;
     replace_substring(ret, sub, empty_string);
     return ret;
+}
+
+std::string StringParser::get_md5()
+{
+    return ::get_md5(value);
 }

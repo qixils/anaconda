@@ -3,8 +3,7 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 endif()
 
 if (APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7" CACHE STRING "")
-    set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk" CACHE STRING "")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.6" CACHE STRING "")
 endif()
 
 set(CMAKE_MODULE_PATH "${CHOWDREN_BASE_DIR}/cmake")
@@ -29,20 +28,20 @@ set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include" ${CMAKE_INCLUDE_PATH})
 
 option(USE_BOX2D "Use Box2D" OFF)
 option(USE_PYTHON "Use Python" OFF)
-option(USE_STEAM "Use Steam (otherwise emulate)" OFF)
-option(ENABLE_STEAM "Enable Steam" ON)
+option(USE_STEAM "Use Steam" OFF)
 option(EMULATE_WIIU "Emulate Wii U features" OFF)
 
 if (CMAKE_CROSSCOMPILING)
     set(USE_GL OFF)
     set(USE_GLES2 OFF)
     set(USE_GLES1 OFF)
+    set(USE_D3D OFF)
 elseif (EMSCRIPTEN)
     set(USE_GLES2 ON)
-else()
-    option(USE_GL "Use OpenGL" ON)
-    option(USE_GLES1 "Use OpenGL ES 1" OFF)
-    option(USE_GLES2 "Use OpenGL ES 2" OFF)
+elseif (APP_PLATFORM STREQUAL "generic")
+    set(USE_GL ON)
+elseif (APP_PLATFORM STREQUAL "d3d")
+    set(USE_D3D ON)
 endif()
 
 if(EMSCRIPTEN)
@@ -55,6 +54,9 @@ endif()
 
 if (USE_GL)
     add_definitions(-DCHOWDREN_USE_GL)
+elseif (USE_D3D)
+    add_definitions(-DCHOWDREN_USE_D3D)
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} "d3d9.lib")
 elseif (USE_GLES1)
     add_definitions(-DCHOWDREN_USE_GLES1)
 elseif (USE_GLES2)
@@ -95,23 +97,20 @@ set(SRCS
 )
 
 if (USE_STEAM)
-    add_definitions(-DCHOWDREN_USE_STEAM)
-    if (ENABLE_STEAM)
-        add_definitions(-DCHOWDREN_ENABLE_STEAM)
-        include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
-        if (WIN32)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
-        elseif (APPLE)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
-        else()
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
-        endif()
+    add_definitions(-DCHOWDREN_ENABLE_STEAM)
+    include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
+    if (WIN32)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
+    elseif (APPLE)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
+    else()
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+            "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
     endif()
 endif()
 
@@ -189,6 +188,9 @@ elseif(APPLE)
         ${CMAKE_LIBRARY_PATH})
     set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/include/osx"
         ${CMAKE_INCLUDE_PATH})
+    # for frameworks
+    set(CMAKE_INCLUDE_PATH "${CHOWDREN_BASE_DIR}/lib/osx"
+        ${CMAKE_INCLUDE_PATH})
     find_library(CARBON_LIBRARY Carbon)
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} ${CARBON_LIBRARY})
 endif()
@@ -220,11 +222,9 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()
 
-if(APPLE OR LINUX)
+if(LINUX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
-    if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
-    endif()
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
 endif()
 
 if(APPLE)

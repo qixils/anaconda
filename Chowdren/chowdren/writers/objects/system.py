@@ -6,7 +6,8 @@ from mmfparser.data.chunkloaders.objects import (COUNTER_FRAMES,
     VERTICAL_GRADIENT, HORIZONTAL_GRADIENT, RECTANGLE_SHAPE, SOLID_FILL,
     GRADIENT_FILL, FINE_COLLISION, NONE_OBSTACLE, FINE_COLLISION,
     LADDER_OBSTACLE, ANIMATION, APPEARING, DISAPPEARING)
-from chowdren.common import get_animation_name, to_c, make_color
+from chowdren.common import (get_animation_name, to_c, make_color,
+                             get_method_name)
 
 def get_closest_directions(direction, dir_dict):
     try:
@@ -64,14 +65,25 @@ class Active(ObjectWriter):
         writer.putlnc('if (!%s) {', self.initialized_name)
         writer.indent()
         writer.putlnc('%s = true;', self.initialized_name)
+        scale_method = self.converter.config.get_scale_method(self) 
         for name, images in self.images:
             for image_index, image in enumerate(images):
                 writer.putlnc('%s[%s] = %s;', name, image_index, image)
+                if scale_method is None:
+                    continue
+                writer.putlnc('%s[%s]->set_filter(%s);', name, image_index,
+                              scale_method)
         writer.end_brace()
         flags = common.newFlags
-        writer.putln(to_c('collision_box = %s;', flags['CollisionBox']))
-        writer.putlnc('auto_rotate = %s;', bool(flags['AutomaticRotation']))
-        writer.putlnc('transparent = %s;', self.get_transparent())
+
+        fade = common.fadeOut
+        if fade and fade.name == 'FADE':
+            writer.putlnc('fade_duration = %s;', fade.duration / 1000.0)
+
+        if flags['AutomaticRotation']:
+            writer.putlnc('active_flags |= AUTO_ROTATE;')
+        if self.get_transparent():
+            writer.putlnc('active_flags |= TRANSPARENT;')
         writer.putln('animation = %s;' % get_animation_name(min(animations)))
         if APPEARING in animations:
             writer.putln('forced_animation = current_animation = APPEARING;')
@@ -81,7 +93,7 @@ class Active(ObjectWriter):
             writer.putln('flags |= FADEOUT;')
             self.destruct = True
 
-        writer.putln('initialize_active();')
+        writer.putlnc('initialize_active(%s);', flags['CollisionBox'])
 
     def has_updates(self):
         if not self.converter.config.use_update_filtering():
@@ -125,8 +137,9 @@ class Active(ObjectWriter):
         prefix = self.new_class_name.lower()
         for animation_index in sorted(animations):
             animation = animations[animation_index]
-            single_loop = animation.getName() in ('Appearing', 'Disappearing')
-            # writer.putmeth('void init_anim_%s' % animation_index)
+            anim_name = animation.getName()
+            if anim_name == 'Appearing' and direction.repeat == 0:
+                print 'Problematic appearing?', self.data.name
             directions = animation.loadedDirections
             animation_name = get_animation_name(animation.index)
             direction_map = {}
@@ -143,8 +156,6 @@ class Active(ObjectWriter):
                 loop_count = direction.repeat
                 if loop_count == 0:
                     loop_count = -1
-                if single_loop and loop_count == -1:
-                    loop_count = 1
 
                 direction_name = 'direction_%s' % dir_prefix
                 writer.putlnc('static Direction %s = {%s, %s, %s, %s, %s, %s, '
@@ -208,6 +219,12 @@ class Backdrop(ObjectWriter):
             raise NotImplementedError
 
     def write_init(self, writer):
+        name_id = 'BACK_ID_' + get_method_name(self.data.name).upper()
+        writer.putraw('#ifdef %s' % name_id)
+        writer.putlnc('manager.frame->back_instances[%s].push_back(this);',
+                      name_id)
+        writer.putraw('#endif')
+
         image = self.converter.get_image(self.common.image)
         writer.putln('image = %s;' % image)
         if self.data.name.endswith('(DRC)'):
@@ -321,16 +338,26 @@ class Text(ObjectWriter):
     def write_init(self, writer):
         text = self.common.text
         lines = [paragraph.value for paragraph in text.items]
-        for paragraph in text.items:
-            writer.putln(to_c('add_line(%r);', paragraph.value))
-        # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('blend_color = %s;' % make_color(text.items[0].color))
+
         font = text.items[0].font
-        writer.putln('bold = font%s.bold;' % font)
-        writer.putln('italic = font%s.italic;' % font)
-        writer.putln('font = get_font(font%s.size);' % font)
+        font_info = self.converter.fonts[font]
+
+        writer.putlnc('bold = %s;', font_info.isBold())
+        writer.putlnc('italic = %s;', bool(font_info.italic))
+        writer.putlnc('font_name = %r;', font_info.faceName)
+
+        flags = []
+        if font_info.isBold():
+            flags.append('FTTextureFont::BOLD')
+        flags = ' | '.join(flags)
+        if not flags:
+            flags = '0'
+
+        writer.putlnc('font = get_font(%s, %s);', font_info.getSize(),
+                      flags)
 
         paragraph = text.items[0]
         if paragraph.flags['HorizontalCenter']:
@@ -346,6 +373,8 @@ class Text(ObjectWriter):
         else:
             vertical = 'ALIGN_TOP'
         writer.putln('alignment = %s | %s;' % (horizontal, vertical))
+        for paragraph in text.items:
+            writer.putln(to_c('add_line(%r);', paragraph.value))
 
     def is_background(self):
         return False
@@ -360,7 +389,6 @@ class RTFText(ObjectWriter):
     def write_init(self, writer):
         text = self.common.rtf
         writer.putln(to_c('add_line("");',))
-        # objects_file.putln('font = font%s' % text.items[0].font)
         writer.putln('width = %s;' % text.width)
         writer.putln('height = %s;' % text.height)
         writer.putln('blend_color = Color(0, 0, 0);')

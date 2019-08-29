@@ -3,15 +3,15 @@
 
 #include "path.h"
 #include <string>
-#include "include_gl.h"
 #include "color.h"
 #include "types.h"
 #include "platform.h"
 #include "chowconfig.h"
 #include "bitarray.h"
+#include "render.h"
 
-extern const float normal_texcoords[8];
-extern const float back_texcoords[8];
+extern const float back_texcoords[4];
+extern const float fbo_texcoords[4];
 
 class Image
 {
@@ -35,14 +35,10 @@ public:
     unsigned short flags;
     short hotspot_x, hotspot_y, action_x, action_y;
     short width, height;
-    GLuint tex;
+    Texture tex;
     unsigned char * image;
 #ifndef CHOWDREN_IS_WIIU
     BitArray alpha;
-#endif
-
-#ifdef CHOWDREN_NO_NPOT
-    short pot_w, pot_h;
 #endif
 
     Image();
@@ -63,13 +59,15 @@ public:
     bool is_valid();
     void unload();
     void set_filter(bool linear);
+    void set_transparent_color(TransparentColor color);
+
     // inline methods
 
     bool get_alpha(int x, int y)
     {
     #ifdef CHOWDREN_IS_WIIU
         if (tex != 0) {
-            unsigned int & v = platform_get_texture_pixel(tex, x, y);
+            unsigned int v = platform_get_texture_pixel(tex, x, y);
             unsigned char c = ((unsigned char*)&v)[3];
             return c != 0;
         }
@@ -92,11 +90,15 @@ public:
     FileImage(const std::string & filename, int hot_x, int hot_y,
               int act_x, int act_y, TransparentColor transparent);
     void load_file();
+    void load_data(unsigned char * data, int size);
 };
 
 Image * get_internal_image(unsigned int i);
 Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
-                            int act_x, int act_y, TransparentColor color);
+                        int act_x, int act_y, TransparentColor color);
+bool has_image_cache(const std::string & filename); 
+void set_image_cache(const std::string & filename, FileImage * image);
+
 void reset_image_cache();
 void flush_image_cache();
 void preload_images();
@@ -133,8 +135,10 @@ public:
     {
     }
 
-    void replace(const Color & from, const Color & to);
+    void replace(Color from, Color to);
+    void set_transparent(TransparentColor value);
     Image * apply(Image * image, Image * src_image);
+    Image * apply_direct(Image * image, Image * src_image);
 
     bool empty()
     {

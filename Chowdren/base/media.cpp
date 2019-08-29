@@ -254,18 +254,26 @@ void Media::stop()
 void Media::play(SoundData * data, int channel, int loop)
 {
     if (channel == -1) {
+        Channel * channelp;
         for (channel = 0; channel < 32; channel++) {
-            Channel & channelp = channels[channel];
-            if (!channelp.is_stopped() || channelp.locked)
-                continue;
-            // unspecified channel does not inherit settings
-            channelp.volume = 100;
-            channelp.frequency = 0;
-            channelp.pan = 0;
-            break;
+            channelp = &channels[channel];
+            if (channelp->is_stopped() && !channelp->locked)
+                break;
         }
-        if (channel == 32)
-            return;
+        if (channel == 32) {
+            for (channel = 0; channel < 32; channel++) {
+                channelp = &channels[channel];
+                if (!channelp->locked)
+                    break;
+
+            }
+            if (channel == 32)
+                return;
+        }
+        // unspecified channel does not inherit settings
+        channelp->volume = 100;
+        channelp->frequency = 0;
+        channelp->pan = 0;
     }
     channels[channel].play(data, loop);
 }
@@ -394,6 +402,14 @@ double Media::get_sample_position(unsigned int id)
     if (channel == NULL)
         return 0.0;
     return channel->get_position();
+}
+
+double Media::get_sample_volume(unsigned int id)
+{
+    Channel * channel = get_sample(id);
+    if (channel == NULL)
+        return 0.0;
+    return channel->volume;
 }
 
 double Media::get_sample_duration(unsigned int id)

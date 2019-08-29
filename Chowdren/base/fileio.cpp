@@ -3,11 +3,12 @@
 // BaseFile
 
 BaseFile::BaseFile()
-: handle(NULL), closed(true)
+: handle(NULL), flags(CLOSED)
 {
 }
 
 BaseFile::BaseFile(const char * filename, const char * mode)
+: handle(NULL), flags(CLOSED)
 {
     open(filename, mode);
 }
@@ -25,11 +26,6 @@ size_t BaseFile::get_size()
     size_t size = tell();
     seek(pos);
     return size;
-}
-
-bool BaseFile::is_open()
-{
-    return !closed;
 }
 
 // BufferedFile
@@ -52,7 +48,7 @@ void BufferedFile::open(const char * filename, const char * mode)
     pos = buf_pos = buf_size = 0;
     fp.open(filename, mode);
 
-    if (fp.closed || *mode != 'r')
+    if (!fp.is_open() || *mode != 'r')
         return;
 
     buffer = malloc(READ_BUFFER_SIZE);
@@ -131,7 +127,7 @@ size_t BufferedFile::write(const void * data, size_t size)
 
 void BufferedFile::close()
 {
-    if (fp.closed)
+    if (!fp.is_open())
         return;
     fp.close();
     free(buffer);

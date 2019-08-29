@@ -1,4 +1,5 @@
 from chowdren.key import convert_key
+import os
 
 def init(converter):
     converter.add_define('CHOWDREN_IS_FP')
@@ -6,7 +7,9 @@ def init(converter):
     converter.add_define('CHOWDREN_POINT_FILTER')
     converter.add_define('CHOWDREN_OBSTACLE_IMAGE')
     converter.add_define('CHOWDREN_STEAM_APPID', 248310)
-    converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
+    # converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
+    converter.add_define('CHOWDREN_TEXTURE_GC')
+    converter.add_define('CHOWDREN_FORCE_REMOTE')
 
     frameitems = converter.game.frameItems
     for item in frameitems.itemDict.itervalues():
@@ -27,6 +30,11 @@ def init(converter):
                 values[index] = convert_key(values[index])
 
     values = converter.game.globalValues.items
+
+    basename = os.path.basename(converter.games[0].filename)
+    if 'e3' in basename or 'expo' in basename:
+        converter.add_define('CHOWDREN_DISABLE_WRITE')
+        converter.add_define('CHOWDREN_IS_DEMO')
     # values[0] = 1
     # values[1] = 4
     # values[4] = 1
@@ -126,7 +134,10 @@ alterable_int_objects = [
     ('CrystalCursor', None),
     ('GimmickRisingSwingPiece_', [0, 1, 8]),
     ('BossKujackerTail', None),
-    ('HazardOrbitBeam_', None)
+    ('HazardOrbitBeam_', None),
+    ('BG13Layer1_', None),
+    ('BossShadeBeastEye_', [3]),
+    ('BossSatelliteArm_', [3])
 ]
 
 def use_alterable_int(converter, expression):
@@ -152,6 +163,17 @@ def use_counter_int(converter, expression):
         if name.startswith(check_name):
             return True
     return False
+
+def use_image_preload(converter):
+    return True
+
+def use_image_flush(converter, frame):
+    if frame.name in ('Update Records', 'Unlocked!', 'Black Load',
+                      'Continue?', 'Bonus Stage'):
+        return False
+    if frame.name.startswith('Scene -'):
+        return False
+    return True
 
 LOOP_NAMES = (
     'Player01DetectSensorMain',
@@ -210,7 +232,19 @@ def use_condition_expression_iterator(converter):
 def get_string(converter, value):
     value = value.replace('gamepad.cfg', 'control_gamepad.cfg')
     value = value.replace('keyboard.cfg', 'control_keyboard.cfg')
+    if converter.platform_name != 'generic':
+        value = value.replace('./records.dat',
+                              '%s/records.dat' % converter.platform.save_dir)
+        value = value.replace('./file',
+                              '%s/file' % converter.platform.save_dir)
+        value = value.replace('./save',
+                              '%s/save' % converter.platform.save_dir)
     return value
+
+def get_missing_image(converter, image):
+    print 'bad image, selecting first instead:', image
+    print converter.current_write_object.name
+    return converter.image_indexes.itervalues().next()
 
 def init_array_set_value(converter, event_writer):
     if event_writer.get_object_writer().data.name != 'MapData':

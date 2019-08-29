@@ -19,9 +19,18 @@ public:
     FlatObjectList collisions;
     bool back_col;
     unsigned int directions;
+    int flags;
+
+    enum MovementFlags
+    {
+        MOVE_AT_START = 1 << 0,
+        MOVE_STOPPED = 1 << 1,
+        IS_MOVE_IT = 1 << 2
+    };
 
     Movement(FrameObject * instance);
     virtual ~Movement();
+    virtual void init();
     virtual void update();
     virtual void set_max_speed(int speed);
     virtual void set_speed(int speed);
@@ -112,7 +121,6 @@ public:
     int deceleration;
     int gravity;
     float x_speed, y_speed;
-    bool stopped;
 
     PinballMovement(FrameObject * instance);
     void start();
@@ -130,11 +138,18 @@ class BallMovement : public Movement
 public:
     int deceleration;
     double speed_change;
+    int randomizer;
+    bool has_back_col; // XXX hack
+    int stop_speed;
 
     BallMovement(FrameObject * instance);
+    void init();
     void update();
     void bounce(bool collision);
+    void stop(bool collision);
+    void start();
     void set_deceleration(int value);
+    void set_speed(int speed);
 };
 
 class VectorMovement : public Movement
@@ -166,6 +181,20 @@ public:
     void set_acceleration(int value);
     void start();
     void stop(bool collision);
+};
+
+class MoveItMovement : public Movement
+{
+public:
+    int src_x, src_y;
+    int dst_x, dst_y;
+    int step;
+    int cycles;
+    Movement * old_movement;
+
+    MoveItMovement(FrameObject * instance, int x, int y, int cycles,
+                   Movement * old_movement);
+    void update();
 };
 
 #endif // CHOWDREN_MOVEMENT_H

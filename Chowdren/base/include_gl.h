@@ -3,7 +3,16 @@
 
 #ifdef CHOWDREN_IS_DESKTOP
 
-#ifdef CHOWDREN_USE_GL
+#ifdef CHOWDREN_USE_D3D
+#define NOMINMAX
+
+#ifndef NDEBUG
+#define D3D_DEBUG_INFO
+#endif
+
+#include <d3d9.h>
+
+#elif CHOWDREN_USE_GL
 #include <SDL_opengl.h>
 
 extern PFNGLBLENDEQUATIONSEPARATEEXTPROC __glBlendEquationSeparateEXT;
@@ -12,6 +21,7 @@ extern PFNGLBLENDFUNCSEPARATEEXTPROC __glBlendFuncSeparateEXT;
 extern PFNGLACTIVETEXTUREARBPROC __glActiveTextureARB;
 extern PFNGLCLIENTACTIVETEXTUREARBPROC __glClientActiveTextureARB;
 extern PFNGLGENFRAMEBUFFERSEXTPROC __glGenFramebuffersEXT;
+extern PFNGLDELETEFRAMEBUFFERSEXTPROC __glDeleteFramebuffersEXT;
 extern PFNGLFRAMEBUFFERTEXTURE2DEXTPROC __glFramebufferTexture2DEXT;
 extern PFNGLBINDFRAMEBUFFEREXTPROC __glBindFramebufferEXT;
 
@@ -37,6 +47,7 @@ extern PFNGLGETUNIFORMLOCATIONARBPROC __glGetUniformLocationARB;
 #define glActiveTexture __glActiveTextureARB
 #define glClientActiveTexture __glClientActiveTextureARB
 #define glGenFramebuffers __glGenFramebuffersEXT
+#define glDeleteFramebuffers __glDeleteFramebuffersEXT
 #define glBindFramebuffer __glBindFramebufferEXT
 #define glFramebufferTexture2D __glFramebufferTexture2DEXT
 
@@ -63,6 +74,8 @@ extern PFNGLGETUNIFORMLOCATIONARBPROC __glGetUniformLocationARB;
 #include <SDL_opengles2.h>
 
 #endif // CHOWDREN_USE_GL
+
+#undef TRANSPARENT
 
 #endif // CHOWDREN_IS_DESKTOP
 

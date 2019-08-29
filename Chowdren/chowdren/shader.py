@@ -34,7 +34,7 @@ NATIVE_SHADERS = {
     'HardMix.fx' : None,
     'Overlay.fx' : None,
     'Lens.fx' : 'lens',
-    'LinearDodge.fx' : None,
+    'LinearDodge.fx' : 'lineardodge',
     'SoftLight.fx' : None,
     'PinLight.fx' : None,
     'Invert' : 'invert',
@@ -58,13 +58,23 @@ NATIVE_SHADERS = {
     'PixelOutline_alphacoef support.fx' : 'pixeloutline',
     'BrightnessSaturationBg.fx' : 'brightsatbg',
     'BgBlur.fx' : 'bgblur',
+    'Blur.fx' : 'blur',
+    'Display.fx' : 'display',
+    'PixelOutline.fx' : 'pixeloutline', # change?
+    'LinearBurn.fx' : 'linearburn',
 
     # missing effects
     'CRT.fx' : None,
     'FlipY.fx' : None,
-    'ChannelBlurAdd.fx' : None,
+    'ChannelBlurAdd.fx' : 'channelbluradd',
     'DualGlow.fx' : None,
     'DropShadow.fx' : None,
+
+    # new HFA missing effects
+    'OffsetStationaryParam.fx' : None,
+    'Colorizer with blur.fx' : None,
+    'BrightnessSaturation.fx' : None,
+
 
     # unsupported in HWA
     'XOR' : None,

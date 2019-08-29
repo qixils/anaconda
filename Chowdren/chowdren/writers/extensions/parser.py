@@ -13,6 +13,7 @@ class StringParser(ObjectWriter):
 actions = make_table(ActionMethodWriter, {
     0 : 'set',
     2 : 'load',
+    5 : 'reset_delimiters',
     6 : 'add_delimiter'
 })
 
@@ -28,7 +29,8 @@ expressions = make_table(ExpressionMethodWriter, {
     25 : 'set_element',
     29 : 'get_element',
     30 : 'get_element(1)',
-    31 : 'get_last_element'
+    31 : 'get_last_element()',
+    41 : 'get_md5()'
 })
 
 def get_object():

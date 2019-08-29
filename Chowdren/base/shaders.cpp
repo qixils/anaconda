@@ -785,8 +785,8 @@ public:
     {
         BaseShader::set_int(instance, SHADER_PARAM_EFFECT, effect);
         BaseShader::set_int(instance, SHADER_PARAM_DIRECTION, direction);
-        BaseShader::set_float(instance, SHADER_PARAM_ZOOM, zoom);
-        BaseShader::set_float(instance, SHADER_PARAM_OFFSET, offset);
+        BaseShader::set_int(instance, SHADER_PARAM_ZOOM, zoom);
+        BaseShader::set_int(instance, SHADER_PARAM_OFFSET, offset);
         BaseShader::set_int(instance, SHADER_PARAM_SINE_WAVES, sine_waves);
     }
 };
@@ -954,6 +954,28 @@ int PixelScaleShader::y_scale;
 int PixelScaleShader::x_size;
 int PixelScaleShader::y_size;
 
+class BlurShader : public BaseShader
+{
+public:
+    static int radius;
+    
+    BlurShader()
+    : BaseShader(SHADER_BLUR, SHADER_HAS_TEX_SIZE)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+        radius = get_uniform("radius");
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+        BaseShader::set_float(instance, SHADER_PARAM_RADIUS, radius);
+    }
+};
+int BlurShader::radius;
+
 class TextureShader : public BaseShader
 {
 public:
@@ -988,6 +1010,92 @@ public:
     }
 };
 
+class LinearBurnShader : public BaseShader
+{
+public:
+    LinearBurnShader()
+    : BaseShader(SHADER_LINEARBURN, SHADER_HAS_BACK)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+    }
+};
+
+class LinearDodgeShader : public BaseShader
+{
+public:
+    LinearDodgeShader()
+    : BaseShader(SHADER_LINEARDODGE, SHADER_HAS_BACK)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+    }
+};
+
+class DisplayShader : public BaseShader
+{
+public:
+    static int fPeriods;
+    static int fOffset;
+    static int fAmplitude;
+    
+    DisplayShader()
+    : BaseShader(SHADER_DISPLAY)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+        fPeriods = get_uniform("fPeriods");
+        fOffset = get_uniform("fOffset");
+        fAmplitude = get_uniform("fAmplitude");
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+        BaseShader::set_float(instance, SHADER_PARAM_FPERIODS, fPeriods);
+        BaseShader::set_float(instance, SHADER_PARAM_FOFFSET, fOffset);
+        BaseShader::set_float(instance, SHADER_PARAM_FAMPLITUDE, fAmplitude);
+    }
+};
+int DisplayShader::fPeriods;
+int DisplayShader::fOffset;
+int DisplayShader::fAmplitude;
+
+class FontOutlineShader : public BaseShader
+{
+public:
+    static int color;
+    
+    FontOutlineShader()
+    : BaseShader(SHADER_FONTOUTLINE, SHADER_HAS_TEX_SIZE)
+    {
+    }
+    
+    void initialize_parameters()
+    {
+        color = get_uniform("color");
+    }
+    
+    static void set_parameters(FrameObject * instance)
+    {
+        BaseShader::set_vec4(instance, SHADER_PARAM_COLOR, color);
+    }
+};
+int FontOutlineShader::color;
+
 SubtractShader subtract_shader;
 MonochromeShader monochrome_shader;
 MixerShader mixer_shader;
@@ -1018,5 +1126,10 @@ PixelOutlineShader pixeloutline_shader;
 BrightSatBgShader brightsatbg_shader;
 BgBlurShader bgblur_shader;
 PixelScaleShader pixelscale_shader;
+BlurShader blur_shader;
 TextureShader texture_shader;
 FontShader font_shader;
+LinearBurnShader linearburn_shader;
+LinearDodgeShader lineardodge_shader;
+DisplayShader display_shader;
+FontOutlineShader fontoutline_shader;

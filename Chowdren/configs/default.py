@@ -3,6 +3,9 @@ def init(converter):
     converter.add_define('CHOWDREN_QUICK_SCALE')
     converter.add_define('CHOWDREN_POINT_FILTER')
     converter.add_define('CHOWDREN_JOYSTICK2_CONTROLLER')
+    converter.add_define('CHOWDREN_FORCE_TRANSPARENT')
+    converter.add_define('CHOWDREN_16BIT_IMAGE')
+    converter.add_define('CHOWDREN_FORCE_TEXT_LAYOUT')
 
 def init_container(converter, container):
     pass
@@ -16,8 +19,18 @@ def write_pre(converter, writer, group):
 def write_frame_post(converter, writer):
     pass
 
+def init_obj(converter, obj):
+    pass
+
+def get_scale_method(converter, obj):
+    # True for linear, False for linear
+    return None
+
 def use_simple_or(converter):
     return False
+
+def get_locals(converter):
+    return {}
 
 def use_iteration_index(converter):
     return True
@@ -85,6 +98,12 @@ def get_loop_name(converter, parameter):
 def get_loop_call_names(converter, name):
     return None
 
+def get_dynamic_loop_call_name(converter, parameter):
+    return None
+
+def get_dynamic_loop_index(converter, exp):
+    return None
+
 def get_fonts(converter):
     return ('SmallFonts',)
 
@@ -107,4 +126,10 @@ def get_string(converter, value):
     return value
 
 def init_array_set_value(converter, event_writer):
+    pass
+
+def get_missing_image(converter, image):
+    raise NotImplementedError('invalid image: %s' % repr(image))
+
+def write_loop(converter, loop_name, event_writer, writer):
     pass

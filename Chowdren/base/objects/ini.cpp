@@ -8,6 +8,17 @@
 #include "frame.h"
 #include "path.h"
 
+#ifdef CHOWDREN_CACHE_INI
+#include "types.h"
+
+typedef hash_map<std::string, SectionMap> INICache;
+static INICache ini_cache;
+#endif
+
+#ifdef CHOWDREN_USE_BLOWFISH_CACHE
+#include "objects/blowfishext.h"
+#endif
+
 inline bool match_wildcard(const std::string & pattern,
                            const std::string & value)
 {
@@ -78,7 +89,7 @@ static void encrypt_ini_data(std::string & data, const std::string & key)
 
 INI::INI(int x, int y, int type_id)
 : FrameObject(x, y, type_id), overwrite(false), auto_save(false),
-  use_compression(false)
+  use_compression(false), changed(false)
 {
 }
 
@@ -86,6 +97,16 @@ void INI::reset_global_data()
 {
     global_data.clear();
 }
+
+#ifdef CHOWDREN_CACHE_INI
+void INI::reset_cache()
+{
+    INICache::iterator it;
+    for (it = ini_cache.begin(); it != ini_cache.end(); ++it) {
+        it->second.clear();
+    }
+}
+#endif
 
 int INI::_parse_handler(void* user, const char* section, const char* name,
                         const char* value)
@@ -245,6 +266,23 @@ double INI::get_value(const std::string & item, double def)
     return get_value(current_group, item, def);
 }
 
+int INI::get_value_int(const std::string & group, const std::string & item,
+                       int def)
+{
+    SectionMap::const_iterator it = data->find(group);
+    if (it == data->end())
+        return def;
+    OptionMap::const_iterator new_it = (*it).second.find(item);
+    if (new_it == (*it).second.end())
+        return def;
+    return string_to_int((*new_it).second);
+}
+
+int INI::get_value_int(const std::string & item, int def)
+{
+    return get_value_int(current_group, item, def);
+}
+
 double INI::get_value_index(const std::string & group, unsigned int index)
 {
     SectionMap::const_iterator it = data->find(group);
@@ -267,25 +305,25 @@ double INI::get_value_index(unsigned int index)
 }
 
 void INI::set_value(const std::string & group, const std::string & item,
-                    int pad, double value)
-{
-    set_string(group, item, number_to_string(value));
-}
-
-void INI::set_value(const std::string & group, const std::string & item,
                     double value)
 {
     set_string(group, item, number_to_string(value));
 }
 
-void INI::set_value(const std::string & item, int pad, double value)
-{
-    set_value(current_group, item, pad, value);
-}
-
 void INI::set_value(const std::string & item, double value)
 {
-    set_value(item, 0, value);
+    set_value(current_group, item, value);
+}
+
+void INI::set_value_int(const std::string & group, const std::string & item,
+                        int value)
+{
+    set_string(group, item, number_to_string(value));
+}
+
+void INI::set_value_int(const std::string & item, int value)
+{
+    set_value_int(current_group, item, value);
 }
 
 void INI::set_string(const std::string & group, const std::string & item,
@@ -303,14 +341,41 @@ void INI::set_string(const std::string & item, const std::string & value)
 void INI::load_file(const std::string & fn, bool read_only, bool merge,
                     bool overwrite)
 {
+    std::string new_filename = convert_path(fn);
+#ifdef CHOWDREN_CACHE_INI
+    if (new_filename == filename)
+        return;
+#endif
+
 #ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
-    if (auto_save)
+    if (auto_save && changed)
         save_file(false);
 #endif
+
     this->read_only = read_only;
-    filename = convert_path(fn);
+    filename = new_filename;
+
+#ifdef CHOWDREN_USE_BLOWFISH_CACHE
+    const std::string & cache = BlowfishObject::get_cache(filename);
+    if (!cache.empty()) {
+        std::cout << "Using Blowfish cache for " << filename << std::endl;
+        load_string(cache, merge);
+        return;
+    }
+#endif
+
+#ifdef CHOWDREN_CACHE_INI
+    std::string cache_key = filename;
+    to_lower(cache_key);
+    data = &ini_cache[cache_key];
+    is_global = true;
+    if (!data->empty())
+        return;
+#else
     if (!merge)
         reset(false);
+#endif
+
     std::cout << "Loading " << filename << " (" << get_name() << ")"
         << std::endl;
     platform_create_directories(get_path_dirname(filename));
@@ -354,7 +419,7 @@ void INI::load_file(TempPath path)
 void INI::load_string(const std::string & data, bool merge)
 {
 #ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
-    if (auto_save)
+    if (auto_save && changed)
         save_file(false);
 #endif
     if (!merge)
@@ -399,7 +464,9 @@ void INI::save_file(const std::string & fn, bool force)
 {
     if (fn.empty() || (read_only && !force))
         return;
+    changed = false;
     filename = convert_path(fn);
+    std::cout << "Saving: " << filename << std::endl;
     platform_create_directories(get_path_dirname(filename));
     std::stringstream out;
     get_data(out);
@@ -412,6 +479,11 @@ void INI::save_file(const std::string & fn, bool force)
         compress_huffman(outs, filename.c_str());
         return;
     }
+
+#ifdef CHOWDREN_USE_BLOWFISH_CACHE
+    if (BlowfishObject::set_cache(filename, outs))
+        return;
+#endif
 
     FSFile fp(filename.c_str(), "w");
     if (!fp.is_open()) {
@@ -441,6 +513,8 @@ void INI::save_auto()
     if (!auto_save)
         return;
     save_file(false);
+#else
+    changed = true;
 #endif
 }
 
@@ -662,7 +736,7 @@ void INI::set_auto(bool save, bool load)
 INI::~INI()
 {
 #ifndef CHOWDREN_AUTOSAVE_ON_CHANGE
-    if (auto_save)
+    if (auto_save && changed)
         save_file(false);
 #endif
     if (!is_global)

@@ -213,8 +213,8 @@ inline void transform_rect(float xx, float yy, float co, float si,
 #define INTEGER_GET_BIT
 
 #ifdef INTEGER_GET_BIT
-#define CONVERT_SCALER(x) (int((x) * 0x7FFF))
-#define GET_SCALER_RESULT(x) ((x) >> 15)
+#define CONVERT_SCALER(x) (int((x) * 0x8000))
+#define GET_SCALER_RESULT(x) ((x) / 0x8000)
 #else
 #define CONVERT_SCALER(x) x
 #define GET_SCALER_RESULT(x) (int(x))
@@ -263,15 +263,36 @@ public:
     void set_angle(float value)
     {
         angle = value;
-        float r = rad(angle);
-        co = cos(r);
-        si = sin(r);
+        if (value == 0.0f) {
+            co = 1.0f;
+            si = 0.0;
+        } else if (value == 90.0f) {
+            co = 0.0f;
+            si = 1.0f;
+        } else if (value == 180.0f) {
+            co = -1.0;
+            si = 0.0f;
+        } else if (value == 270.0f) {
+            co = 0.0f;
+            si = -1.0f;
+        } else {
+            float r = rad(angle);
+            co = cos(r);
+            si = sin(r);
+        }
         update_transform();
     }
 
     void set_scale(float value)
     {
         x_scale = y_scale = value;
+        update_transform();
+    }
+
+    void set_scale(float sx, float sy)
+    {
+        x_scale = sx;
+        y_scale = sy;
         update_transform();
     }
 
@@ -297,15 +318,18 @@ public:
             new_hotspot_x = hotspot_x;
             new_hotspot_y = hotspot_y;
             x_t = y_t = 0;
-            if (flags & BOX_COLLISION)
-                type = SPRITE_BOX;
-            else
-                type = SPRITE_COLLISION;
+            if (type != NONE_COLLISION) {            
+                if (flags & BOX_COLLISION)
+                    type = SPRITE_BOX;
+                else
+                    type = SPRITE_COLLISION;
+            }
             update_aabb();
             return;
         }
 
-        type = TRANSFORM_SPRITE_COLLISION;
+        if (type != NONE_COLLISION)
+            type = TRANSFORM_SPRITE_COLLISION;
 
         float xx = image->width * x_scale;
         float yy = image->height * y_scale;
@@ -417,12 +441,13 @@ public:
     int dest_x, dest_y, src_x, src_y, src_width, src_height;
     Color color;
     Image * image;
+    int effect;
 
     BackgroundItem(Image * img, int dest_x, int dest_y, int src_x, int src_y,
                    int src_width, int src_height, const Color & color)
     : dest_x(dest_x), dest_y(dest_y), src_x(src_x), src_y(src_y),
       src_width(src_width), src_height(src_height), image(img), color(color),
-      CollisionBase(BACKGROUND_ITEM, 0)
+      effect(Render::NONE), CollisionBase(BACKGROUND_ITEM, 0)
     {
         aabb[0] = dest_x;
         aabb[1] = dest_y;
@@ -432,16 +457,24 @@ public:
 
     void draw()
     {
-        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height, color);
+        Render::set_effect(effect);
+        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height,
+                    color);
+        Render::disable_effect();
+    }
+
+    void draw(int a)
+    {
+        Render::set_effect(effect);
+        Color c = color;
+        c.a = a;
+        image->draw(dest_x, dest_y, src_x, src_y, src_width, src_height, c);
+        Render::disable_effect();
     }
 };
 
-bool collide_direct(CollisionBase * a, CollisionBase * b, int * aabb_2);
-
-inline bool collide(CollisionBase * a, CollisionBase * b)
-{
-    return collide_direct(a, b, b->aabb);
-}
+bool collide(CollisionBase * a, CollisionBase * b, int * aabb_2);
+bool collide(CollisionBase * a, CollisionBase * b);
 
 inline bool collide_box(FrameObject * a, int v[4])
 {

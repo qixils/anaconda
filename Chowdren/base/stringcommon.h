@@ -9,6 +9,7 @@
 #include "dynnum.h"
 #include <boost/algorithm/string/replace.hpp>
 
+int fast_atoi(const std::string & value);
 double fast_atof(const char * p, const char * end);
 std::string fast_itoa(int value);
 std::string fast_lltoa(long long value);
@@ -25,17 +26,12 @@ inline double string_to_double(const std::string & in)
     return fast_atof(start, end);
 }
 
-inline int string_to_int(const std::string & in, int def = 0)
+inline int string_to_int(const std::string & in)
 {
-    // only used in assarray/charimage, OK to be slow
-    std::istringstream input(in);
-    int value;
-    if (!(input >> value))
-        return def;
-    return value;
+    return fast_atoi(in);
 }
 
-inline DynamicNumber string_to_number(const std::string & in)
+inline double string_to_number(const std::string & in)
 {
 #ifdef CHOWDREN_USE_DYNAMIC_NUMBER
     double ret = string_to_double(in);
@@ -69,6 +65,11 @@ inline std::string number_to_string(size_t value)
 }
 
 inline std::string number_to_string(long long value)
+{
+    return fast_lltoa(value);
+}
+
+inline std::string number_to_string(uint64_t value)
 {
     return fast_lltoa(value);
 }
@@ -119,6 +120,13 @@ inline void split_string(const std::string & str, const std::string & delims,
         last_pos = str.find_first_not_of(delims, pos);
         pos = str.find_first_of(delims, last_pos);
     }
+}
+
+inline bool ends_with(const std::string & str, const std::string & suffix)
+{
+    if (str.size() < suffix.size())
+        return false;
+    return str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 #endif // CHOWDREN_STRINGCOMMON_H

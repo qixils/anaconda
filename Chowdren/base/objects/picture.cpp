@@ -4,7 +4,7 @@
 
 ActivePicture::ActivePicture(int x, int y, int type_id)
 : FrameObject(x, y, type_id), image(NULL), horizontal_flip(false),
-  scale_x(1.0f), scale_y(1.0f), angle(0.0f)
+  scale_x(1.0f), scale_y(1.0f), angle(0)
 {
     sprite_col.instance = this;
     collision = &sprite_col;
@@ -78,12 +78,21 @@ void ActivePicture::set_scale(float value)
     scale_x = scale_y = value;
 }
 
+void ActivePicture::set_size(int w, int h)
+{
+    float sx = w / float(image->width);
+    float sy = h / float(image->height);
+    scale_x = sx;
+    scale_y = sy;
+    ((SpriteCollision*)collision)->set_scale(sx, sy);
+}
+
 void ActivePicture::set_zoom(float value)
 {
     set_scale(value / 100.0);
 }
 
-void ActivePicture::set_angle(float value, int quality)
+void ActivePicture::set_angle(int value, int quality)
 {
     ((SpriteCollision*)collision)->set_angle(value);
     angle = value;
@@ -128,7 +137,7 @@ void ActivePicture::paste(int dest_x, int dest_y, int src_x, int src_y,
     image->hotspot_x = 0;
     image->hotspot_y = 0;
     layer->paste(image, dest_x, dest_y, src_x, src_y,
-                 src_width, src_height, collision_type, blend_color);
+                 src_width, src_height, collision_type, effect, blend_color);
 }
 
 class DefaultPicture : public ActivePicture
@@ -137,9 +146,9 @@ public:
     DefaultPicture()
     : ActivePicture(0, 0, 0)
     {
-        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
+        setup_default_instance(this);
     }
 };
 

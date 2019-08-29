@@ -31,11 +31,14 @@ class ActivePicture(ObjectWriter):
             writer.putln('set_transparent_color(%s);' %
                          make_color(transparent_color))
         image = data.readString(260) or None
+        writer.putlnc('sprite_col.width = width = %s;', width)
+        writer.putlnc('sprite_col.height = height = %s;', height)
         # objects_file.putdef('filename', image)
 
 actions = make_table(ActionMethodWriter, {
     0 : 'load',
     2 : 'set_hotspot',
+    3 : 'set_size',
     11 : 'set_hotspot_mul(1.0f, 0.5f)',
     9 : 'set_hotspot_mul(0.0f, 0.5f)',
     10 : 'set_hotspot_mul(0.5f, 0.5f)',

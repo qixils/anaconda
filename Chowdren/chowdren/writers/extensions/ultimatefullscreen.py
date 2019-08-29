@@ -9,11 +9,20 @@ class UltimateFullcsreen(ObjectWriter):
     class_name = 'Fullscreen'
     static = True
 
+class SetFullscreenType(ActionMethodWriter):
+    custom = True
+
+    def write(self, writer):
+        parameter = self.convert_index(0)
+        # if parameter != '0':
+        #     print('Fullscreen type not supported:', parameter)
+        #     raise NotImplementedError()
+
 actions = make_table(ActionMethodWriter, {
     1 : 'manager.set_window(false)',
     0 : 'manager.set_window(true)',
     5 : 'manager.set_window_scale',
-    4 : 'manager.set_scale_type'
+    4 : SetFullscreenType
 })
 
 conditions = make_table(ConditionMethodWriter, {

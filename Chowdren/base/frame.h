@@ -13,6 +13,10 @@
 #include "color.h"
 #include "instancemap.h"
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#include "fbo.h"
+#endif
+
 class BackgroundItem;
 class CollisionBase;
 
@@ -40,6 +44,12 @@ typedef boost::intrusive::member_hook<FrameObject, LayerPos,
                                       &FrameObject::layer_pos> LayerHook;
 typedef boost::intrusive::list<FrameObject, LayerHook> LayerInstances;
 
+#ifdef CHOWDREN_BACKGROUND_FBO
+#define FBO_BORDER 32
+#define BACKGROUND_FBO_WIDTH (WINDOW_WIDTH + FBO_BORDER * 2)
+#define BACKGROUND_FBO_HEIGHT (WINDOW_HEIGHT + FBO_BORDER * 2)
+#endif
+
 class Layer
 {
 public:
@@ -56,10 +66,16 @@ public:
     Broadphase broadphase;
     bool wrap_x, wrap_y;
     Color blend_color;
-    int inactive_box[4];
 
 #ifdef CHOWDREN_IS_3DS
     float depth;
+#endif
+
+#ifdef CHOWDREN_BACKGROUND_FBO
+    int background_count;
+    int fbo_pos[4];
+    bool background_fbo_init;
+    Framebuffer background_fbo;
 #endif
 
     Layer();
@@ -132,7 +148,6 @@ public:
 
     FrameData();
     virtual void event_callback(int id);
-    virtual void init();
     virtual void on_start();
     virtual void on_end();
     virtual void on_app_end();
@@ -241,6 +256,11 @@ public:
     void event_callback(int id)
     {
         data->event_callback(id);
+    }
+
+    void on_start()
+    {
+        data->on_start();
     }
 
     void on_end()

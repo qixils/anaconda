@@ -34,8 +34,12 @@ GameManager manager;
 #endif
 
 #ifndef NDEBUG
-#define CHOWDREN_SHOW_DEBUGGER
+#define CHOWDREN_DEBUG
 #endif
+
+// #ifdef CHOWDREN_DEBUG
+#define CHOWDREN_SHOW_DEBUGGER
+// #endif
 
 GameManager::GameManager()
 : frame(NULL), window_created(false), fullscreen(false), off_x(0), off_y(0),
@@ -88,23 +92,16 @@ void GameManager::init()
 
     fps_limit.set(FRAMERATE);
 
-    int start_frame = 0;
 #if defined(CHOWDREN_IS_AVGN)
-    start_frame = 0;
+    set_frame(0);
 #elif defined(CHOWDREN_IS_HFA)
-    start_frame = 0;
+    set_frame(0);
 #elif defined(CHOWDREN_IS_FP)
     player_died = false;
     lives = 3;
-    start_frame = 0;
-#else
-    start_frame = 0;
-#endif
-
-#ifdef NDEBUG
     set_frame(0);
 #else
-    set_frame(start_frame);
+    set_frame(0);
 #endif
 }
 
@@ -132,7 +129,10 @@ void GameManager::set_window(bool fullscreen)
     platform_create_display(fullscreen);
 
     // OpenGL init
-    Render::init();
+    glc_init();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    init_shaders();
 
 #ifdef CHOWDREN_VSYNC
     platform_set_vsync(true);
@@ -145,13 +145,6 @@ void GameManager::set_window_scale(int scale)
 {
 #ifdef CHOWDREN_IS_DESKTOP
     platform_set_display_scale(scale);
-#endif
-}
-
-void GameManager::set_scale_type(int type)
-{
-#ifdef CHOWDREN_IS_DESKTOP
-    platform_set_scale_type(type);
 #endif
 }
 
@@ -319,7 +312,7 @@ void GameManager::draw()
 #endif
     PROFILE_END();
 
-    Render::set_offset(0, 0);
+    glLoadIdentity();
 
 #ifdef CHOWDREN_IS_DEMO
     if (show_build_timer > 0.0) {
@@ -345,10 +338,15 @@ void GameManager::draw_fade()
 {
     if (fade_dir == 0.0f)
         return;
-    Render::set_offset(0, 0);
-    Color c = fade_color;
-    c.set_alpha(int(fade_value * 255));
-    Render::draw_quad(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, c);
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+    glColor4ub(fade_color.r, fade_color.g, fade_color.b,
+               int(fade_value * 255));
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(WINDOW_WIDTH, 0.0f);
+    glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glVertex2f(0.0f, WINDOW_HEIGHT);
+    glEnd();
 }
 
 void GameManager::set_frame(int index)
@@ -417,7 +415,6 @@ static InstanceCount counts[MAX_OBJECT_ID];
 
 static void print_instance_stats()
 {
-    return;
     int count = 0;
     for (int i = 0; i < MAX_OBJECT_ID; i++) {
         int instance_count = manager.frame->instances.items[i].size();
@@ -444,16 +441,11 @@ void GameManager::set_deadzone(float value)
 
 void GameManager::simulate_key(const std::string & key)
 {
+    if (simulate_count >= InputList::STATE_COUNT)
+        return;
     int key_int = -1;
     if (!key.empty())
         key_int = translate_string_to_key(key);
-    simulate_key(key_int);
-}
-
-void GameManager::simulate_key(int key_int)
-{
-    if (simulate_count >= InputList::STATE_COUNT)
-        return;
     if (key_int == -1)
         return;
     for (int i = 0; i < simulate_count; i++) {
@@ -509,9 +501,7 @@ void GameManager::map_axis(int axis,
 
 #endif
 
-#ifndef NDEBUG
-#define SHOW_STATS
-#endif
+// #define SHOW_STATS
 
 bool GameManager::update()
 {
@@ -529,8 +519,6 @@ bool GameManager::update()
     keyboard.update();
     mouse.update();
 
-    platform_poll_events();
-
     // player controls
     int new_control = get_player_control_flags(1);
     player_press_flags = new_control & ~(player_flags);
@@ -543,6 +531,7 @@ bool GameManager::update()
     joystick_flags = new_control;
 
     fps_limit.start();
+    platform_poll_events();
 
 #ifdef CHOWDREN_USE_JOYTOKEY
     for (int i = 0; i < simulate_count; i++) {

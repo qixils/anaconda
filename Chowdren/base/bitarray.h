@@ -17,6 +17,8 @@
 
 #include <string.h>
 
+#include <iostream>
+
 class BaseBitArray
 {
 public:
@@ -43,20 +45,9 @@ public:
     }
 };
 
-#define GET_BITARRAY_PAD(N) ((((N) % BaseBitArray::WORD_SIZE) == 0) ? 0 : 1)
-#define GET_BITARRAY_ITEMS(N) ((N) / BaseBitArray::WORD_SIZE +\
-                               GET_BITARRAY_PAD(N))
+#define GET_BITARRAY_ITEMS(N) ((N) / BaseBitArray::WORD_SIZE + 1)
 #define GET_BITARRAY_SIZE(N) (sizeof(BaseBitArray::word_t) *\
                               GET_BITARRAY_ITEMS(N))
-
-class BitArray : public BaseBitArray
-{
-public:
-    BitArray()
-    : BaseBitArray(NULL)
-    {
-    }
-};
 
 class StackBitArray : public BaseBitArray
 {

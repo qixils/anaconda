@@ -2,7 +2,7 @@
 #define CHOWDREN_COMMON_H
 
 #include "chowconfig.h"
-#include "render.h"
+#include "include_gl.h"
 #include "profiler.h"
 #include "keydef.h"
 #include "keyconv.h"
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <string.h>
 #include "stringcommon.h"
+#include "shader.h"
 #include "datastream.h"
 #include <ctype.h>
 #include "globals.h"
@@ -128,7 +129,7 @@ bool init_font();
 #define HORIZONTAL_GRADIENT 2
 
 void draw_gradient(int x1, int y1, int x2, int y2, int gradient_type,
-                   Color color, Color color2, int alpha);
+                   Color & color, Color & color2, int alpha);
 
 class File
 {

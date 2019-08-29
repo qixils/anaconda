@@ -67,7 +67,6 @@ public:
     void set_framerate(int framerate);
     void set_window(bool fullscreen);
     void set_window_scale(int scale);
-    void set_scale_type(int type);
     void set_fullscreen_type(int type);
     bool is_fullscreen();
     void run();
@@ -100,7 +99,6 @@ public:
 
     void set_deadzone(float deadzone);
     void simulate_key(const std::string & key);
-    void simulate_key(int key);
     void map_button(int button, const std::string & key);
     void map_axis(int axis, const std::string & neg, const std::string & pos);
 #endif

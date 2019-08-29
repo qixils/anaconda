@@ -144,6 +144,7 @@ void Counter::draw()
         return;
 
     if (type == IMAGE_COUNTER) {
+        blend_color.apply();
         double current_x = x;
         for (std::string::reverse_iterator it = cached_string.rbegin();
              it != cached_string.rend(); ++it) {
@@ -151,7 +152,7 @@ void Counter::draw()
             if (image == NULL)
                 continue;
             image->draw(current_x + image->hotspot_x - image->width,
-                        y + image->hotspot_y - image->height, blend_color);
+                        y + image->hotspot_y - image->height);
             current_x -= image->width;
         }
     } else if (type == VERTICAL_UP_COUNTER) {
@@ -177,7 +178,8 @@ void Counter::draw()
         draw_gradient(x1, y1, x2, y2, gradient_type, color1, color2,
                       blend_color.a);
     } else if (type == ANIMATION_COUNTER) {
+        blend_color.apply();
         Image * image = get_image();
-        image->draw(x + image->hotspot_x, y + image->hotspot_y, blend_color);
+        image->draw(x + image->hotspot_x, y + image->hotspot_y);
     }
 }

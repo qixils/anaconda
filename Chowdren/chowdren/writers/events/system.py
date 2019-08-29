@@ -593,7 +593,6 @@ class PlayerKeyPressed(PlayerKeyCondition):
 
 class AnyKeyPressed(ConditionMethodWriter):
     is_always = True
-    pre_event = True
     method = 'is_any_key_pressed_once'
 
 class PlayerDied(ConditionMethodWriter):
@@ -1702,12 +1701,13 @@ class SetInkEffect(ActionWriter):
                                            copy=False):
             obj = self.converter.get_object(self.get_object())
             if ink_effect in INK_EFFECTS:
-                writer.putlnc('%s->set_shader(%s);', obj,
-                              shader.get_name(INK_EFFECTS[ink_effect]))
+                name = NATIVE_SHADERS[INK_EFFECTS[ink_effect]]
+                if name is not None:
+                    writer.putlnc('%s->set_shader(%s);', obj, name)
             elif ink_effect == SEMITRANSPARENT_EFFECT:
                 writer.putlnc('%s->blend_color.set_semi_transparency(%s);',
                               obj, ink_value)
-                writer.putlnc('%s->set_shader(Render::NONE);', obj)
+                writer.putlnc('%s->set_shader(NULL);', obj)
             else:
                 print 'unknown set ink effect:', ink_effect
 
@@ -1955,7 +1955,6 @@ actions = make_table(ActionMethodWriter, {
     'SetGlobalString' : 'global_strings->set',
     'SetGlobalValue' : 'global_values->set',
     'AddGlobalValue' : 'global_values->add',
-    'AddGlobalValueInt' : 'global_values->add',
     'SubtractGlobalValue' : 'global_values->sub',
     'SetString' : 'set_string',
     'SetBold' : 'set_bold',
@@ -2091,8 +2090,6 @@ conditions = make_table(ConditionMethodWriter, {
     'CompareAlterableValue' : make_comparison('alterables->values.get(%s)'),
     'CompareAlterableString' : make_comparison('alterables->strings.get(%s)'),
     'CompareGlobalValue' : make_comparison('global_values->get(%s)'),
-    'CompareGlobalValueIntEqual' : make_comparison('global_values->get(%s)'),
-    'CompareGlobalValueIntNotEqual' : make_comparison('global_values->get(%s)'),
     'CompareGlobalString' : make_comparison('global_strings->get(%s)'),
     'CompareCounter' : make_comparison('value'),
     'CompareX' : make_comparison('get_x()'),

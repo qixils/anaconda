@@ -38,11 +38,17 @@ void Text::draw()
     }
 
     update_draw_text();
-    FTTextureFont::color = blend_color;
+    blend_color.apply();
+    glPushMatrix();
+    glEnable(GL_TEXTURE_2D);
     if (layout != NULL) {
         FTBBox bb = layout->BBox(draw_text.c_str(), -1);
+        double off_x = x;
         double off_y = y + font->Ascender();
-        layout->Render(draw_text.c_str(), -1, FTPoint(x, int(off_y)));
+        glTranslated((int)off_x, (int)off_y, 0.0);
+        glScalef(1, -1, 1);
+        layout->Render(draw_text.c_str(), -1, FTPoint());
+        glPopMatrix();
     } else {
         FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
         double box_w = box.Upper().X() - box.Lower().X();
@@ -65,9 +71,13 @@ void Text::draw()
         if (font == big_font)
             off_y += CHOWDREN_BIG_FONT_OFFY;
 #endif
-        font->Render(draw_text.c_str(), -1, FTPoint(int(off_x), int(off_y)),
-                     FTPoint());
+
+        glTranslated((int)off_x, (int)off_y, 0.0);
+        glScalef(scale, -scale, scale);
+        font->Render(draw_text.c_str(), -1, FTPoint(), FTPoint());
+        glPopMatrix();
     }
+    glDisable(GL_TEXTURE_2D);
 }
 
 void Text::set_string(const std::string & value)

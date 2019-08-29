@@ -1,5 +1,5 @@
 if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
-    set(LINUX 1)
+    set(LINUX TRUE)
 endif()
 
 if (APPLE)
@@ -63,6 +63,7 @@ endif()
 
 if (NOT CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
     set(PLATFORM_SRCS
+        ${CHOWDREN_BASE_DIR}/glc/gl.cpp
         ${CHOWDREN_BASE_DIR}/desktop/glslshader.cpp
         ${CHOWDREN_BASE_DIR}/desktop/fbo.cpp
         ${PLATFORM_SRCS}
@@ -73,13 +74,13 @@ set(SRCS
     ${OBJECTSRCS}
     fonts.cpp
     lists.cpp
-    ${CHOWDREN_BASE_DIR}/render.cpp
     ${CHOWDREN_BASE_DIR}/run.cpp
     ${CHOWDREN_BASE_DIR}/keyconv.cpp
     ${CHOWDREN_BASE_DIR}/image.cpp
     ${PLATFORM_CPP}
     ${CHOWDREN_BASE_DIR}/assetfile.cpp
     ${CHOWDREN_BASE_DIR}/pools.cpp
+    ${CHOWDREN_BASE_DIR}/shader.cpp
     ${CHOWDREN_BASE_DIR}/font.cpp
     ${CHOWDREN_BASE_DIR}/movement.cpp
     ${CHOWDREN_BASE_DIR}/common.cpp
@@ -98,16 +99,13 @@ if (USE_STEAM)
     add_definitions(-DCHOWDREN_USE_STEAM)
     if (ENABLE_STEAM)
         add_definitions(-DCHOWDREN_ENABLE_STEAM)
-        include_directories("${CHOWDREN_BASE_DIR}/steam/sdk/public")
+        include_directories("${CHOWDREN_BASE_DIR}/steam")
         if (WIN32)
             set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
                 "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/steam_api.lib")
         elseif (APPLE)
             set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
                 "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/osx32/libsteam_api.dylib")
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-                "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
         else()
             set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
                 "${CHOWDREN_BASE_DIR}/steam/sdk/redistributable_bin/linux32/libsteam_api.so")
@@ -220,13 +218,6 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()
 
-if(APPLE OR LINUX)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
-    if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
-    endif()
-endif()
-
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE icon.icns)
     set(MACOSX_BUNDLE_BUNDLE_NAME ${APP_NAME})
@@ -241,10 +232,6 @@ endif()
 # include alsoft.conf
 # set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/alsoft.conf")
 
-if(LINUX)
-    set(DATA_SRCS ${DATA_SRCS} "${CHOWDREN_BASE_DIR}/run.sh")
-endif()
-
 if (USE_PYTHON)
     add_definitions(-DCHOWDREN_USE_PYTHON)
     find_package(PythonLibs 2.7 REQUIRED)
@@ -252,7 +239,7 @@ if (USE_PYTHON)
 endif()
 
 # for Linux (set RPATH properly)
-set(CMAKE_INSTALL_RPATH "\$ORIGIN")
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
 set(CMAKE_SKIP_BUILD_RPATH TRUE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
@@ -267,6 +254,9 @@ endif()
 add_definitions(-DBOOST_ALL_NO_LIB)
 add_definitions(-DBOOST_NO_EXCEPTIONS)
 add_definitions(-DBOOST_EXCEPTION_DISABLE)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
 
 include_directories(${CHOWDREN_BASE_DIR}/include/staticlibs)
 if (NOT NO_STATIC_OGG)
@@ -288,6 +278,7 @@ if (USE_WEBP)
     set(SRCS ${WEBP_C} ${SRCS})
 endif()
 
+find_package(Boost REQUIRED)
 if (NOT CMAKE_CROSSCOMPILING)
     find_package(SDL2 REQUIRED)
     find_package(OpenALSoft REQUIRED)
@@ -302,12 +293,16 @@ set(EXE_NAME "Chowdren")
 add_executable(${EXE_NAME} WIN32 MACOSX_BUNDLE ${SRCS})
 
 include_directories(${OPENALSOFT_INCLUDE_DIR} ${SDL2_INCLUDE_DIR}
-    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${WEBP_INCLUDE_DIR})
+    ${VORBIS_INCLUDE_DIR} ${BOX2D_INCLUDE_DIR} ${Boost_INCLUDE_DIRS}
+    ${WEBP_INCLUDE_DIR})
 target_link_libraries(${EXE_NAME} ${SDL2_LIBRARY} ${OPENGL_LIBRARY}
     ${OPENALSOFT_LIBRARY} ${PYTHON_LIBRARIES} ${PLATFORM_LIBRARIES}
     ${BOX2D_LIBRARY} ${OPENGLES2_LIBRARIES} ${EGL_LIBRARIES})
 
-set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install CACHE PATH
+        "default install path" FORCE)
+endif()
 
 set(BIN_DIR ".")
 set(DATA_PATH ".")
@@ -318,12 +313,8 @@ elseif(WIN32)
     set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${EXE_NAME}.exe")
     set(DLL_PATH "${CHOWDREN_BASE_DIR}/bin/win32")
 else()
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(BIN_DIR "bin64")
-    else()
-        set(BIN_DIR "bin32")
-    endif()
-    set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/${BIN_DIR}/${EXE_NAME}")
+    set(BIN_DIR "bin")
+    set(EXE_PATH "\${CMAKE_INSTALL_PREFIX}/bin/${EXE_NAME}")
 endif()
 
 if (WIN32)
@@ -337,7 +328,7 @@ install(CODE "
     function(gp_item_default_embedded_path_override item default_embedded_path_var)
         set(path \"\${\${default_embedded_path_var}}\")
         if (${LINUX})
-            set(path \"@executable_path\")
+            set(path \"@executable_path/../lib\")
         endif()
         set(\${default_embedded_path_var} \"\${path}\" PARENT_SCOPE)
     endfunction(gp_item_default_embedded_path_override)

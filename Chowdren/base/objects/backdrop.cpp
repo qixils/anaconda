@@ -25,5 +25,6 @@ void Backdrop::draw()
         current_remote != CHOWDREN_HYBRID_TARGET)
         return;
 #endif
-    draw_image(image, x + image->hotspot_x, y + image->hotspot_y, blend_color);
+    blend_color.apply();
+    draw_image(image, x + image->hotspot_x, y + image->hotspot_y);
 }

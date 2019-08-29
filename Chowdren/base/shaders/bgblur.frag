@@ -2,11 +2,10 @@
 
 varying vec2 texture_coordinate0;
 varying vec2 texture_coordinate1;
-varying vec4 test;
 uniform vec2 texture_size;
 uniform sampler2D texture;
 uniform sampler2D background_texture;
-uniform float fX, fY, fA;
+uniform float x, y, alpha;
 
 //Thanks to
 //http://www.klopfenstein.net/lorenz.aspx/gamecomponents-the-bloom-post-processing-filter
@@ -27,7 +26,7 @@ uniform float fX, fY, fA;
 
 vec4 get_iteration(vec2 offset)
 {
-    return texture2D(background_texture, max(vec2(0.0), min(vec2(1.0), texture_coordinate1 + vec2(fX, fY)*texture_size*offset)));
+    return texture2D(background_texture, max(vec2(0.0), min(vec2(1.0), texture_coordinate1 + vec2(x, y)*texture_size*offset)));
 }
 
 void main()
@@ -46,11 +45,11 @@ void main()
     back += get_iteration(vec2( 0.896420,  0.412458));
     back += get_iteration(vec2(-0.321940, -0.932615));
     back += get_iteration(vec2(-0.791559, -0.597705));
-
+    // for (int i=0; i < iterations; i++)
+        // back += texture2D(background_texture, max(vec2(0.0), min(vec2(1.0), texture_coordinate1 + rad*texture_size*offsets[i])));
     back /= 13.0;
     back += (texture2D(background_texture, texture_coordinate1)-back) * (1.0 - fore.a);
-    back.rgb += (fore.rgb-back.rgb) * fore.a * fA;
+    back.rgb += (fore.rgb-back.rgb) * fore.a * alpha;
     back.a += fore.a;
-
     gl_FragColor = back;
 }

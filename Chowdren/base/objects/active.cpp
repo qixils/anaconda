@@ -1,6 +1,5 @@
 #include "objects/active.h"
 #include "manager.h"
-#include "render.h"
 
 // Active
 
@@ -17,10 +16,8 @@ Active::Active(int x, int y, int type_id)
 
 void Active::initialize_active()
 {
-    if (collision_box) {
+    if (collision_box)
         sprite_col.flags |= BOX_COLLISION;
-        sprite_col.type = SPRITE_BOX;
-    }
     update_direction();
 
     int n = 1;
@@ -137,14 +134,6 @@ void Active::update_frame()
 
     sprite_col.set_image(image, image->hotspot_x, image->hotspot_y);
     update_action_point();
-
-#ifdef CHOWDREN_DEFER_COLLISIONS
-    // make sure the old AABB is not out of bounds
-    if (sprite_col.type == SPRITE_COLLISION) {
-        old_aabb[2] = old_aabb[0] + image->width;
-        old_aabb[3] = old_aabb[1] + image->height;
-    }
-#endif
 }
 
 void Active::update_direction(Direction * dir)
@@ -176,8 +165,8 @@ void Active::update_action_point()
 void Active::update()
 {
 #ifdef CHOWDREN_DEFER_COLLISIONS
-    flags |= DEFER_COLLISIONS;
-    memcpy(old_aabb, sprite_col.aabb, sizeof(old_aabb));
+        flags |= DEFER_COLLISIONS;
+        memcpy(old_aabb, sprite_col.aabb, sizeof(old_aabb));
 #endif
     if (flags & FADEOUT && animation_finished == DISAPPEARING) {
         FrameObject::destroy();
@@ -284,15 +273,13 @@ void Active::load(const std::string & filename, int anim, int dir, int frame,
 
 void Active::draw()
 {
-    bool blend = transparent || blend_color.a < 255 ||
-                 effect != Render::NONE;
-    if (blend) {
-        draw_image(image, x, y, blend_color, angle, x_scale, y_scale);
-        return;
-    }
-    Render::disable_blend();
-    draw_image(image, x, y, blend_color, angle, x_scale, y_scale);
-    Render::enable_blend();
+    blend_color.apply();
+    bool blend = transparent || blend_color.a < 255 || shader != NULL;
+    if (!blend)
+        glDisable(GL_BLEND);
+    draw_image(image, x, y, angle, x_scale, y_scale);
+    if (!blend)
+        glEnable(GL_BLEND);
 }
 
 int Active::get_action_x()
@@ -382,7 +369,6 @@ int Active::get_animation(int value)
 {
     if (has_animation(value))
         return value;
-    value = std::max(0, std::min(value, animations->count - 1));
     for (int i = 0; i < 3; i++) {
         int alias = animation_alias[i + value * 3];
         if (alias == -1 || !has_animation(alias))
@@ -499,7 +485,7 @@ void Active::destroy()
 
 bool Active::has_animation(int anim)
 {
-    if (anim >= animations->count || anim < 0)
+    if (anim >= animations->count)
         return false;
     if (animations->items[anim] == NULL)
         return false;

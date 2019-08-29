@@ -28,10 +28,9 @@ import sys
 import os
 
 def main():
-    print 'Bimbam tool by Mathias Kaerlev'
-    print 'ONLY for use on your own applications.'
+    print 'Bimbam tool by Mathias Kaerlev, pete7201, and /u/kekmasterfnaf'
+    print 'ONLY for use on your own applications, or FNaF games ;)'
     print ''
-
     input = sys.argv[1]
     output = sys.argv[2]
 
@@ -57,9 +56,10 @@ def main():
 
     def out(value):
         print value
-
+    print 'Translating MFA...'
     newMfa = translate(newGame, print_func = out)
     out_path = os.path.join(output, 'out.mfa')
+    print 'Writing MFA...'
     newMfa.write(ByteReader(open(out_path, 'wb')))
 
     # newMfa = MFA(ByteReader(open(out_path, 'rb')))

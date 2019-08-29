@@ -158,6 +158,7 @@ cdef class ChunkList(DataLoader):
             if newChunk.id == LAST:
                 break
             IF USE_TRANS:
+                print 'Reading chunktype %s' % (newChunk.id)
                 if newChunk.id == 8750 and self.settings['build'] >= 284:
                     # EditorFilename
                     editor = newChunk.loader.value

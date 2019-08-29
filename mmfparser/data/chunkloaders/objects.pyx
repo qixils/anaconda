@@ -29,8 +29,9 @@ cdef class AlterableValues(DataLoader):
     cdef public list items
     cpdef read(self, ByteReader reader):
         self.items = [reader.readInt()
+        print self.items
             for _ in xrange(reader.readShort(True))]
-
+                print 'Xrange Alt Value'
     def write(self, ByteReader reader):
         reader.writeShort(len(self.items))
         for item in self.items:

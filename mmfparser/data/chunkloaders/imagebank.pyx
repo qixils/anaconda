@@ -503,7 +503,7 @@ cdef class ImageItem(DataLoader):
         newReader.writeShort(self.actionY)
         newReader.writeColor(self.transparent or (0, 0, 0))
         newReader.writeReader(dataReader)
-
+        print 'Writing Texture to MFA: %s' % (self.handle)
         reader.writeInt(self.handle)
         if debug:
             reader.writeReader(newReader)

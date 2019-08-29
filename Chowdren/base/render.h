@@ -17,8 +17,12 @@ public:
         MONOCHROME,
         ZOOMOFFSET,
         PIXELOUTLINE,
+        FONTOUTLINE,
         COLDIRBLUR,
         CHANNELBLUR,
+        CHANNELBLURADD,
+        BLUR,
+        BLURADD,
         ROTATESUB,
         SUBPX,
         SIMPLEMASK,
@@ -43,6 +47,9 @@ public:
         ADDITIVE,
         OFFSET,
         MIXER,
+        DISPLAY,
+        LINEARBURN,
+        LINEARDODGE,
 
         // internal effects
         SURFACESUBTRACT,
@@ -104,6 +111,8 @@ public:
     static void set_filter(Texture tex, bool linear);
 
 #ifdef CHOWDREN_IS_3DS
+    static void set_storage(bool vram);
+    static bool is_vram_full();
     static void set_global_depth(float depth);
     static void set_depth(float depth);
 #endif

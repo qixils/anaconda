@@ -12,6 +12,11 @@
 #include "frameobject.h"
 #include "color.h"
 #include "instancemap.h"
+#include "bitarray.h"
+
+#ifdef CHOWDREN_PASTE_CACHE
+#include "fbo.h"
+#endif
 
 class BackgroundItem;
 class CollisionBase;
@@ -21,8 +26,25 @@ typedef vector<BackgroundItem*> BackgroundItems;
 class Background
 {
 public:
+#ifdef CHOWDREN_PASTE_BROADPHASE
+    Broadphase items;
+    Broadphase col_items;
+#else
     BackgroundItems items;
     BackgroundItems col_items;
+#endif
+
+#ifdef CHOWDREN_PASTE_CACHE
+    bool dirty;
+    BackgroundItems new_paste;
+    int cache_pos[4];
+    Framebuffer fbo;
+#endif
+
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+    BitArray col;
+    int col_w, col_h;
+#endif
 
     Background();
     ~Background();
@@ -30,7 +52,7 @@ public:
     void destroy_at(int x, int y);
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
-               int collision_type, const Color & color);
+               int collision_type, int effect, const Color & color);
     void draw(int v[4]);
     CollisionBase * collide(CollisionBase * a);
     CollisionBase * overlaps(CollisionBase * a);
@@ -57,6 +79,7 @@ public:
     bool wrap_x, wrap_y;
     Color blend_color;
     int inactive_box[4];
+    int kill_box[4];
 
 #ifdef CHOWDREN_IS_3DS
     float depth;
@@ -88,7 +111,7 @@ public:
     CollisionBase * test_background_collision(int x, int y);
     void paste(Image * img, int dest_x, int dest_y,
                int src_x, int src_y, int src_width, int src_height,
-               int collision_type, const Color & color);
+               int collision_type, int effect, const Color & color);
     void draw(int off_x, int off_y);
 
 #ifdef CHOWDREN_HAS_MRT
@@ -123,6 +146,7 @@ typedef hash_map<std::string, DynamicLoop> DynamicLoops;
 class GameManager;
 class GlobalValues;
 class GlobalStrings;
+class Backdrop;
 
 class FrameData
 {
@@ -166,6 +190,11 @@ public:
     int timer_base;
     float timer_mul;
 
+#ifdef CHOWDREN_USE_BACKMAGIC
+    FlatObjectList back_instances[MAX_BACK_ID];
+    Backdrop * back_obj;
+#endif
+
     FrameObject * col_instance_1;
     FrameObject * col_instance_2;
 
@@ -190,6 +219,7 @@ public:
     void get_mouse_pos(int * x, int * y);
     int get_mouse_x();
     int get_mouse_y();
+    bool mouse_in_zone(int x1, int y1, int x2, int y2);
     CollisionBase * test_background_collision(int x, int y);
     int get_background_mask(int x, int y);
     bool test_obstacle(int x, int y);

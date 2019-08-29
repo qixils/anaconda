@@ -147,7 +147,9 @@ class GameData(DataLoader):
                 pass
             try:
                 self.images = chunks.popChunk(ImageBank)
+                print 'Popping imagechunks'
             except IndexError:
+                print 'Imagechunk error'
                 pass
             try:
                 self.icon = chunks.popChunk(AppIcon)

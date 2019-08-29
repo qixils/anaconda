@@ -90,7 +90,9 @@ void ArrayObject::load(const std::string & filename)
 void ArrayObject::save(const std::string & filename)
 {
     FSFile fp(convert_path(filename).c_str(), "w");
-    FileStream stream(fp);
+    if (!fp.is_open())
+        return;
+    WriteStream stream;
 
     stream.write(CT_ARRAY_MAGIC, sizeof(CT_ARRAY_MAGIC));
     stream.write_int16(ARRAY_MAJOR_VERSION);
@@ -115,9 +117,8 @@ void ArrayObject::save(const std::string & filename)
         }
     }
 
+    stream.save(fp);
     fp.close();
-
-    std::cout << "saved: " << filename << std::endl;
 }
 
 ArrayNumber ArrayObject::get_value(int x, int y, int z)

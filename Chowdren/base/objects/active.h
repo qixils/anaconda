@@ -34,6 +34,13 @@ public:
     int old_aabb[4];
 #endif
 
+    enum ActiveFlags
+    {
+        ANIMATION_STOPPED = 1 << 0,
+        AUTO_ROTATE = 1 << 1,
+        TRANSPARENT = 1 << 2
+    };
+
     Animations * animations;
 
     int animation, current_animation;
@@ -43,19 +50,22 @@ public:
     float angle;
     float x_scale, y_scale;
     int action_x, action_y;
-    bool collision_box;
-    bool stopped;
+    int active_flags;
     float flash_time, flash_interval;
     int animation_finished;
-    bool auto_rotate;
-    bool transparent;
     int loop_count;
     SpriteCollision sprite_col;
     Direction * direction_data;
     Image * image;
+    int last_dir;
+    float fade_time, fade_duration;
+
+#ifdef CHOWDREN_ACTIVE_REPLACE_COLOR
+    ReplacedImages replacer;
+#endif
 
     Active(int x, int y, int type_id);
-    void initialize_active();
+    void initialize_active(bool collision_box);
     ~Active();
     void force_animation(int value);
     void force_frame(int value);
@@ -73,9 +83,7 @@ public:
     int get_action_x();
     int get_action_y();
     void set_angle(float angle, int quality = 0);
-    float get_angle();
     int get_frame();
-    int get_speed();
     Direction * get_direction_data();
     int get_animation(int anim);
     void set_animation(int value);
@@ -96,6 +104,11 @@ public:
               int hot_x, int hot_y, int action_x, int action_y,
               TransparentColor transparent_color);
     void replace_color(const Color & from, const Color & to);
+
+    float get_angle()
+    {
+        return angle;
+    }
 };
 
 extern FrameObject * default_active_instance;

@@ -13,9 +13,12 @@ class File(ObjectWriter):
         pass
 
 actions = make_table(StaticActionWriter, {
+    0 : 'change_directory',
     2 : 'create_directory',
     5 : 'delete_file',
+    6 : 'rename_file',
     8 : 'copy_file',
+    10 : 'append_text',
     11 : EmptyAction
 })
 
@@ -27,6 +30,10 @@ conditions = make_table(StaticConditionWriter, {
 })
 
 expressions = make_table(StaticExpressionWriter, {
+    0 : 'get_size',
+    7 : 'get_ext',
+    6 : 'get_title',
+    27 : 'get_appdata_directory()', # directories_my_documents_directory
     28 : 'get_appdata_directory()'
 })
 

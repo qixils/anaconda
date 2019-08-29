@@ -106,19 +106,19 @@ inline std::string left_string(const std::string & v, int count)
 class Font
 {
 public:
-    const char * face;
+    std::string name;
     int size;
     bool bold;
     bool italic;
     bool underline;
 
-    Font(const char * face, int size, bool bold, bool italic, bool underline);
+    Font(const std::string & name, int size, bool bold, bool italic, bool underline);
 };
 
 // static objects
 
 class FTTextureFont;
-FTTextureFont * get_font(int size);
+FTTextureFont * get_font(int size, int flags = 0);
 void set_font_path(const char * path);
 void set_font_path(const std::string & path);
 bool init_font();
@@ -134,13 +134,21 @@ class File
 {
 public:
     static const std::string & get_appdata_directory();
+    static void change_directory(const std::string & path);
     static void create_directory(const std::string & path);
     static bool file_exists(const std::string & path);
     static bool name_exists(const std::string & path);
     static bool directory_exists(const std::string & path);
     static void delete_file(const std::string & path);
+    static void delete_folder(const std::string & path);
     static bool file_readable(const std::string & path);
+    static int get_size(const std::string & path);
     static bool copy_file(const std::string & src, const std::string & dst);
+    static void rename_file(const std::string & src, const std::string & dst);
+    static void append_text(const std::string & text,
+                            const std::string & path);
+    static std::string get_ext(const std::string & path);
+    static std::string get_title(const std::string & path);
 };
 
 #include "extensions.h"
@@ -155,8 +163,6 @@ inline void reset_global_data()
 // event helpers
 
 #include "mathhelper.h"
-
-extern MathHelper math_helper;
 
 // get_single for ObjectList
 
@@ -444,10 +450,28 @@ inline std::string get_command_arg(const std::string & arg)
 
 std::string get_md5(const std::string & value);
 
-inline float get_joystick_dummy(float value, int n)
+template <typename T, typename T1>
+inline T get_event_dummy(T value, T1 other)
 {
     return value;
 }
+
+template <typename T, typename T1, typename T2>
+inline T get_event_dummy(T value, T1 a, T2 b)
+{
+    return value;
+}
+
+inline int get_zero_dummy(const std::string value)
+{
+    return 0;
+}
+
+std::string get_joytokey_name(int value);
+
+void create_joystick_rumble(int n, float delay, float duration,
+                            float l, float r, const std::string & name);
+void start_joystick_rumble(int n, const std::string & name, int times);
 
 inline int get_ascii(const std::string & value)
 {

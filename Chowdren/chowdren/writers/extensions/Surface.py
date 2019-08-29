@@ -124,10 +124,11 @@ actions = make_table(ActionMethodWriter, {
     78 : 'resize_canvas',
     90 : 'blit', # blit external surface
     93 : 'scroll',
-    115 : 'resize_source',
+    115 : 'set_src_size',
     116 : 'set_stretch_mode',
     17 : 'add_image',
-    119 : 'draw_rect'
+    119 : 'draw_rect',
+    153 : 'load'
 })
 
 conditions = make_table(ConditionMethodWriter, {

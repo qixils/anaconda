@@ -10,9 +10,17 @@
 #include "overlap.cpp"
 #include "collision.cpp"
 #include "objects/active.h"
+#include "fbo.h"
+
+// XXX move this?
+#include "staticlibs/utf16to8.cpp"
 
 #ifdef CHOWDREN_USE_VALUEADD
 #include "extra_keys.cpp"
+#endif
+
+#ifdef CHOWDREN_CACHE_INI
+#include "objects/ini.h"
 #endif
 
 #ifdef BOOST_NO_EXCEPTIONS
@@ -75,8 +83,9 @@ void swap_position(const FlatObjectList & list)
 
 // Font
 
-Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
-: face(face),  size(size),  bold(bold), italic(italic), underline(underline)
+Font::Font(const std::string & name, int size, bool bold, bool italic,
+           bool underline)
+: name(name), size(size),  bold(bold), italic(italic), underline(underline)
 {
 
 }
@@ -85,8 +94,27 @@ Font::Font(const char * face, int size, bool bold, bool italic, bool underline)
 
 Background::Background()
 {
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+    col_w = manager.frame->width;
+    col_h = manager.frame->height;
+    int size = col_w * col_h;
+    size = GET_BITARRAY_SIZE(size);
+    col.data = (BaseBitArray::word_t*)malloc(size);
+    memset(col.data, 0, size);
+#endif
 }
 
+#ifdef CHOWDREN_PASTE_BROADPHASE
+void clear_back_vec(Broadphase & items)
+{
+    BackgroundItems::iterator it;
+    for (it = items.begin(); it != items.end(); ++it) {
+        BackgroundItem * item = *it;
+        delete item;
+    }
+    items.clear();
+}
+#else
 void clear_back_vec(BackgroundItems & items)
 {
     BackgroundItems::iterator it;
@@ -96,23 +124,65 @@ void clear_back_vec(BackgroundItems & items)
     }
     items.clear();
 }
+#endif
 
 Background::~Background()
 {
     clear_back_vec(col_items);
     clear_back_vec(items);
+
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+    free(col.data);
+    col.data = NULL;
+#endif
 }
 
 void Background::reset(bool clear_items)
 {
-    if (clear_items) {
-        clear_back_vec(col_items);
-        clear_back_vec(items);
-    }
+#ifdef CHOWDREN_PASTE_CACHE
+    dirty = true;
+#endif
+
+    if (!clear_items)
+        return;
+
+    clear_back_vec(col_items);
+    clear_back_vec(items);
 }
+
+struct RemoveBackgroundCallback
+{
+    int x, y;
+
+    RemoveBackgroundCallback(int x, int y)
+    : x(x), y(y)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        BackgroundItem * item = (BackgroundItem*)data;
+        if (!collides(item->dest_x, item->dest_y,
+                      item->dest_x + item->src_width,
+                      item->dest_y + item->src_height,
+                      x, y, x+1, y+1))
+        {
+            return true;
+        }
+
+        delete item;
+        return false;
+    }    
+};
 
 void Background::destroy_at(int x, int y)
 {
+#ifdef CHOWDREN_PASTE_BROADPHASE
+    int v[4] = {x, y, x+1, y+1};
+    RemoveBackgroundCallback callback(x, y);
+    items.remove_query(v, callback);
+    col_items.remove_query(v, callback);
+#else
     BackgroundItems::iterator it = items.begin();
     while (it != items.end()) {
         BackgroundItem * item = *it;
@@ -120,6 +190,10 @@ void Background::destroy_at(int x, int y)
                      item->dest_x + item->src_width,
                      item->dest_y + item->src_height,
                      x, y, x+1, y+1)) {
+#ifdef CHOWDREN_PASTE_CACHE
+            if (collides(item->aabb, cache_pos))
+                dirty = true;
+#endif
             delete item;
             it = items.erase(it);
         } else {
@@ -138,11 +212,87 @@ void Background::destroy_at(int x, int y)
         } else
             ++it;
     }
+#endif
 }
+
+inline bool compare_aabb(int a[4], int b[4])
+{
+    return memcmp(&a[0], &b[0], sizeof(int)*4) == 0;
+}
+
+#ifdef CHOWDREN_PASTE_BROADPHASE
+struct RemoveExactCallback
+{
+    BackgroundItem * item;
+
+    RemoveBackgroundExactCallback(BackgroundItem * item, bool check_image)
+    : item(item)
+    {
+    }
+
+    bool on_callback(void * data)
+    {
+        BackgroundItem * other = (BackgroundItem*)data;
+        if (other == item)
+            return true;
+        if (!compare_aabb(item->aabb, other->aabb) ||
+            (check_image && other->image != img))
+            return true;
+        delete other;
+        return false;
+    }    
+};
+
+inline void remove_paste_item(BackgroundItem * item, Broadphase & broadphase,
+                              bool check_image)
+{
+    RemoveExactCallback callback(item, check_image);
+    broadphase.remove_query(item->aabb, broadphase);
+}
+#else
+inline void remove_paste_item(BackgroundItem * item, BackgroundItems & items,
+                              bool check_image)
+{
+    BackgroundItems::iterator it = items.begin();
+    while (it != items.end()) {
+        BackgroundItem * other = *it;
+        if (other == item) {
+            ++it;
+            continue;
+        }
+        if (!compare_aabb(item->aabb, other->aabb) ||
+            (check_image && other->image != item->image))
+        {
+            ++it;
+            continue;
+        }
+        it = items.erase(it);
+    }
+}
+
+inline void remove_contained_item(BackgroundItem * item,
+                                  BackgroundItems & items)
+{
+    BackgroundItems::iterator it = items.begin();
+    while (it != items.end()) {
+        BackgroundItem * other = *it;
+        if (other == item) {
+            ++it;
+            continue;
+        }
+        if (!contains(item->aabb, other->aabb)) {
+            ++it;
+            continue;
+        }
+        it = items.erase(it);
+    }
+}
+#endif
+
 
 void Background::paste(Image * img, int dest_x, int dest_y,
                        int src_x, int src_y, int src_width, int src_height,
-                       int collision_type, const Color & color)
+                       int collision_type, int effect, const Color & color)
 {
     // collision types:
     // 0: not an obstacle
@@ -162,7 +312,13 @@ void Background::paste(Image * img, int dest_x, int dest_y,
                                                    color);
         if (collision_type == 3)
             item->flags |= (LADDER_OBSTACLE | BOX_COLLISION);
+
+#ifdef CHOWDREN_PASTE_BROADPHASE
+        col_items.add(item, item->aabb);
+#else
         col_items.push_back(item);
+#endif
+
 #ifndef CHOWDREN_OBSTACLE_IMAGE
         return;
 #endif
@@ -171,14 +327,118 @@ void Background::paste(Image * img, int dest_x, int dest_y,
     if (color.a == 0 || color.a == 1)
         return;
 
-    items.push_back(new BackgroundItem(img, dest_x, dest_y,
-                                       src_x, src_y,
-                                       src_width, src_height,
-                                       color));
+
+    BackgroundItem * item = new BackgroundItem(img, dest_x, dest_y,
+                                               src_x, src_y,
+                                               src_width, src_height,
+                                               color);
+    item->effect = effect;
+
+#ifdef CHOWDREN_PASTE_CACHE
+    if (collides(cache_pos, item->aabb) && fbo.tex != 0)
+        new_paste.push_back(item);
+#endif
+
+#ifdef CHOWDREN_PASTE_BROADPHASE
+    items.add(item, item->aabb);
+#else
+    items.push_back(item);
+#endif
+
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+    int x1 = std::max(0, dest_x);
+    int y1 = std::max(0, dest_y);
+    int x2 = std::min(col_w, dest_x + src_width);
+    int y2 = std::min(col_h, dest_y + src_height);
+    if (collision_type == 0) {
+        for (int y = y1; y < y2; ++y)
+        for (int x = x1; x < x2; ++x) {
+            col.set(y * col_w + x);
+        }
+    } else if (collision_type == 1) {
+        for (int y = y1; y < y2; ++y)
+        for (int x = x1; x < x2; ++x) {
+            col.unset(y * col_w + x);
+        }
+    }
+#endif
+
+#ifdef CHOWDREN_PASTE_REMOVE
+    if (collision_type == 0 || collision_type == 4) {
+        remove_paste_item(item, col_items, false);
+        remove_paste_item(item, items, true);
+    }
+#endif
 }
 
 void Background::draw(int v[4])
 {
+#ifdef CHOWDREN_PASTE_CACHE
+    if (dirty || !contains(cache_pos, v)) {
+        new_paste.clear();
+        dirty = false;
+        const int cache_off_x = (1024 - WINDOW_WIDTH) / 2;
+        const int cache_off_y = (1024 - WINDOW_HEIGHT) / 2;
+
+        cache_pos[0] = v[0] - cache_off_x;
+        cache_pos[1] = v[1] - cache_off_y;
+        cache_pos[2] = v[2] + cache_off_x;
+        cache_pos[3] = v[3] + cache_off_y;
+        
+        if (fbo.tex == 0)
+            fbo.init(cache_pos[2] - cache_pos[0], cache_pos[3] - cache_pos[1]);
+
+        fbo.bind();
+        Render::set_view(0, 0,
+                         cache_pos[2] - cache_pos[0],
+                         cache_pos[3] - cache_pos[1]);
+		int old_offset[2] = {Render::offset[0], Render::offset[1]};
+        Render::set_offset(-cache_pos[0], -cache_pos[1]);
+        Render::clear(255, 255, 255, 0);
+
+        BackgroundItems::const_iterator it;
+        for (it = items.begin(); it != items.end(); ++it) {
+            BackgroundItem * item = *it;
+            if (!collides(item->aabb, cache_pos))
+                continue;
+            item->draw();
+        }
+
+        fbo.unbind();
+
+        Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        Render::set_offset(old_offset[0], old_offset[1]);
+    } else if (!new_paste.empty()) {
+        fbo.bind();
+        Render::set_view(0, 0,
+                         cache_pos[2] - cache_pos[0],
+                         cache_pos[3] - cache_pos[1]);
+        int old_offset[2] = {Render::offset[0], Render::offset[1]};
+        Render::set_offset(-cache_pos[0], -cache_pos[1]);
+
+        BackgroundItems::const_iterator it;
+        for (it = new_paste.begin(); it != new_paste.end(); ++it) {
+            BackgroundItem * item = *it;
+            item->draw();
+        }
+        fbo.unbind();
+        Render::set_view(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        Render::set_offset(old_offset[0], old_offset[1]);
+
+        new_paste.clear();
+    }
+
+    Texture t = fbo.get_tex();
+
+    Render::draw_tex(cache_pos[0], cache_pos[1],
+                     cache_pos[2], cache_pos[3],
+                     Color(), t,
+                     fbo_texcoords[0], fbo_texcoords[1],
+                     fbo_texcoords[2], fbo_texcoords[3]);
+#else
+
+#ifdef CHOWDREN_PASTE_BROADPHASE
+#else
     BackgroundItems::const_iterator it;
     for (it = items.begin(); it != items.end(); ++it) {
         BackgroundItem * item = *it;
@@ -186,21 +446,30 @@ void Background::draw(int v[4])
             continue;
         item->draw();
     }
+#endif
+
+#endif
 }
 
 CollisionBase * Background::collide(CollisionBase * a)
 {
+#ifdef CHOWDREN_PASTE_BROADPHASE
+#else
     BackgroundItems::iterator it;
     for (it = col_items.begin(); it != col_items.end(); ++it) {
         BackgroundItem * item = *it;
         if (::collide(a, item))
             return item;
     }
+
     return NULL;
+#endif
 }
 
 CollisionBase * Background::overlaps(CollisionBase * a)
 {
+#ifdef CHOWDREN_PASTE_BROADPHASE
+#else
     BackgroundItems::iterator it;
     for (it = col_items.begin(); it != col_items.end(); ++it) {
         BackgroundItem * item = *it;
@@ -210,6 +479,7 @@ CollisionBase * Background::overlaps(CollisionBase * a)
             return item;
     }
     return NULL;
+#endif
 }
 
 // Layer
@@ -386,24 +656,24 @@ void Layer::update_position()
         return;
     }
 
-    int x = frame->off_x;
-    int y = frame->off_y;
-    int w = frame->width;
-    int h = frame->height;
+    int frame_x = frame->off_x;
+    int frame_y = frame->off_y;
+    int w = frame->virtual_width;
+    int h = frame->virtual_height;
 
-    int x1 = x - INACTIVE_X;
+    int x1 = frame_x - INACTIVE_X;
     if (x1 < 0)
         x1 = -KILL_X;
 
-    int x2 = x + WINDOW_WIDTH + INACTIVE_X;
+    int x2 = frame_x + WINDOW_WIDTH + INACTIVE_X;
     if (x2 > w)
         x2 = w + KILL_X;
 
-    int y1 = y - INACTIVE_Y;
+    int y1 = frame_y - INACTIVE_Y;
     if (y1 < 0)
         y1 = -KILL_Y;
 
-    int y2 = y + WINDOW_HEIGHT + INACTIVE_Y;
+    int y2 = frame_y + WINDOW_HEIGHT + INACTIVE_Y;
     if (y2 > h)
         y2 = h + KILL_Y;
 
@@ -411,6 +681,11 @@ void Layer::update_position()
     inactive_box[2] = x2 - off_x;
     inactive_box[1] = y1 - off_y;
     inactive_box[3] = y2 - off_y;
+
+    kill_box[0] = -KILL_X - off_x;
+    kill_box[2] = w + KILL_X - off_x;
+    kill_box[1] = -KILL_Y - off_y;
+    kill_box[3] = h + KILL_Y - off_y;
 }
 
 void Layer::add_background_object(FrameObject * instance)
@@ -584,7 +859,7 @@ struct BackgroundCallback
     bool on_callback(void * data)
     {
         FrameObject * obj = (FrameObject*)data;
-        if (obj->id != BACKGROUND_TYPE)
+        if (!(obj->flags & BACKGROUND_COL))
             return true;
         if (obj->collision == NULL)
             return true;
@@ -616,7 +891,7 @@ CollisionBase * Layer::test_background_collision(int x, int y)
 
 void Layer::paste(Image * img, int dest_x, int dest_y,
                   int src_x, int src_y, int src_width, int src_height,
-                  int collision_type, const Color & color)
+                  int collision_type, int effect, const Color & color)
 {
     if (collision_type != 0 && collision_type != 1 && collision_type != 3 &&
         collision_type != 4)
@@ -627,7 +902,7 @@ void Layer::paste(Image * img, int dest_x, int dest_y,
     if (back == NULL)
         back = new Background;
     back->paste(img, dest_x, dest_y, src_x, src_y,
-                src_width, src_height, collision_type, color);
+                src_width, src_height, collision_type, effect, color);
 }
 
 struct DrawCallback
@@ -680,7 +955,7 @@ void Layer::draw(int display_x, int display_y)
                        -floor(display_y * coeff_y - y));
 
 #ifdef CHOWDREN_IS_3DS
-    glc_set_global_depth(depth);
+    Render::set_global_depth(depth);
 #endif
 
     // draw backgrounds
@@ -727,8 +1002,9 @@ void Layer::draw(int display_x, int display_y)
     PROFILE_BEGIN(Layer_draw_pasted);
 
     // draw pasted items
-    if (back != NULL)
+    if (back != NULL) {
         back->draw(v);
+    }
 
     PROFILE_END();
 
@@ -902,6 +1178,13 @@ int Frame::get_mouse_y()
     return y;
 }
 
+bool Frame::mouse_in_zone(int x1, int y1, int x2, int y2)
+{
+    int x, y;
+    get_mouse_pos(&x, &y);
+    return collides(x, y, x+1, y+1, x1, y1, x2, y2);
+}
+
 CollisionBase * Frame::test_background_collision(int x, int y)
 {
     if (x < 0 || y < 0 || x > width || y > height)
@@ -1005,7 +1288,8 @@ bool Frame::update()
     if (timer_base == 0) {
         timer_mul = 1.0f;
     } else {
-        timer_mul = manager.dt * timer_base;
+        // timer_mul = manager.dt * timer_base;
+        timer_mul = (1.0f / FRAMERATE) * timer_base;
     }
 
     if (loop_count == 0) {
@@ -1073,8 +1357,36 @@ void Frame::draw(int remote)
                 continue;
         }
 #endif
+
+#ifdef CHOWDREN_IS_TE
+        static Framebuffer layer_fbo;
+        if (layer.blend_color.a < 255) {
+            if (layer_fbo.tex == 0)
+                layer_fbo.init(WINDOW_WIDTH, WINDOW_HEIGHT);
+            layer_fbo.bind();
+            Render::clear(255, 255, 255, 0);
+        }
+#endif
+
         layer.draw(off_x, off_y);
+
+#ifdef CHOWDREN_IS_TE
+        if (layer.blend_color.a < 255) {
+            Render::set_offset(0, 0);
+            layer_fbo.unbind();
+
+            Render::draw_tex(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                             layer.blend_color, layer_fbo.get_tex(),
+                             fbo_texcoords[0], fbo_texcoords[1],
+                             fbo_texcoords[2], fbo_texcoords[3]);
+        }
+#endif
     }
+
+#ifdef CHOWDREN_USE_CAPTURE
+    if (remote != CHOWDREN_REMOTE_ONLY)
+        CaptureObject::on_capture();
+#endif
 
 // #ifdef CHOWDREN_USE_BOX2D
 //     Box2D::draw_debug();
@@ -1085,6 +1397,10 @@ void setup_default_instance(FrameObject * obj)
 {
     obj->layer = &default_layer;
     obj->width = obj->height = 0;
+    if (obj->collision == NULL)
+        return;
+    for (int i = 0; i < 4; ++i)
+        obj->collision->aabb[i] = 0;
 }
 
 FrameObject * Frame::add_object(FrameObject * instance, Layer * layer)
@@ -1173,6 +1489,12 @@ void Frame::reset()
     off_x = new_off_x = 0;
     off_y = new_off_y = 0;
     frame_time = 0.0;
+
+#ifdef CHOWDREN_USE_BACKMAGIC
+    for (unsigned int i = 0; i < MAX_BACK_ID; ++i) {
+        back_instances[i].clear();
+    }
+#endif
 }
 
 // FrameObject
@@ -1190,6 +1512,14 @@ FrameObject::FrameObject(int x, int y, int type_id)
 #ifdef CHOWDREN_USE_VALUEADD
     extra_alterables = NULL;
 #endif
+
+#ifdef CHOWDREN_USE_PATHPLANNER
+    agent = NULL;
+#endif
+
+#ifdef CHOWDREN_USE_MOVEIT
+    move_data = NULL;
+#endif
 }
 
 FrameObject::~FrameObject()
@@ -1206,8 +1536,17 @@ FrameObject::~FrameObject()
     delete shader_parameters;
     if (!(flags & GLOBAL))
         Alterables::destroy(alterables);
+
 #ifdef CHOWDREN_USE_VALUEADD
     delete extra_alterables;
+#endif
+
+#ifdef CHOWDREN_USE_PATHPLANNER
+    delete agent;
+#endif
+
+#ifdef CHOWDREN_USE_MOVEIT
+    delete move_data;
 #endif
 }
 
@@ -1407,7 +1746,7 @@ bool FrameObject::overlaps(FrameObject * other)
         other_aabb = ((Active*)other)->old_aabb;
     else
         other_aabb = other_col->aabb;
-    return collide_direct(collision, other_col, other_aabb);
+    return collide(collision, other_col, other_aabb);
 #else
     return collide(collision, other_col);
 #endif
@@ -1422,10 +1761,10 @@ struct BackgroundOverlapCallback
     {
     }
 
-    bool on_callback(void * data)
+    inline bool on_callback(void * data)
     {
         FrameObject * obj = (FrameObject*)data;
-        if (obj->id != BACKGROUND_TYPE)
+        if (!(obj->flags & BACKGROUND_COL))
             return true;
         CollisionBase * other = (CollisionBase*)obj->collision;
         if (other == NULL)
@@ -1444,11 +1783,37 @@ bool FrameObject::overlaps_background()
         return false;
     if (flags & HAS_COLLISION_CACHE)
         return (flags & HAS_COLLISION) != 0;
-    flags |= HAS_COLLISION_CACHE;
-    if (layer->back != NULL && layer->back->overlaps(collision)) {
-        flags |= HAS_COLLISION;
-        return true;
+    // XXX also cache pasted collisions? will need ID to see if
+    // pasted items were changed
+    Background * b = layer->back;
+    int * aabb = collision->aabb;
+    if (b != NULL) {
+        BackgroundItems::iterator it;
+#ifdef CHOWDREN_PASTE_PRECEDENCE
+		int col_w = b->col_w;
+		BitArray & col = b->col;
+        int test[4] = {std::max(0, aabb[0]), std::min(col_w, aabb[1]),
+                       std::max(0, aabb[2]), std::min(b->col_h, aabb[3])};
+        bool miss = false;
+        for (int y = test[1]; y < test[3]; ++y)
+        for (int x = test[0]; x < test[2]; ++x) {
+            if (!col.get(y * col_w + x)) {
+                miss = true;
+                break;
+            }
+        }
+        if (!miss)
+            return false;
+#endif
+        for (it = b->col_items.begin(); it != b->col_items.end(); ++it) {
+            BackgroundItem * item = *it;
+            if (item->flags & LADDER_OBSTACLE)
+                continue;
+            if (::collide(collision, item))
+                return true;
+        }
     }
+    flags |= HAS_COLLISION_CACHE;
     BackgroundOverlapCallback callback(collision);
     if (!layer->broadphase.query_static(collision->proxy, callback)) {
         flags |= HAS_COLLISION;
@@ -1522,6 +1887,20 @@ int FrameObject::get_box_index(int index)
     else
         ret += layer->off_y;
     return ret;
+}
+
+int FrameObject::get_generic_width()
+{
+    if (collision == NULL)
+        return width;
+    return collision->aabb[2] - collision->aabb[0];
+}
+
+int FrameObject::get_generic_height()
+{
+    if (collision == NULL)
+        return height;
+    return collision->aabb[3] - collision->aabb[1];
 }
 
 void FrameObject::set_shader(int value)
@@ -1745,7 +2124,7 @@ void FrameObject::set_movement(int i)
     if (movement != NULL && (i < 0 || i >= movement_count))
         return;
     movement = movements[i];
-    movement->start();
+    movement->init();
 }
 
 Movement * FrameObject::get_movement()
@@ -1801,6 +2180,24 @@ const std::string & FrameObject::get_name()
 void FrameObject::look_at(int x, int y)
 {
     set_direction(get_direction_int(this->x, this->y, x, y));
+}
+
+void FrameObject::wrap_pos()
+{
+    int * box = collision->aabb;
+    int x1 = box[0] + layer->off_x;
+    int y1 = box[1] + layer->off_y;
+    int x2 = box[2] + layer->off_x;
+    int y2 = box[3] + layer->off_y;
+    if (x1 > frame->width)
+        set_x(get_x() - frame->width);
+    else if (x2 < 0)
+        set_x(get_x() + frame->width);
+
+    if (y1 > frame->height)
+        set_x(get_y() - frame->height);
+    else if (y2 < 0)
+        set_x(get_y() + frame->height);
 }
 
 void FrameObject::rotate_toward(int dir)
@@ -1873,13 +2270,36 @@ void FrameObject::get_screen_aabb(int box[4])
 
 void FrameObject::update_inactive()
 {
-    flags &= ~INACTIVE;
-
     int * aabb = collision->aabb;
     int * b = layer->inactive_box;
 
     if (aabb[0] > b[2] || aabb[1] > b[3] || aabb[2] < b[0] || aabb[3] < b[1])
         flags |= INACTIVE;
+    else
+        flags &= ~INACTIVE;
+}
+
+void FrameObject::update_kill()
+{
+    int * aabb = collision->aabb;
+    int * b1 = layer->inactive_box;
+    int * b2 = layer->kill_box;
+
+    bool in = aabb[0] <= b1[2] && aabb[1] <= b1[3] &&
+              aabb[2] >= b1[0] && aabb[3] >= b1[1];
+    if (flags & INACTIVE) {
+        if (in)
+            flags &= ~INACTIVE;
+        return;
+    } else if (in) {
+        return;
+    }
+
+    flags |= INACTIVE;
+    if (aabb[0] <= b2[2] && aabb[1] <= b2[3] &&
+        aabb[2] >= b2[0] && aabb[3] >= b2[1])
+        return;
+    destroy();
 }
 
 int SavedSelection::offset = 0;
@@ -1899,14 +2319,14 @@ FixedValue::operator double() const
     memcpy(&value, &object, sizeof(FrameObject*));
 
 #ifndef NDEBUG
-    if (value & 0x1) {
-        std::cout << "Invalid alignment for fixed value" << std::endl;
+    if (value & 3ULL) {
+        std::cout << "Invalid alignment for fixed value: " << value
+            << std::endl;
     }
 #endif
-    // reposition the sign bit in the last bit
-    value |= (value & FIXED_SIGN_BIT) >> 63ULL;
-    value &= ~FIXED_SIGN_BIT;
-    value ^= FIXED_ENCODE_XOR;
+    value |= (value & FIXED_FIRST) >> 62ULL;
+    value &= ~FIXED_FIRST;
+    value |= uint64_t((value & FIXED_EXPMASK) == 0) << 62ULL;
     double v2;
     memcpy(&v2, &value, sizeof(uint64_t));
     return v2;
@@ -1971,7 +2391,7 @@ bool init_font()
     return has_fonts;
 }
 
-FTTextureFont * get_font(int size)
+FTTextureFont * get_font(int size, int flags)
 {
     init_font();
 
@@ -1982,6 +2402,8 @@ FTTextureFont * get_font(int size)
     for (it = fonts.begin(); it != fonts.end(); ++it) {
         FTTextureFont * font = *it;
         int new_diff = get_abs(font->size - size);
+        if ((font->flags ^ flags) != 0)
+            new_diff += 200;
 
         if (picked == NULL || new_diff < diff) {
             picked = font;
@@ -2020,6 +2442,24 @@ const std::string & File::get_appdata_directory()
     return platform_get_appdata_dir();
 }
 
+#ifdef CHOWDREN_IS_DESKTOP
+
+#ifdef _WIN32
+#include <direct.h>
+#define chdir _chdir
+#else
+#include <unistd.h>
+#endif
+
+#endif
+
+void File::change_directory(const std::string & path)
+{
+// #ifdef CHOWDREN_IS_DESKTOP
+//     chdir(convert_path(path).c_str());
+// #endif
+}
+
 void File::create_directory(const std::string & path)
 {
     platform_create_directories(path);
@@ -2052,20 +2492,64 @@ void File::delete_file(const std::string & path)
         return;
 }
 
+void File::delete_folder(const std::string & path)
+{
+    std::cout << "Delete folder not implemented: " << path << std::endl;
+}
+
 bool File::copy_file(const std::string & src, const std::string & dst)
 {
     std::string data;
     if (!read_file(src.c_str(), data))
         return false;
     FSFile fp(dst.c_str(), "w");
+    if (!fp.is_open())
+        return false;
     fp.write(&data[0], data.size());
     fp.close();
+
+#ifdef CHOWDREN_CACHE_INI
+    INI::reset_cache();
+#endif
     return true;
 }
 
-// MathHelper
+int File::get_size(const std::string & path)
+{
+    return platform_get_file_size(path.c_str());
+}
 
-MathHelper math_helper;
+void File::rename_file(const std::string & src, const std::string & dst)
+{
+    copy_file(src, dst);
+    delete_file(src);
+}
+
+void File::append_text(const std::string & text, const std::string & path)
+{
+    std::string data;
+    if (!read_file(path.c_str(), data))
+        return;
+    data += text;
+    FSFile fp(path.c_str(), "w");
+    if (!fp.is_open())
+        return;
+    fp.write(&data[0], data.size());
+    fp.close();
+}
+
+std::string File::get_ext(const std::string & path)
+{
+    std::string ext = get_path_ext(path);
+    if (ext.empty())
+        return ext;
+    return "." + ext;
+}
+
+std::string File::get_title(const std::string & path)
+{
+    return get_path_basename(path);
+}
 
 // joystick
 
@@ -2087,6 +2571,25 @@ int remap_button(int n)
             return n;
     }
     return n;
+#elif defined(CHOWDREN_JOYSTICK2_CONTROLLER)
+    switch (n) {
+        case 5:
+            return CHOWDREN_BUTTON_LEFTSHOULDER; // 10
+        case 6:
+            return CHOWDREN_BUTTON_RIGHTSHOULDER; // 11
+        case 7:
+            return CHOWDREN_BUTTON_BACK; // 5
+        case 8:
+            return CHOWDREN_BUTTON_START; // 7
+        case 9:
+            return CHOWDREN_BUTTON_LEFTSTICK; // 8
+        case 10:
+            return CHOWDREN_BUTTON_RIGHTSTICK; // 9
+        case 11:
+            return CHOWDREN_BUTTON_GUIDE; // 6
+        default:
+            return n;
+    }
 #else
     return n;
 #endif
@@ -2201,6 +2704,25 @@ int get_joystick_degrees(int n)
     return dir * 45;
 }
 
+#define DEADZONE 0.15f
+#define DEADZONE_MUL (1.0f / (1.0f - 0.15f))
+
+float get_joystick_axis(int n, int axis)
+{
+    float v = get_joystick_axis_raw(n, axis);
+    if (v > DEADZONE)
+        return (v - DEADZONE) * DEADZONE_MUL;
+    else if (v < -DEADZONE)
+        return (v + DEADZONE) * DEADZONE_MUL;
+    else
+        return 0.0f;
+}
+
+int get_joystick_z(int n)
+{
+    return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERRIGHT) * -1000.0f;
+}
+
 int get_joystick_rt(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_TRIGGERRIGHT) * 100.0f;
@@ -2219,4 +2741,58 @@ int get_joystick_x(int n)
 int get_joystick_y(int n)
 {
     return get_joystick_axis(n, CHOWDREN_AXIS_LEFTY) * 1000.0f;
+}
+
+std::string get_joytokey_name(int id)
+{
+    std::ostringstream s;
+
+    int directionToHat[4] = {1, 2, 4, 8};
+    
+    if (id >= UNIFIED_POV_0)
+    {
+        s << 'h';
+        int localID = (id - UNIFIED_POV_0) / UNIFIED_POV_SIZE;
+        int direction = (id - UNIFIED_AXIS_0) % UNIFIED_POV_SIZE;
+        s << localID;
+        s << '.';
+        s << directionToHat[direction];
+    }
+    else if (id >= UNIFIED_AXIS_0)
+    {
+        s << 'a';
+        int localID = (id - UNIFIED_AXIS_0) / UNIFIED_AXIS_SIZE;
+        int direction = (id - UNIFIED_AXIS_0) % UNIFIED_AXIS_SIZE;
+        s << localID;
+        s << (char)(direction ? '-' : '+');
+    }
+    else
+    {
+        s << 'b';
+        s << id;
+    }
+
+    return s.str();
+}
+
+struct RumbleEffect
+{
+    float delay, l, r;
+    int duration;
+};
+
+static hash_map<std::string, RumbleEffect> rumble_effects;
+
+void create_joystick_rumble(int n, float delay, float duration,
+                            float l, float r, const std::string & name)
+{
+    RumbleEffect effect = {delay, l * 100.0f, r * 100.0f,
+                           int(duration * 1000.0f)};
+    rumble_effects[name] = effect;
+}
+
+void start_joystick_rumble(int n, const std::string & name, int times)
+{
+    RumbleEffect & effect = rumble_effects[name];
+    joystick_vibrate(n, effect.l, effect.r, effect.duration);
 }

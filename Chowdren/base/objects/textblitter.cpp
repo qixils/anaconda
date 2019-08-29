@@ -26,7 +26,6 @@ void TextBlitter::load(const std::string & filename)
     }
 
     image = new_image;
-    image->upload_texture();
 }
 
 TextBlitter::~TextBlitter()
@@ -48,8 +47,6 @@ void TextBlitter::initialize(const std::string & map_string)
         unsigned char c = (unsigned char)map_string[i];
         charmap[c] = i;
     }
-
-    image->upload_texture();
 }
 
 int TextBlitter::get_x_align()
@@ -243,16 +240,15 @@ std::string TextBlitter::get_map_char(int i)
     return charmap_str->substr(i, 1);
 }
 
-void TextBlitter::replace_color(int from, int to)
+void TextBlitter::replace_color(Color from, Color to)
 {
-    Color color1(from);
-    Color color2(to);
     replacer.replace(from, to);
 }
 
 void TextBlitter::set_transparent_color(int v)
 {
     transparent_color = v;
+    replacer.set_transparent(transparent_color);
 }
 
 void TextBlitter::update()
@@ -263,10 +259,8 @@ void TextBlitter::update()
     else
         image = draw_image;
 
-    if (!replacer.empty()) {
+    if (!replacer.empty())
         draw_image = replacer.apply(image, this->image);
-        draw_image->upload_texture();
-    }
 
     update_flash(flash_interval, flash_time);
 
@@ -284,6 +278,11 @@ void TextBlitter::flash(float value)
 void TextBlitter::set_animation_type(int value)
 {
     anim_type = value;
+}
+
+void TextBlitter::set_animation_speed(int value)
+{
+    anim_speed = value;
 }
 
 void TextBlitter::set_animation_parameter(int index, int value)
@@ -333,10 +332,10 @@ void TextBlitter::draw()
     else
         image = draw_image;
 
-    if (!replacer.empty()) {
+    if (!replacer.empty())
         draw_image = image = replacer.apply(image, this->image);
-        draw_image->upload_texture();
-    }
+
+    image->upload_texture();
 
     begin_draw();
 
@@ -349,6 +348,8 @@ void TextBlitter::draw()
               - (lines.size() - 1) * y_spacing;
 
     int bottom_y = y + height;
+
+    int img_width = (image_width / char_width) * char_width;
 
     for (int line_index = 0; line_index < int(lines.size()); ++line_index) {
         if (yy <= y - y_add || yy >= bottom_y) {
@@ -371,9 +372,9 @@ void TextBlitter::draw()
             unsigned char c = (unsigned char)line.start[i];
             c -= char_offset;
             int ci = charmap[c];
-            int img_x = (ci * char_width) % image_width;
+            int img_x = (ci * char_width) % img_width;
             img_x = clamp(img_x + x_off, 0, image->width);
-            int img_y = ((ci * char_width) / image_width) * char_height;
+            int img_y = ((ci * char_width) / img_width) * char_height;
             img_y = clamp(img_y + y_off, 0, image->height);
 
             float t_x1 = float(img_x) / float(image->width);
@@ -414,10 +415,10 @@ public:
     DefaultBlitter()
     : TextBlitter(0, 0, 0)
     {
-        setup_default_instance(this);
         collision = new InstanceBox(this);
         create_alterables();
         this->image = &dummy_image;
+        setup_default_instance(this);
     }
 };
 

@@ -43,7 +43,7 @@ names = open('names.txt', 'rb').read().splitlines()
 
 is_pypy = platform.python_implementation() == 'PyPy'
 
-trans_start = os.environ.get('MMF_TRANS_START', None)
+trans_start = 99#os.environ.get('MMF_TRANS_START', None)
 compile_env = {'IS_PYPY': True, 'USE_TRANS': trans_start is not None}
 define_macros = []
 if trans_start is not None:
@@ -63,6 +63,12 @@ webp_srcs = glob.glob('./mmfparser/webp/*/*.c')
 ext_modules.append(Extension('mmfparser.webp',
                              ['./mmfparser/webp.pyx'] + webp_srcs,
                              include_dirs=include_dirs + ['./mmfparser/webp'],
+                             **kw))
+
+zopfli_srcs = glob.glob('./mmfparser/zopfli/zopfli/*.c')
+ext_modules.append(Extension('mmfparser.zopfli',
+                             ['./mmfparser/zopfli.pyx'] + zopfli_srcs,
+                             include_dirs=include_dirs + ['./mmfparser/zopfli'],
                              **kw))
 
 setup(

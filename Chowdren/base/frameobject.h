@@ -55,8 +55,10 @@ inline bool double_equals_exact(double a, double b)
     return memcmp(&a, &b, sizeof(double)) == 0;
 }
 
-#define FIXED_ENCODE_XOR 0x7800000000000000ULL
 #define FIXED_SIGN_BIT (1ULL << 63ULL)
+#define FIXED_EXP1 (1ULL << 62ULL)
+#define FIXED_EXPMASK (0x7FF0000000000000ULL)
+#define FIXED_FIRST (FIXED_SIGN_BIT | FIXED_EXP1)
 
 inline FrameObject * get_object_from_fixed(double fixed)
 {
@@ -67,10 +69,9 @@ inline FrameObject * get_object_from_fixed(double fixed)
         return NULL;
     uint64_t value;
     memcpy(&value, &fixed, sizeof(uint64_t));
-    value ^= FIXED_ENCODE_XOR;
-    // reposition the last bit at the sign bit
-    value |= (value & 1ULL) << 63ULL;
-    value &= ~(1ULL);
+    value &= ~FIXED_FIRST;
+    value |= (value & 3ULL) << 62ULL;
+    value &= ~(3ULL);
     FrameObject * p;
     memcpy(&p, &value, sizeof(FrameObject*));
     return p;
@@ -100,12 +101,13 @@ enum ObjectFlags
     SCROLL = (1 << 2),
     FADEOUT = (1 << 3),
     BACKGROUND = (1 << 4),
-    GLOBAL = (1 << 5),
-    INACTIVE = (1 << 6),
-    HAS_COLLISION_CACHE = (1 << 7),
-    HAS_COLLISION = (1 << 8),
-    DEFER_COLLISIONS = (1 << 9),
-    REPEAT_BACK_COLLISION = (1 << 10)
+    BACKGROUND_COL = (1 << 5),
+    GLOBAL = (1 << 6),
+    INACTIVE = (1 << 7),
+    HAS_COLLISION_CACHE = (1 << 8),
+    HAS_COLLISION = (1 << 9),
+    DEFER_COLLISIONS = (1 << 10),
+    REPEAT_BACK_COLLISION = (1 << 11)
 };
 
 enum AnimationIndex
@@ -286,6 +288,7 @@ public:
     Movement ** movements;
     Movement * movement;
     int collision_flags;
+
 #ifdef CHOWDREN_USE_BOX2D
     int body;
 #endif
@@ -293,6 +296,45 @@ public:
 #ifdef CHOWDREN_USE_VALUEADD
     ExtraAlterables * extra_alterables;
 #endif
+
+#ifdef CHOWDREN_USE_PATHPLANNER
+    struct PathNode
+    {
+        int x, y;
+    };
+
+    struct PathAgent
+    {
+        int x, y, dest_x, dest_y;
+        vector<PathNode> nodes;
+        FrameObject * planner;
+        FrameObject * obj;
+
+        PathAgent();
+        ~PathAgent();
+        bool at_destination();
+        bool not_at_destination();
+        bool is_stopping();
+    };
+
+    PathAgent * agent;
+#endif
+
+#ifdef CHOWDREN_USE_MOVEIT
+    struct MoveData
+    {
+        int src_x, src_y;
+        int dst_x, dst_y;
+        int step;
+        int cycles;
+
+        MoveData(int src_x, int src_y, int dst_x, int dst_y, int cycles);
+        ~MoveData();
+    };
+
+    MoveData * move_data;
+#endif
+
     static ObjectPool<FrameObject> pool;
     virtual ~FrameObject();
     virtual void dealloc()
@@ -346,6 +388,8 @@ public:
     FixedValue get_fixed();
     bool outside_playfield();
     int get_box_index(int index);
+    int get_generic_width();
+    int get_generic_height();
     bool overlaps_background();
     bool overlaps_background_save();
     void clear_movements();
@@ -355,6 +399,7 @@ public:
     void shoot(FrameObject * other, int speed, int direction);
     const std::string & get_name();
     void look_at(int x, int y);
+    void wrap_pos();
     void rotate_toward(int dir);
     void update_flash(float interval, float & time);
     bool test_direction(int value);
@@ -364,6 +409,7 @@ public:
     virtual void set_backdrop_offset(int dx, int dy);
     void get_screen_aabb(int box[4]);
     void update_inactive();
+    void update_kill();
     bool is_near_border(int border);
 
     ShaderParameter * find_shader_parameter(unsigned int hash)

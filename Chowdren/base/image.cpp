@@ -16,35 +16,25 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #define STBI_ONLY_BMP
+#define STBI_ONLY_GIF
 #include "stb_image.h"
 
-inline unsigned char * load_png_image(FSFile & image_file, int size,
-                                      int * w, int * h, int * channels)
+inline unsigned char * load_image(unsigned char * data, int size,
+                                  int * w, int * h, int * channels)
+{
+
+    return stbi_load_from_memory(data, size, w, h, channels, 4);
+}
+
+inline unsigned char * load_image(FSFile & image_file, int size,
+                                  int * w, int * h, int * channels)
 {
     unsigned char * buf = new unsigned char[size];
     image_file.read(buf, size);
-    unsigned char * out = stbi_load_from_memory(buf, size, w, h, channels, 4);
+    unsigned char * out = load_image(buf, size, w, h, channels);
     delete[] buf;
     return out;
 }
-
-#ifdef CHOWDREN_USE_WEBP
-
-inline unsigned char * load_image(FSFile & image_file, int size,
-                                  int * w, int * h, int * channels)
-{
-    return load_png_image(image_file, size, w, h, channels);
-}
-
-#else
-
-inline unsigned char * load_image(FSFile & image_file, int size,
-                                  int * w, int * h, int * channels)
-{
-    return load_png_image(image_file, size, w, h, channels);
-}
-
-#endif
 
 typedef vector<Image*> ImageList;
 
@@ -134,24 +124,27 @@ void Image::load()
     image_file.set_item(handle, AssetFile::IMAGE_DATA);
     FileStream stream(image_file);
 
+    width = stream.read_uint16();
+    height = stream.read_uint16();
     hotspot_x = stream.read_int16();
     hotspot_y = stream.read_int16();
     action_x = stream.read_int16();
     action_y = stream.read_int16();
 
     int size = stream.read_uint32();
-
-    int w, h, channels;
-    image = load_image(image_file, size, &w, &h, &channels);
-
-    width = w;
-    height = h;
-
-    if (image == NULL) {
+    unsigned char * buf = new unsigned char[size];
+    image_file.read(buf, size);
+    int out_size = width*height*4;
+    image = (unsigned char*)STBI_MALLOC(out_size);
+    if (stbi_zlib_decode_buffer((char*)image, out_size, (const char*)buf,
+                                 size) < 0)
+    {
         std::cout << "Could not load image " << handle << std::endl;
         std::cout << stbi_failure_reason() << std::endl;
-        return;
+        stbi_image_free(image);
+        image = NULL;
     }
+    delete[] buf;
 }
 
 void Image::unload()
@@ -194,14 +187,14 @@ void Image::upload_texture()
     // create alpha mask
     int size = width * height;
     BaseBitArray::word_t * data;
-    data = (BaseBitArray::word_t*)malloc(GET_BITARRAY_SIZE(size) * 4);
+    data = (BaseBitArray::word_t*)malloc(GET_BITARRAY_SIZE(size));
     int i = 0;
     int ii = 0;
     unsigned char c;
 
     while (i < size) {
         BaseBitArray::word_t word = 0;
-        for (BaseBitArray::word_t m = 1; m != 0; m <<= 1) {
+        for (BaseBitArray::word_t m = 1UL; m != 0UL; m <<= 1UL) {
             c = ((unsigned char*)(((unsigned int*)image) + i))[3];
             if (c != 0)
                 word |= m;
@@ -216,41 +209,10 @@ void Image::upload_texture()
 #endif
     int gl_width, gl_height;
 
-#ifdef CHOWDREN_NO_NPOT
-    pot_w = std::max(8, round_pow2(width));
-    pot_h = std::max(8, round_pow2(height));
-
-    if (pot_w >= 1024 || pot_h >= 1024) {
-        pot_w = std::min<short>(1024, pot_w);
-        pot_h = std::min<short>(1024, pot_h);
-    }
-
-    gl_width = pot_w;
-    gl_height = pot_h;
-
-    if (pot_w != width || pot_h != height) {
-        unsigned int * old_image =(unsigned int*)image;
-        image = (unsigned char*)malloc(pot_w * pot_h * 4);
-        unsigned int * image_arr = (unsigned int*)image;
-
-        // in case the image is being cut off due to dimension restrictions
-        int ww = std::min(width, pot_w);
-        int hh = std::min(height, pot_h);
-
-        for (int x = 0; x < ww; x++)
-        for (int y = 0; y < hh; y++) {
-            image_arr[x + y * pot_w] = old_image[x + y * width];
-        }
-
-        stbi_image_free(old_image);
-    }
-#else
     gl_width = width;
     gl_height = height;
-#endif
 
     tex = Render::create_tex(image, Render::RGBA, gl_width, gl_height);
-
     Render::set_filter(tex, (flags & LINEAR_FILTER) != 0);
 
     if (flags & KEEP)
@@ -276,37 +238,29 @@ void Image::set_filter(bool linear)
     Render::set_filter(tex, linear);
 }
 
-const float flipped_texcoords[8] = {
-    1.0f, 0.0f,
-    0.0f, 0.0f,
-    0.0f, 1.0f,
-    1.0f, 1.0f
-};
-
-const float normal_texcoords[8] = {
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f
-};
-
-#ifndef CHOWDREN_IS_WIIU
+#if !defined(CHOWDREN_IS_WIIU)
 // XXX change glc_copy_color_buffer_rect so this isn't necessary
 
-const float back_texcoords[8] = {
+const float back_texcoords[4] = {
     0.0f, 1.0f,
-    1.0f, 1.0f,
-    1.0f, 0.0f,
-    0.0f, 0.0f
+    1.0f, 0.0f
 };
 #else
-const float back_texcoords[8] = {
+const float back_texcoords[4] = {
     0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f
+    1.0f, 1.0f
 };
 #endif
+
+const float fbo_texcoords[4] = {
+#ifdef CHOWDREN_FBO_FLIP
+    back_texcoords[0], back_texcoords[3],
+    back_texcoords[2], back_texcoords[1]
+#else
+    back_texcoords[0], back_texcoords[1],
+    back_texcoords[2], back_texcoords[3]
+#endif
+};
 
 void Image::draw(int x, int y, Color color,
                  float angle, float scale_x, float scale_y)
@@ -420,6 +374,42 @@ bool Image::is_valid()
     return image != NULL || tex != 0;
 }
 
+#ifdef CHOWDREN_16BIT_IMAGE
+inline unsigned char to_b5(unsigned char v)
+{
+    return v & 0xF8;
+}
+
+inline unsigned char to_b6(unsigned char v)
+{
+    return v & 0xFC;
+}
+#endif
+
+void Image::set_transparent_color(TransparentColor color)
+{
+    if (image == NULL)
+        return;
+
+#ifdef CHOWDREN_16BIT_IMAGE
+    unsigned char r = to_b5(color.r);
+    unsigned char g = to_b6(color.g);
+    unsigned char b = to_b5(color.b);
+#endif
+
+    for (int i = 0; i < width * height; i++) {
+        unsigned char * c = &image[i*4];
+#ifdef CHOWDREN_16BIT_IMAGE
+        if (to_b5(c[0]) != r || to_b6(c[1]) != g || to_b5(c[2]) != b)
+            continue;
+#else
+        if (c[0] != color.r || c[1] != color.g || c[2] != color.b)
+            continue;
+#endif
+        c[3] = 0;
+    }
+}
+
 // FileImage
 
 FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
@@ -427,6 +417,31 @@ FileImage::FileImage(const std::string & filename, int hot_x, int hot_y,
 : filename(filename), transparent(color), Image(hot_x, hot_y, act_x, act_y)
 {
     flags |= FILE;
+}
+
+void FileImage::load_data(unsigned char * data, int size)
+{
+    int w, h, channels;
+    image = load_image(data, size, &w, &h, &channels);
+
+    width = w;
+    height = h;
+
+    if (image == NULL) {
+        printf("Could not load image \"%s\": %s\n", filename.c_str(),
+               stbi_failure_reason());
+        return;
+    }
+
+    if (!transparent.is_enabled())
+        return;
+
+#ifndef CHOWDREN_FORCE_TRANSPARENT
+    if (channels != 1 && channels != 3)
+        return;
+#endif
+
+    set_transparent_color(transparent);
 }
 
 void FileImage::load_file()
@@ -439,7 +454,7 @@ void FileImage::load_file()
     }
 
     int w, h, channels;
-    image = load_png_image(fp, fp.get_size(), &w, &h, &channels);
+    image = load_image(fp, fp.get_size(), &w, &h, &channels);
 
     width = w;
     height = h;
@@ -447,7 +462,8 @@ void FileImage::load_file()
     fp.close();
 
     if (image == NULL) {
-        printf("Could not load image \"%s\"\n", filename.c_str());
+        printf("Could not load image \"%s\": %s\n", filename.c_str(),
+               stbi_failure_reason());
         return;
     }
 
@@ -459,13 +475,7 @@ void FileImage::load_file()
         return;
 #endif
 
-    for (int i = 0; i < width * height; i++) {
-        unsigned char * c = &image[i*4];
-        if (c[0] != transparent.r || c[1] != transparent.g ||
-            c[2] != transparent.b)
-            continue;
-        c[3] = 0;
-    }
+    set_transparent_color(transparent);
 }
 
 static Image * internal_images[IMAGE_COUNT];
@@ -497,6 +507,7 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
         if (image->is_valid())
             image->flags |= Image::USED | Image::CACHED;
         else {
+            std::cout << "Could not load image " << filename << std::endl;
             delete image;
             image = NULL;
         }
@@ -505,6 +516,16 @@ Image * get_image_cache(const std::string & filename, int hot_x, int hot_y,
         image = it->second;
     }
     return image;
+}
+
+bool has_image_cache(const std::string & filename)
+{
+    return image_cache.find(filename) != image_cache.end();
+}
+
+void set_image_cache(const std::string & filename, FileImage * image)
+{
+    image_cache[filename] = image;
 }
 
 void reset_image_cache()
@@ -533,47 +554,74 @@ void flush_image_cache()
 
 void preload_images()
 {
+#ifndef CHOWDREN_IS_DESKTOP
 #if defined(CHOWDREN_PRELOAD_IMAGES) || defined(CHOWDREN_PRELOAD_ALL)
     AssetFile fp;
     fp.open();
     FileStream stream(fp);
-    glc_set_storage(true);
+
+#ifdef CHOWDREN_IS_3DS
+    Render::set_storage(true);
+#endif
+
     for (int i = 0; i < IMAGE_COUNT; i++) {
         unsigned short handle = stream.read_uint16();
         Image * image = get_internal_image(handle);
         image->upload_texture();
-#ifndef CHOWDREN_PRELOAD_ALL
-        if (glc_is_vram_full())
+#if !defined(CHOWDREN_PRELOAD_ALL) && defined(CHOWDREN_IS_3DS)
+        if (Render::is_vram_full())
             break;
 #endif
         image->set_static();
     }
-    glc_set_storage(false);
+
+#ifdef CHOWDREN_IS_3DS
+    Render::set_storage(false);
+#endif
+
+#endif
 #endif
 }
 
 Image dummy_image;
 
-void ReplacedImages::replace(const Color & from, const Color & to)
+void ReplacedImages::replace(Color from, Color to)
 {
     if (index >= MAX_COLOR_REPLACE) {
         std::cout << "Max color replacements reached" << std::endl;
         return;
     }
+    from.disable();
     colors[index++] = Replacement(from, to);
+}
+
+void ReplacedImages::set_transparent(TransparentColor value)
+{
+    if (index >= MAX_COLOR_REPLACE) {
+        std::cout << "Max color replacements reached" << std::endl;
+        return;
+    }
+    Color c = Color(value);
+    c.enable();
+    colors[index++] = Replacement(c, Color(0, 0, 0, 0));
 }
 
 Image * ReplacedImages::apply(Image * image, Image * src_image)
 {
-    int count = index;
+    Image * ret = apply_direct(image, src_image);
     index = 0;
+    return ret;
+}
 
+Image * ReplacedImages::apply_direct(Image * image, Image * src_image)
+{
+    int count = index;
     int hash = 0;
     int hash_index = 0;
 
     for (int i = 0; i < count; i++) {
-        const Color & first = colors[i].first;
-        const Color & second = colors[i].second;
+        Color first = colors[i].first;
+        Color second = colors[i].second;
         hash += first.r * (++hash_index);
         hash += first.g * (++hash_index);
         hash += first.b * (++hash_index);
@@ -592,9 +640,12 @@ Image * ReplacedImages::apply(Image * image, Image * src_image)
 
     Image * new_image = image->copy();
     for (int i = 0; i < count; i++) {
-        const Color & first = colors[i].first;
-        const Color & second = colors[i].second;
-        new_image->replace(first, second);
+        Color first = colors[i].first;
+        Color second = colors[i].second;
+        if (first.is_enabled()) {
+            new_image->set_transparent_color(first);
+        } else
+            new_image->replace(first, second);
     }
 
     images.push_back(ReplacedImage(src_image, new_image, hash));

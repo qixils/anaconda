@@ -10,6 +10,7 @@
 #include <alc.h>
 #include <SDL_thread.h>
 #include <SDL_mutex.h>
+#include <SDL_messagebox.h>
 #endif // CHOWDREN_IS_EMSCRIPTEN
 
 #ifndef NOMINMAX
@@ -19,6 +20,10 @@
 #include <math.h>
 #include "../types.h"
 #include "../audiodecoders.h"
+
+#define BUFFER_COUNT 3
+
+#define USE_THREAD_PRELOAD
 
 namespace ChowdrenAudio {
 
@@ -95,6 +100,10 @@ public:
     SDL_Thread * streaming_thread;
     SDL_mutex * stream_mutex;
     volatile bool closing;
+#ifdef USE_THREAD_PRELOAD
+    SDL_cond * stream_cond;
+    SDL_mutex * stream_cond_mutex;
+#endif
 
     void open();
     static int _stream_update(void * data);
@@ -151,15 +160,21 @@ public:
     unsigned int channels;
     ALenum format;
 
-    SoundBuffer(unsigned int sample_rate, unsigned int channels, ALenum format)
-    : left_gain(1.0), right_gain(1.0), sample_rate(sample_rate), format(format),
-      samples_size(0), samples(NULL), channels(channels)
+    SoundBuffer()
+    : left_gain(1.0), right_gain(1.0), samples_size(0), samples(NULL),
+      sample_count(0)
     {
+    }
+
+    void init(unsigned int sample_rate, unsigned int channels, ALenum format)
+    {
+        this->sample_rate = sample_rate;
+        this->format = format;
+        this->channels = channels;
         al_check(alGenBuffers(1, &buffer));
     }
 
-    SoundBuffer(SoundDecoder & file, size_t sample_count)
-    : left_gain(1.0), right_gain(1.0), samples_size(0), samples(NULL)
+    void init(SoundDecoder & file, size_t sample_count)
     {
         al_check(alGenBuffers(1, &buffer));
         channels = file.channels;
@@ -182,7 +197,7 @@ public:
 
     bool read(SoundDecoder & file)
     {
-        return read(file, sample_rate * channels);
+        return read(file, (sample_rate / BUFFER_COUNT) * channels);
     }
 
     void buffer_data(bool updated = false)
@@ -228,7 +243,7 @@ public:
         buffer_data(true);
     }
 
-    ~SoundBuffer()
+    void destroy()
     {
         delete[] samples;
         samples = NULL;
@@ -242,7 +257,7 @@ typedef vector<Sound*> SoundList;
 class Sample
 {
 public:
-    SoundBuffer * buffer;
+    SoundBuffer buffer;
     unsigned int sample_rate;
     unsigned int channels;
     SoundList sounds;
@@ -403,9 +418,9 @@ public:
 
     Sound(Sample & sample) : sample(sample), SoundBase()
     {
-        al_check(alSourcei(source, AL_BUFFER, sample.buffer->buffer));
+        al_check(alSourcei(source, AL_BUFFER, sample.buffer.buffer));
         sample.add_sound(this);
-        format = sample.buffer->format;
+        format = sample.buffer.format;
     }
 
     ~Sound()
@@ -455,7 +470,7 @@ public:
 
     double get_duration()
     {
-        return double(sample.buffer->sample_count)
+        return double(sample.buffer.sample_count)
                / sample.sample_rate
                / sample.channels;
     }
@@ -470,7 +485,7 @@ public:
         // XXX okay, so we can't actually do this since the sample buffer
         // is shared. need to implement buffer copying for panning.
         return;
-        sample.buffer->set_pan(left_gain, right_gain);
+        sample.buffer.set_pan(left_gain, right_gain);
     }
 
     void reset_buffer()
@@ -483,7 +498,6 @@ public:
     }
 };
 
-#define BUFFER_COUNT 3
 #define LOCK_STREAM SDL_LockMutex(global_device.stream_mutex)
 #define UNLOCK_STREAM SDL_UnlockMutex(global_device.stream_mutex)
 
@@ -493,13 +507,16 @@ public:
     AssetFile fp;
     SoundDecoder * file;
     bool playing;
-    SoundBuffer * buffers[BUFFER_COUNT];
-    unsigned int channels;
+    SoundBuffer buffers[BUFFER_COUNT];
     unsigned int sample_rate;
     bool loop;
     uint64_t samples_processed;
     bool end_buffers[BUFFER_COUNT];
     bool stopping;
+
+#ifdef USE_THREAD_PRELOAD
+    bool fill_now;
+#endif
 
     SoundStream(size_t offset, Media::AudioType type, size_t size)
     : SoundBase()
@@ -519,12 +536,11 @@ public:
     void init(SoundDecoder * decoder)
     {
         file = decoder;
-        playing = loop = stopping = false;
+        playing = loop = stopping = fill_now = false;
         format = get_format(file->channels);
 
         for (int i = 0; i < BUFFER_COUNT; ++i)
-            buffers[i] = new SoundBuffer(file->sample_rate, file->channels,
-                                         format);
+            buffers[i].init(file->sample_rate, file->channels, format);
 
         LOCK_STREAM;
         global_device.add_stream(this);
@@ -536,8 +552,9 @@ public:
         stop();
 
         LOCK_STREAM;
-        for (int i = 0; i < BUFFER_COUNT; i++)
-            delete buffers[i];
+        for (int i = 0; i < BUFFER_COUNT; i++) {
+            buffers[i].destroy();
+        }
 
         global_device.remove_stream(this);
         UNLOCK_STREAM;
@@ -562,9 +579,13 @@ public:
             end_buffers[i] = false;
         }
 
+#ifdef USE_THREAD_PRELOAD
+        fill_now = true;
+        SDL_CondBroadcast(global_device.stream_cond);
+#else
         stopping = fill_queue();
         al_check(alSourcePlay(source));
-
+#endif
         playing = true;
     }
 
@@ -607,13 +628,21 @@ public:
             time * file->sample_rate * file->channels);
         for (int i = 0; i < BUFFER_COUNT; ++i)
             end_buffers[i] = false;
+#ifdef USE_THREAD_PRELOAD
+        fill_now = true;
+        SDL_CondBroadcast(global_device.stream_cond);
+#else
         stopping = fill_queue();
         al_check(alSourcePlay(source));
+#endif
         UNLOCK_STREAM;
+
     }
 
     double get_playing_offset()
     {
+        if (get_status() == Stopped)
+            return get_duration();
         ALfloat secs = 0.0f;
         al_check(alGetSourcef(source, AL_SEC_OFFSET, &secs));
         return secs + static_cast<float>(samples_processed
@@ -622,7 +651,9 @@ public:
 
     double get_duration()
     {
-        return double(file->samples) / file->sample_rate / channels;
+        return double(file->get_samples())
+               / file->sample_rate
+               / file->channels;
     }
 
     void set_loop(bool loop)
@@ -644,6 +675,13 @@ public:
     {
         if (!playing)
             return;
+
+        if (fill_now) {
+            fill_now = false;
+            stopping = fill_queue();
+            al_check(alSourcePlay(source));
+            return;
+        }
 
         ALint status;
         al_check(alGetSourcei(source, AL_SOURCE_STATE, &status));
@@ -673,7 +711,7 @@ public:
             // Find its number
             unsigned int buffer_num = 0;
             for (int i = 0; i < BUFFER_COUNT; ++i)
-                if (buffers[i]->buffer == buffer) {
+                if (buffers[i].buffer == buffer) {
                     buffer_num = i;
                     break;
                 }
@@ -701,7 +739,6 @@ public:
 
     void on_seek(double offset)
     {
-        // Lock lock(m_mutex);
         file->seek(offset);
     }
 
@@ -709,7 +746,7 @@ public:
     {
         bool stopping = false;
 
-        SoundBuffer & buffer = *buffers[buffer_num];
+        SoundBuffer & buffer = buffers[buffer_num];
 
         if (!buffer.read(*file)) {
             // Mark the buffer as the last one (so that we know when to reset
@@ -733,8 +770,9 @@ public:
             }
         }
 
-        if (buffer.sample_count != 0)
+        if (buffer.sample_count != 0) {
             al_check(alSourceQueueBuffers(source, 1, &buffer.buffer));
+        }
 
         return stopping;
     }
@@ -767,7 +805,7 @@ public:
     {
         LOCK_STREAM;
         for (int i = 0; i < BUFFER_COUNT; i++)
-            buffers[i]->set_pan(left_gain, right_gain);
+            buffers[i].set_pan(left_gain, right_gain);
         UNLOCK_STREAM;
     }
 };
@@ -784,6 +822,10 @@ void AudioDevice::open()
     device = alcOpenDevice(NULL);
     if (!device) {
         std::cout << "Device open failed" << std::endl;
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Audio error",
+            "Could not open audio device. Ensure that at least 1 audio "
+            "device is enabled.", NULL);
+        exit(EXIT_FAILURE);
         return;
     }
 
@@ -821,6 +863,11 @@ void AudioDevice::open()
     stream_update();
 #else
     stream_mutex = SDL_CreateMutex();
+
+#ifdef USE_THREAD_PRELOAD
+    stream_cond = SDL_CreateCond();
+    stream_cond_mutex = SDL_CreateMutex();
+#endif
     streaming_thread = SDL_CreateThread(_stream_update, "Stream thread",
                                         (void*)this);
 #endif
@@ -860,7 +907,14 @@ void AudioDevice::stream_update()
         for (it = streams.begin(); it != streams.end(); ++it)
             (*it)->update();
         SDL_UnlockMutex(stream_mutex);
+
+#ifdef USE_THREAD_PRELOAD
+        SDL_LockMutex(stream_cond_mutex);
+        SDL_CondWaitTimeout(stream_cond, stream_cond_mutex, 125);
+        SDL_UnlockMutex(stream_cond_mutex);
+#else
         platform_sleep(0.125);
+#endif
     }
 #endif
 }
@@ -905,7 +959,7 @@ Sample::Sample(FSFile & fp, Media::AudioType type, size_t size)
     SoundDecoder * file = create_decoder(fp, type, size);
     channels = file->channels;
     sample_rate = file->sample_rate;
-    buffer = new SoundBuffer(*file, file->samples);
+    buffer.init(*file, file->get_samples());
     delete file;
 }
 
@@ -915,7 +969,7 @@ Sample::~Sample()
     for (it = sounds.begin(); it != sounds.end(); ++it)
         (*it)->reset_buffer();
 
-    delete buffer;
+    buffer.destroy();
 }
 
 void Sample::add_sound(Sound * sound)

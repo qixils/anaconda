@@ -385,7 +385,8 @@ def translate(game, print_func = dummy_out):
     indexHandles = dict(
         [(v, index) for (index, v) in enumerate(game.frameHandles)])
 
-    for index, frame in enumerate(game.frames[:20]):
+    for index, frame in enumerate(game.frames):
+        #print 'this application has %s frames. I am currently working on frame %s.' % (len(game.frames), len(frame)) #invalid type lol
         frame.load()
         newFrame = mfa.new(Frame)
         newFrame.handle = indexHandles[index]
@@ -533,9 +534,14 @@ def translate(game, print_func = dummy_out):
 
         for name, parameter in loop_parameters():
             if name == 'GROUP':
+                print "loopname GROUP"
                 offset = parameter.offset
+                print "offset:"
+                print offset
                 if onepointfive:
-                    offset = parameter.offset + 2
+                    offset += 2
+                else:
+                    offset -= 2
                 groups[offset] = groupId
                 parameter.id = groupId
                 parameter.password = make_group_checksum('', parameter.name)

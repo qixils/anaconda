@@ -3,6 +3,13 @@
 
 #include "types.h"
 
+#define UNIFIED_POV_SIZE 4
+#define UNIFIED_BUTTON_MAX (128)
+#define UNIFIED_AXIS_SIZE 2
+#define UNIFIED_AXIS_MAX (UNIFIED_AXIS_SIZE * 8) //16
+#define UNIFIED_AXIS_0 UNIFIED_BUTTON_MAX
+#define UNIFIED_POV_0 (UNIFIED_AXIS_0 + UNIFIED_AXIS_MAX)
+
 enum {
     CHOWDREN_BUTTON_INVALID = 0,
     CHOWDREN_BUTTON_A,
@@ -103,8 +110,10 @@ int get_joystick_dpad_degrees(int n);
 int get_joystick_degrees(int n);
 int get_joystick_lt(int n);
 int get_joystick_rt(int n);
+int get_joystick_z(int n);
 int get_joystick_x(int n);
 int get_joystick_y(int n);
+float get_joystick_axis(int n, int axis);
 bool is_joystick_pressed_once(int n, int button);
 bool is_joystick_released_once(int n, int button);
 bool any_joystick_pressed_once(int n);

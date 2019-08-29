@@ -20,11 +20,21 @@ Text::~Text()
 void Text::add_line(const std::string & text)
 {
     paragraphs.push_back(text);
-    if (!initialized) {
-        initialized = true;
-        this->text = text;
-    }
+    if (initialized)
+        return;
+    initialized = true;
+    this->text = text;
+
+#ifdef CHOWDREN_FORCE_TEXT_LAYOUT
+    if (layout != NULL)
+        return;
+
+    set_width(width);
+    layout->SetAlignment((TextAlignment)alignment);
+#endif
 }
+
+#define LAYOUT_USE_ALIGNMENT
 
 void Text::draw()
 {
@@ -38,28 +48,42 @@ void Text::draw()
     }
 
     update_draw_text();
+
+    if (effect == Render::PIXELOUTLINE) {
+        Render::set_effect(Render::FONTOUTLINE, this,
+                           font->textureWidth, font->textureHeight);
+        FTTextureFont::custom_shader = true;
+    }
+
+    double off_y = y + font->Ascender();
+
     FTTextureFont::color = blend_color;
     if (layout != NULL) {
-        FTBBox bb = layout->BBox(draw_text.c_str(), -1);
-        double off_y = y + font->Ascender();
-        layout->Render(draw_text.c_str(), -1, FTPoint(x, int(off_y)));
+        int lines = layout->get_lines(draw_text.c_str(), -1);
+        double box_h = lines * font->LineHeight();
+        if (alignment & ALIGN_VCENTER) {
+            off_y += (height - box_h) * 0.5;
+        } else if (alignment & ALIGN_BOTTOM) {
+            off_y += box_h;
+        }
+        int off_yy = int(off_y);
+        layout->Render(draw_text.c_str(), -1, FTPoint(x, off_yy));
     } else {
-        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
-        double box_w = box.Upper().X() - box.Lower().X();
-        // double box_h = box.Upper().Y() - box.Lower().Y();
-        double off_x = x;
-        double off_y = y + font->Ascender();
-
-        if (alignment & ALIGN_HCENTER)
-            off_x += 0.5 * (width - box_w);
-        else if (alignment & ALIGN_RIGHT)
-            off_x += width - box_w;
-
         if (alignment & ALIGN_VCENTER) {
             off_y += height * 0.5 - font->LineHeight() * 0.5;
         } else if (alignment & ALIGN_BOTTOM) {
             off_y += font->LineHeight();
         }
+
+        FTBBox box = font->BBox(draw_text.c_str(), -1, FTPoint());
+        double box_w = box.Upper().X() - box.Lower().X();
+        // double box_h = box.Upper().Y() - box.Lower().Y();
+        double off_x = x;
+
+        if (alignment & ALIGN_HCENTER)
+            off_x += 0.5 * (width - box_w);
+        else if (alignment & ALIGN_RIGHT)
+            off_x += width - box_w;
 
 #ifdef CHOWDREN_BIG_FONT_OFFY
         if (font == big_font)
@@ -67,6 +91,11 @@ void Text::draw()
 #endif
         font->Render(draw_text.c_str(), -1, FTPoint(int(off_x), int(off_y)),
                      FTPoint());
+    }
+
+    if (effect == Render::PIXELOUTLINE) {
+        Render::disable_effect();
+        FTTextureFont::custom_shader = false;
     }
 }
 
@@ -188,6 +217,11 @@ int Text::get_height()
     return (int)(bb.Upper().Y() - bb.Lower().Y());
 }
 
+const std::string & Text::get_font_name()
+{
+    return font_name;
+}
+
 // FontInfo
 
 int FontInfo::get_width(FrameObject * obj)
@@ -209,5 +243,6 @@ void FontInfo::set_scale(FrameObject * obj, float scale)
 {
     ((Text*)obj)->set_scale(scale);
 }
+
 
 std::string FontInfo::vertical_tab("\x0B");

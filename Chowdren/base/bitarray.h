@@ -9,7 +9,7 @@
 #define alloca _alloca
 #endif
 
-#elif defined(CHOWDREN_IS_DESKTOP)
+#elif defined(CHOWDREN_IS_DESKTOP) || defined(CHOWDREN_IS_WIIU)
 #include <alloca.h>
 #else
 #include <stdlib.h>
@@ -34,12 +34,17 @@ public:
 
     unsigned long get(int index)
     {
-        return data[index / WORD_SIZE] & (1 << (index % WORD_SIZE));
+        return data[index / WORD_SIZE] & (1UL << (index % WORD_SIZE));
     }
 
     void set(int index)
     {
-        data[index / WORD_SIZE] |= 1 << (index % WORD_SIZE);
+        data[index / WORD_SIZE] |= 1UL << (index % WORD_SIZE);
+    }
+
+    void unset(int index)
+    {
+        data[index / WORD_SIZE] &= ~(1UL << (index % WORD_SIZE));
     }
 };
 

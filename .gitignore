@@ -1,0 +1,8 @@
+*.pyc
+
+build/**
+
+.vscode/**
+.vs/**
+*/.vscode/**
+*/.vs/**

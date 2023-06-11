@@ -69,10 +69,10 @@ inline std::string number_to_string(long long value)
     return fast_lltoa(value);
 }
 
-inline std::string number_to_string(uint64_t value)
-{
-    return fast_lltoa(value);
-}
+//inline std::string number_to_string(uint64_t value)
+//{
+//    return fast_lltoa(value);
+//}
 
 inline void to_lower(std::string & str)
 {
